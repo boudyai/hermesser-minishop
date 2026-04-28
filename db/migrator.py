@@ -303,6 +303,100 @@ def _migration_0010_add_email_magic_token_hash(connection: Connection) -> None:
     )
 
 
+def _migration_0011_add_tariffs_schema(connection: Connection) -> None:
+    inspector = inspect(connection)
+
+    sub_columns: Set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
+    sub_statements: List[str] = []
+    if "tariff_key" not in sub_columns:
+        sub_statements.append("ALTER TABLE subscriptions ADD COLUMN tariff_key VARCHAR")
+    if "tier_baseline_bytes" not in sub_columns:
+        sub_statements.append("ALTER TABLE subscriptions ADD COLUMN tier_baseline_bytes BIGINT")
+    if "topup_balance_bytes" not in sub_columns:
+        sub_statements.append("ALTER TABLE subscriptions ADD COLUMN topup_balance_bytes BIGINT NOT NULL DEFAULT 0")
+    if "period_start_at" not in sub_columns:
+        sub_statements.append("ALTER TABLE subscriptions ADD COLUMN period_start_at TIMESTAMPTZ")
+    if "is_throttled" not in sub_columns:
+        sub_statements.append("ALTER TABLE subscriptions ADD COLUMN is_throttled BOOLEAN NOT NULL DEFAULT FALSE")
+    if "effective_monthly_price_rub" not in sub_columns:
+        sub_statements.append("ALTER TABLE subscriptions ADD COLUMN effective_monthly_price_rub NUMERIC")
+    for stmt in sub_statements:
+        connection.execute(text(stmt))
+
+    payment_columns: Set[str] = {col["name"] for col in inspector.get_columns("payments")}
+    payment_statements: List[str] = []
+    if "sale_mode" not in payment_columns:
+        payment_statements.append("ALTER TABLE payments ADD COLUMN sale_mode VARCHAR")
+    if "tariff_key" not in payment_columns:
+        payment_statements.append("ALTER TABLE payments ADD COLUMN tariff_key VARCHAR")
+    if "purchased_gb" not in payment_columns:
+        payment_statements.append("ALTER TABLE payments ADD COLUMN purchased_gb DOUBLE PRECISION")
+    for stmt in payment_statements:
+        connection.execute(text(stmt))
+
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS traffic_topups (
+                topup_id SERIAL PRIMARY KEY,
+                subscription_id INTEGER NOT NULL REFERENCES subscriptions(subscription_id),
+                payment_id INTEGER NULL REFERENCES payments(payment_id),
+                purchased_bytes BIGINT NOT NULL,
+                kind VARCHAR NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """
+        )
+    )
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS traffic_warnings (
+                warning_id SERIAL PRIMARY KEY,
+                subscription_id INTEGER NOT NULL REFERENCES subscriptions(subscription_id),
+                period_start_at TIMESTAMPTZ NULL,
+                level INTEGER NOT NULL,
+                traffic_limit_bytes BIGINT NULL,
+                sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_traffic_warning_period_level UNIQUE (subscription_id, period_start_at, level)
+            )
+            """
+        )
+    )
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS tariff_changes (
+                change_id SERIAL PRIMARY KEY,
+                subscription_id INTEGER NOT NULL REFERENCES subscriptions(subscription_id),
+                from_tariff_key VARCHAR NULL,
+                to_tariff_key VARCHAR NOT NULL,
+                mode VARCHAR NOT NULL,
+                payment_id INTEGER NULL REFERENCES payments(payment_id),
+                days_before INTEGER NULL,
+                days_after INTEGER NULL,
+                converted_bytes BIGINT NULL,
+                eff_price_before NUMERIC NULL,
+                eff_price_after NUMERIC NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """
+        )
+    )
+    for stmt in [
+        "CREATE INDEX IF NOT EXISTS ix_subscriptions_tariff_key ON subscriptions (tariff_key)",
+        "CREATE INDEX IF NOT EXISTS ix_subscriptions_is_throttled ON subscriptions (is_throttled)",
+        "CREATE INDEX IF NOT EXISTS ix_payments_sale_mode ON payments (sale_mode)",
+        "CREATE INDEX IF NOT EXISTS ix_payments_tariff_key ON payments (tariff_key)",
+        "CREATE INDEX IF NOT EXISTS ix_traffic_topups_subscription_id ON traffic_topups (subscription_id)",
+        "CREATE INDEX IF NOT EXISTS ix_traffic_topups_payment_id ON traffic_topups (payment_id)",
+        "CREATE INDEX IF NOT EXISTS ix_traffic_topups_kind ON traffic_topups (kind)",
+        "CREATE INDEX IF NOT EXISTS ix_traffic_warnings_subscription_id ON traffic_warnings (subscription_id)",
+        "CREATE INDEX IF NOT EXISTS ix_tariff_changes_subscription_id ON tariff_changes (subscription_id)",
+    ]:
+        connection.execute(text(stmt))
+
+
 def _migration_0009_add_composite_indexes(connection: Connection) -> None:
     connection.execute(
         text(
@@ -380,6 +474,11 @@ MIGRATIONS: List[Migration] = [
         id="0010_add_email_magic_token_hash",
         description="Store hashed magic-link tokens for email login deeplinks",
         upgrade=_migration_0010_add_email_magic_token_hash,
+    ),
+    Migration(
+        id="0011_add_tariffs_schema",
+        description="Add tariff catalog columns and traffic accounting tables",
+        upgrade=_migration_0011_add_tariffs_schema,
     ),
 ]
 

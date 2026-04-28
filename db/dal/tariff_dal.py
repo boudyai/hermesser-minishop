@@ -1,0 +1,97 @@
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import and_, delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from db.models import TariffChange, TrafficTopup, TrafficWarning
+
+
+async def create_traffic_topup(
+    session: AsyncSession,
+    *,
+    subscription_id: int,
+    payment_id: Optional[int],
+    purchased_bytes: int,
+    kind: str,
+) -> TrafficTopup:
+    record = TrafficTopup(
+        subscription_id=subscription_id,
+        payment_id=payment_id,
+        purchased_bytes=purchased_bytes,
+        kind=kind,
+    )
+    session.add(record)
+    await session.flush()
+    await session.refresh(record)
+    return record
+
+
+async def create_tariff_change(
+    session: AsyncSession,
+    change_data: Dict[str, Any],
+) -> TariffChange:
+    record = TariffChange(**change_data)
+    session.add(record)
+    await session.flush()
+    await session.refresh(record)
+    return record
+
+
+async def get_warning(
+    session: AsyncSession,
+    *,
+    subscription_id: int,
+    period_start_at,
+    level: int,
+    traffic_limit_bytes: Optional[int] = None,
+) -> Optional[TrafficWarning]:
+    conditions = [
+        TrafficWarning.subscription_id == subscription_id,
+        TrafficWarning.level == level,
+    ]
+    if period_start_at is None:
+        conditions.append(TrafficWarning.period_start_at.is_(None))
+        if traffic_limit_bytes is not None:
+            conditions.append(TrafficWarning.traffic_limit_bytes == traffic_limit_bytes)
+    else:
+        conditions.append(TrafficWarning.period_start_at == period_start_at)
+    result = await session.execute(select(TrafficWarning).where(and_(*conditions)).limit(1))
+    return result.scalar_one_or_none()
+
+
+async def create_warning(
+    session: AsyncSession,
+    *,
+    subscription_id: int,
+    period_start_at,
+    level: int,
+    traffic_limit_bytes: Optional[int],
+) -> TrafficWarning:
+    record = TrafficWarning(
+        subscription_id=subscription_id,
+        period_start_at=period_start_at,
+        level=level,
+        traffic_limit_bytes=traffic_limit_bytes,
+    )
+    session.add(record)
+    await session.flush()
+    await session.refresh(record)
+    return record
+
+
+async def clear_period_warnings(session: AsyncSession, subscription_id: int) -> int:
+    result = await session.execute(
+        delete(TrafficWarning).where(TrafficWarning.subscription_id == subscription_id)
+    )
+    return result.rowcount or 0
+
+
+async def get_tariff_changes_for_subscription(
+    session: AsyncSession, subscription_id: int
+) -> List[TariffChange]:
+    result = await session.execute(
+        select(TariffChange)
+        .where(TariffChange.subscription_id == subscription_id)
+        .order_by(TariffChange.created_at.desc())
+    )
+    return list(result.scalars().all())

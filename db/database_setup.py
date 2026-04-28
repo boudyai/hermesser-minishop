@@ -72,6 +72,7 @@ async def init_db(settings: Settings, session_factory: sessionmaker):
 
     async with session_factory() as session:
         from .dal.panel_sync_dal import get_panel_sync_status, update_panel_sync_status
+        from sqlalchemy import text
         try:
             current_status = await get_panel_sync_status(session)
             if current_status is None:
@@ -87,3 +88,56 @@ async def init_db(settings: Settings, session_factory: sessionmaker):
             logging.error(
                 f"Failed to initialize PanelSyncStatus: {e_sync_init}",
                 exc_info=True)
+
+        if settings.tariffs_config:
+            try:
+                default_tariff = settings.tariffs_config.default
+                default_price = default_tariff.period_price(1, "rub") or default_tariff.min_period_price_rub()
+                await session.execute(
+                    text(
+                        """
+                        UPDATE subscriptions AS s
+                        SET
+                            tariff_key = COALESCE(s.tariff_key, :tariff_key),
+                            tier_baseline_bytes = COALESCE(s.tier_baseline_bytes, s.traffic_limit_bytes, :baseline),
+                            topup_balance_bytes = COALESCE(s.topup_balance_bytes, 0),
+                            period_start_at = COALESCE(
+                                s.period_start_at,
+                                (
+                                    SELECT p.created_at
+                                    FROM payments p
+                                    WHERE p.user_id = s.user_id
+                                      AND p.status = 'succeeded'
+                                    ORDER BY p.created_at DESC
+                                    LIMIT 1
+                                ),
+                                s.start_date,
+                                NOW()
+                            ),
+                            effective_monthly_price_rub = COALESCE(
+                                s.effective_monthly_price_rub,
+                                (
+                                    SELECT p.amount / GREATEST(COALESCE(p.subscription_duration_months, 1), 1)
+                                    FROM payments p
+                                    WHERE p.user_id = s.user_id
+                                      AND p.status = 'succeeded'
+                                      AND COALESCE(p.subscription_duration_months, 0) > 0
+                                    ORDER BY p.created_at DESC
+                                    LIMIT 1
+                                ),
+                                :default_price
+                            )
+                        WHERE s.is_active = TRUE
+                          AND s.tariff_key IS NULL
+                        """
+                    ),
+                    {
+                        "tariff_key": default_tariff.key,
+                        "baseline": default_tariff.monthly_bytes,
+                        "default_price": default_price,
+                    },
+                )
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                logging.exception("Failed to backfill existing subscriptions for tariffs config.")

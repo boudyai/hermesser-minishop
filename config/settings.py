@@ -5,6 +5,7 @@ from typing import Optional, List, Dict, Any
 
 from pydantic import BaseModel, Field, ValidationError, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from config.tariffs_config import TariffsConfig, load_tariffs_config
 
 
 def _split_csv(value: Optional[str]) -> List[str]:
@@ -259,6 +260,7 @@ class Settings(BaseSettings):
         default=None,
         description="Comma-separated list of traffic packages priced in Stars, e.g. '5:500,20:1500'",
     )
+    TARIFFS_CONFIG_PATH: str = Field(default="config/tariffs.json")
 
     SUBSCRIPTION_NOTIFICATIONS_ENABLED: bool = Field(default=True)
     SUBSCRIPTION_NOTIFY_ON_EXPIRE: bool = Field(default=True)
@@ -731,7 +733,14 @@ class Settings(BaseSettings):
     @property
     def traffic_sale_mode(self) -> bool:
         """When true, the bot sells traffic packages instead of time-based subscriptions."""
+        if self.tariffs_config is not None:
+            return False
         return bool(self.traffic_packages or self.stars_traffic_packages)
+
+    @computed_field
+    @property
+    def tariffs_config(self) -> Optional[TariffsConfig]:
+        return load_tariffs_config(self.TARIFFS_CONFIG_PATH)
 
     @computed_field
     @property
