@@ -259,7 +259,9 @@
   let languageBusy = false;
   let languageMenuOpen = false;
   let languageClickGuard = false;
+  let languageClickGuardArmed = false;
   let languageClickGuardTimer = null;
+  let languageClickGuardArmTimer = null;
   let email = "";
   let pendingEmail = "";
   let emailCode = "";
@@ -587,6 +589,11 @@
       window.clearTimeout(languageClickGuardTimer);
       languageClickGuardTimer = null;
     }
+    if (languageClickGuardArmTimer) {
+      window.clearTimeout(languageClickGuardArmTimer);
+      languageClickGuardArmTimer = null;
+    }
+    languageClickGuardArmed = false;
   }
 
   function setLanguageMenuOpen(open) {
@@ -594,6 +601,10 @@
     clearLanguageClickGuard();
     if (languageMenuOpen) {
       languageClickGuard = true;
+      languageClickGuardArmTimer = window.setTimeout(() => {
+        languageClickGuardArmed = true;
+        languageClickGuardArmTimer = null;
+      }, 220);
       return;
     }
     languageClickGuardTimer = window.setTimeout(() => {
@@ -2621,10 +2632,11 @@
             {#if languageMenuOpen || languageClickGuard}
               <button
                 class="language-select-guard"
+                class:language-select-guard--armed={languageClickGuardArmed}
                 type="button"
                 aria-label={t("wa_close")}
-                on:pointerdown|preventDefault|stopPropagation={() => setLanguageMenuOpen(false)}
-                on:click|preventDefault|stopPropagation={() => setLanguageMenuOpen(false)}
+                on:pointerdown|preventDefault|stopPropagation={() => languageClickGuardArmed && setLanguageMenuOpen(false)}
+                on:click|preventDefault|stopPropagation={() => languageClickGuardArmed && setLanguageMenuOpen(false)}
               ></button>
             {/if}
             <div class="settings-list" class:settings-list--language-open={languageMenuOpen}>
