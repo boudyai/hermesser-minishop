@@ -1,5 +1,4 @@
 <script>
-  import { Bitcoin, CreditCard } from "lucide-svelte";
   import { onMount, setContext } from "svelte";
   import { createAuthStore } from "./lib/webapp/stores/authStore.js";
   import { createBillingStore } from "./lib/webapp/stores/billingStore.js";
@@ -29,39 +28,17 @@
     TELEGRAM_WEBAPP_SCRIPT_URL,
     WEBAPP_LANGUAGE_ORDER,
   } from "./lib/webapp/constants.js";
-  
-
 
   import { applyFavicon, readJsonScript, structuredCloneSafe } from "./lib/webapp/browser.js";
   import { createApiClient } from "./lib/webapp/publicApi.js";
   import { createI18n } from "./lib/webapp/i18n.js";
-  import {
-    formatCompactNumber,
-    formatTrafficGb,
-    normalizedEmail,
-    telegramName,
-  } from "./lib/webapp/formatters.js";
-  import {
-    activeTariffName,
-    buildTariffCatalog,
-    priceLabel,
-  } from "./lib/webapp/tariffs.js";
-  import {
-    premiumTitle,
-    premiumTrafficPercent,
-    trafficPercent,
-  } from "./lib/webapp/traffic.js";
+  import { normalizedEmail, telegramName } from "./lib/webapp/formatters.js";
+  import { activeTariffName, buildTariffCatalog } from "./lib/webapp/tariffs.js";
+  import { premiumTrafficPercent, trafficPercent } from "./lib/webapp/traffic.js";
   import { buildGravatarUrl } from "./lib/webapp/gravatar.js";
   import { createBillingActions } from "./lib/webapp/billingActions.js";
-  import {
-    readReferralParam as readReferralParamHelper,
-    readTelegramAuthStatus,
-    readMagicLoginToken,
-    readTelegramLoginWidgetAuthData,
-    clearAuthQuery,
-    buildTelegramOAuthStartUrl as buildTelegramOAuthStartUrlHelper,
-    emailError as emailErrorHelper,
-  } from "./lib/webapp/authHelpers.js";
+  import { invalidateWebappTariffOptionCaches } from "./lib/webapp/billingOptionCache.js";
+  import { runWebappBoot } from "./lib/webapp/webappBoot.js";
   import {
     clearManualLogoutFlag as clearManualLogoutFlagInStorage,
     clearStoredToken,
@@ -192,11 +169,23 @@
   setContext("accountStore", accountStore);
 
   $: ({ authStatus, authIsError, authBusy, telegramLoginBusy, loginEmailFieldError, loginEmailTooltipOpen, authResendCooldown, email, pendingEmail, emailCode } = $authStore);
-  $: ({ paymentModalOpen, paymentStep, selectedTariffKey, selectedPlan, selectedMethod, topupModalOpen, topupKind, deviceTopupModalOpen, changeModalOpen, topupOptions, deviceTopupOptions, changeOptions, selectedTopupPlan, selectedDeviceTopupPlan, selectedChangeTarget, selectedChangeAction, changeConfirmOpen, tariffActionBusy, payBusy } = $billingStore);
+  $: ({
+    paymentModalOpen,
+    selectedTariffKey,
+    selectedPlan,
+    topupModalOpen,
+    topupKind,
+    deviceTopupModalOpen,
+    changeModalOpen,
+    topupOptions,
+    deviceTopupOptions,
+    changeOptions,
+    changeConfirmOpen,
+    tariffActionBusy,
+    payBusy,
+  } = $billingStore);
   $: ({ devicesData, devicesLoaded, devicesBusy, devicesStatus, devicesIsError, deviceConfirmOpen, deviceToDisconnect, deviceDisconnectBusy } = $devicesStore);
   $: ({ linkEmailOpen, linkEmailBusy, linkTelegramBusy, linkEmailValue, linkEmailPending, linkEmailCode, linkEmailStatus, linkEmailIsError, linkEmailFieldError, linkEmailResendCooldown, languageBusy } = $accountStore);
-
-
 
   $: brandTitle = CFG.title || "/minishop";
   $: brandEmoji = CFG.logoEmoji || "🫥";
@@ -246,7 +235,6 @@
   }));
   $: currentLanguageOption = languageOptions.find((option) => option.value === currentLang) || languageOptions[0];
   $: userLanguage = languageName(currentLang);
-  $: telegramLinkStatus = user?.telegram_linked ? t("wa_settings_linked") : t("wa_settings_not_linked");
   $: emailLinkStatus = user?.email ? t("wa_settings_linked") : t("wa_settings_email_not_linked");
   $: hasUnlinkedIdentity = !user?.telegram_linked || !user?.email;
   $: referralBonusDetails = Array.isArray(referral?.bonus_details) ? referral.bonus_details : [];
@@ -342,9 +330,9 @@
     return () => {
       window.removeEventListener("popstate", onPopState);
       window.removeEventListener("pointerdown", onAnyPointerDown);
-      stopTelegramLoginWatchdog();
-      clearCooldownTimer("auth");
-      clearCooldownTimer("link_email");
+      authStore.stopTelegramLoginWatchdog();
+      authStore.clearCooldownTimer();
+      accountStore.clearLinkEmailResendTimer();
       clearLanguageClickGuard();
       syncBodyScrollLock(false);
     };
@@ -435,67 +423,33 @@
   }
 
   async function boot() {
-    mode = "loading";
-    if (hasTelegramLaunchParams()) await loadTelegramSdk(TELEGRAM_SDK_BOOT_TIMEOUT_MS);
-
-    if (tg) {
-      try {
-        tg.ready();
-        tg.expand();
-      } catch {}
-    }
-
-    if (MOCK) {
-      await loadData();
-      return;
-    }
-
-    const magicToken = readMagicLoginToken();
-    if (magicToken && (await finalizeMagicLogin(magicToken))) return;
-
-    const telegramAuthStatus = readTelegramAuthStatus();
-    if (telegramAuthStatus === "success") {
-      clearManualLogoutFlag();
-      clearAuthQuery();
-      try {
-        await loadData();
-        return;
-      } catch {
-        clearToken();
-      }
-    } else if (telegramAuthStatus) {
-      clearAuthQuery();
-      setAuthStatus(
-        telegramAuthStatus === "cancelled" ? t("wa_auth_telegram_cancelled") : t("wa_auth_telegram_not_confirmed"),
-        true,
-      );
-    }
-
-    if (isManuallyLoggedOut()) {
-      showLogin();
-      return;
-    }
-
-    const widgetAuthData = readTelegramLoginWidgetAuthData();
-    if (widgetAuthData && (await finalizeTelegramAuth(widgetAuthData, "auth_data"))) return;
-
-    const initData = telegramMiniAppInitData || tg?.initData || readTelegramMiniAppInitDataFromLocation();
-    if (initData) {
-      try {
-        if (await finalizeTelegramAuth(initData, "init_data")) return;
-      } catch {}
-    }
-
-    if (token || csrfToken) {
-      try {
-        await loadData();
-        return;
-      } catch {
-        clearToken();
-      }
-    }
-
-    showLogin();
+    await runWebappBoot({
+      MOCK,
+      setMode: (next) => {
+        mode = next;
+      },
+      hasTelegramLaunchParams,
+      loadTelegramSdk,
+      prepareTelegramMiniApp: () => {
+        if (!tg) return;
+        try {
+          tg.ready();
+          tg.expand();
+        } catch {}
+      },
+      loadData,
+      showLogin,
+      clearToken,
+      clearManualLogoutFlag,
+      isManuallyLoggedOut,
+      finalizeMagicLogin: (loginToken) => authStore.finalizeMagicLogin(loginToken),
+      finalizeTelegramAuth: (authData, source) => authStore.finalizeTelegramAuth(authData, source),
+      setAuthStatus: (message, isError) => authStore.setAuthStatus(message, isError),
+      t,
+      getInitDataForBoot: () => telegramMiniAppInitData || tg?.initData || readTelegramMiniAppInitDataFromLocation(),
+      getToken: () => token,
+      getCsrfToken: () => csrfToken,
+    });
   }
 
   async function loadData() {
@@ -567,77 +521,11 @@
     return readManualLogoutFlag(MANUAL_LOGOUT_FLAG_KEY);
   }
 
-  function readReferralParam() {
-    return readReferralParamHelper(tg);
-  }
-
-  function buildTelegramOAuthStartUrl(purpose = "login") {
-    return buildTelegramOAuthStartUrlHelper(purpose, tg);
-  }
-
-  function emailError(error, fallback) {
-    return emailErrorHelper(error, fallback, t);
-  }
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
   function submitEmailOnEnter(event) {
     if (event.key !== "Enter") return;
     event.preventDefault();
     authStore.requestEmailCode((s) => (screen = s));
   }
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
 
   function openExternalLink(url) {
     if (!url) return;
@@ -646,22 +534,6 @@
       return;
     }
     window.location.assign(url);
-  }
-
-  function openTelegramInvoice(url) {
-    if (!url) return;
-    if (tg?.openInvoice) {
-      tg.openInvoice(url, (status) => {
-        if (status === "paid") {
-          showToast(t("wa_payment_success", {}, "Payment successful"));
-          loadData();
-        } else if (status === "failed") {
-          showToast(t("wa_payment_create_failed"));
-        }
-      });
-      return;
-    }
-    openExternalLink(url);
   }
 
   function openConnectLink() {
@@ -738,16 +610,6 @@
       trialBusy = false;
     }
   }
-
-  
-
-  
-
-  
-
-  
-
-  
 
   function showToast(message) {
     toastText = message;
@@ -852,70 +714,13 @@
     window.history.pushState(null, "", `${targetPath}${window.location.search}${window.location.hash}`);
   }
 
-  async function handleTariffsSaved() {
-    billingStore.update((s) => ({ ...s, topupOptions: null, deviceTopupOptions: null, changeOptions: null }));
+  async function handleAdminPersistedSaved() {
+    invalidateWebappTariffOptionCaches(billingStore);
     try {
       await loadData();
     } catch {
-      // The admin save already succeeded; a later app refresh will pick up the new catalog.
+      // Admin save already succeeded; a later full refresh will pick up new settings or catalog.
     }
-  }
-
-  async function handleSettingsSaved() {
-    billingStore.update((s) => ({ ...s, topupOptions: null, deviceTopupOptions: null, changeOptions: null }));
-    try {
-      await loadData();
-    } catch {
-      // Settings were saved; the next app refresh will pick up the runtime values.
-    }
-  }
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  function methodMeta(method) {
-    const id = String(method?.id || "").toLowerCase();
-    if (id.includes("platega_sbp")) {
-      return { title: t("wa_method_platega_sbp_card"), icon: CreditCard };
-    }
-    if (id.includes("platega_crypto")) {
-      return { title: t("wa_method_platega_crypto"), icon: Bitcoin };
-    }
-    if (id.includes("yookassa") || id.includes("card")) {
-      return { title: t("pay_with_yookassa_button"), icon: null };
-    }
-    if (id.includes("severpay")) {
-      return { title: t("pay_with_severpay_button"), icon: null };
-    }
-    if (id.includes("freekassa")) {
-      return { title: t("pay_with_sbp_button"), icon: null };
-    }
-    if (id.includes("cryptopay")) {
-      return { title: t("pay_with_cryptopay_button"), icon: null };
-    }
-    if (id.includes("stars")) {
-      return { title: t("pay_with_stars_button"), icon: null };
-    }
-    if (id.includes("sbp")) {
-      return { title: t("pay_with_sbp_button"), icon: null };
-    }
-    if (id.includes("crypto")) {
-      return { title: t("pay_with_cryptopay_button"), icon: null };
-    }
-    return { title: t("wa_method_other_title"), icon: null };
   }
 
   function selectTariff(tariff) {
@@ -930,138 +735,9 @@
     billingStore.backToTariffList(subscription, tariffCatalog);
   }
 
-  function paymentTitle() {
-    if (singleTariffMode) {
-      return selectedTariff?.billing_model === "traffic" ? t("wa_traffic_packages_title") : t("wa_subscription_title");
-    }
-    if (tariffMode) return t("wa_tariffs_title");
-    return trafficMode ? t("wa_traffic_packages_title") : t("wa_subscription_title");
-  }
-
-  function paymentDescription() {
-    if (tariffMode) {
-      if (singleTariffMode) {
-        return selectedTariff?.billing_model === "traffic" ? t("wa_traffic_packages_choose") : t("wa_subscription_choose_period");
-      }
-      return paymentStep === "checkout" && selectedTariff
-        ? t("wa_tariff_choose_period_payment", { tariff: selectedTariff.title })
-        : t("wa_tariffs_choose");
-    }
-    return trafficMode ? t("wa_traffic_packages_choose") : t("wa_subscription_choose_period");
-  }
-
   function primaryPayActionLabel() {
     if (trafficMode || selectedPlan?.sale_mode === "traffic_package") return t("wa_buy_traffic");
     return subscription.active ? t("wa_renew") : t("wa_pay_subscription");
-  }
-
-  function changeActionTitle(action) {
-    const mode = String(action?.mode || "");
-    if (mode === "recalc_days") {
-      return t("wa_tariff_change_recalc_days", { days: Number(action?.days_after || 0) });
-    }
-    if (mode === "convert_days_to_gb") {
-      return t("wa_tariff_change_convert_gb", { gb: formatCompactNumber(action?.converted_gb || 0) });
-    }
-    if (mode === "paid_diff") {
-      return t("wa_tariff_change_pay_diff", { price: priceLabel(action) });
-    }
-    if (mode === "buy_package") {
-      return t("wa_tariff_change_buy_package", { gb: formatCompactNumber(action?.traffic_gb || 0), price: priceLabel(action) });
-    }
-    if (mode === "buy_period") {
-      return `${action?.title || ""} · ${priceLabel(action)}`;
-    }
-    return action?.title || mode;
-  }
-
-  function tariffChangeSummary() {
-    if (!selectedChangeTarget || !selectedChangeAction) return [];
-    const rows = [
-      t("wa_tariff_change_confirm_target", { tariff: selectedChangeTarget.title }),
-      t("wa_tariff_change_confirm_action", { action: changeActionTitle(selectedChangeAction) }),
-    ];
-    const mode = String(selectedChangeAction.mode || "");
-    if (mode === "recalc_days") {
-      rows.push(t("wa_tariff_change_confirm_recalc", { days: Number(selectedChangeAction.days_after || 0) }));
-    } else if (mode === "convert_days_to_gb") {
-      rows.push(t("wa_tariff_change_confirm_convert", { gb: formatCompactNumber(selectedChangeAction.converted_gb || 0) }));
-    } else if (selectedChangeAction.kind === "payment") {
-      rows.push(t("wa_tariff_change_confirm_payment", { price: priceLabel(selectedChangeAction) }));
-    }
-    return rows;
-  }
-
-  function topupWarningText() {
-    const percent = Number(topupOptions?.traffic_percent || trafficPercent(subscription));
-    const levels = topupOptions?.warning_levels?.length ? topupOptions.warning_levels.join(" / ") : "85 / 90 / 95";
-    if (percent >= 95) return t("wa_topup_warning_critical", { percent, levels });
-    if (percent >= 90) return t("wa_topup_warning_high", { percent, levels });
-    if (percent >= 85) return t("wa_topup_warning_medium", { percent, levels });
-    return t("wa_topup_warning_levels", { levels });
-  }
-
-  function topupModalDescription() {
-    if (!topupOptions) return "";
-    if (isPremiumTopupContext()) return topupOptions?.tariff_name ? t("wa_topup_for_tariff", { tariff: topupOptions.tariff_name }) : "";
-    if (singleTariffMode) return "";
-    return topupOptions?.tariff_name ? t("wa_topup_for_tariff", { tariff: topupOptions.tariff_name }) : "";
-  }
-
-  function isPremiumTopupContext() {
-    if (selectedTopupPlan?.sale_mode === "premium_topup") return true;
-    if (topupOptions?.topup_kind) return topupOptions.topup_kind === "premium";
-    return topupKind === "premium";
-  }
-
-  function topupModalTitle() {
-    if (isPremiumTopupContext()) return premiumTitle(topupOptions || subscription);
-    return t("wa_topup_traffic");
-  }
-
-  function topupCarryoverNotes() {
-    const plans = topupOptions?.plans || [];
-    if (!plans.length) return [];
-    return [
-      t(
-        "wa_topup_carryover",
-        {},
-        "Докупленный трафик не сгорает: сначала расходуется месячный лимит, затем докупленный остаток."
-      ),
-    ];
-  }
-
-  function deviceTopupModalDescription() {
-    if (!deviceTopupOptions) return "";
-    return deviceTopupOptions?.tariff_name ? t("wa_device_topup_for_tariff", { tariff: deviceTopupOptions.tariff_name }) : "";
-  }
-
-  function tariffChangeModalDescription() {
-    if (!changeOptions) return "";
-    return changeOptions?.current ? t("wa_current_tariff", { tariff: changeOptions.current.title }) : "";
-  }
-
-  function trialTrafficLabel() {
-    const limit = Number(appSettings?.trial_traffic_limit_gb || 0);
-    return limit > 0 ? formatTrafficGb(limit) : t("wa_unlimited_traffic");
-  }
-
-  function devicesLimitLabel(value = devicesData?.max_devices) {
-    const numeric = Number(value ?? 0);
-    if (!Number.isFinite(numeric) || numeric <= 0) return t("wa_devices_unlimited");
-    return String(Math.trunc(numeric));
-  }
-
-  function devicesCountLabel() {
-    const current = Number(devicesData?.current_devices ?? devicesData?.devices?.length ?? 0);
-    return t("wa_devices_count", { current, max: devicesLimitLabel() });
-  }
-
-  function devicesPercent() {
-    const current = Number(devicesData?.current_devices ?? devicesData?.devices?.length ?? 0);
-    const max = Number(devicesData?.max_devices || 0);
-    if (!max || max <= 0) return 100;
-    return Math.max(0, Math.min(100, Math.round((current / max) * 100)));
   }
 
 </script>
@@ -1123,8 +799,8 @@
         initialSection={adminSectionFromPath(window.location.pathname)}
         initialUserId={adminUserIdFromPath(window.location.pathname)}
         onSectionChange={handleAdminSectionChange}
-        onSettingsSaved={handleSettingsSaved}
-        onTariffsSaved={handleTariffsSaved}
+        onSettingsSaved={handleAdminPersistedSaved}
+        onTariffsSaved={handleAdminPersistedSaved}
         brandTitle={brandTitle}
         logoUrl={CFG.logoUrl}
         logoEmoji={brandEmoji}
@@ -1313,7 +989,6 @@
         {topupOptions}
         {trafficMode}
         {t}
-        {termUnitLabel}
       />
     {/if}
 

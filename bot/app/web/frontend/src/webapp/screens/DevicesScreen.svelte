@@ -3,6 +3,7 @@
 
   import Button from "../../lib/components/ui/button.svelte";
   import Card from "../../lib/components/ui/card.svelte";
+  import { devicesCountLabel, devicesLimitLabel, devicesPercent } from "../../lib/webapp/devicesLabels.js";
 
   export let devicesBusy = false;
   export let devicesData = {};
@@ -15,23 +16,6 @@
   export let openDeviceDisconnectDialog = () => {};
   export let openDeviceTopupModal = () => {};
   export let t = (key) => key;
-  function devicesLimitLabel(value = devicesData?.max_devices) {
-    const numeric = Number(value ?? 0);
-    if (!Number.isFinite(numeric) || numeric <= 0) return t("wa_devices_unlimited");
-    return String(Math.trunc(numeric));
-  }
-
-  function devicesCountLabel() {
-    const current = Number(devicesData?.current_devices ?? devicesData?.devices?.length ?? 0);
-    return t("wa_devices_count", { current, max: devicesLimitLabel() });
-  }
-
-  function devicesPercent() {
-    const current = Number(devicesData?.current_devices ?? devicesData?.devices?.length ?? 0);
-    const max = Number(devicesData?.max_devices || 0);
-    if (!max || max <= 0) return 100;
-    return Math.max(0, Math.min(100, Math.round((current / max) * 100)));
-  }
 
 </script>
 
@@ -41,14 +25,14 @@
       <Smartphone size={28} />
       <span>
         <strong>{t("wa_devices_title")}</strong>
-        <small>{devicesCountLabel()}</small>
+        <small>{devicesCountLabel(devicesData, t)}</small>
       </span>
       <Button variant="icon" size="icon" onclick={() => loadDevices(true)} disabled={devicesBusy} aria-label={t("wa_devices_refresh")}>
         <RefreshCw size={18} />
       </Button>
     </div>
     <div class="progress devices-progress">
-      <span style={`width: ${devicesPercent()}%`}></span>
+      <span style={`width: ${devicesPercent(devicesData)}%`}></span>
     </div>
     {#if subscription?.active && subscription?.max_devices !== 0}
       <Button variant="secondary" class="wide" onclick={openDeviceTopupModal}>
@@ -68,7 +52,7 @@
     <Card class="empty-card devices-empty-card">
       <Smartphone size={28} />
       <span>{t("wa_devices_empty")}</span>
-      <small>{t("wa_devices_empty_hint", { max: devicesLimitLabel() })}</small>
+      <small>{t("wa_devices_empty_hint", { max: devicesLimitLabel(devicesData, t) })}</small>
     </Card>
   {:else}
     <div class="devices-list">

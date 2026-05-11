@@ -211,5 +211,6 @@ export function createAccountStore({ api, publicApi, setToken, loadData, t, show
     linkTelegramAccount,
     updateAccountLanguage,
     logout,
+    clearLinkEmailResendTimer: clearCooldownTimer,
   };
 }

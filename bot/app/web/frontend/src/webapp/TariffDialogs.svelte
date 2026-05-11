@@ -140,7 +140,6 @@
 
 
   export let t = (key) => key;
-  export let termUnitLabel = () => "";
 </script>
 
 <Dialog

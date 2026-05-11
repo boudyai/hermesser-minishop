@@ -269,6 +269,7 @@ export function createAuthStore({
     verifyEmailCode,
     openTelegramLogin,
     clearCooldownTimer,
-    setAuthStatus
+    stopTelegramLoginWatchdog,
+    setAuthStatus,
   };
 }

@@ -63,28 +63,6 @@ export function createDevicesStore({ api, t, showToast }) {
     }
   }
 
-  function devicesLimitLabel() {
-    const s = get(state);
-    const value = s.devicesData?.max_devices;
-    const numeric = Number(value ?? 0);
-    if (!Number.isFinite(numeric) || numeric <= 0) return t("wa_devices_unlimited");
-    return String(Math.trunc(numeric));
-  }
-
-  function devicesCountLabel() {
-    const s = get(state);
-    const current = Number(s.devicesData?.current_devices ?? s.devicesData?.devices?.length ?? 0);
-    return t("wa_devices_count", { current, max: devicesLimitLabel() });
-  }
-
-  function devicesPercent() {
-    const s = get(state);
-    const current = Number(s.devicesData?.current_devices ?? s.devicesData?.devices?.length ?? 0);
-    const max = Number(s.devicesData?.max_devices || 0);
-    if (!max || max <= 0) return 100;
-    return Math.max(0, Math.min(100, Math.round((current / max) * 100)));
-  }
-
   return {
     subscribe: state.subscribe,
     set: state.set,
@@ -93,8 +71,5 @@ export function createDevicesStore({ api, t, showToast }) {
     openDeviceDisconnectDialog,
     closeDeviceDisconnectDialog,
     disconnectDevice,
-    devicesLimitLabel,
-    devicesCountLabel,
-    devicesPercent,
   };
 }
