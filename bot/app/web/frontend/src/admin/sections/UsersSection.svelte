@@ -1,7 +1,16 @@
 <script>
   import { Label } from "$components/ui/primitives.js";
-  import { AdminBadge, AdminButton, AdminEmptyState, AdminPagination, AdminSelect } from "$components/patterns/admin/index.js";
+  import {
+    AdminBadge,
+    AdminButton,
+    AdminEmptyState,
+    AdminPagination,
+    AdminSelect,
+    AdminTable,
+    AdminTableSkeleton,
+  } from "$components/patterns/admin/index.js";
   import { getContext, onMount } from "svelte";
+  import { trafficOfLabel } from "../../lib/admin/format.js";
 
   export let at = (key) => key;
   export let fmtDateShort = (value) => value;
@@ -20,6 +29,7 @@
     usersQuery,
     usersFilter,
     usersPanelStatus,
+    usersPremiumTraffic,
     usersSort,
     usersLoading,
   } = $usersStore);
@@ -45,6 +55,8 @@
     { value: "name_desc", label: at("sort_name_desc", {}, "Имя ↓") },
     { value: "id_asc", label: at("sort_id_asc", {}, "ID ↑") },
     { value: "id_desc", label: at("sort_id_desc", {}, "ID ↓") },
+    { value: "premium_ratio_asc", label: at("sort_premium_ratio_asc", {}, "Премиум % ↑") },
+    { value: "premium_ratio_desc", label: at("sort_premium_ratio_desc", {}, "Премиум % ↓") },
   ];
 
   const USERS_PANEL_STATUS_OPTIONS = [
@@ -52,6 +64,37 @@
     { value: "active", label: at("status_active", {}, "active") },
     { value: "expired", label: at("status_expired", {}, "expired") },
     { value: "limited", label: at("status_limited", {}, "limited") },
+  ];
+
+  const USERS_PREMIUM_TRAFFIC_OPTIONS = [
+    { value: "all", label: at("premium_traffic_filter_all", {}, "Все (премиум)") },
+    { value: "none", label: at("premium_traffic_filter_none", {}, "Без лимита в тарифе") },
+    { value: "unlimited", label: at("premium_traffic_filter_unlimited", {}, "Безлимит (оверрайд)") },
+    { value: "good", label: at("premium_traffic_filter_good", {}, "Премиум: норма") },
+    { value: "warn", label: at("premium_traffic_filter_warn", {}, "Премиум: мало") },
+    { value: "critical", label: at("premium_traffic_filter_critical", {}, "Премиум: исчерпан") },
+  ];
+
+  /** @param {Record<string, unknown> | null | undefined} pt */
+  function premiumTrafficBadgeVariant(pt) {
+    if (!pt || pt.state === "none") return "muted";
+    if (pt.state === "unlimited" || pt.state === "good") return "success";
+    if (pt.state === "warn") return "warning";
+    return "danger";
+  }
+
+  /** @param {Record<string, unknown> | null | undefined} pt */
+  function premiumTrafficBadgeText(pt) {
+    if (!pt || pt.state === "none") return "";
+    if (pt.state === "unlimited") return trafficOfLabel(pt.used_bytes, 0);
+    return trafficOfLabel(pt.used_bytes, pt.limit_bytes);
+  }
+
+  $: userTableHeaders = [
+    at("user", {}, "Пользователь"),
+    at("premium_traffic_filter_label", {}, "Премиум трафик"),
+    at("status", {}, "Статус"),
+    at("users_col_registration", {}, "Регистрация"),
   ];
 
   onMount(() => {
@@ -96,6 +139,17 @@
     </Label.Root>
 
     <Label.Root class="admin-toolbar-field">
+      <span class="admin-toolbar-field-label">{at("premium_traffic_filter_label", {}, "Премиум трафик")}</span>
+      <AdminSelect
+        value={usersPremiumTraffic}
+        items={USERS_PREMIUM_TRAFFIC_OPTIONS}
+        class="admin-toolbar-select"
+        ariaLabel={at("premium_traffic_filter_label", {}, "Премиум трафик")}
+        onValueChange={(value) => { usersStore.updateState({ usersPremiumTraffic: value, usersPage: 0 }); usersStore.loadUsers(); }}
+      />
+    </Label.Root>
+
+    <Label.Root class="admin-toolbar-field">
       <span class="admin-toolbar-field-label">{at("sort", {}, "Сортировка")}</span>
       <AdminSelect
         value={usersSort}
@@ -113,53 +167,77 @@
   </div>
 </div>
 
-<div class="admin-table-wrap">
+<div class="admin-table-wrap admin-users-table-wrap">
   {#if usersLoading}
-    <ul class="admin-user-list admin-user-list-skeleton" aria-hidden="true">
-      {#each Array(USERS_PAGE_SIZE) as _, i (i)}
-        <li>
-          <div class="admin-user-row admin-user-row-skeleton">
-            <span class="admin-skeleton admin-skeleton-avatar"></span>
-            <span class="admin-user-main">
-              <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"></span>
-              <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-soft"></span>
-            </span>
-            <span class="admin-user-side">
-              <span class="admin-skeleton admin-skeleton-badge"></span>
-              <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"></span>
-            </span>
-          </div>
-        </li>
-      {/each}
-    </ul>
+    <AdminTableSkeleton
+      headers={userTableHeaders}
+      rows={USERS_PAGE_SIZE}
+      widths={["minmax(220px, 42%)", "minmax(140px, 28%)", "108px", "112px"]}
+    />
   {:else if !users.length}
     <AdminEmptyState tone="card"><span class="admin-muted">{at("users_empty", {}, "Никого не найдено")}</span></AdminEmptyState>
   {:else}
-    <ul class="admin-user-list">
-      {#each users as user}
-        {@const avatar = resolvedAvatarUrl(user)}
-        {@const badge = panelStatusBadge(user)}
-        <li>
-          <button type="button" class="admin-user-row" on:click={() => usersStore.openUser(user)}>
-            <span class="admin-avatar admin-avatar-sm">
-              {#if avatar}
-                <img src={avatar} alt="" loading="lazy" referrerpolicy="no-referrer" />
+    <AdminTable class="admin-users-table">
+      <thead>
+        <tr>
+          <th>{at("user", {}, "Пользователь")}</th>
+          <th>{at("premium_traffic_filter_label", {}, "Премиум трафик")}</th>
+          <th>{at("status", {}, "Статус")}</th>
+          <th>{at("users_col_registration", {}, "Регистрация")}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each users as user}
+          {@const avatar = resolvedAvatarUrl(user)}
+          {@const badge = panelStatusBadge(user)}
+          <tr
+            class="is-clickable"
+            role="button"
+            tabindex="0"
+            data-user-id={user.user_id}
+            on:click={() => usersStore.openUser(user)}
+            on:keydown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                usersStore.openUser(user);
+              }
+            }}
+          >
+            <td class="admin-users-cell-user" data-label={at("user", {}, "Пользователь")}>
+              <div class="admin-users-cell-user-inner">
+                <span class="admin-avatar admin-avatar-sm">
+                  {#if avatar}
+                    <img src={avatar} alt="" loading="lazy" referrerpolicy="no-referrer" />
+                  {:else}
+                    <span>{userInitials(user)}</span>
+                  {/if}
+                </span>
+                <div class="admin-users-cell-user-text">
+                  <span class="admin-users-cell-name">{userDisplayName(user)}</span>
+                  <span class="admin-users-cell-secondary">{userSecondaryName(user)}</span>
+                  <span class="admin-users-cell-id">#{user.user_id}</span>
+                </div>
+              </div>
+            </td>
+            <td class="admin-users-cell-premium" data-label={at("premium_traffic_filter_label", {}, "Премиум трафик")}>
+              {#if user.premium_traffic && user.premium_traffic.state !== "none"}
+                <AdminBadge variant={premiumTrafficBadgeVariant(user.premium_traffic)} class="admin-user-premium-badge">
+                  {premiumTrafficBadgeText(user.premium_traffic)}
+                </AdminBadge>
               {:else}
-                <span>{userInitials(user)}</span>
+                <span class="admin-user-premium-placeholder">{at("premium_traffic_na", {}, "—")}</span>
               {/if}
-            </span>
-            <span class="admin-user-main">
-              <strong>{userDisplayName(user)}</strong>
-              <small>{userSecondaryName(user)}</small>
-            </span>
-            <span class="admin-user-side">
+            </td>
+            <td data-label={at("status", {}, "Статус")}>
               <AdminBadge variant={badge.variant}>{badge.label}</AdminBadge>
-              <span class="admin-user-tertiary">{fmtDateShort(user.registration_date)}</span>
-            </span>
-          </button>
-        </li>
-      {/each}
-    </ul>
+            </td>
+            <td class="admin-users-cell-date admin-cell-mono" data-label={at("users_col_registration", {}, "Регистрация")}>
+              {fmtDateShort(user.registration_date)}
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </AdminTable>
   {/if}
 </div>
 
@@ -172,3 +250,72 @@
   onPrev={() => { usersStore.updateState({ usersPage: Math.max(0, usersPage - 1) }); usersStore.loadUsers(); }}
   onNext={() => { usersStore.updateState({ usersPage: usersPage + 1 }); usersStore.loadUsers(); }}
 />
+
+<style>
+  .admin-users-cell-user-inner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .admin-users-cell-user-text {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+    text-align: left;
+  }
+
+  .admin-users-cell-name {
+    font-weight: 650;
+    font-size: 13px;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .admin-users-cell-secondary {
+    font-size: 11px;
+    color: var(--admin-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .admin-users-cell-id {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--admin-muted);
+  }
+
+  .admin-users-cell-premium {
+    white-space: nowrap;
+  }
+
+  .admin-users-cell-premium :global(.admin-user-premium-badge) {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .admin-user-premium-placeholder {
+    color: var(--admin-dim);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .admin-users-cell-date {
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--admin-muted);
+  }
+
+  .admin-users-table-wrap :global(.admin-users-table tbody tr.is-clickable:focus-visible) {
+    outline: 2px solid var(--admin-ring);
+    outline-offset: -2px;
+  }
+</style>

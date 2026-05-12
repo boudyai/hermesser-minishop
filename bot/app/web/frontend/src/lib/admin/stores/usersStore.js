@@ -10,6 +10,7 @@ export function createUsersStore({ api, onToast, at }) {
     usersQuery: "",
     usersFilter: "all",
     usersPanelStatus: "all",
+    usersPremiumTraffic: "all",
     usersSort: "registered_desc",
     usersLoading: false,
 
@@ -59,6 +60,9 @@ export function createUsersStore({ api, onToast, at }) {
       if (s.usersQuery.trim()) params.set("q", s.usersQuery.trim());
       if (s.usersFilter && s.usersFilter !== "all") params.set("filter", s.usersFilter);
       if (s.usersPanelStatus && s.usersPanelStatus !== "all") params.set("panel_status", s.usersPanelStatus);
+      if (s.usersPremiumTraffic && s.usersPremiumTraffic !== "all") {
+        params.set("premium_traffic", s.usersPremiumTraffic);
+      }
       if (s.usersSort && s.usersSort !== "registered_desc") params.set("sort", s.usersSort);
       const data = await api(`/admin/users?${params.toString()}`);
       if (data?.ok) {

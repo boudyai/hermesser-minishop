@@ -23,6 +23,7 @@ export async function mockApi(path, options = {}, context = {}) {
       telegram_photo_url: "",
       registration_date: "2026-04-24T10:20:00Z",
       is_banned: false,
+      premium_traffic: { state: "good", unlimited: false, used_bytes: 4 * 1073741824, limit_bytes: 25 * 1073741824, percent: 16 },
     },
     {
       user_id: 100200301,
@@ -34,6 +35,7 @@ export async function mockApi(path, options = {}, context = {}) {
       telegram_photo_url: "",
       registration_date: "2026-04-26T08:15:00Z",
       is_banned: false,
+      premium_traffic: { state: "warn", unlimited: false, used_bytes: 22 * 1073741824, limit_bytes: 25 * 1073741824, percent: 88 },
     },
     {
       user_id: 100200302,
@@ -45,6 +47,7 @@ export async function mockApi(path, options = {}, context = {}) {
       telegram_photo_url: "",
       registration_date: "2026-04-29T16:45:00Z",
       is_banned: true,
+      premium_traffic: { state: "none" },
     },
   ];
   if (path === "/admin/stats") {

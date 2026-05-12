@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from aiogram import Bot
 from aiohttp import web
 from pydantic import ValidationError
-from sqlalchemy import func as sa_func, or_, select
+from sqlalchemy import and_, case, cast, Float, func as sa_func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
@@ -162,17 +162,60 @@ def _serialize_user(user: User) -> Dict[str, Any]:
     }
 
 
-def _serialize_subscription(sub: Subscription) -> Dict[str, Any]:
+def _premium_limit_bytes_from_subscription(sub: Subscription) -> int:
     premium_bonus_bytes = int(getattr(sub, "premium_bonus_bytes", 0) or 0)
-    regular_bonus_bytes = int(getattr(sub, "regular_bonus_bytes", 0) or 0)
-    regular_unlimited_override = bool(getattr(sub, "regular_unlimited_override", False))
-    premium_unlimited_override = bool(getattr(sub, "premium_unlimited_override", False))
-    premium_limit_bytes = (
+    return (
         int(sub.premium_baseline_bytes or 0)
         + int(sub.premium_topup_balance_bytes or 0)
         + int(getattr(sub, "premium_topup_used_bytes", 0) or 0)
         + premium_bonus_bytes
     )
+
+
+def _premium_traffic_list_payload(sub: Optional[Subscription]) -> Dict[str, Any]:
+    """Premium traffic column when subscription has a finite premium quota (bytes > 0).
+
+    Note: ``Subscription.premium_is_limited`` in the DB means *quota exhausted* for panel
+    routing, not 'tariff includes premium traffic' — do not use it here.
+    """
+
+    if sub is None:
+        return {"state": "none"}
+    if bool(getattr(sub, "premium_unlimited_override", False)):
+        return {
+            "state": "unlimited",
+            "unlimited": True,
+            "used_bytes": int(sub.premium_used_bytes or 0),
+            "limit_bytes": None,
+            "percent": None,
+        }
+    limit_bytes = _premium_limit_bytes_from_subscription(sub)
+    if limit_bytes <= 0:
+        return {"state": "none"}
+    used_bytes = int(sub.premium_used_bytes or 0)
+    ratio = float(used_bytes) / float(limit_bytes) if limit_bytes else 0.0
+    pct = int(max(0, min(100, round(ratio * 100))))
+    if ratio >= 1.0:
+        state = "critical"
+    elif ratio >= 0.85:
+        state = "warn"
+    else:
+        state = "good"
+    return {
+        "state": state,
+        "unlimited": False,
+        "used_bytes": used_bytes,
+        "limit_bytes": limit_bytes,
+        "percent": pct,
+    }
+
+
+def _serialize_subscription(sub: Subscription) -> Dict[str, Any]:
+    premium_bonus_bytes = int(getattr(sub, "premium_bonus_bytes", 0) or 0)
+    regular_bonus_bytes = int(getattr(sub, "regular_bonus_bytes", 0) or 0)
+    regular_unlimited_override = bool(getattr(sub, "regular_unlimited_override", False))
+    premium_unlimited_override = bool(getattr(sub, "premium_unlimited_override", False))
+    premium_limit_bytes = _premium_limit_bytes_from_subscription(sub)
     return {
         "subscription_id": int(sub.subscription_id),
         "panel_user_uuid": sub.panel_user_uuid,
@@ -507,6 +550,7 @@ async def admin_users_list_route(request: web.Request) -> web.Response:
     query = (request.query.get("q") or "").strip()
     filter_value = (request.query.get("filter") or "all").lower()
     panel_status = (request.query.get("panel_status") or "all").lower()
+    premium_traffic = (request.query.get("premium_traffic") or "all").lower()
     sort_value = (request.query.get("sort") or "registered_desc").lower()
 
     async with async_session_factory() as session:
@@ -515,6 +559,7 @@ async def admin_users_list_route(request: web.Request) -> web.Response:
             query=query,
             filter_value=filter_value,
             panel_status=panel_status,
+            premium_traffic=premium_traffic,
             sort_value=sort_value,
             page=page,
             page_size=page_size,
@@ -522,6 +567,7 @@ async def admin_users_list_route(request: web.Request) -> web.Response:
 
         statuses = await _bulk_user_statuses(session, [u.user_id for u in users])
         cached_avatar_ids = await _bulk_user_avatar_keys(session, [u.user_id for u in users])
+        active_subs = await _bulk_active_subscriptions_for_users(session, [u.user_id for u in users])
 
     serialized = []
     for user in users:
@@ -535,6 +581,7 @@ async def admin_users_list_route(request: web.Request) -> web.Response:
             if user.user_id in cached_avatar_ids
             else None
         )
+        payload["premium_traffic"] = _premium_traffic_list_payload(active_subs.get(user.user_id))
         serialized.append(payload)
 
     return _ok(
@@ -642,20 +689,114 @@ async def admin_user_avatar_route(request: web.Request) -> web.Response:
     return response
 
 
+def _ranked_active_subscriptions_sq(now: datetime):
+    """Latest active subscription per user (same ordering as subscription_dal)."""
+
+    rn = sa_func.row_number().over(
+        partition_by=Subscription.user_id,
+        order_by=(
+            Subscription.end_date.desc(),
+            Subscription.subscription_id.desc(),
+        ),
+    )
+    inner = (
+        select(
+            Subscription.user_id,
+            Subscription.subscription_id,
+            Subscription.premium_used_bytes,
+            Subscription.premium_baseline_bytes,
+            Subscription.premium_topup_balance_bytes,
+            Subscription.premium_topup_used_bytes,
+            Subscription.premium_bonus_bytes,
+            Subscription.premium_unlimited_override,
+            rn.label("rn"),
+        )
+        .where(
+            Subscription.is_active.is_(True),
+            Subscription.end_date > now,
+        )
+        .subquery()
+    )
+    return select(inner).where(inner.c.rn == 1).subquery(name="ranked_active_sub")
+
+
+async def _bulk_active_subscriptions_for_users(
+    session: AsyncSession, user_ids: List[int]
+) -> Dict[int, Subscription]:
+    """Active subscription row per user (for admin list premium traffic column)."""
+
+    if not user_ids:
+        return {}
+    now = datetime.now(timezone.utc)
+    stmt = (
+        select(Subscription)
+        .where(
+            Subscription.user_id.in_(user_ids),
+            Subscription.is_active.is_(True),
+            Subscription.end_date > now,
+        )
+        .order_by(
+            Subscription.user_id.asc(),
+            Subscription.end_date.desc(),
+            Subscription.subscription_id.desc(),
+        )
+    )
+    rows = (await session.execute(stmt)).scalars().all()
+    out: Dict[int, Subscription] = {}
+    for sub in rows:
+        uid = int(sub.user_id)
+        if uid not in out:
+            out[uid] = sub
+    return out
+
+
 async def _filter_and_sort_users(
     session: AsyncSession,
     *,
     query: str = "",
     filter_value: str,
     panel_status: str = "all",
+    premium_traffic: str = "all",
     sort_value: str,
     page: int,
     page_size: int,
 ) -> tuple[List[User], int]:
     """Return paginated users with optional search, filter and sort applied."""
 
+    now = datetime.now(timezone.utc)
+    sort_key = (sort_value or "registered_desc").lower()
+    pt_filter = (premium_traffic or "all").lower()
+    needs_premium_sq = pt_filter != "all" or sort_key in {
+        "premium_ratio_asc",
+        "premium_ratio_desc",
+    }
+
     stmt = select(User)
     count_stmt = select(sa_func.count(User.user_id))
+
+    sq = None
+    ratio_expr = None
+    plim_expr = None
+    pu_expr = None
+
+    if needs_premium_sq:
+        sq = _ranked_active_subscriptions_sq(now)
+        stmt = stmt.outerjoin(sq, User.user_id == sq.c.user_id)
+        count_stmt = count_stmt.outerjoin(sq, User.user_id == sq.c.user_id)
+        pb = sa_func.coalesce(sq.c.premium_bonus_bytes, 0)
+        plim_expr = (
+            sa_func.coalesce(sq.c.premium_baseline_bytes, 0)
+            + sa_func.coalesce(sq.c.premium_topup_balance_bytes, 0)
+            + sa_func.coalesce(sq.c.premium_topup_used_bytes, 0)
+            + pb
+        )
+        pu_expr = sa_func.coalesce(sq.c.premium_used_bytes, 0)
+        ratio_expr = case(
+            (sq.c.user_id.is_(None), None),
+            (sq.c.premium_unlimited_override.is_(True), None),
+            (plim_expr <= 0, None),
+            else_=cast(pu_expr, Float) / cast(plim_expr, Float),
+        )
 
     search_cond = _user_search_condition(query)
     if search_cond is not None:
@@ -689,6 +830,53 @@ async def _filter_and_sort_users(
         stmt = stmt.where(panel_cond)
         count_stmt = count_stmt.where(panel_cond)
 
+    if needs_premium_sq and sq is not None and plim_expr is not None and pu_expr is not None:
+        if pt_filter == "none":
+            premium_cond = or_(
+                sq.c.user_id.is_(None),
+                and_(
+                    sq.c.premium_unlimited_override.is_(False),
+                    plim_expr <= 0,
+                ),
+            )
+            stmt = stmt.where(premium_cond)
+            count_stmt = count_stmt.where(premium_cond)
+        elif pt_filter == "unlimited":
+            premium_cond = and_(
+                sq.c.user_id.isnot(None),
+                sq.c.premium_unlimited_override.is_(True),
+            )
+            stmt = stmt.where(premium_cond)
+            count_stmt = count_stmt.where(premium_cond)
+        elif pt_filter == "good":
+            premium_cond = and_(
+                sq.c.user_id.isnot(None),
+                sq.c.premium_unlimited_override.is_(False),
+                plim_expr > 0,
+                (100 * pu_expr) < (85 * plim_expr),
+            )
+            stmt = stmt.where(premium_cond)
+            count_stmt = count_stmt.where(premium_cond)
+        elif pt_filter == "warn":
+            premium_cond = and_(
+                sq.c.user_id.isnot(None),
+                sq.c.premium_unlimited_override.is_(False),
+                plim_expr > 0,
+                (100 * pu_expr) >= (85 * plim_expr),
+                pu_expr < plim_expr,
+            )
+            stmt = stmt.where(premium_cond)
+            count_stmt = count_stmt.where(premium_cond)
+        elif pt_filter == "critical":
+            premium_cond = and_(
+                sq.c.user_id.isnot(None),
+                sq.c.premium_unlimited_override.is_(False),
+                plim_expr > 0,
+                pu_expr >= plim_expr,
+            )
+            stmt = stmt.where(premium_cond)
+            count_stmt = count_stmt.where(premium_cond)
+
     sort_map = {
         "registered_desc": User.registration_date.desc().nullslast(),
         "registered_asc": User.registration_date.asc().nullslast(),
@@ -703,11 +891,17 @@ async def _filter_and_sort_users(
         "id_asc": User.user_id.asc(),
         "id_desc": User.user_id.desc(),
     }
-    order = sort_map.get(sort_value, sort_map["registered_desc"])
-    if isinstance(order, tuple):
-        stmt = stmt.order_by(*order)
+
+    if needs_premium_sq and ratio_expr is not None and sort_key == "premium_ratio_asc":
+        stmt = stmt.order_by(ratio_expr.asc().nullslast(), User.user_id.asc())
+    elif needs_premium_sq and ratio_expr is not None and sort_key == "premium_ratio_desc":
+        stmt = stmt.order_by(ratio_expr.desc().nullslast(), User.user_id.desc())
     else:
-        stmt = stmt.order_by(order)
+        order = sort_map.get(sort_key, sort_map["registered_desc"])
+        if isinstance(order, tuple):
+            stmt = stmt.order_by(*order)
+        else:
+            stmt = stmt.order_by(order)
 
     stmt = stmt.offset(max(page, 0) * max(page_size, 1)).limit(max(page_size, 1))
 

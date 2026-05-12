@@ -835,7 +835,7 @@
 
 .admin-toolbar-controls {
   display: grid;
-  grid-template-columns: repeat(3, minmax(150px, 1fr)) minmax(96px, auto);
+  grid-template-columns: repeat(4, minmax(130px, 1fr)) minmax(96px, auto);
   align-items: end;
   gap: 8px;
 }
@@ -881,7 +881,7 @@
 
 @media (max-width: 900px) {
   .admin-toolbar-controls {
-    grid-template-columns: repeat(2, minmax(150px, 1fr));
+    grid-template-columns: repeat(2, minmax(130px, 1fr));
   }
 
   .admin-toolbar-summary {
@@ -1000,7 +1000,7 @@
 
 .admin-user-row {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
+  grid-template-columns: 36px minmax(0, 1fr) minmax(72px, max-content) auto;
   align-items: center;
   gap: 12px;
   width: 100%;
@@ -1021,6 +1021,28 @@
 .admin-user-row:focus-visible {
   outline: 2px solid var(--admin-ring);
   outline-offset: -2px;
+}
+
+.admin-user-premium-col {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 0;
+}
+
+.admin-user-premium-badge {
+  max-width: 148px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-user-premium-placeholder {
+  color: var(--admin-dim);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .admin-user-side {
