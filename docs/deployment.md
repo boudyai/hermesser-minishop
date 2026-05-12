@@ -19,6 +19,85 @@ IMAGE_TAG=3.1.0 docker compose -f docker-compose-remote-server.yml up -d
 
 `docker-compose-remote-server.yml` можно использовать как шаблон и заменить `image:` на нужный образ. По умолчанию используется `ghcr.io/3252a8/remnawave-minishop:latest`.
 
+## Обновление версии
+
+Образ приложения: `ghcr.io/3252a8/remnawave-minishop`. Тег задаётся переменной окружения **`IMAGE_TAG`** (в Compose подставляется как `${IMAGE_TAG:-latest}`). Для продакшена разумно закрепить **конкретный тег релиза** вместо `latest`, чтобы обновляться осознанно и иметь откат.
+
+**Запуск из готового образа** (`docker-compose-remote-server.yml` или свой файл с тем же шаблоном):
+
+1. Сделайте резервную копию базы (особенно перед крупными обновлениями) — см. раздел «Резервная копия и восстановление PostgreSQL» ниже на этой странице.
+2. Укажите нужный тег, например в `.env`: `IMAGE_TAG=3.2.0` (или экспортируйте переменную перед командой).
+3. Подтяните образ и пересоздайте контейнер приложения (БД при этом не удаляется, том данных сохраняется):
+
+```bash
+docker compose -f docker-compose-remote-server.yml pull remnawave-minishop
+docker compose -f docker-compose-remote-server.yml up -d --no-deps remnawave-minishop
+```
+
+При необходимости перезапустите оба сервиса: `docker compose -f docker-compose-remote-server.yml up -d`. Флаг `--force-recreate` добавляют, если нужно гарантированно пересоздать контейнер при неизменённом образе.
+
+**Локальная сборка из репозитория** (ваш `Dockerfile`):
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+После обновления проверьте логи (`docker compose logs -f remnawave-minishop`), работу бота, вебхуков и Web App. Совместимость с панелью Remnawave — см. раздел «Совместимость» в [README.md](../README.md).
+
+## Резервная копия и восстановление PostgreSQL
+
+Имя контейнера БД в типичном Compose — `remnawave-minishop-db`. Подставьте значения **`POSTGRES_USER`** и **`POSTGRES_DB`** из `.env` (на хосте можно выполнить `set -a && source .env && set +a` перед командами или подставить вручную).
+
+### Резервная копия (текстовый SQL)
+
+Логическое дампирование в один файл:
+
+```bash
+docker exec remnawave-minishop-db pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > backup.sql
+```
+
+Такой файл удобно хранить вне сервера. При необходимости добавьте к `pg_dump` параметры сжатия или расписание через cron.
+
+### Восстановление из `backup.sql`
+
+Дамп выше — **обычный текст SQL** без удаления существующих объектов. Чтобы накатить его на **чистую** базу с тем же именем:
+
+1. Остановите приложение, чтобы не было записей в БД:
+
+```bash
+docker compose -f docker-compose-remote-server.yml stop remnawave-minishop
+```
+
+(или ваш файл Compose без `-f`, если работаете из каталога проекта.)
+
+2. Удалите базу и создайте пустую с тем же именем — пользователь из `.env` в официальном образе PostgreSQL обычно суперпользователь и может это сделать:
+
+```bash
+docker exec remnawave-minishop-db dropdb -U "$POSTGRES_USER" "$POSTGRES_DB" --if-exists
+docker exec remnawave-minishop-db createdb -U "$POSTGRES_USER" "$POSTGRES_DB"
+```
+
+Если `dropdb` сообщает, что база занята, убедитесь, что остановлен сервис `remnawave-minishop` и к базе нет других подключений.
+
+3. Восстановите данные из файла на хосте:
+
+```bash
+docker exec -i remnawave-minishop-db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < backup.sql
+```
+
+4. Запустите приложение снова:
+
+```bash
+docker compose -f docker-compose-remote-server.yml start remnawave-minishop
+```
+
+Проверьте логи и работу бота. При ошибках импорта убедитесь, что версия приложения совместима со схемой в дампе (после обновлений бота иногда нужны шаги из changelog релиза).
+
+### Замечание про «накат поверх» без пересоздания БД
+
+Если нужно применить дамп к уже заполненной базе без `dropdb`, создавайте резервные копии с **`pg_dump --clean --if-exists`** — в файл попадут команды `DROP` перед `CREATE`, и `psql` сможет перезаписать объекты. Это разрушительно для текущих данных; перед таким сценарием сделайте отдельный свежий бэкап.
+
 ## Порты
 
 | Порт | Назначение |

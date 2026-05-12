@@ -102,9 +102,11 @@ docker compose -f docker-compose-dev.yml up -d --build --force-recreate
 | `WEBAPP_SESSION_SECRET` | HMAC-секрет сессий Web App. |
 | `TELEGRAM_OAUTH_CLIENT_ID` / `TELEGRAM_OAUTH_CLIENT_SECRET` | Данные Telegram OAuth / OpenID Connect из BotFather. |
 | `TELEGRAM_OAUTH_REQUEST_ACCESS` | Дополнительные разрешения Telegram Login, например `write`. |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_FALLBACK_PORTS` | SMTP-подключение для email-кодов. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_FALLBACK_PORTS` | SMTP-подключение для email-кодов; резервные порты перебираются при ошибке основного. |
+| `SMTP_TIMEOUT_SECONDS` | Таймаут одной попытки подключения и отправки. |
+| `SMTP_STARTTLS` / `SMTP_USE_SSL` | STARTTLS на обычном порту (например 587) и SSL-обёртка (часто порт 465). |
 | `SMTP_USERNAME` / `SMTP_PASSWORD` | Логин и пароль или SMTP key. |
-| `SMTP_FROM_EMAIL` / `SMTP_FROM_NAME` | Отправитель писем с кодом. |
+| `SMTP_FROM_EMAIL` / `SMTP_FROM_NAME` | Отправитель писем с кодом; адрес из `SMTP_FROM_EMAIL` должен быть разрешён у провайдера. |
 | `EMAIL_CODE_TTL_SECONDS` | Срок действия email-кода. |
 | `EMAIL_CODE_RESEND_SECONDS` | Пауза перед повторной отправкой кода. |
 | `EMAIL_CODE_MAX_ATTEMPTS` | Максимум попыток ввода одного кода. |
@@ -114,6 +116,23 @@ docker compose -f docker-compose-dev.yml up -d --build --force-recreate
 | `MY_DEVICES_SECTION_ENABLED` | Показывает раздел "Мои устройства" и включает API устройств. |
 
 Настройка домена, BotFather и callback URL описана в [webapp.md](webapp.md).
+
+### SMTP и вход по email
+
+Вход по email в Web App включается только если заполнены все обязательные поля SMTP: **`SMTP_HOST`**, **`SMTP_PORT`**, **`SMTP_USERNAME`**, **`SMTP_PASSWORD`**, **`SMTP_FROM_EMAIL`**. Имя отправителя **`SMTP_FROM_NAME`** необязательно. Пока конфигурация неполная, интерфейс входа по email не показывается.
+
+Рекомендуемый типичный вариант — **порт 587** с **STARTTLS** (`SMTP_STARTTLS=True`, `SMTP_USE_SSL=False`), как в примере для Brevo в `.env.example`. Для **порта 465** обычно используют обёртку SSL: выставьте `SMTP_USE_SSL=True` и при необходимости `SMTP_STARTTLS=False`; приложение также считает порт 465 SSL-режимом автоматически при отправке.
+
+Если основной порт недоступен, перебираются порты из **`SMTP_FALLBACK_PORTS`** (список через запятую, после `SMTP_PORT`). Таймаут одной попытки подключения и отправки задаёт **`SMTP_TIMEOUT_SECONDS`**.
+
+Порядок действий при подключении нового SMTP:
+
+1. В панели почтового провайдера создайте SMTP-доступ и подтвердите адрес отправителя (**from**), совпадающий с `SMTP_FROM_EMAIL`.
+2. Перенесите хост, порт, логин и пароль (или API-ключ SMTP) в `.env`.
+3. Перезапустите контейнер приложения, чтобы подхватить переменные.
+4. Проверьте вход: на странице Web App запросите код на почту; при ошибках смотрите логи контейнера.
+
+Для ограничений по частоте отправки кодов см. `EMAIL_CODE_*` и `BRUTE_FORCE_*` в таблице выше.
 
 ## Пробный период
 

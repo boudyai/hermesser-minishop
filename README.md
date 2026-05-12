@@ -18,24 +18,37 @@ Remnawave Minishop - Telegram-бот и Web App (Mini App) для продажи
 
 Для администраторов:
 
-- админ-панель для пользователей из `ADMIN_IDS`;
+- админ-панель для пользователей из `ADMIN_IDS` (только при входе через Telegram, не для аккаунтов только с email);
 - статистика пользователей, подписок, платежей и синхронизации с Remnawave;
+- список пользователей с поиском, фильтрами и колонкой premium-трафика;
 - блокировка пользователей, рассылки, промокоды, логи действий и настройка разрешенных параметров приложения поверх `.env`;
 - редактор JSON-каталога тарифов с period/traffic-моделями, Internal Squads, premium-сквадами и HWID-пакетами;
 - ручная синхронизация пользователей и подписок с панелью.
 
 ## Документация
 
-- [Настройка окружения](docs/configuration.md) - основные переменные `.env`, платежи, Remnawave, пробный период и секреты.
+- [Настройка окружения](docs/configuration.md) - основные переменные `.env`, платежи, Remnawave, пробный период, SMTP для email-входа и секреты.
 - [Тарифы](docs/tariffs.md) - каталог тарифов, period- и traffic-модели, обычные и premium-докупки, premium-сквады, смена тарифа, HWID-лимиты и обработка трафика.
 - [Админ-панель](docs/admin.md) - права доступа, настройки, редактор тарифов, premium-сквады и сохранение JSON-каталога.
 - [Web App / Mini App](docs/webapp.md) - отдельный порт, домен, Telegram OAuth, email-вход и реферальные ссылки.
-- [Развертывание](docs/deployment.md) - Docker Compose, reverse proxy, Nginx, Caddy, вебхуки и запуск из образа.
+- [Развертывание](docs/deployment.md) - Docker Compose, reverse proxy, Nginx, Caddy, вебхуки, запуск из образа и обновление версии (`IMAGE_TAG`).
 - [Миграция с remnawave-tg-shop](docs/migration-to-minishop.md) - перенос данных из прежнего стека.
 
 ## Совместимость
 
 Интеграция с API панели Remnawave (вебхуки, пользователи, подписки, статистика в админке и т.д.) **протестирована** на панели Remnawave версии **`> 2.7.0`**. Более старые версии могут работать частично или не работать из‑за изменений в API.
+
+## Стек
+
+Сборка и runtime задаются **Dockerfile** и **docker-compose.yml**; точные версии пакетов — в **requirements.txt** и **package.json**.
+
+| Слой | Технологии |
+| --- | --- |
+| Backend | Python **3.12**, [aiogram](https://docs.aiogram.dev/) 3.x (Telegram), **aiohttp** (HTTP и Web App), **SQLAlchemy** 2 async, **asyncpg**, **Pydantic** / pydantic-settings, **httpx**, платёжные SDK (в т.ч. YooKassa, aiocryptopay), **PyJWT** |
+| Данные | **PostgreSQL** **17** (сервис `remnawave-minishop-db` в Compose) |
+| Сборка Web App | **Node.js** **22**, **Svelte** **5**, **Vite**, **Tailwind CSS** 4; артефакты попадают в шаблоны `bot/app/web/templates/` |
+
+Локальная разработка без Docker возможна при установленных Python 3.12, PostgreSQL и (для пересборки фронта) Node 22; типичный сценарий — всё через Compose.
 
 ## Быстрый старт
 
