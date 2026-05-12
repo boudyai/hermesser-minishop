@@ -262,7 +262,8 @@
 
   function openPaymentUserCard(userId) {
     const uid = Number(userId);
-    if (!Number.isFinite(uid) || uid <= 0) return;
+    // Synthetic email-only users use negative user_id; still a valid admin target.
+    if (!Number.isFinite(uid) || uid === 0) return;
     const next = normalizeSection("users");
     sidebarOpen = false;
     if (active !== next) {

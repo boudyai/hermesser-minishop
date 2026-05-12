@@ -262,14 +262,34 @@ def _payment_traffic_gb_split(payment: Payment) -> Tuple[Optional[float], Option
     return None, None
 
 
+def _payment_user_display_label(loaded_user: Any, payment_user_id: int) -> str:
+    """Human-facing name for payments tables: TG profile name, else email, else user id."""
+    if loaded_user is None:
+        return str(payment_user_id)
+    tid = getattr(loaded_user, "telegram_id", None)
+    if tid is not None:
+        fn = (getattr(loaded_user, "first_name", None) or "").strip()
+        ln = (getattr(loaded_user, "last_name", None) or "").strip()
+        full = f"{fn} {ln}".strip()
+        if full:
+            return full
+        un = (getattr(loaded_user, "username", None) or "").strip()
+        if un:
+            return un if un.startswith("@") else f"@{un}"
+        return str(payment_user_id)
+    email = (getattr(loaded_user, "email", None) or "").strip()
+    if email:
+        return email
+    return str(payment_user_id)
+
+
 def _serialize_payment(payment: Payment) -> Dict[str, Any]:
     # Avoid lazy-loading `payment.user` outside an active SQLAlchemy session.
     # Some admin routes serialize payments after the session scope is closed.
-    user_label = str(payment.user_id)
     telegram_id = None
     loaded_user = payment.__dict__.get("user")
+    user_label = _payment_user_display_label(loaded_user, int(payment.user_id))
     if loaded_user is not None:
-        user_label = loaded_user.username or loaded_user.first_name or str(payment.user_id)
         tid = getattr(loaded_user, "telegram_id", None)
         if tid is not None:
             try:
@@ -1550,9 +1570,7 @@ async def admin_payments_export_route(request: web.Request) -> web.Response:
         ]
     )
     for p in rows:
-        label = ""
-        if p.user:
-            label = p.user.username or p.user.first_name or ""
+        label = _payment_user_display_label(p.user, int(p.user_id)) if p.user else str(p.user_id)
         writer.writerow(
             [
                 p.payment_id,

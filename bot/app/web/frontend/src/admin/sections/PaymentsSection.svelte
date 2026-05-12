@@ -72,7 +72,7 @@
   $: paymentHeaders = [
     at("id", {}, "ID"),
     at("user", {}, "Пользователь"),
-    at("payments_col_telegram_id", {}, "Telegram ID"),
+    at("payments_col_user_id", {}, "ID"),
     at("payments_col_traffic_regular", {}, "Основной трафик"),
     at("payments_col_traffic_premium", {}, "Премиум"),
     at("amount", {}, "Сумма"),
@@ -104,7 +104,7 @@
         <tr>
           <th>{at("id", {}, "ID")}</th>
           <th>{at("user", {}, "Пользователь")}</th>
-          <th>{at("payments_col_telegram_id", {}, "Telegram ID")}</th>
+          <th>{at("payments_col_user_id", {}, "ID")}</th>
           <th>{at("payments_col_traffic_regular", {}, "Основной трафик")}</th>
           <th>{at("payments_col_traffic_premium", {}, "Премиум")}</th>
           <th>{at("amount", {}, "Сумма")}</th>
@@ -133,11 +133,8 @@
                 <span class="admin-payments-user-name">{p.user_label || p.user_id}</span>
               </span>
             </td>
-            <td
-              class="admin-cell-mono"
-              data-label={at("payments_col_telegram_id", {}, "Telegram ID")}
-            >
-              {p.telegram_id != null ? p.telegram_id : "—"}
+            <td class="admin-cell-mono" data-label={at("payments_col_user_id", {}, "ID")}>
+              {p.user_id != null && p.user_id !== "" ? p.user_id : "—"}
             </td>
             <td
               class="admin-cell-traffic-gb"

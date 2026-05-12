@@ -920,7 +920,7 @@
   "admin_status": "Status",
   "admin_date": "Date",
   "admin_payments_empty": "No payments",
-  "admin_payments_col_telegram_id": "Telegram ID",
+  "admin_payments_col_user_id": "ID",
   "admin_payments_col_traffic_regular": "Main traffic",
   "admin_payments_col_traffic_premium": "Premium traffic",
   "admin_payments_col_actions": "",
