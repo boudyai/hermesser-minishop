@@ -1106,6 +1106,8 @@
   "admin_settings_params_count": "{count} параметров",
   "admin_settings_overridden_count": "{count} override",
   "admin_settings_fields_count": "{count} полей",
+  "admin_settings_field_log_admin_actions_label": "Логировать действия администраторов",
+  "admin_settings_field_log_admin_actions_description": "Если выключено, события от пользователей из ADMIN_IDS не записываются в message logs.",
   "admin_show": "Показать",
   "admin_hide": "Скрыть",
   "admin_tariffs_stat_total": "Всего тарифов",

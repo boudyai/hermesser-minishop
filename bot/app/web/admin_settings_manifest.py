@@ -26,6 +26,8 @@ class SettingField:
     max: Optional[float] = None
     choices: Optional[Tuple[Tuple[str, str], ...]] = None
     subsection: Optional[str] = None  # group label inside a section
+    i18n_label_key: Optional[str] = None
+    i18n_description_key: Optional[str] = None
 
 
 SETTINGS_MANIFEST: List[SettingField] = [
@@ -165,6 +167,15 @@ SETTINGS_MANIFEST: List[SettingField] = [
     SettingField("LOG_PROMO_ACTIVATIONS", "bool", "notifications", "Логировать активации промокодов"),
     SettingField("LOG_TRIAL_ACTIVATIONS", "bool", "notifications", "Логировать активации триала"),
     SettingField("LOG_SUSPICIOUS_ACTIVITY", "bool", "notifications", "Логировать подозрительные действия"),
+    SettingField(
+        "LOG_ADMIN_ACTIONS",
+        "bool",
+        "notifications",
+        "Логировать действия администраторов",
+        "Если выключено, события от пользователей из ADMIN_IDS не записываются в message logs.",
+        i18n_label_key="admin_settings_field_log_admin_actions_label",
+        i18n_description_key="admin_settings_field_log_admin_actions_description",
+    ),
     SettingField("LOG_LEVEL", "string", "notifications", "Глобальный уровень логов", "DEBUG / INFO / WARNING / ERROR"),
     SettingField("LOG_CHAT_ID", "int", "notifications", "ID чата для логов"),
     SettingField("LOG_THREAD_ID", "int", "notifications", "ID треда (для супергрупп)"),
@@ -253,6 +264,8 @@ def manifest_payload() -> List[dict]:
                 "subsection": field.subsection,
                 "label": field.label,
                 "description": field.description,
+                "i18n_label_key": field.i18n_label_key,
+                "i18n_description_key": field.i18n_description_key,
                 "placeholder": field.placeholder,
                 "optional": field.optional,
                 "secret": field.secret,

@@ -39,6 +39,9 @@ class ActionLoggerMiddleware(BaseMiddleware):
             if user_id in self.settings.ADMIN_IDS:
                 is_admin_event_flag = True
 
+        if is_admin_event_flag and not self.settings.LOG_ADMIN_ACTIONS:
+            return result
+
         raw_update_snippet = None
         try:
             raw_update_snippet = event.model_dump_json(exclude_none=True,

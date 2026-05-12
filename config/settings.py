@@ -383,6 +383,10 @@ class Settings(BaseSettings):
     )
 
     LOGS_PAGE_SIZE: int = Field(default=10)
+    LOG_ADMIN_ACTIONS: bool = Field(
+        default=True,
+        description="Log updates/events triggered by users from ADMIN_IDS.",
+    )
 
     SUBSCRIPTION_MINI_APP_URL: Optional[str] = Field(default=None)
 

@@ -1106,6 +1106,8 @@
   "admin_settings_params_count": "{count} parameters",
   "admin_settings_overridden_count": "{count} override",
   "admin_settings_fields_count": "{count} fields",
+  "admin_settings_field_log_admin_actions_label": "Log administrator actions",
+  "admin_settings_field_log_admin_actions_description": "When disabled, events from users listed in ADMIN_IDS are not stored in message logs.",
   "admin_show": "Show",
   "admin_hide": "Hide",
   "admin_tariffs_stat_total": "Total tariffs",

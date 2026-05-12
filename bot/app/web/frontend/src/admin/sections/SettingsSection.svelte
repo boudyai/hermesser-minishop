@@ -97,7 +97,7 @@
   <div class="admin-setting" class:is-overridden={isOverridden(field)}>
     <div class="admin-setting-meta">
       <strong>
-        {field.label}
+        {field.i18n_label_key ? at(field.i18n_label_key, {}, field.label) : field.label}
           <AdminBadge variant="warning">{at("settings_badge_secret", {}, "Secret")}</AdminBadge>
         {#if isOverridden(field)}
           <AdminBadge variant="success">{at("settings_badge_override", {}, "Override")}</AdminBadge>
@@ -105,7 +105,7 @@
       </strong>
       <code>{field.key}</code>
       {#if field.description}
-        <small>{field.description}</small>
+        <small>{field.i18n_description_key ? at(field.i18n_description_key, {}, field.description) : field.description}</small>
       {/if}
     </div>
     <div class="admin-setting-control">
