@@ -19,7 +19,7 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
     """
     Blocks access to handlers for users who have not yet passed the required channel subscription check.
     The /start command is allowed through so that the handler can re-run the verification.
-    """
+    """  # noqa: E501
 
     def __init__(self, settings: Settings, i18n_instance: JsonI18n):
         super().__init__()
@@ -126,7 +126,7 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
                 await callback.message.answer(prompt_text, reply_markup=keyboard)
             except Exception as send_error:
                 logging.error(
-                    "ChannelSubscriptionMiddleware: failed to send prompt for callback in chat %s: %s",
+                    "ChannelSubscriptionMiddleware: failed to send prompt for callback in chat %s: %s",  # noqa: E501
                     callback.message.chat.id,
                     send_error,
                     exc_info=True,

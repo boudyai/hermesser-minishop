@@ -1,0 +1,74 @@
+# ruff: noqa: F401,F403,F405,I001
+from ._runtime import *  # noqa: F403,F405
+
+
+async def admin_settings_get_route(request: web.Request) -> web.Response:
+    _require_admin_user_id(request)
+    settings: Settings = request.app["settings"]
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+
+    async with async_session_factory() as session:
+        overrides = await app_settings_dal.get_overrides_with_meta(session)
+
+    overrides_by_key = {entry["key"]: entry for entry in overrides}
+
+    fields = manifest_payload()
+    sections: Dict[str, Dict[str, Any]] = {}
+    for field in fields:
+        key = field["key"]
+        section_id = field["section"]
+        if section_id not in sections:
+            sections[section_id] = {
+                "id": section_id,
+                "order": field["section_order"],
+                "fields": [],
+            }
+        override = overrides_by_key.get(key)
+        value = current_value(settings, key)
+        is_secret = bool(field.get("secret"))
+        response_field = {
+            **field,
+            "value": "" if is_secret else value,
+            "overridden": bool(override),
+            "updated_at": override.get("updated_at") if override else None,
+        }
+        if is_secret:
+            response_field["has_value"] = bool(value)
+        sections[section_id]["fields"].append(response_field)
+
+    ordered_sections = sorted(sections.values(), key=lambda s: s["order"])
+    return _ok({"sections": ordered_sections})
+
+
+async def admin_settings_patch_route(request: web.Request) -> web.Response:
+    actor_id = _require_admin_user_id(request)
+    settings: Settings = request.app["settings"]
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    payload = await _read_json(request)
+    updates = payload.get("updates") or {}
+    deletes = payload.get("deletes") or []
+    if not isinstance(updates, dict):
+        return _error(400, "invalid_updates")
+    if not isinstance(deletes, list):
+        return _error(400, "invalid_deletes")
+
+    result = await update_overrides(
+        settings,
+        async_session_factory,
+        updates=updates,
+        deletes=deletes,
+        actor_id=actor_id,
+    )
+    if not result.get("ok"):
+        return web.json_response(
+            {"ok": False, "error": "validation_failed", "errors": result.get("errors", {})},
+            status=400,
+        )
+
+    # Bust the public webapp settings cache so users see new values immediately.
+    cache = request.app.get("webapp_settings_cache")
+    if isinstance(cache, dict):
+        cache["ts"] = 0.0
+        cache["data"] = {}
+
+    return _ok({"applied": result.get("applied", 0), "reverted": result.get("reverted", 0)})

@@ -136,7 +136,7 @@ class Subscription(Base):
     user = relationship("User", back_populates="subscriptions")
 
     def __repr__(self):
-        return f"<Subscription(id={self.subscription_id}, user_id={self.user_id}, panel_uuid='{self.panel_user_uuid}', ends='{self.end_date}')>"
+        return f"<Subscription(id={self.subscription_id}, user_id={self.user_id}, panel_uuid='{self.panel_user_uuid}', ends='{self.end_date}')>"  # noqa: E501
 
 
 class EmailVerificationCode(Base):
@@ -402,7 +402,7 @@ class AdCampaign(Base):
     )
 
     def __repr__(self):
-        return f"<AdCampaign(id={self.ad_campaign_id}, source='{self.source}', start_param='{self.start_param}', cost={self.cost})>"
+        return f"<AdCampaign(id={self.ad_campaign_id}, source='{self.source}', start_param='{self.start_param}', cost={self.cost})>"  # noqa: E501
 
 
 class AdAttribution(Base):

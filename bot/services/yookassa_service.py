@@ -25,7 +25,7 @@ class YooKassaService:
 
         if self.settings and not self.settings.YOOKASSA_ENABLED:
             logging.warning(
-                "YooKassa is disabled via YOOKASSA_ENABLED flag. Payment functionality will be DISABLED."
+                "YooKassa is disabled via YOOKASSA_ENABLED flag. Payment functionality will be DISABLED."  # noqa: E501
             )
             self.configured = False
         elif not shop_id or not secret_key:
@@ -48,7 +48,7 @@ class YooKassaService:
         elif bot_username_for_default_return:
             self.return_url = f"https://t.me/{bot_username_for_default_return}"
             logging.info(
-                f"YOOKASSA_RETURN_URL not set, using dynamic default based on bot username: {self.return_url}"
+                f"YOOKASSA_RETURN_URL not set, using dynamic default based on bot username: {self.return_url}"  # noqa: E501
             )
         else:
             self.return_url = "https://example.com/payment_error_no_return_url_configured"
@@ -77,7 +77,7 @@ class YooKassaService:
 
         if not self.settings:
             logging.error(
-                "YooKassaService: Settings object not available. Cannot create payment with receipt details."
+                "YooKassaService: Settings object not available. Cannot create payment with receipt details."  # noqa: E501
             )
             return {
                 "error": True,
@@ -93,11 +93,11 @@ class YooKassaService:
             customer_contact_for_receipt["email"] = self.settings.YOOKASSA_DEFAULT_RECEIPT_EMAIL
         else:
             logging.error(
-                "CRITICAL: No email/phone for YooKassa receipt provided and YOOKASSA_DEFAULT_RECEIPT_EMAIL is not set."
+                "CRITICAL: No email/phone for YooKassa receipt provided and YOOKASSA_DEFAULT_RECEIPT_EMAIL is not set."  # noqa: E501
             )
             return {
                 "error": True,
-                "internal_message": "YooKassa receipt customer contact (email/phone) missing and no default email configured.",
+                "internal_message": "YooKassa receipt customer contact (email/phone) missing and no default email configured.",  # noqa: E501
             }
 
         try:
@@ -163,7 +163,7 @@ class YooKassaService:
             )
 
             logging.info(
-                f"YooKassa Payment.create response: ID={response.id}, Status={response.status}, Paid={response.paid}"
+                f"YooKassa Payment.create response: ID={response.id}, Status={response.status}, Paid={response.paid}"  # noqa: E501
             )
 
             return {
@@ -203,7 +203,7 @@ class YooKassaService:
 
             if payment_info_yk:
                 logging.info(
-                    f"YooKassa payment info for {payment_id_in_yookassa}: Status={payment_info_yk.status}, Paid={payment_info_yk.paid}"
+                    f"YooKassa payment info for {payment_id_in_yookassa}: Status={payment_info_yk.status}, Paid={payment_info_yk.paid}"  # noqa: E501
                 )
                 pm = getattr(payment_info_yk, "payment_method", None)
                 pm_payload: Dict[str, Any] = {}

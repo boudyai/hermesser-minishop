@@ -1,0 +1,48 @@
+# ruff: noqa: F401,F403,F405,I001
+from ._runtime import *  # noqa: F403,F405
+
+
+def setup_subscription_webapp_routes(app: web.Application) -> None:
+    app.router.add_get("/", index_route)
+    app.router.add_get("/home", index_route)
+    app.router.add_get("/invite", index_route)
+    app.router.add_get("/devices", index_route)
+    app.router.add_get("/settings", index_route)
+    app.router.add_get("/admin", index_route)
+    app.router.add_get("/admin/{section:[a-z][a-z0-9_-]*}", index_route)
+    app.router.add_get("/admin/users/{user_id:-?[0-9]+}", index_route)
+    app.router.add_get("/auth/telegram/start", telegram_oauth_start_route)
+    app.router.add_get("/auth/telegram/callback", telegram_oauth_callback_route)
+    app.router.add_get("/health", health_route)
+    app.router.add_get(WEBAPP_LOGO_PROXY_PATH, webapp_logo_route)
+    app.router.add_get(
+        r"/webapp-emoji/{codepoints:[0-9a-f_]+}/512.{ext:gif|webp}",
+        webapp_animated_emoji_route,
+    )
+    app.router.add_get("/subscription_webapp.css", css_asset_route)
+    app.router.add_get("/subscription_webapp.min.{asset_hash}.js", js_asset_route)
+    app.router.add_get("/subscription_webapp.js", js_asset_route)
+    app.router.add_post("/api/auth/telegram/nonce", telegram_oauth_nonce_route)
+    app.router.add_post("/api/auth/token", auth_token_route)
+    app.router.add_post("/api/auth/email/request", email_auth_request_route)
+    app.router.add_post("/api/auth/email/verify", email_auth_verify_route)
+    app.router.add_post("/api/auth/email/magic", email_auth_magic_route)
+    app.router.add_post("/api/auth/logout", logout_route)
+    app.router.add_get("/api/me", me_route)
+    app.router.add_get("/api/account/avatar", account_avatar_route)
+    app.router.add_post("/api/account/language", account_language_route)
+    app.router.add_post("/api/account/email/request", account_email_request_route)
+    app.router.add_post("/api/account/email/verify", account_email_verify_route)
+    app.router.add_post("/api/account/telegram/link", account_telegram_link_route)
+    app.router.add_post("/api/promo/apply", apply_promo_route)
+    app.router.add_post("/api/trial/activate", activate_trial_route)
+    app.router.add_get("/api/devices", devices_route)
+    app.router.add_post("/api/devices/disconnect", disconnect_device_route)
+    app.router.add_get("/api/devices/topup-options", device_topup_options_route)
+    app.router.add_get("/api/tariffs/topup-options", tariff_topup_options_route)
+    app.router.add_get("/api/tariffs/change-options", tariff_change_options_route)
+    app.router.add_post("/api/tariffs/change", tariff_change_route)
+    app.router.add_post("/api/tariffs/change-payment", tariff_change_payment_route)
+    app.router.add_post("/api/payments", create_payment_route)
+    app.router.add_get("/api/payments/{payment_id}", payment_status_route)
+    setup_admin_routes(app)

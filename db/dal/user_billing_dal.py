@@ -169,7 +169,7 @@ async def delete_user_payment_method_by_provider_id(
     """Delete a saved payment method by its provider payment_method.id for a specific user.
 
     Useful when callbacks pass the provider id (e.g., YooKassa pm_...) instead of our internal method_id.
-    """
+    """  # noqa: E501
     stmt = select(UserPaymentMethod).where(
         UserPaymentMethod.user_id == user_id,
         UserPaymentMethod.provider_payment_method_id == provider_payment_method_id,

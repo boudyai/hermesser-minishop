@@ -20,7 +20,7 @@ async def create_campaign(
     await session.flush()
     await session.refresh(campaign)
     logging.info(
-        f"AdCampaign created id={campaign.ad_campaign_id}, source={source}, start={start_param}, cost={cost}"
+        f"AdCampaign created id={campaign.ad_campaign_id}, source={source}, start={start_param}, cost={cost}"  # noqa: E501
     )
     return campaign
 

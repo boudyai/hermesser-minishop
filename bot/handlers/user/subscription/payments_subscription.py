@@ -64,7 +64,7 @@ async def select_subscription_period_callback_handler(
             )
             if currency_methods_enabled:
                 logging.error(
-                    "Currency price missing for traffic option %s while fiat providers are enabled.",
+                    "Currency price missing for traffic option %s while fiat providers are enabled.",  # noqa: E501
                     months,
                 )
                 try:
@@ -76,7 +76,7 @@ async def select_subscription_period_callback_handler(
             currency_symbol_val = "⭐"
         else:
             logging.error(
-                f"Price not found for option {months} using {'traffic_packages' if traffic_mode else 'subscription_options'}."
+                f"Price not found for option {months} using {'traffic_packages' if traffic_mode else 'subscription_options'}."  # noqa: E501
             )
             try:
                 await callback.answer(get_text("error_try_again"), show_alert=True)

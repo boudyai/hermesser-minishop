@@ -138,7 +138,7 @@ async def pay_severpay_callback_handler(
             except Exception as e_status:
                 await session.rollback()
                 logging.error(
-                    f"SeverPay: failed to store provider payment id for payment {payment_record.payment_id}: {e_status}",
+                    f"SeverPay: failed to store provider payment id for payment {payment_record.payment_id}: {e_status}",  # noqa: E501
                     exc_info=True,
                 )
 
@@ -207,7 +207,7 @@ async def pay_severpay_callback_handler(
     except Exception as e_status:
         await session.rollback()
         logging.error(
-            f"SeverPay: failed to mark payment {payment_record.payment_id} as failed_creation: {e_status}",
+            f"SeverPay: failed to mark payment {payment_record.payment_id} as failed_creation: {e_status}",  # noqa: E501
             exc_info=True,
         )
 

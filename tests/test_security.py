@@ -9,6 +9,7 @@ from urllib.parse import parse_qs, urlsplit
 from aiohttp import web
 
 from bot.app.web import admin_api, subscription_webapp
+from bot.app.web.admin_api_impl import settings as admin_settings_routes
 from bot.app.web.webapp_auth import (
     create_telegram_oauth_nonce,
     create_webapp_session_token,
@@ -405,7 +406,7 @@ class AdminSettingsSecurityTests(unittest.IsolatedAsyncioTestCase):
         request.get = lambda key, default=None: getattr(request, key, default)
 
         with (
-            patch.object(admin_api, "_require_admin_user_id", return_value=1),
+            patch.object(admin_settings_routes, "_require_admin_user_id", return_value=1),
             patch.object(
                 admin_api.app_settings_dal,
                 "get_overrides_with_meta",

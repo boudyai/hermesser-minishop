@@ -148,7 +148,7 @@ async def _display_formatted_logs(
         )
     except Exception as e:
         logging.warning(
-            f"Failed to edit message for logs display (len: {len(text)}): {e}. Sending new message(s)."
+            f"Failed to edit message for logs display (len: {len(text)}): {e}. Sending new message(s)."  # noqa: E501
         )
 
         max_chunk_size = 4000

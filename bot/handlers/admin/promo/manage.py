@@ -113,7 +113,7 @@ async def view_promo_codes_handler(
         else "\n".join(
             [_("admin_active_promos_list_header"), ""]
             + [
-                f"{get_promo_status_emoji_and_text(p, i18n, current_lang)[0]} <code>{p.code}</code> | 🎁 {p.bonus_days}д | 📊 {p.current_activations}/{p.max_activations} | ⏰ {p.valid_until.strftime('%d.%m.%Y') if p.valid_until else _('admin_promo_valid_indefinitely')}"
+                f"{get_promo_status_emoji_and_text(p, i18n, current_lang)[0]} <code>{p.code}</code> | 🎁 {p.bonus_days}д | 📊 {p.current_activations}/{p.max_activations} | ⏰ {p.valid_until.strftime('%d.%m.%Y') if p.valid_until else _('admin_promo_valid_indefinitely')}"  # noqa: E501
                 for p in promo_models
             ]
         )
@@ -204,7 +204,7 @@ async def promo_management_handler(
     # Формируем заголовок с информацией о страницах
     title = _("admin_promo_management_title")
     if total_pages > 1:
-        title += f"\n{_('admin_promo_list_page_info', current=page + 1, total=total_pages, count=total_count)}"
+        title += f"\n{_('admin_promo_list_page_info', current=page + 1, total=total_pages, count=total_count)}"  # noqa: E501
 
     await callback.message.edit_text(title, reply_markup=builder.as_markup(), parse_mode="HTML")
     await callback.answer()

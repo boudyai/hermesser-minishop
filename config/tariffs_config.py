@@ -112,7 +112,7 @@ class Tariff(BaseModel):
                 stars_price = self.prices_stars.get(str(months), 0) or 0
                 if rub_price <= 0 and stars_price <= 0:
                     raise ValueError(
-                        f"period tariff {self.key}: period {months} needs a non-zero rub or stars price"
+                        f"period tariff {self.key}: period {months} needs a non-zero rub or stars price"  # noqa: E501
                     )
             return self
 
@@ -122,7 +122,7 @@ class Tariff(BaseModel):
             raise ValueError(f"traffic tariff {self.key}: conversion_rate_rub_per_gb must be > 0")
         if not self.traffic_packages.rub and self.conversion_rate_rub_per_gb is None:
             raise ValueError(
-                f"traffic tariff {self.key}: conversion_rate_rub_per_gb is required without RUB packages"
+                f"traffic tariff {self.key}: conversion_rate_rub_per_gb is required without RUB packages"  # noqa: E501
             )
         return self
 

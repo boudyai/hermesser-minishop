@@ -329,7 +329,7 @@ async def tariff_topup_list_callback(
     carryover_lines = []
     if rub_packages or premium_packages:
         carryover_lines.append(
-            "Докупленный трафик не сгорает: сначала расходуется месячный лимит, затем докупленный остаток."
+            "Докупленный трафик не сгорает: сначала расходуется месячный лимит, затем докупленный остаток."  # noqa: E501
         )
     if int(active.get("premium_limit_bytes") or 0) > 0:
         premium_left = max(
@@ -345,7 +345,7 @@ async def tariff_topup_list_callback(
             if len(labels) > len(visible):
                 premium_lines.append(f"• ... еще {len(labels) - len(visible)}")
         premium_lines.append(
-            f"Premium использовано: {active.get('premium_used')} из {active.get('premium_limit')}. Осталось: {premium_left / 2**30:.2f} GB."
+            f"Premium использовано: {active.get('premium_used')} из {active.get('premium_limit')}. Осталось: {premium_left / 2**30:.2f} GB."  # noqa: E501
         )
     text = get_text("choose_payment_method_traffic")
     if carryover_lines:
@@ -647,7 +647,7 @@ async def tariff_change_confirm_apply_callback(
         ],
     ]
     await callback.message.edit_text(
-        f"Подтвердите смену тарифа\n\nНовый тариф: {target.name(current_lang)}\nИзменение: {action_text}",
+        f"Подтвердите смену тарифа\n\nНовый тариф: {target.name(current_lang)}\nИзменение: {action_text}",  # noqa: E501
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
     )
     await callback.answer()
@@ -680,7 +680,7 @@ async def tariff_change_confirm_pay_callback(
         ],
     ]
     await callback.message.edit_text(
-        f"Подтвердите смену тарифа\n\nНовый тариф: {target.name(current_lang)}\nБудет создана оплата на {amount_raw} RUB.",
+        f"Подтвердите смену тарифа\n\nНовый тариф: {target.name(current_lang)}\nБудет создана оплата на {amount_raw} RUB.",  # noqa: E501
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
     )
     await callback.answer()
@@ -905,7 +905,7 @@ async def my_subscription_command_handler(
             f"Докупленный остаток: <b>{premium_balance / 2**30:.2f} GB</b>\n"
             "Отдельный лимит действует на:\n"
             f"{label_block}\n\n"
-            "Premium-докупка не сгорает: сначала расходуется месячный лимит premium-серверов, затем докупленный premium-трафик."
+            "Premium-докупка не сгорает: сначала расходуется месячный лимит premium-серверов, затем докупленный premium-трафик."  # noqa: E501
         )
 
     base_markup = get_back_to_main_menu_markup(
@@ -1028,7 +1028,7 @@ async def my_subscription_command_handler(
                 [
                     InlineKeyboardButton(
                         text=toggle_text,
-                        callback_data=f"toggle_autorenew:{local_sub.subscription_id}:{1 if not local_sub.auto_renew_enabled else 0}",
+                        callback_data=f"toggle_autorenew:{local_sub.subscription_id}:{1 if not local_sub.auto_renew_enabled else 0}",  # noqa: E501
                     )
                 ]
             )

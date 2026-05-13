@@ -106,7 +106,7 @@ class PanelWebhookService:
                                     ok = await subscription_service.charge_subscription_renewal(
                                         session, sub
                                     )
-                                    # If initiation succeeded, suppress the 24h reminder by returning early
+                                    # If initiation succeeded, suppress the 24h reminder by returning early  # noqa: E501
                                     if ok:
                                         await session.commit()
                                         return

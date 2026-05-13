@@ -43,7 +43,7 @@ class ProfileSyncMiddleware(BaseMiddleware):
                     if update_payload:
                         await user_dal.update_user(session, db_user.user_id, update_payload)
                         logging.info(
-                            f"ProfileSyncMiddleware: Updated user {tg_user.id} profile fields: {list(update_payload.keys())}"
+                            f"ProfileSyncMiddleware: Updated user {tg_user.id} profile fields: {list(update_payload.keys())}"  # noqa: E501
                         )
 
                         # Also update description on panel if linked
@@ -72,11 +72,11 @@ class ProfileSyncMiddleware(BaseMiddleware):
                                 )
                         except Exception as e_upd_desc:
                             logging.warning(
-                                f"ProfileSyncMiddleware: Failed to update panel description for user {tg_user.id}: {e_upd_desc}"
+                                f"ProfileSyncMiddleware: Failed to update panel description for user {tg_user.id}: {e_upd_desc}"  # noqa: E501
                             )
             except Exception as e:
                 logging.error(
-                    f"ProfileSyncMiddleware: Failed to sync profile for user {getattr(tg_user, 'id', 'N/A')}: {e}",
+                    f"ProfileSyncMiddleware: Failed to sync profile for user {getattr(tg_user, 'id', 'N/A')}: {e}",  # noqa: E501
                     exc_info=True,
                 )
 

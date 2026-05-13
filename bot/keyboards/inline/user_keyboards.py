@@ -427,7 +427,7 @@ def get_yk_autopay_choice_keyboard(
     has_saved_cards: bool = True,
     sale_mode: str = "subscription",
 ) -> InlineKeyboardMarkup:
-    """Keyboard for choosing between saved card charge or new card payment when auto-renew is enabled."""
+    """Keyboard for choosing between saved card charge or new card payment when auto-renew is enabled."""  # noqa: E501
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
     price_str = str(price)

@@ -140,7 +140,7 @@ def _layout(
 </table>
 </body>
 </html>
-"""
+"""  # noqa: E501
 
 
 def _info_rows_html(rows: Sequence[Tuple[str, str]]) -> str:
@@ -152,13 +152,13 @@ def _info_rows_html(rows: Sequence[Tuple[str, str]]) -> str:
         border = "" if index == last else f"border-bottom:1px solid {_BORDER};"
         cells.append(
             f"<tr>"
-            f'<td style="padding:11px 0;{border}font-size:12px;color:{_TEXT_DIM};text-transform:uppercase;letter-spacing:0.04em;">{html.escape(label)}</td>'
-            f"<td align=\"right\" style=\"padding:11px 0;{border}font-family:'JetBrains Mono','SFMono-Regular',Menlo,Consolas,monospace;font-size:14px;font-weight:600;color:{_TEXT};\">{html.escape(value)}</td>"
+            f'<td style="padding:11px 0;{border}font-size:12px;color:{_TEXT_DIM};text-transform:uppercase;letter-spacing:0.04em;">{html.escape(label)}</td>'  # noqa: E501
+            f"<td align=\"right\" style=\"padding:11px 0;{border}font-family:'JetBrains Mono','SFMono-Regular',Menlo,Consolas,monospace;font-size:14px;font-weight:600;color:{_TEXT};\">{html.escape(value)}</td>"  # noqa: E501
             f"</tr>"
         )
     return (
         f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
-        f'style="margin:0 0 16px 0;background:{_BG};border:1px solid {_BORDER};border-radius:14px;padding:6px 16px;">'
+        f'style="margin:0 0 16px 0;background:{_BG};border:1px solid {_BORDER};border-radius:14px;padding:6px 16px;">'  # noqa: E501
         + "".join(cells)
         + "</table>"
     )
@@ -167,14 +167,14 @@ def _info_rows_html(rows: Sequence[Tuple[str, str]]) -> str:
 def _cta_button_html(*, label: str, url: str, accent: str) -> str:
     safe_label = html.escape(label)
     safe_url = html.escape(url, quote=True)
-    # Accent green is light, so contrast text is dark; works for the default and similar light accents.
+    # Accent green is light, so contrast text is dark; works for the default and similar light accents.  # noqa: E501
     return (
         f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
         f'style="width:100%;margin:22px 0 18px 0;">'
-        f'<tr><td align="center" bgcolor="{accent}" style="background:{accent};border-radius:12px;">'
+        f'<tr><td align="center" bgcolor="{accent}" style="background:{accent};border-radius:12px;">'  # noqa: E501
         f'<a href="{safe_url}" target="_blank" rel="noopener" '
         f'style="display:block;width:100%;box-sizing:border-box;padding:15px 22px;'
-        f"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;"
+        f"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;"  # noqa: E501
         f'font-size:15px;font-weight:700;color:#05070a;text-decoration:none;letter-spacing:0.02em;text-align:center;">{safe_label}</a>'
         f"</td></tr></table>"
     )
@@ -228,9 +228,9 @@ def render_login_code(
         text_lines.append(_t_text(i18n, lang, "email_login_code_text_magic", url=safe_magic_link))
 
     code_block = (
-        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px 0;">'
-        f'<tr><td align="center" style="background:{_BG};border:1px solid {_BORDER};border-radius:14px;padding:22px 16px;">'
-        f"<div style=\"font-family:'JetBrains Mono','SFMono-Regular',Menlo,Consolas,monospace;font-size:36px;line-height:1;font-weight:700;letter-spacing:10px;color:{accent};\">"
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px 0;">'  # noqa: E501
+        f'<tr><td align="center" style="background:{_BG};border:1px solid {_BORDER};border-radius:14px;padding:22px 16px;">'  # noqa: E501
+        f"<div style=\"font-family:'JetBrains Mono','SFMono-Regular',Menlo,Consolas,monospace;font-size:36px;line-height:1;font-weight:700;letter-spacing:10px;color:{accent};\">"  # noqa: E501
         f"{html.escape(code)}"
         f"</div></td></tr></table>"
     )
@@ -242,24 +242,24 @@ def render_login_code(
         magic_intro = _t_text(i18n, lang, "email_login_code_magic_intro")
         magic_hint = _t_text(i18n, lang, "email_login_code_magic_hint")
         divider_html = (
-            f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 14px 0;">'
+            f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 14px 0;">'  # noqa: E501
             f"<tr>"
-            f'<td width="40%" style="border-bottom:1px solid {_BORDER};font-size:0;line-height:0;">&nbsp;</td>'
-            f'<td align="center" style="padding:0 10px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:{_TEXT_DIM};white-space:nowrap;">{html.escape(divider_label)}</td>'
-            f'<td width="40%" style="border-bottom:1px solid {_BORDER};font-size:0;line-height:0;">&nbsp;</td>'
+            f'<td width="40%" style="border-bottom:1px solid {_BORDER};font-size:0;line-height:0;">&nbsp;</td>'  # noqa: E501
+            f'<td align="center" style="padding:0 10px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:{_TEXT_DIM};white-space:nowrap;">{html.escape(divider_label)}</td>'  # noqa: E501
+            f'<td width="40%" style="border-bottom:1px solid {_BORDER};font-size:0;line-height:0;">&nbsp;</td>'  # noqa: E501
             f"</tr></table>"
         )
         magic_block = (
             divider_html
-            + f'<p style="margin:0 0 4px 0;font-size:13px;line-height:1.55;color:{_TEXT_MUTED};text-align:center;">{html.escape(magic_intro)}</p>'
+            + f'<p style="margin:0 0 4px 0;font-size:13px;line-height:1.55;color:{_TEXT_MUTED};text-align:center;">{html.escape(magic_intro)}</p>'  # noqa: E501
             + _cta_button_html(label=cta_label, url=safe_magic_link, accent=accent)
-            + f'<p style="margin:0 0 6px 0;font-size:12px;line-height:1.55;color:{_TEXT_DIM};text-align:center;">{html.escape(magic_hint)}</p>'
+            + f'<p style="margin:0 0 6px 0;font-size:12px;line-height:1.55;color:{_TEXT_DIM};text-align:center;">{html.escape(magic_hint)}</p>'  # noqa: E501
         )
 
     body_html = (
         code_block
-        + f'<p style="margin:0 0 8px 0;font-size:13px;line-height:1.55;color:{_TEXT_MUTED};">{expiry_html}</p>'
-        + f'<p style="margin:0 0 4px 0;font-size:12px;line-height:1.55;color:{_TEXT_DIM};">{html.escape(security)}</p>'
+        + f'<p style="margin:0 0 8px 0;font-size:13px;line-height:1.55;color:{_TEXT_MUTED};">{expiry_html}</p>'  # noqa: E501
+        + f'<p style="margin:0 0 4px 0;font-size:12px;line-height:1.55;color:{_TEXT_DIM};">{html.escape(security)}</p>'  # noqa: E501
         + magic_block
     )
 
@@ -312,7 +312,7 @@ def render_account_merged(
     ]
     body_html = (
         _info_rows_html(rows)
-        + f'<p style="margin:0;font-size:12px;line-height:1.55;color:{_TEXT_DIM};">{html.escape(note)}</p>'
+        + f'<p style="margin:0;font-size:12px;line-height:1.55;color:{_TEXT_DIM};">{html.escape(note)}</p>'  # noqa: E501
     )
 
     rendered = _layout(
@@ -413,7 +413,7 @@ def render_payment_success(
     if safe_dashboard_url:
         body_parts.append(_cta_button_html(label=cta_label, url=safe_dashboard_url, accent=accent))
     body_parts.append(
-        f'<p style="margin:6px 0 0 0;font-size:12px;line-height:1.55;color:{_TEXT_DIM};">{html.escape(footer_note)}</p>'
+        f'<p style="margin:6px 0 0 0;font-size:12px;line-height:1.55;color:{_TEXT_DIM};">{html.escape(footer_note)}</p>'  # noqa: E501
     )
 
     rendered = _layout(
@@ -476,7 +476,7 @@ def render_subscription_expiring(
     if safe_dashboard_url:
         body_parts.append(_cta_button_html(label=cta_label, url=safe_dashboard_url, accent=accent))
     body_parts.append(
-        f'<p style="margin:6px 0 0 0;font-size:12px;line-height:1.55;color:{_TEXT_DIM};">{html.escape(note)}</p>'
+        f'<p style="margin:6px 0 0 0;font-size:12px;line-height:1.55;color:{_TEXT_DIM};">{html.escape(note)}</p>'  # noqa: E501
     )
 
     rendered = _layout(

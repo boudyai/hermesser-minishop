@@ -115,7 +115,7 @@ async def _initiate_yk_payment(
         db_payment_record = await payment_dal.create_payment_record(session, payment_record_data)
         await session.commit()
         logging.info(
-            f"Payment record {db_payment_record.payment_id} created for user {user_id} with status 'pending_yookassa'."
+            f"Payment record {db_payment_record.payment_id} created for user {user_id} with status 'pending_yookassa'."  # noqa: E501
         )
     except Exception as e_db_payment:
         await session.rollback()
@@ -227,7 +227,7 @@ async def _initiate_yk_payment(
         except Exception as e_db_update_ykid:
             await session.rollback()
             logging.error(
-                f"Failed to update payment record {db_payment_record.payment_id} with YK ID: {e_db_update_ykid}",
+                f"Failed to update payment record {db_payment_record.payment_id} with YK ID: {e_db_update_ykid}",  # noqa: E501
                 exc_info=True,
             )
             try:
@@ -300,7 +300,7 @@ async def _initiate_yk_payment(
         except Exception as e_db_update_saved:
             await session.rollback()
             logging.error(
-                f"Failed to update saved-card payment record {db_payment_record.payment_id}: {e_db_update_saved}",
+                f"Failed to update saved-card payment record {db_payment_record.payment_id}: {e_db_update_saved}",  # noqa: E501
                 exc_info=True,
             )
             try:
@@ -334,11 +334,11 @@ async def _initiate_yk_payment(
     except Exception as e_db_fail_create:
         await session.rollback()
         logging.error(
-            f"Additionally failed to update payment record to 'failed_creation': {e_db_fail_create}",
+            f"Additionally failed to update payment record to 'failed_creation': {e_db_fail_create}",  # noqa: E501
             exc_info=True,
         )
     logging.error(
-        f"Failed to create payment in YooKassa for user {user_id}, payment_db_id {db_payment_record.payment_id}. Response: {payment_response_yk}"
+        f"Failed to create payment in YooKassa for user {user_id}, payment_db_id {db_payment_record.payment_id}. Response: {payment_response_yk}"  # noqa: E501
     )
     try:
         await callback.message.edit_text(get_text("error_payment_gateway"))

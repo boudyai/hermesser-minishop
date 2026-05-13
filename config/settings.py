@@ -138,11 +138,11 @@ class Settings(BaseSettings):
     # Deprecated: explicit receipt fields are now derived from YOOKASSA_AUTOPAYMENTS_ENABLED
     YOOKASSA_PAYMENT_MODE: str = Field(default="full_prepayment")
     YOOKASSA_PAYMENT_SUBJECT: str = Field(default="service")
-    # Single toggle to enable recurring payments (saving cards, managing payment methods, auto-renew)
+    # Single toggle to enable recurring payments (saving cards, managing payment methods, auto-renew)  # noqa: E501
     YOOKASSA_AUTOPAYMENTS_ENABLED: bool = Field(default=False)
     YOOKASSA_AUTOPAYMENTS_REQUIRE_CARD_BINDING: bool = Field(
         default=True,
-        description="When true, new YooKassa payments in autopay mode force card binding without a user checkbox.",
+        description="When true, new YooKassa payments in autopay mode force card binding without a user checkbox.",  # noqa: E501
     )
 
     LKNPD_INN: Optional[str] = Field(
@@ -163,18 +163,18 @@ class Settings(BaseSettings):
     LKNPD_RECEIPT_NAME_SUBSCRIPTION: str = Field(
         default="subscription {months} months",
         alias="NALOGO_RECEIPT_NAME_SUBSCRIPTION",
-        description="Receipt item name for time-based subscriptions. Use {months} placeholder for duration.",
+        description="Receipt item name for time-based subscriptions. Use {months} placeholder for duration.",  # noqa: E501
     )
     LKNPD_RECEIPT_NAME_TRAFFIC: str = Field(
         default="traffic package {gb} GB",
         alias="NALOGO_RECEIPT_NAME_TRAFFIC",
-        description="Receipt item name for traffic packages. Use {gb} placeholder for traffic amount.",
+        description="Receipt item name for traffic packages. Use {gb} placeholder for traffic amount.",  # noqa: E501
     )
 
     WEBHOOK_BASE_URL: Optional[str] = None
     TRUSTED_PROXIES: Optional[str] = Field(
         default="127.0.0.1,::1",
-        description="Comma-separated list of reverse proxy IPs or CIDRs trusted to forward X-Forwarded-For.",
+        description="Comma-separated list of reverse proxy IPs or CIDRs trusted to forward X-Forwarded-For.",  # noqa: E501
     )
 
     CRYPTOPAY_TOKEN: Optional[str] = None
@@ -188,7 +188,7 @@ class Settings(BaseSettings):
     PLATEGA_SECRET: Optional[str] = None
     PLATEGA_PAYMENT_METHOD: int = Field(
         default=2,
-        description="Legacy Platega payment method ID. Used as fallback for PLATEGA_SBP_METHOD when the new field is unset.",
+        description="Legacy Platega payment method ID. Used as fallback for PLATEGA_SBP_METHOD when the new field is unset.",  # noqa: E501
     )
     PLATEGA_SBP_ENABLED: bool = Field(
         default=False,
@@ -236,7 +236,7 @@ class Settings(BaseSettings):
     STARS_ENABLED: bool = Field(default=True)
     PAYMENT_METHODS_ORDER: Optional[str] = Field(
         default=None,
-        description="Comma-separated list of payment methods to show (e.g., severpay,freekassa,yookassa,platega,stars,cryptopay)",
+        description="Comma-separated list of payment methods to show (e.g., severpay,freekassa,yookassa,platega,stars,cryptopay)",  # noqa: E501
     )
 
     MONTH_1_ENABLED: bool = Field(default=True, alias="1_MONTH_ENABLED")
@@ -257,16 +257,16 @@ class Settings(BaseSettings):
 
     TRAFFIC_PACKAGES: Optional[str] = Field(
         default=None,
-        description="Comma-separated list of traffic packages in the format '<GB>:<price>', e.g. '10:199,50:799'",
+        description="Comma-separated list of traffic packages in the format '<GB>:<price>', e.g. '10:199,50:799'",  # noqa: E501
     )
     STARS_TRAFFIC_PACKAGES: Optional[str] = Field(
         default=None,
-        description="Comma-separated list of traffic packages priced in Stars, e.g. '5:500,20:1500'",
+        description="Comma-separated list of traffic packages priced in Stars, e.g. '5:500,20:1500'",  # noqa: E501
     )
     TARIFFS_CONFIG_PATH: str = Field(default="data/tariffs.json")
     TARIFF_TRAFFIC_WARNING_LEVELS: str = Field(
         default="85,90,95",
-        description="Comma-separated traffic usage warning levels for tariff traffic limits, e.g. '85,90,95'",
+        description="Comma-separated traffic usage warning levels for tariff traffic limits, e.g. '85,90,95'",  # noqa: E501
     )
 
     SUBSCRIPTION_NOTIFICATIONS_ENABLED: bool = Field(default=True)
@@ -303,15 +303,15 @@ class Settings(BaseSettings):
     # Referral program configuration
     REFERRAL_ONE_BONUS_PER_REFEREE: bool = Field(
         default=True,
-        description="When true, referral bonuses (for inviter and referee) are applied only once per invited user - on their first successful payment.",
+        description="When true, referral bonuses (for inviter and referee) are applied only once per invited user - on their first successful payment.",  # noqa: E501
     )
     REFERRAL_WELCOME_BONUS_DAYS: int = Field(
         default=3,
-        description="Welcome bonus days granted to a newly registered user who joined via referral link.",
+        description="Welcome bonus days granted to a newly registered user who joined via referral link.",  # noqa: E501
     )
     LEGACY_REFS: bool = Field(
         default=True,
-        description="Allow legacy referral links like ref_<telegram_id> to continue working. Defaults to True when unset.",
+        description="Allow legacy referral links like ref_<telegram_id> to continue working. Defaults to True when unset.",  # noqa: E501
     )
 
     PANEL_API_URL: Optional[str] = None
@@ -367,15 +367,15 @@ class Settings(BaseSettings):
     WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int = Field(default=10 * 60)
     TELEGRAM_OAUTH_CLIENT_ID: Optional[int] = Field(
         default=None,
-        description="Telegram Web Login Client ID from BotFather. Defaults to the numeric bot ID from BOT_TOKEN.",
+        description="Telegram Web Login Client ID from BotFather. Defaults to the numeric bot ID from BOT_TOKEN.",  # noqa: E501
     )
     TELEGRAM_OAUTH_CLIENT_SECRET: Optional[str] = Field(
         default=None,
-        description="Telegram Web Login Client Secret from BotFather. Reserved for full OIDC authorization code integrations.",
+        description="Telegram Web Login Client Secret from BotFather. Reserved for full OIDC authorization code integrations.",  # noqa: E501
     )
     TELEGRAM_OAUTH_REQUEST_ACCESS: Optional[str] = Field(
         default="write",
-        description="Comma-separated Telegram Login permissions to request: write,phone. Leave empty to request only OpenID profile.",
+        description="Comma-separated Telegram Login permissions to request: write,phone. Leave empty to request only OpenID profile.",  # noqa: E501
     )
 
     SMTP_HOST: str = Field(default="smtp-relay.brevo.com")
@@ -393,7 +393,7 @@ class Settings(BaseSettings):
     EMAIL_CODE_MAX_ATTEMPTS: int = Field(default=5)
     BRUTE_FORCE_MAX_FAILURES: int = Field(
         default=5,
-        description="Maximum failed code attempts allowed within the throttle window before a temporary lockout is applied.",
+        description="Maximum failed code attempts allowed within the throttle window before a temporary lockout is applied.",  # noqa: E501
     )
     BRUTE_FORCE_WINDOW_SECONDS: int = Field(
         default=15 * 60,
@@ -553,7 +553,7 @@ class Settings(BaseSettings):
                 ]
             except ValueError:
                 logging.error(
-                    f"Invalid ADMIN_IDS_STR format: '{self.ADMIN_IDS_STR}'. Expected comma-separated integers."
+                    f"Invalid ADMIN_IDS_STR format: '{self.ADMIN_IDS_STR}'. Expected comma-separated integers."  # noqa: E501
                 )
                 return []
         return []
@@ -879,7 +879,7 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def platega_sbp_method_resolved(self) -> int:
-        """SBP method ID, falling back to legacy PLATEGA_PAYMENT_METHOD when SBP-specific value is the default."""
+        """SBP method ID, falling back to legacy PLATEGA_PAYMENT_METHOD when SBP-specific value is the default."""  # noqa: E501
         if self.PLATEGA_SBP_METHOD != 2:
             return self.PLATEGA_SBP_METHOD
         return self.PLATEGA_PAYMENT_METHOD or 2
@@ -1040,18 +1040,18 @@ def get_settings() -> Settings:
                 )
             if not os.getenv("WEBAPP_SESSION_SECRET"):
                 logging.warning(
-                    "WEBAPP_SESSION_SECRET is not set. A generated secret will be used for this process only."
+                    "WEBAPP_SESSION_SECRET is not set. A generated secret will be used for this process only."  # noqa: E501
                 )
             if not os.getenv("WEBHOOK_SECRET_TOKEN"):
                 logging.warning(
-                    "WEBHOOK_SECRET_TOKEN is not set. A generated secret will be used for this process only."
+                    "WEBHOOK_SECRET_TOKEN is not set. A generated secret will be used for this process only."  # noqa: E501
                 )
             if (
                 not _settings_instance.YOOKASSA_SHOP_ID
                 or not _settings_instance.YOOKASSA_SECRET_KEY
             ):
                 logging.warning(
-                    "CRITICAL: YooKassa credentials (SHOP_ID or SECRET_KEY) are not set. Payments will not work."
+                    "CRITICAL: YooKassa credentials (SHOP_ID or SECRET_KEY) are not set. Payments will not work."  # noqa: E501
                 )
             if (_settings_instance.LKNPD_INN or _settings_instance.LKNPD_PASSWORD) and not (
                 _settings_instance.LKNPD_INN and _settings_instance.LKNPD_PASSWORD
@@ -1065,15 +1065,15 @@ def get_settings() -> Settings:
                     or not _settings_instance.FREEKASSA_API_KEY
                 ):
                     logging.warning(
-                        "CRITICAL: FreeKassa is enabled but SHOP_ID or API key is missing. FreeKassa payments will not work."
+                        "CRITICAL: FreeKassa is enabled but SHOP_ID or API key is missing. FreeKassa payments will not work."  # noqa: E501
                     )
                 if not _settings_instance.FREEKASSA_SECOND_SECRET:
                     logging.warning(
-                        "WARNING: FreeKassa second secret is not set. Incoming payment notifications cannot be verified."
+                        "WARNING: FreeKassa second secret is not set. Incoming payment notifications cannot be verified."  # noqa: E501
                     )
                 if not _settings_instance.subscription_options:
                     logging.warning(
-                        "CRITICAL: FreeKassa is enabled but no subscription prices are configured (RUB_PRICE_*). Users will not see payment buttons."
+                        "CRITICAL: FreeKassa is enabled but no subscription prices are configured (RUB_PRICE_*). Users will not see payment buttons."  # noqa: E501
                     )
 
             if _settings_instance.PLATEGA_ENABLED:
@@ -1082,12 +1082,12 @@ def get_settings() -> Settings:
                     or not _settings_instance.PLATEGA_SECRET
                 ):
                     logging.warning(
-                        "CRITICAL: Platega is enabled but merchant credentials (PLATEGA_MERCHANT_ID/PLATEGA_SECRET) are missing. Platega payments will not work."
+                        "CRITICAL: Platega is enabled but merchant credentials (PLATEGA_MERCHANT_ID/PLATEGA_SECRET) are missing. Platega payments will not work."  # noqa: E501
                     )
             if _settings_instance.SEVERPAY_ENABLED:
                 if not _settings_instance.SEVERPAY_MID or not _settings_instance.SEVERPAY_TOKEN:
                     logging.warning(
-                        "CRITICAL: SeverPay is enabled but MID or TOKEN is missing. SeverPay payments will not work."
+                        "CRITICAL: SeverPay is enabled but MID or TOKEN is missing. SeverPay payments will not work."  # noqa: E501
                     )
 
         except ValidationError as e:

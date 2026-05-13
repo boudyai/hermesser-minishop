@@ -562,7 +562,7 @@ class EmailAuthService:
                 log_level = logging.WARNING if attempt_number < len(attempts) else logging.ERROR
                 logger.log(
                     log_level,
-                    "SMTP send attempt %s/%s failed for custom email via %s:%s (ssl=%s, starttls=%s): %s",
+                    "SMTP send attempt %s/%s failed for custom email via %s:%s (ssl=%s, starttls=%s): %s",  # noqa: E501
                     attempt_number,
                     len(attempts),
                     smtp_host,

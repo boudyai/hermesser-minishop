@@ -106,15 +106,15 @@ class PanelApiService:
                             parsed_json_for_log, indent=2, ensure_ascii=False
                         )
                         logging.info(
-                            f"{log_prefix} {log_suffix} | Full Response Body:\n{pretty_response_text}"
+                            f"{log_prefix} {log_suffix} | Full Response Body:\n{pretty_response_text}"  # noqa: E501
                         )
                     except json.JSONDecodeError:
                         logging.info(
-                            f"{log_prefix} {log_suffix} | Full Response Text (not JSON):\n{response_text[:2000]}{'...' if len(response_text) > 2000 else ''}"
+                            f"{log_prefix} {log_suffix} | Full Response Text (not JSON):\n{response_text[:2000]}{'...' if len(response_text) > 2000 else ''}"  # noqa: E501
                         )
                 else:
                     logging.debug(
-                        f"{log_prefix} {log_suffix} | OK. Response Body Preview: {response_text[:200]}{'...' if len(response_text) > 200 else ''}"
+                        f"{log_prefix} {log_suffix} | OK. Response Body Preview: {response_text[:200]}{'...' if len(response_text) > 200 else ''}"  # noqa: E501
                     )
 
                 if 200 <= response_status < 300:
@@ -130,7 +130,7 @@ class PanelApiService:
                             }
                     except json.JSONDecodeError as e_json_ok:
                         logging.error(
-                            f"{log_prefix} {log_suffix} | OK but JSON Parse Error. Error: {e_json_ok}. Body was logged above."
+                            f"{log_prefix} {log_suffix} | OK but JSON Parse Error. Error: {e_json_ok}. Body was logged above."  # noqa: E501
                         )
                         return {
                             "status": "success_parse_error",
@@ -179,7 +179,7 @@ class PanelApiService:
 
             if not response_data or response_data.get("error"):
                 logging.error(
-                    f"Failed to fetch panel users batch (start: {start_offset}). Response: {response_data}"
+                    f"Failed to fetch panel users batch (start: {start_offset}). Response: {response_data}"  # noqa: E501
                 )
                 return None
             users_batch = response_data.get("response", {}).get("users", [])
@@ -289,7 +289,7 @@ class PanelApiService:
             return []
 
         logging.error(
-            f"Failed to fetch panel users with filter ({filter_used_log}). Last API response: {response_data if not log_response else '(logged above)'}"
+            f"Failed to fetch panel users with filter ({filter_used_log}). Last API response: {response_data if not log_response else '(logged above)'}"  # noqa: E501
         )
         return None
 
@@ -345,7 +345,7 @@ class PanelApiService:
                     payload["hwidDeviceLimit"] = hwid_limit_int
             except (TypeError, ValueError):
                 logging.warning(
-                    f"Ignoring invalid HWID device limit '{hwid_limit_value}' while creating panel user '{username_on_panel}'."
+                    f"Ignoring invalid HWID device limit '{hwid_limit_value}' while creating panel user '{username_on_panel}'."  # noqa: E501
                 )
         if specific_squad_uuids:
             payload["activeInternalSquads"] = specific_squad_uuids
@@ -365,17 +365,17 @@ class PanelApiService:
         )
         if response and not response.get("error") and "response" in response:
             logging.info(
-                f"Panel user '{username_on_panel}' created successfully (UUID: {response.get('response', {}).get('uuid')})."
+                f"Panel user '{username_on_panel}' created successfully (UUID: {response.get('response', {}).get('uuid')})."  # noqa: E501
             )
             return response
 
         logging.error(
-            f"Failed to create panel user '{username_on_panel}'. Payload: {payload}, Response: {response if not log_response else '(full response logged above)'}"
+            f"Failed to create panel user '{username_on_panel}'. Payload: {payload}, Response: {response if not log_response else '(full response logged above)'}"  # noqa: E501
         )
         return response
 
     async def update_user_details_on_panel(
-        self, user_uuid: str, update_payload: Dict[str, Any], log_response: bool = True
+        self, user_uuid: str, update_payload: Dict[str, Any], log_response: bool = False
     ) -> Optional[Dict[str, Any]]:
         if "uuid" not in update_payload:
             update_payload["uuid"] = user_uuid
@@ -384,11 +384,11 @@ class PanelApiService:
             "PATCH", "/users", json=update_payload, log_full_response=log_response
         )
         if full_response and not full_response.get("error") and "response" in full_response:
-            logging.info(f"User {user_uuid} details updated on panel.")
+            logging.debug("User %s details updated on panel.", user_uuid)
             return full_response.get("response")
 
         logging.error(
-            f"Failed to update user {user_uuid} details on panel. Payload: {update_payload}, Response: {full_response if not log_response else '(logged above)'}"
+            f"Failed to update user {user_uuid} details on panel. Payload: {update_payload}, Response: {full_response if not log_response else '(logged above)'}"  # noqa: E501
         )
         return None
 
@@ -404,17 +404,17 @@ class PanelApiService:
             expected_status = "ACTIVE" if enable else "DISABLED"
             if actual_status == expected_status:
                 logging.info(
-                    f"User {user_uuid} status on panel successfully set to {action} (Actual: {actual_status})."
+                    f"User {user_uuid} status on panel successfully set to {action} (Actual: {actual_status})."  # noqa: E501
                 )
                 return True
             else:
                 logging.warning(
-                    f"User {user_uuid} status on panel action '{action}' called, but final status is '{actual_status}'."
+                    f"User {user_uuid} status on panel action '{action}' called, but final status is '{actual_status}'."  # noqa: E501
                 )
                 return False
 
         logging.error(
-            f"Failed to {action} user {user_uuid} on panel. Response: {response_data if not log_response else '(logged above)'}"
+            f"Failed to {action} user {user_uuid} on panel. Response: {response_data if not log_response else '(logged above)'}"  # noqa: E501
         )
         return False
 
@@ -434,7 +434,7 @@ class PanelApiService:
             error_code = details.get("errorCode") or response_data.get("errorCode")
             if error_code in {"A062", "A040"}:
                 logging.info(
-                    f"Panel user {user_uuid} already absent (errorCode {error_code}). Treating as deleted."
+                    f"Panel user {user_uuid} already absent (errorCode {error_code}). Treating as deleted."  # noqa: E501
                 )
                 return True
             logging.error(f"Failed to delete user {user_uuid} on panel. Response: {response_data}")
@@ -469,7 +469,7 @@ class PanelApiService:
         if response_data and not response_data.get("error") and "response" in response_data:
             return True
         logging.error(
-            f"Failed to disconnect device {hwid} for user {user_uuid}. Payload: {payload}, Response: {response_data}"
+            f"Failed to disconnect device {hwid} for user {user_uuid}. Payload: {payload}, Response: {response_data}"  # noqa: E501
         )
         return False
 

@@ -61,7 +61,7 @@ class PlategaService:
             )
         else:
             logging.info(
-                "PlategaService configured. SBP button: %s (method=%s), Crypto button: %s (method=%s)",
+                "PlategaService configured. SBP button: %s (method=%s), Crypto button: %s (method=%s)",  # noqa: E501
                 "ON" if settings.PLATEGA_SBP_ENABLED else "OFF",
                 self.sbp_method,
                 "ON" if settings.PLATEGA_CRYPTO_ENABLED else "OFF",
@@ -205,7 +205,7 @@ class PlategaService:
                         )
                         if incoming_amount != expected_amount:
                             logging.warning(
-                                "Platega webhook: amount mismatch for payment %s (expected %s, got %s)",
+                                "Platega webhook: amount mismatch for payment %s (expected %s, got %s)",  # noqa: E501
                                 payment.payment_id,
                                 expected_amount,
                                 incoming_amount,

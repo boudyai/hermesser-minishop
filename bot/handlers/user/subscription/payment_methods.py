@@ -310,7 +310,7 @@ async def payment_method_view(
                 last_tx = lp.created_at.strftime("%Y-%m-%d")
         except Exception:
             pass
-        details = f"{title}\n{_('payment_method_added_at', date=added_at)}\n{_('payment_method_last_tx', date=last_tx)}"
+        details = f"{title}\n{_('payment_method_added_at', date=added_at)}\n{_('payment_method_last_tx', date=last_tx)}"  # noqa: E501
         await callback.message.edit_text(
             details,
             reply_markup=get_payment_method_details_keyboard(
@@ -366,7 +366,7 @@ async def payment_method_view(
         return _("payment_method_generic_title", network=network_name)
 
     title = _format_pm_title(billing.card_network, billing.card_last4)
-    details = f"{title}\n{_('payment_method_added_at', date=added_at)}\n{_('payment_method_last_tx', date=last_tx)}"
+    details = f"{title}\n{_('payment_method_added_at', date=added_at)}\n{_('payment_method_last_tx', date=last_tx)}"  # noqa: E501
     await callback.message.edit_text(
         details,
         reply_markup=get_payment_method_details_keyboard(

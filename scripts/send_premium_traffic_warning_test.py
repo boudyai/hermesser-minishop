@@ -6,7 +6,7 @@ Target chat (first match):
   3) First entry in ``ADMIN_IDS`` from app settings
 
 No default Telegram ID is embedded in this script.
-"""
+"""  # noqa: E501
 
 import asyncio
 import os

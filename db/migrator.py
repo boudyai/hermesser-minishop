@@ -244,7 +244,7 @@ def _migration_0008_add_email_verification_code_status(connection: Connection) -
     if "status" not in columns:
         connection.execute(
             text(
-                "ALTER TABLE email_verification_codes ADD COLUMN status VARCHAR NOT NULL DEFAULT 'active'"
+                "ALTER TABLE email_verification_codes ADD COLUMN status VARCHAR NOT NULL DEFAULT 'active'"  # noqa: E501
             )
         )
     else:
@@ -331,11 +331,11 @@ def _migration_0012_add_tariffs_schema(connection: Connection) -> None:
         )
     if "premium_topup_balance_bytes" not in sub_columns:
         sub_statements.append(
-            "ALTER TABLE subscriptions ADD COLUMN premium_topup_balance_bytes BIGINT NOT NULL DEFAULT 0"
+            "ALTER TABLE subscriptions ADD COLUMN premium_topup_balance_bytes BIGINT NOT NULL DEFAULT 0"  # noqa: E501
         )
     if "premium_topup_used_bytes" not in sub_columns:
         sub_statements.append(
-            "ALTER TABLE subscriptions ADD COLUMN premium_topup_used_bytes BIGINT NOT NULL DEFAULT 0"
+            "ALTER TABLE subscriptions ADD COLUMN premium_topup_used_bytes BIGINT NOT NULL DEFAULT 0"  # noqa: E501
         )
     if "premium_used_bytes" not in sub_columns:
         sub_statements.append(
@@ -407,7 +407,7 @@ def _migration_0012_add_tariffs_schema(connection: Connection) -> None:
                 sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 CONSTRAINT uq_traffic_warning_period_level UNIQUE (subscription_id, period_start_at, level)
             )
-            """
+            """  # noqa: E501
         )
     )
     connection.execute(
@@ -446,16 +446,16 @@ def _migration_0012_add_tariffs_schema(connection: Connection) -> None:
     for stmt in [
         "CREATE INDEX IF NOT EXISTS ix_subscriptions_tariff_key ON subscriptions (tariff_key)",
         "CREATE INDEX IF NOT EXISTS ix_subscriptions_is_throttled ON subscriptions (is_throttled)",
-        "CREATE INDEX IF NOT EXISTS ix_subscriptions_premium_is_limited ON subscriptions (premium_is_limited)",
+        "CREATE INDEX IF NOT EXISTS ix_subscriptions_premium_is_limited ON subscriptions (premium_is_limited)",  # noqa: E501
         "CREATE INDEX IF NOT EXISTS ix_payments_sale_mode ON payments (sale_mode)",
         "CREATE INDEX IF NOT EXISTS ix_payments_tariff_key ON payments (tariff_key)",
-        "CREATE INDEX IF NOT EXISTS ix_traffic_topups_subscription_id ON traffic_topups (subscription_id)",
+        "CREATE INDEX IF NOT EXISTS ix_traffic_topups_subscription_id ON traffic_topups (subscription_id)",  # noqa: E501
         "CREATE INDEX IF NOT EXISTS ix_traffic_topups_payment_id ON traffic_topups (payment_id)",
         "CREATE INDEX IF NOT EXISTS ix_traffic_topups_kind ON traffic_topups (kind)",
-        "CREATE INDEX IF NOT EXISTS ix_traffic_warnings_subscription_id ON traffic_warnings (subscription_id)",
-        "CREATE INDEX IF NOT EXISTS ix_tariff_changes_subscription_id ON tariff_changes (subscription_id)",
-        "CREATE INDEX IF NOT EXISTS ix_hwid_device_purchases_subscription_id ON hwid_device_purchases (subscription_id)",
-        "CREATE INDEX IF NOT EXISTS ix_hwid_device_purchases_payment_id ON hwid_device_purchases (payment_id)",
+        "CREATE INDEX IF NOT EXISTS ix_traffic_warnings_subscription_id ON traffic_warnings (subscription_id)",  # noqa: E501
+        "CREATE INDEX IF NOT EXISTS ix_tariff_changes_subscription_id ON tariff_changes (subscription_id)",  # noqa: E501
+        "CREATE INDEX IF NOT EXISTS ix_hwid_device_purchases_subscription_id ON hwid_device_purchases (subscription_id)",  # noqa: E501
+        "CREATE INDEX IF NOT EXISTS ix_hwid_device_purchases_payment_id ON hwid_device_purchases (payment_id)",  # noqa: E501
     ]:
         connection.execute(text(stmt))
 
@@ -497,11 +497,11 @@ def _migration_0014_add_premium_squad_traffic_fields(connection: Connection) -> 
         )
     if "premium_topup_balance_bytes" not in sub_columns:
         statements.append(
-            "ALTER TABLE subscriptions ADD COLUMN premium_topup_balance_bytes BIGINT NOT NULL DEFAULT 0"
+            "ALTER TABLE subscriptions ADD COLUMN premium_topup_balance_bytes BIGINT NOT NULL DEFAULT 0"  # noqa: E501
         )
     if "premium_topup_used_bytes" not in sub_columns:
         statements.append(
-            "ALTER TABLE subscriptions ADD COLUMN premium_topup_used_bytes BIGINT NOT NULL DEFAULT 0"
+            "ALTER TABLE subscriptions ADD COLUMN premium_topup_used_bytes BIGINT NOT NULL DEFAULT 0"  # noqa: E501
         )
     if "premium_used_bytes" not in sub_columns:
         statements.append(
@@ -519,7 +519,7 @@ def _migration_0014_add_premium_squad_traffic_fields(connection: Connection) -> 
         connection.execute(text(stmt))
     connection.execute(
         text(
-            "CREATE INDEX IF NOT EXISTS ix_subscriptions_premium_is_limited ON subscriptions (premium_is_limited)"
+            "CREATE INDEX IF NOT EXISTS ix_subscriptions_premium_is_limited ON subscriptions (premium_is_limited)"  # noqa: E501
         )
     )
 
@@ -530,7 +530,7 @@ def _migration_0015_add_premium_topup_carryover_fields(connection: Connection) -
     statements: List[str] = []
     if "premium_topup_used_bytes" not in sub_columns:
         statements.append(
-            "ALTER TABLE subscriptions ADD COLUMN premium_topup_used_bytes BIGINT NOT NULL DEFAULT 0"
+            "ALTER TABLE subscriptions ADD COLUMN premium_topup_used_bytes BIGINT NOT NULL DEFAULT 0"  # noqa: E501
         )
     if "premium_period_start_at" not in sub_columns:
         statements.append(
@@ -559,7 +559,7 @@ def _migration_0016_add_message_logs_admin_fields(connection: Connection) -> Non
 
     connection.execute(
         text(
-            "CREATE INDEX IF NOT EXISTS ix_message_logs_target_user_id ON message_logs (target_user_id)"
+            "CREATE INDEX IF NOT EXISTS ix_message_logs_target_user_id ON message_logs (target_user_id)"  # noqa: E501
         )
     )
 
@@ -571,7 +571,7 @@ def _migration_0018_add_premium_admin_overrides(connection: Connection) -> None:
     statements: List[str] = []
     if "premium_unlimited_override" not in sub_columns:
         statements.append(
-            "ALTER TABLE subscriptions ADD COLUMN premium_unlimited_override BOOLEAN NOT NULL DEFAULT FALSE"
+            "ALTER TABLE subscriptions ADD COLUMN premium_unlimited_override BOOLEAN NOT NULL DEFAULT FALSE"  # noqa: E501
         )
     if "premium_bonus_bytes" not in sub_columns:
         statements.append(
@@ -593,7 +593,7 @@ def _migration_0021_add_regular_unlimited_override(connection: Connection) -> No
     if "regular_unlimited_override" not in sub_columns:
         connection.execute(
             text(
-                "ALTER TABLE subscriptions ADD COLUMN regular_unlimited_override BOOLEAN NOT NULL DEFAULT FALSE"
+                "ALTER TABLE subscriptions ADD COLUMN regular_unlimited_override BOOLEAN NOT NULL DEFAULT FALSE"  # noqa: E501
             )
         )
     connection.execute(
@@ -670,15 +670,15 @@ def _migration_0017_reconcile_legacy_admin_api_schema(connection: Connection) ->
             )
         if "premium_baseline_bytes" not in sub_columns:
             sub_statements.append(
-                "ALTER TABLE subscriptions ADD COLUMN premium_baseline_bytes BIGINT NOT NULL DEFAULT 0"
+                "ALTER TABLE subscriptions ADD COLUMN premium_baseline_bytes BIGINT NOT NULL DEFAULT 0"  # noqa: E501
             )
         if "premium_topup_balance_bytes" not in sub_columns:
             sub_statements.append(
-                "ALTER TABLE subscriptions ADD COLUMN premium_topup_balance_bytes BIGINT NOT NULL DEFAULT 0"
+                "ALTER TABLE subscriptions ADD COLUMN premium_topup_balance_bytes BIGINT NOT NULL DEFAULT 0"  # noqa: E501
             )
         if "premium_topup_used_bytes" not in sub_columns:
             sub_statements.append(
-                "ALTER TABLE subscriptions ADD COLUMN premium_topup_used_bytes BIGINT NOT NULL DEFAULT 0"
+                "ALTER TABLE subscriptions ADD COLUMN premium_topup_used_bytes BIGINT NOT NULL DEFAULT 0"  # noqa: E501
             )
         if "premium_used_bytes" not in sub_columns:
             sub_statements.append(
@@ -686,7 +686,7 @@ def _migration_0017_reconcile_legacy_admin_api_schema(connection: Connection) ->
             )
         if "premium_is_limited" not in sub_columns:
             sub_statements.append(
-                "ALTER TABLE subscriptions ADD COLUMN premium_is_limited BOOLEAN NOT NULL DEFAULT FALSE"
+                "ALTER TABLE subscriptions ADD COLUMN premium_is_limited BOOLEAN NOT NULL DEFAULT FALSE"  # noqa: E501
             )
         if "is_throttled" not in sub_columns:
             sub_statements.append(
@@ -718,13 +718,13 @@ def _migration_0017_reconcile_legacy_admin_api_schema(connection: Connection) ->
             )
         if "target_user_id" not in msg_columns:
             msg_statements.append(
-                "ALTER TABLE message_logs ADD COLUMN target_user_id BIGINT REFERENCES users(user_id)"
+                "ALTER TABLE message_logs ADD COLUMN target_user_id BIGINT REFERENCES users(user_id)"  # noqa: E501
             )
         for stmt in msg_statements:
             connection.execute(text(stmt))
         connection.execute(
             text(
-                "CREATE INDEX IF NOT EXISTS ix_message_logs_target_user_id ON message_logs (target_user_id)"
+                "CREATE INDEX IF NOT EXISTS ix_message_logs_target_user_id ON message_logs (target_user_id)"  # noqa: E501
             )
         )
 
@@ -828,12 +828,12 @@ MIGRATIONS: List[Migration] = [
     ),
     Migration(
         id="0018_add_premium_admin_overrides",
-        description="Per-subscription admin overrides for premium traffic (unlimited toggle + bonus bytes)",
+        description="Per-subscription admin overrides for premium traffic (unlimited toggle + bonus bytes)",  # noqa: E501
         upgrade=_migration_0018_add_premium_admin_overrides,
     ),
     Migration(
         id="0019_clear_subscription_months_for_non_subscription_payments",
-        description="Backfill: null out subscription_duration_months for legacy traffic/topup/hwid payments",
+        description="Backfill: null out subscription_duration_months for legacy traffic/topup/hwid payments",  # noqa: E501
         upgrade=_migration_0019_clear_subscription_months_for_non_subscription_payments,
     ),
     Migration(

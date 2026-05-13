@@ -43,7 +43,7 @@ class ReferralService:
             referee_user_model = await user_dal.get_user_by_id(session, referee_user_id)
             if not referee_user_model or referee_user_model.referred_by_id is None:
                 logging.debug(
-                    f"User {referee_user_id} not referred or inviter ID missing. No referral bonuses."
+                    f"User {referee_user_id} not referred or inviter ID missing. No referral bonuses."  # noqa: E501
                 )
                 return {"referee_bonus_applied_days": None, "referee_new_end_date": None}
 
@@ -58,7 +58,7 @@ class ReferralService:
                     )
                     if succeeded_count and succeeded_count > 0:
                         logging.info(
-                            f"Referral bonuses skipped for user {referee_user_id}: already has {succeeded_count} succeeded payments."
+                            f"Referral bonuses skipped for user {referee_user_id}: already has {succeeded_count} succeeded payments."  # noqa: E501
                         )
                         return {"referee_bonus_applied_days": None, "referee_new_end_date": None}
                 except Exception as e_cnt:
@@ -74,7 +74,7 @@ class ReferralService:
                         session, referee_user_id
                     ):
                         logging.info(
-                            f"Referral bonuses skipped for user {referee_user_id}: user currently has an active subscription."
+                            f"Referral bonuses skipped for user {referee_user_id}: user currently has an active subscription."  # noqa: E501
                         )
                         return {"referee_bonus_applied_days": None, "referee_new_end_date": None}
                 except Exception as e_sub:
@@ -104,7 +104,7 @@ class ReferralService:
             if inviter_bonus_days and inviter_bonus_days > 0:
                 if not inviter_user_model:
                     logging.warning(
-                        f"Inviter user {inviter_user_id} not found in local DB. Cannot apply inviter bonus."
+                        f"Inviter user {inviter_user_id} not found in local DB. Cannot apply inviter bonus."  # noqa: E501
                     )
                 else:
                     (
@@ -118,7 +118,7 @@ class ReferralService:
 
                     if not inviter_panel_uuid:
                         logging.warning(
-                            f"Failed to get/create panel link for inviter {inviter_user_id}. Cannot apply inviter bonus directly to panel."
+                            f"Failed to get/create panel link for inviter {inviter_user_id}. Cannot apply inviter bonus directly to panel."  # noqa: E501
                         )
 
                     else:
@@ -134,7 +134,7 @@ class ReferralService:
                         if new_end_date_inviter:
                             inviter_bonus_successfully_applied = True
                             logging.info(
-                                f"Bonus of {inviter_bonus_days} days successfully applied/extended for inviter {inviter_user_id}."
+                                f"Bonus of {inviter_bonus_days} days successfully applied/extended for inviter {inviter_user_id}."  # noqa: E501
                             )
 
                             try:
@@ -153,11 +153,11 @@ class ReferralService:
                                 )
                             except Exception as e_notify_inviter:
                                 logging.error(
-                                    f"Failed to send bonus notification to inviter {inviter_user_id}: {e_notify_inviter}"
+                                    f"Failed to send bonus notification to inviter {inviter_user_id}: {e_notify_inviter}"  # noqa: E501
                                 )
                         else:
                             logging.info(
-                                f"Inviter {inviter_user_id} has no active sub to extend. Creating new bonus subscription for {inviter_bonus_days} days."
+                                f"Inviter {inviter_user_id} has no active sub to extend. Creating new bonus subscription for {inviter_bonus_days} days."  # noqa: E501
                             )
 
                             bonus_start_date = datetime.now(timezone.utc)
@@ -165,7 +165,7 @@ class ReferralService:
 
                             if not inviter_panel_sub_link_id:
                                 logging.error(
-                                    f"Cannot create bonus subscription for inviter {inviter_user_id}: panel_sub_link_id is missing even after link detail fetch."
+                                    f"Cannot create bonus subscription for inviter {inviter_user_id}: panel_sub_link_id is missing even after link detail fetch."  # noqa: E501
                                 )
                             else:
                                 bonus_sub_payload = {
@@ -188,7 +188,7 @@ class ReferralService:
                                         session, bonus_sub_payload
                                     )
 
-                                    panel_update_success = await self.subscription_service.panel_service.update_user_details_on_panel(
+                                    panel_update_success = await self.subscription_service.panel_service.update_user_details_on_panel(  # noqa: E501
                                         inviter_panel_uuid,
                                         {
                                             "expireAt": bonus_end_date.isoformat(
@@ -200,7 +200,7 @@ class ReferralService:
                                     if panel_update_success:
                                         inviter_bonus_successfully_applied = True
                                         logging.info(
-                                            f"New bonus subscription for {inviter_bonus_days} days created for inviter {inviter_user_id}."
+                                            f"New bonus subscription for {inviter_bonus_days} days created for inviter {inviter_user_id}."  # noqa: E501
                                         )
 
                                         inviter_lang = (
@@ -221,12 +221,12 @@ class ReferralService:
                                         )
                                     else:
                                         logging.warning(
-                                            f"Failed to update panel for new bonus subscription for inviter {inviter_user_id}. Local bonus sub created (ID: {bonus_sub.subscription_id}) but may not be active on panel."
+                                            f"Failed to update panel for new bonus subscription for inviter {inviter_user_id}. Local bonus sub created (ID: {bonus_sub.subscription_id}) but may not be active on panel."  # noqa: E501
                                         )
 
                                 except Exception as e_create_bonus_sub:
                                     logging.error(
-                                        f"Failed to create new bonus subscription for inviter {inviter_user_id}: {e_create_bonus_sub}",
+                                        f"Failed to create new bonus subscription for inviter {inviter_user_id}: {e_create_bonus_sub}",  # noqa: E501
                                         exc_info=True,
                                     )
 
@@ -243,11 +243,11 @@ class ReferralService:
                     referee_final_end_date = new_end_date_referee
                     referee_bonus_applied_days = referee_bonus_days
                     logging.info(
-                        f"Bonus of {referee_bonus_days} days successfully applied to referee {referee_user_id}."
+                        f"Bonus of {referee_bonus_days} days successfully applied to referee {referee_user_id}."  # noqa: E501
                     )
                 else:
                     logging.warning(
-                        f"Failed to apply referee bonus for {referee_user_id} (could not extend their new subscription)."
+                        f"Failed to apply referee bonus for {referee_user_id} (could not extend their new subscription)."  # noqa: E501
                     )
 
             return {

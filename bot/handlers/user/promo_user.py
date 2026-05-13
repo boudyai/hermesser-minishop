@@ -95,7 +95,7 @@ async def process_promo_code_input(
     session: AsyncSession,
 ):
     logging.info(
-        f"Processing promo code input from user {message.from_user.id} in state {await state.get_state()}: '{message.text}'"
+        f"Processing promo code input from user {message.from_user.id} in state {await state.get_state()}: '{message.text}'"  # noqa: E501
     )
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -122,7 +122,7 @@ async def process_promo_code_input(
     ):
         is_suspicious = True
         logging.warning(
-            f"Suspicious input for promo code by user {user.id} (len: {len(code_input)}): '{code_input}'"
+            f"Suspicious input for promo code by user {user.id} (len: {len(code_input)}): '{code_input}'"  # noqa: E501
         )
 
     response_to_user_text = ""
@@ -182,7 +182,7 @@ async def process_promo_code_input(
     )
     await state.clear()
     logging.info(
-        f"Promo code input '{code_input}' processing finished for user {message.from_user.id}. State cleared."
+        f"Promo code input '{code_input}' processing finished for user {message.from_user.id}. State cleared."  # noqa: E501
     )
 
 
@@ -203,7 +203,7 @@ async def cancel_promo_input_via_button(
         return
 
     logging.info(
-        f"User {callback.from_user.id} cancelled promo code input via button from state {await state.get_state()}. Clearing state."
+        f"User {callback.from_user.id} cancelled promo code input via button from state {await state.get_state()}. Clearing state."  # noqa: E501
     )
     await state.clear()
 

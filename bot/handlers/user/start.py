@@ -115,7 +115,7 @@ async def send_main_menu(
             await safe_answer_callback(target_event)
     except Exception as e_send_edit:
         logging.warning(
-            f"Failed to send/edit main menu (user: {user_id}, is_edit: {is_edit}): {type(e_send_edit).__name__} - {e_send_edit}."
+            f"Failed to send/edit main menu (user: {user_id}, is_edit: {is_edit}): {type(e_send_edit).__name__} - {e_send_edit}."  # noqa: E501
         )
         if is_edit and target_message_obj:
             try:
@@ -530,7 +530,7 @@ async def start_command_handler(
                     return
 
                 logging.info(
-                    f"New user {user_id} added to session. Referred by: {referred_by_user_id or 'N/A'}."
+                    f"New user {user_id} added to session. Referred by: {referred_by_user_id or 'N/A'}."  # noqa: E501
                 )
 
                 # Auto-grant referral welcome bonus to newly registered referred users.
@@ -550,7 +550,7 @@ async def start_command_handler(
                         if referral_bonus_end_date:
                             await session.commit()
                             logging.info(
-                                "Referral welcome bonus applied: user %s got %s days, new end date %s.",
+                                "Referral welcome bonus applied: user %s got %s days, new end date %s.",  # noqa: E501
                                 user_id,
                                 referral_welcome_days,
                                 referral_bonus_end_date.isoformat(),
@@ -566,7 +566,7 @@ async def start_command_handler(
                         else:
                             await session.rollback()
                             logging.warning(
-                                "Referral welcome bonus was not applied for user %s (referred by %s).",
+                                "Referral welcome bonus was not applied for user %s (referred by %s).",  # noqa: E501
                                 user_id,
                                 referred_by_user_id,
                             )
@@ -708,7 +708,7 @@ async def start_command_handler(
             else:
                 await session.commit()
                 logging.warning(
-                    f"Failed to auto-apply promo code '{promo_code_to_apply}' for user {user_id}: {result}"
+                    f"Failed to auto-apply promo code '{promo_code_to_apply}' for user {user_id}: {result}"  # noqa: E501
                 )
                 await message.answer(str(result), parse_mode="HTML")
                 # Continue to show main menu if promo failed
@@ -916,7 +916,6 @@ async def main_action_callback_handler(
     session: AsyncSession,
 ):
     action = callback.data.split(":")[1]
-    user_id = callback.from_user.id
 
     if action in {"back_to_main", "back_to_main_keep", "bot_interface"}:
         await state.clear()

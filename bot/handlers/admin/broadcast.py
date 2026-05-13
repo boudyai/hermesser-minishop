@@ -160,7 +160,7 @@ async def change_broadcast_target_handler(
         return
 
     await state.update_data(broadcast_target=new_target)
-    user_fsm_data = await state.get_data()
+    await state.get_data()
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
     confirmation_prompt = _("admin_broadcast_confirm_prompt_short")
     try:
@@ -254,7 +254,7 @@ async def confirm_broadcast_callback_handler(
         failed_count = 0
         admin_user = callback.from_user
         logging.info(
-            f"Admin {admin_user.id} broadcasting '{(content.text or '')[:50]}...' to {len(user_ids)} users."
+            f"Admin {admin_user.id} broadcasting '{(content.text or '')[:50]}...' to {len(user_ids)} users."  # noqa: E501
         )
 
         # Get message queue manager
@@ -297,7 +297,7 @@ async def confirm_broadcast_callback_handler(
                         "telegram_username": admin_user.username,
                         "telegram_first_name": admin_user.first_name,
                         "event_type": "admin_broadcast_queued",
-                        "content": f"To user {uid}: [{content.content_type}] {(content.text or '')[:70]}...",
+                        "content": f"To user {uid}: [{content.content_type}] {(content.text or '')[:70]}...",  # noqa: E501
                         "is_admin_event": True,
                         "target_user_id": uid,
                     },

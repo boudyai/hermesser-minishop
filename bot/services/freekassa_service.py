@@ -63,7 +63,7 @@ class FreeKassaService:
             )
         if settings.FREEKASSA_ENABLED and not self.server_ip:
             logging.warning(
-                "FreeKassaService: FREEKASSA_PAYMENT_IP is not set. Requests may be rejected by the provider."
+                "FreeKassaService: FREEKASSA_PAYMENT_IP is not set. Requests may be rejected by the provider."  # noqa: E501
             )
 
     @staticmethod

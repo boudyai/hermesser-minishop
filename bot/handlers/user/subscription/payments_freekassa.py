@@ -145,7 +145,7 @@ async def pay_fk_callback_handler(
             except Exception as e_status:
                 await session.rollback()
                 logging.error(
-                    f"FreeKassa: failed to store provider order id for payment {payment_record.payment_id}: {e_status}",
+                    f"FreeKassa: failed to store provider order id for payment {payment_record.payment_id}: {e_status}",  # noqa: E501
                     exc_info=True,
                 )
 
@@ -209,7 +209,7 @@ async def pay_fk_callback_handler(
             return
 
         logging.error(
-            "FreeKassa: create_order succeeded but no payment link returned for payment %s. Response: %s",
+            "FreeKassa: create_order succeeded but no payment link returned for payment %s. Response: %s",  # noqa: E501
             payment_record.payment_id,
             response_data,
         )
@@ -230,7 +230,7 @@ async def pay_fk_callback_handler(
     except Exception as e_status:
         await session.rollback()
         logging.error(
-            f"FreeKassa: failed to mark payment {payment_record.payment_id} as failed_creation: {e_status}",
+            f"FreeKassa: failed to mark payment {payment_record.payment_id} as failed_creation: {e_status}",  # noqa: E501
             exc_info=True,
         )
 

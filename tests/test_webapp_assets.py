@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from bot.app.web import subscription_webapp
+from bot.app.web.webapp import assets as webapp_assets
 from config.settings import Settings
 
 
@@ -196,7 +197,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             os.utime(old_asset, (1, 1))
             os.utime(new_asset, (2, 2))
 
-            with patch.object(subscription_webapp, "ASSET_DIR", asset_dir):
+            with patch.object(webapp_assets, "ASSET_DIR", asset_dir):
                 self.assertEqual(
                     subscription_webapp._resolve_webapp_js_asset_name(),
                     "subscription_webapp.min.22222222.js",
@@ -213,7 +214,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 match_info={"asset_hash": "abcdef12"},
             )
 
-            with patch.object(subscription_webapp, "ASSET_DIR", asset_dir):
+            with patch.object(webapp_assets, "ASSET_DIR", asset_dir):
                 response = await subscription_webapp.js_asset_route(request)
 
             self.assertEqual(
@@ -226,7 +227,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             logo_url = "https://cdn.example.com/logo.png"
             logo = (b"png-bytes", "image/png")
 
-            with patch.object(subscription_webapp, "WEBAPP_LOGO_CACHE_DIR", Path(tmpdir)):
+            with patch.object(webapp_assets, "WEBAPP_LOGO_CACHE_DIR", Path(tmpdir)):
                 subscription_webapp._write_webapp_logo_to_disk(logo_url, logo)
 
                 self.assertEqual(subscription_webapp._read_webapp_logo_from_disk(logo_url), logo)
@@ -242,13 +243,13 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             }
 
             with (
-                patch.object(subscription_webapp, "WEBAPP_LOGO_CACHE_DIR", Path(tmpdir)),
+                patch.object(webapp_assets, "WEBAPP_LOGO_CACHE_DIR", Path(tmpdir)),
                 patch.object(
-                    subscription_webapp,
+                    webapp_assets,
                     "_hostname_resolves_to_public_address",
                     return_value=True,
                 ),
-                patch.object(subscription_webapp, "_fetch_webapp_logo") as fetch_logo,
+                patch.object(webapp_assets, "_fetch_webapp_logo") as fetch_logo,
             ):
                 subscription_webapp._write_webapp_logo_to_disk(logo_url, logo)
 
@@ -259,7 +260,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
     def test_webapp_animated_emoji_disk_cache_roundtrip(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.object(subscription_webapp, "WEBAPP_EMOJI_CACHE_DIR", Path(tmpdir)):
+            with patch.object(webapp_assets, "WEBAPP_EMOJI_CACHE_DIR", Path(tmpdir)):
                 subscription_webapp._write_webapp_animated_emoji_to_disk(
                     "1f929",
                     "gif",
@@ -283,8 +284,8 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             }
 
             with (
-                patch.object(subscription_webapp, "WEBAPP_EMOJI_CACHE_DIR", Path(tmpdir)),
-                patch.object(subscription_webapp, "_fetch_webapp_animated_emoji") as fetch_emoji,
+                patch.object(webapp_assets, "WEBAPP_EMOJI_CACHE_DIR", Path(tmpdir)),
+                patch.object(webapp_assets, "_fetch_webapp_animated_emoji") as fetch_emoji,
             ):
                 subscription_webapp._write_webapp_animated_emoji_to_disk(
                     "1f929",

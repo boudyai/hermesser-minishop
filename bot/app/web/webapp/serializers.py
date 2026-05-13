@@ -1,0 +1,612 @@
+# ruff: noqa: F401,F403,F405,I001
+from ._runtime import *  # noqa: F403,F405
+
+
+async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, Any]:
+    settings: Settings = request.app["settings"]
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    subscription_service: SubscriptionService = request.app["subscription_service"]
+    cached = _get_cached_webapp_settings(request)
+
+    async with async_session_factory() as session:
+        db_user = await user_dal.get_user_by_id(session, user_id)
+        if not db_user or db_user.is_banned:
+            raise web.HTTPForbidden(
+                text=json.dumps({"ok": False, "error": "access_denied"}),
+                content_type="application/json",
+            )
+
+        active = await subscription_service.get_active_subscription_details(session, user_id)
+        referral_code = await user_dal.ensure_referral_code(session, db_user)
+        referral_service: Optional[ReferralService] = request.app.get("referral_service")
+        bot_username = request.app.get("bot_username") or ""
+        referral_link = None
+        if referral_service and bot_username:
+            referral_link = await referral_service.generate_referral_link(
+                session,
+                bot_username,
+                user_id,
+            )
+        webapp_referral_link = _build_webapp_referral_link(
+            request.app["settings"].SUBSCRIPTION_MINI_APP_URL,
+            referral_code,
+        )
+        referral_stats = (
+            await referral_service.get_referral_stats(session, user_id)
+            if referral_service
+            else {"invited_count": 0, "purchased_count": 0}
+        )
+        local_sub = (
+            await subscription_dal.get_active_subscription_by_user_id(
+                session,
+                user_id,
+                db_user.panel_user_uuid,
+            )
+            if db_user.panel_user_uuid
+            else None
+        )
+        trial_available = bool(
+            settings.TRIAL_ENABLED
+            and settings.TRIAL_DURATION_DAYS > 0
+            and not await subscription_service.has_had_any_subscription(session, user_id)
+        )
+        avatar = await _ensure_cached_telegram_avatar(request, session, db_user)
+        try:
+            await session.commit()
+        except Exception:
+            await session.rollback()
+
+    lang = _normalize_language(db_user.language_code or settings.DEFAULT_LANGUAGE)
+    admin_ids = {int(x) for x in (settings.ADMIN_IDS or [])}
+    is_admin = bool(db_user.telegram_id and int(db_user.telegram_id) in admin_ids)
+    return {
+        "user": {
+            "id": user_id,
+            "username": db_user.username,
+            "email": db_user.email,
+            "email_verified": bool(db_user.email_verified_at),
+            "telegram_id": db_user.telegram_id,
+            "telegram_linked": bool(_telegram_id_for_user(db_user)),
+            "telegram_photo_url": _telegram_avatar_url(avatar),
+            "first_name": db_user.first_name,
+            "language_code": lang,
+            "is_admin": is_admin,
+        },
+        "subscription": _serialize_subscription(settings, active, local_sub, lang),
+        "referral": {
+            "code": referral_code,
+            "bot_link": referral_link,
+            "webapp_link": webapp_referral_link,
+            "invited_count": referral_stats.get("invited_count", 0),
+            "purchased_count": referral_stats.get("purchased_count", 0),
+            "welcome_bonus_days": max(
+                0, int(getattr(settings, "REFERRAL_WELCOME_BONUS_DAYS", 0) or 0)
+            ),
+            "one_bonus_per_referee": bool(
+                getattr(settings, "REFERRAL_ONE_BONUS_PER_REFEREE", False)
+            ),
+            "bonus_details": _serialize_referral_bonus_details(settings, lang),
+        },
+        "plans": _serialize_plans(
+            settings,
+            lang,
+            subscription_options=cached["subscription_options"],
+            stars_subscription_options=cached["stars_subscription_options"],
+            traffic_packages=cached["traffic_packages"],
+            stars_traffic_packages=cached["stars_traffic_packages"],
+        ),
+        "payment_methods": _serialize_payment_methods(settings, request.app),
+        "settings": {
+            "support_url": settings.SUPPORT_LINK,
+            "traffic_mode": bool(settings.traffic_sale_mode),
+            "my_devices_enabled": bool(settings.MY_DEVICES_SECTION_ENABLED),
+            "user_hwid_device_limit": (
+                int(settings.USER_HWID_DEVICE_LIMIT)
+                if settings.USER_HWID_DEVICE_LIMIT is not None
+                else None
+            ),
+            "trial_enabled": bool(settings.TRIAL_ENABLED),
+            "trial_available": trial_available,
+            "trial_duration_days": int(settings.TRIAL_DURATION_DAYS or 0),
+            "trial_traffic_limit_gb": float(settings.TRIAL_TRAFFIC_LIMIT_GB or 0),
+            "trial_traffic_strategy": getattr(settings, "TRIAL_TRAFFIC_STRATEGY", "NO_RESET"),
+            "email_auth_enabled": settings.email_auth_configured,
+        },
+    }
+
+
+def _serialize_referral_bonus_details(settings: Settings, lang: str) -> List[Dict[str, Any]]:
+    if getattr(settings, "traffic_sale_mode", False):
+        return []
+
+    details: List[Dict[str, Any]] = []
+    for months, _price in sorted(settings.subscription_options.items()):
+        inviter_days = settings.referral_bonus_inviter.get(months)
+        friend_days = settings.referral_bonus_referee.get(months)
+        if inviter_days is None and friend_days is None:
+            continue
+        details.append(
+            {
+                "months": int(months),
+                "title": _format_months_title(int(months), lang),
+                "inviter_days": int(inviter_days or 0),
+                "friend_days": int(friend_days or 0),
+            }
+        )
+    return details
+
+
+def _build_webapp_referral_link(
+    base_url: Optional[str],
+    referral_code: Optional[str],
+) -> Optional[str]:
+    if not base_url or not referral_code:
+        return None
+    parts = urlsplit(base_url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query["ref"] = f"u{referral_code}"
+    return urlunsplit(
+        (
+            parts.scheme,
+            parts.netloc,
+            parts.path or "/",
+            urlencode(query),
+            parts.fragment,
+        )
+    )
+
+
+def _serialize_subscription(
+    settings: Settings,
+    active: Optional[Dict[str, Any]],
+    local_sub: Optional[Any],
+    lang: str,
+) -> Dict[str, Any]:
+    if not active:
+        return {
+            "active": False,
+            "status": "INACTIVE",
+            "remaining_text": _format_remaining(0, lang),
+            "days_left": 0,
+            "config_link": None,
+            "connect_url": None,
+        }
+
+    end_date = active.get("end_date")
+    if end_date and end_date.tzinfo is None:
+        end_date = end_date.replace(tzinfo=timezone.utc)
+
+    seconds_left = 0
+    if end_date:
+        seconds_left = max(
+            0,
+            int((end_date - datetime.now(timezone.utc)).total_seconds()),
+        )
+
+    can_topup_regular_traffic = False
+    can_topup_premium_traffic = False
+    can_topup_traffic = False
+    if settings.tariffs_config and active.get("tariff_key"):
+        try:
+            tariff = settings.tariffs_config.require(str(active.get("tariff_key")))
+            packages = settings.tariffs_config.topup_packages_for(tariff)
+            can_topup_regular_traffic = bool(packages and packages.has_any())
+            can_topup_premium_traffic = bool(
+                tariff.premium_squad_uuids
+                and tariff.premium_topup_packages
+                and tariff.premium_topup_packages.has_any()
+            )
+            can_topup_traffic = bool(can_topup_regular_traffic or can_topup_premium_traffic)
+        except Exception:
+            can_topup_regular_traffic = False
+            can_topup_premium_traffic = False
+            can_topup_traffic = False
+
+    return {
+        "active": seconds_left > 0,
+        "status": active.get("status_from_panel") or "UNKNOWN",
+        "end_date": end_date.isoformat() if end_date else None,
+        "end_date_text": end_date.strftime("%d.%m.%Y %H:%M") if end_date else "N/A",
+        "days_left": seconds_left // 86400,
+        "remaining_text": _format_remaining(seconds_left, lang),
+        "config_link": active.get("config_link"),
+        "connect_url": active.get("connect_button_url") or active.get("config_link"),
+        "traffic_limit": _format_bytes(active.get("traffic_limit_bytes"), zero_as_unlimited=True),
+        "traffic_used": _format_bytes(active.get("traffic_used_bytes")),
+        "traffic_limit_bytes": _coerce_int_or_none(active.get("traffic_limit_bytes")),
+        "traffic_used_bytes": _coerce_int_or_none(active.get("traffic_used_bytes")),
+        "tariff_key": active.get("tariff_key"),
+        "tariff_name": active.get("tariff_name"),
+        "tariff_description": active.get("tariff_description"),
+        "premium_title": active.get("premium_title"),
+        "billing_model": active.get("billing_model"),
+        "traffic_limit_strategy": str(active.get("traffic_limit_strategy") or ""),
+        "tier_baseline_bytes": _coerce_int_or_none(active.get("tier_baseline_bytes")),
+        "topup_balance_bytes": _coerce_int_or_none(active.get("topup_balance_bytes")),
+        "premium_limit": _format_bytes(active.get("premium_limit_bytes"), zero_as_unlimited=True),
+        "premium_used": _format_bytes(active.get("premium_used_bytes")),
+        "premium_limit_bytes": _coerce_int_or_none(active.get("premium_limit_bytes")),
+        "premium_used_bytes": _coerce_int_or_none(active.get("premium_used_bytes")),
+        "premium_baseline_bytes": _coerce_int_or_none(active.get("premium_baseline_bytes")),
+        "premium_topup_balance_bytes": _coerce_int_or_none(
+            active.get("premium_topup_balance_bytes")
+        ),
+        "premium_topup_used_bytes": _coerce_int_or_none(active.get("premium_topup_used_bytes")),
+        "premium_bonus_bytes": _coerce_int_or_none(active.get("premium_bonus_bytes")) or 0,
+        "regular_bonus_bytes": _coerce_int_or_none(active.get("regular_bonus_bytes")) or 0,
+        "regular_unlimited_override": bool(active.get("regular_unlimited_override")),
+        "premium_unlimited_override": bool(active.get("premium_unlimited_override")),
+        "premium_is_limited": bool(active.get("premium_is_limited")),
+        "premium_squad_labels": list(active.get("premium_squad_labels") or []),
+        "premium_node_labels": list(active.get("premium_node_labels") or []),
+        "can_topup_traffic": can_topup_traffic,
+        "can_topup_regular_traffic": can_topup_regular_traffic,
+        "can_topup_premium_traffic": can_topup_premium_traffic,
+        "period_start_at": active.get("period_start_at").isoformat()
+        if active.get("period_start_at")
+        else None,
+        "is_throttled": bool(active.get("is_throttled")),
+        "max_devices": _coerce_int_or_none(active.get("max_devices")),
+        "base_hwid_device_limit": _coerce_int_or_none(active.get("base_hwid_device_limit")),
+        "extra_hwid_devices": _coerce_int_or_none(active.get("extra_hwid_devices")) or 0,
+        "auto_renew_enabled": bool(getattr(local_sub, "auto_renew_enabled", False)),
+        "provider": getattr(local_sub, "provider", None),
+    }
+
+
+def _serialize_plans(
+    settings: Settings,
+    lang: str,
+    *,
+    subscription_options: Optional[Dict[int, float]] = None,
+    stars_subscription_options: Optional[Dict[int, int]] = None,
+    traffic_packages: Optional[Dict[float, float]] = None,
+    stars_traffic_packages: Optional[Dict[float, int]] = None,
+) -> List[Dict[str, Any]]:
+    tariffs_config = settings.tariffs_config
+    if tariffs_config:
+        plans: List[Dict[str, Any]] = []
+        for tariff in tariffs_config.enabled_tariffs:
+            common = {
+                "tariff_key": tariff.key,
+                "tariff_name": tariff.name(lang),
+                "billing_model": tariff.billing_model,
+                "description": tariff.description(lang),
+                "squad_uuids": tariff.squad_uuids,
+                "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+                "hwid_device_limit": tariff.hwid_device_limit,
+                "hwid_device_packages": _serialize_hwid_device_packages(
+                    settings,
+                    tariff,
+                    tariff.hwid_device_packages,
+                    lang,
+                ),
+            }
+            if tariff.billing_model == "period":
+                for months in sorted(tariff.enabled_periods):
+                    price = tariff.period_price(int(months), "rub")
+                    stars_price = tariff.period_price(int(months), "stars")
+                    if price is None and (stars_price is None or int(stars_price) <= 0):
+                        continue
+                    plan = {
+                        **common,
+                        "id": f"{tariff.key}:period:{int(months)}",
+                        "sale_mode": "subscription",
+                        "months": int(months),
+                        "price": float(price or 0),
+                        "title": tariff.name(lang),
+                        "subtitle": _format_months_title(int(months), lang),
+                        "monthly_gb": tariff.monthly_gb,
+                    }
+                    if stars_price is not None and int(stars_price) > 0:
+                        plan["stars_price"] = int(stars_price)
+                    plans.append(plan)
+            else:
+                rub_packages = {
+                    float(package.gb): float(package.price)
+                    for package in (tariff.traffic_packages.rub if tariff.traffic_packages else [])
+                }
+                stars_packages = {
+                    float(package.gb): int(float(package.price))
+                    for package in (
+                        tariff.traffic_packages.stars if tariff.traffic_packages else []
+                    )
+                }
+                for traffic_gb in sorted(set(rub_packages) | set(stars_packages)):
+                    price = rub_packages.get(traffic_gb)
+                    stars_price = stars_packages.get(traffic_gb)
+                    if price is None and (stars_price is None or int(stars_price) <= 0):
+                        continue
+                    traffic_value = float(traffic_gb)
+                    plan = {
+                        **common,
+                        "id": f"{tariff.key}:traffic:{_format_number_for_payload(traffic_value)}",
+                        "sale_mode": "traffic_package",
+                        "months": int(traffic_value)
+                        if traffic_value.is_integer()
+                        else traffic_value,
+                        "traffic_gb": traffic_value,
+                        "price": float(price or 0),
+                        "title": tariff.name(lang),
+                        "subtitle": _format_traffic_title(traffic_value, lang),
+                    }
+                    if stars_price is not None and int(stars_price) > 0:
+                        plan["stars_price"] = int(stars_price)
+                    plans.append(plan)
+        return plans
+
+    if getattr(settings, "traffic_sale_mode", False):
+        active_traffic_packages = traffic_packages or settings.traffic_packages
+        active_stars_traffic_packages = stars_traffic_packages or settings.stars_traffic_packages
+        traffic_units = sorted(set(active_traffic_packages) | set(active_stars_traffic_packages))
+        plans: List[Dict[str, Any]] = []
+        for traffic_gb in traffic_units:
+            price = active_traffic_packages.get(traffic_gb)
+            stars_price = active_stars_traffic_packages.get(traffic_gb)
+            if price is None and (stars_price is None or int(stars_price) <= 0):
+                continue
+            traffic_value = float(traffic_gb)
+            plan = {
+                "months": int(traffic_value) if traffic_value.is_integer() else traffic_value,
+                "traffic_gb": traffic_value,
+                "price": float(price or 0),
+                "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+                "title": _format_traffic_title(traffic_value, lang),
+                "sale_mode": "traffic",
+            }
+            if stars_price is not None and int(stars_price) > 0:
+                plan["stars_price"] = int(stars_price)
+            plans.append(plan)
+        return plans
+
+    active_subscription_options = subscription_options or settings.subscription_options
+    active_stars_subscription_options = (
+        stars_subscription_options or settings.stars_subscription_options
+    )
+    plans: List[Dict[str, Any]] = []
+    for months in sorted(set(active_subscription_options) | set(active_stars_subscription_options)):
+        price = active_subscription_options.get(months)
+        stars_price = active_stars_subscription_options.get(months)
+        if price is None and (stars_price is None or int(stars_price) <= 0):
+            continue
+        plan = {
+            "months": int(months),
+            "price": float(price or 0),
+            "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+            "title": _format_months_title(int(months), lang),
+            "sale_mode": "subscription",
+        }
+        if stars_price is not None and int(stars_price) > 0:
+            plan["stars_price"] = int(stars_price)
+        plans.append(plan)
+    return plans
+
+
+def _traffic_percent(used: Optional[int], limit: Optional[int]) -> int:
+    used_val = int(used or 0)
+    limit_val = int(limit or 0)
+    if limit_val <= 0:
+        return 0
+    return max(0, min(100, round((used_val / limit_val) * 100)))
+
+
+def _serialize_topup_packages(
+    settings: Settings,
+    tariff: Any,
+    packages: Optional[Any],
+    lang: str,
+    *,
+    sale_mode: str = "topup",
+    title_prefix: str = "",
+) -> List[Dict[str, Any]]:
+    rub_packages = {
+        float(package.gb): float(package.price) for package in (packages.rub if packages else [])
+    }
+    stars_packages = {
+        float(package.gb): int(float(package.price))
+        for package in (packages.stars if packages else [])
+    }
+    plans: List[Dict[str, Any]] = []
+    for traffic_gb in sorted(set(rub_packages) | set(stars_packages)):
+        price = rub_packages.get(traffic_gb)
+        stars_price = stars_packages.get(traffic_gb)
+        if price is None and (stars_price is None or int(stars_price) <= 0):
+            continue
+        traffic_value = float(traffic_gb)
+        plan: Dict[str, Any] = {
+            "id": f"{tariff.key}:{sale_mode}:{_format_number_for_payload(traffic_value)}",
+            "tariff_key": tariff.key,
+            "tariff_name": tariff.name(lang),
+            "billing_model": tariff.billing_model,
+            "sale_mode": sale_mode,
+            "months": int(traffic_value) if traffic_value.is_integer() else traffic_value,
+            "traffic_gb": traffic_value,
+            "price": float(price or 0),
+            "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+            "title": f"{title_prefix}{_format_traffic_title(traffic_value, lang)}",
+            "subtitle": tariff.premium_name(lang)
+            if sale_mode == "premium_topup"
+            else tariff.name(lang),
+        }
+        if stars_price is not None and int(stars_price) > 0:
+            plan["stars_price"] = int(stars_price)
+        plans.append(plan)
+    return plans
+
+
+def _serialize_hwid_device_packages(
+    settings: Settings,
+    tariff: Any,
+    packages: Optional[Any],
+    lang: str,
+) -> List[Dict[str, Any]]:
+    rub_packages = {
+        int(package.count): float(package.price) for package in (packages.rub if packages else [])
+    }
+    stars_packages = {
+        int(package.count): int(float(package.price))
+        for package in (packages.stars if packages else [])
+    }
+    plans: List[Dict[str, Any]] = []
+    for count in sorted(set(rub_packages) | set(stars_packages)):
+        price = rub_packages.get(count)
+        stars_price = stars_packages.get(count)
+        if price is None and (stars_price is None or int(stars_price) <= 0):
+            continue
+        plan: Dict[str, Any] = {
+            "id": f"{tariff.key}:hwid:{count}",
+            "tariff_key": tariff.key,
+            "tariff_name": tariff.name(lang),
+            "billing_model": tariff.billing_model,
+            "sale_mode": "hwid_devices",
+            "months": int(count),
+            "device_count": int(count),
+            "price": float(price or 0),
+            "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+            "title": f"+{count}",
+            "subtitle": tariff.name(lang),
+        }
+        if stars_price is not None and int(stars_price) > 0:
+            plan["stars_price"] = int(stars_price)
+        plans.append(plan)
+    return plans
+
+
+def _serialize_tariff_change_target(
+    settings: Settings,
+    config: Any,
+    tariff: Any,
+    options: Dict[str, Any],
+    lang: str,
+) -> Dict[str, Any]:
+    actions: List[Dict[str, Any]] = []
+    mode = str(options.get("mode") or "")
+    if mode == "period_to_period":
+        actions.append(
+            {
+                "mode": "recalc_days",
+                "kind": "free",
+                "title": "recalc_days",
+                "days_after": int(options.get("recalc_days") or 0),
+                "remaining_days": int(options.get("remaining_days") or 0),
+            }
+        )
+        paid_diff = float(options.get("paid_diff_rub") or 0)
+        if paid_diff > 0:
+            actions.append(
+                {
+                    "mode": "paid_diff",
+                    "kind": "payment",
+                    "title": "paid_diff",
+                    "price": paid_diff,
+                    "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+                }
+            )
+    elif mode == "period_to_traffic":
+        actions.append(
+            {
+                "mode": "convert_days_to_gb",
+                "kind": "free",
+                "title": "convert_days_to_gb",
+                "converted_gb": float(options.get("converted_gb") or 0),
+                "remaining_days": int(options.get("remaining_days") or 0),
+            }
+        )
+        actions.extend(
+            {
+                "mode": "buy_package",
+                "kind": "payment",
+                "title": f"+{package.gb:g} GB",
+                "traffic_gb": float(package.gb),
+                "price": float(package.price),
+                "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+            }
+            for package in (tariff.traffic_packages.rub if tariff.traffic_packages else [])
+        )
+    else:
+        for months in tariff.enabled_periods:
+            price = tariff.period_price(int(months), "rub")
+            if price:
+                actions.append(
+                    {
+                        "mode": "buy_period",
+                        "kind": "payment",
+                        "months": int(months),
+                        "title": _format_months_title(int(months), lang),
+                        "price": float(price),
+                        "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+                    }
+                )
+    return {
+        "tariff_key": tariff.key,
+        "title": tariff.name(lang),
+        "description": tariff.description(lang),
+        "billing_model": tariff.billing_model,
+        "monthly_gb": tariff.monthly_gb,
+        "options": options,
+        "actions": actions,
+    }
+
+
+def _serialize_payment_methods(
+    settings: Settings,
+    app: web.Application,
+) -> List[Dict[str, Any]]:
+    labels = {
+        "severpay": "SeverPay",
+        "freekassa": "FreeKassa / СБП",
+        "platega_sbp": "Platega · СБП",
+        "platega_crypto": "Platega · Crypto",
+        "yookassa": "Банковская карта",
+        "stars": "Telegram Stars",
+        "cryptopay": "CryptoPay",
+    }
+    methods: List[Dict[str, Any]] = []
+    for method in settings.payment_methods_order:
+        method = method.lower()
+        if (
+            method == "severpay"
+            and settings.SEVERPAY_ENABLED
+            and _service_configured(app, "severpay_service")
+        ):
+            methods.append({"id": method, "name": labels[method]})
+        elif (
+            method == "freekassa"
+            and settings.FREEKASSA_ENABLED
+            and _service_configured(app, "freekassa_service")
+        ):
+            methods.append({"id": method, "name": labels[method]})
+        elif (
+            method == "platega_sbp"
+            and settings.PLATEGA_ENABLED
+            and settings.PLATEGA_SBP_ENABLED
+            and _service_configured(app, "platega_service")
+        ):
+            methods.append({"id": method, "name": labels[method]})
+        elif (
+            method == "platega_crypto"
+            and settings.PLATEGA_ENABLED
+            and settings.PLATEGA_CRYPTO_ENABLED
+            and _service_configured(app, "platega_service")
+        ):
+            methods.append({"id": method, "name": labels[method]})
+        elif (
+            method == "yookassa"
+            and settings.YOOKASSA_ENABLED
+            and _service_configured(app, "yookassa_service")
+        ):
+            methods.append({"id": method, "name": labels[method]})
+        elif method == "stars" and settings.STARS_ENABLED:
+            methods.append({"id": method, "name": labels[method]})
+        elif (
+            method == "cryptopay"
+            and settings.CRYPTOPAY_ENABLED
+            and _service_configured(app, "cryptopay_service")
+        ):
+            methods.append({"id": method, "name": labels[method]})
+    return methods
+
+
+def _service_configured(app: web.Application, key: str) -> bool:
+    service = app.get(key)
+    return bool(service and getattr(service, "configured", False))

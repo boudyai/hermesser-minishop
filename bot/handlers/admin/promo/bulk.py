@@ -486,7 +486,7 @@ async def create_bulk_promo_codes_final(
 
         # Send CSV file if created
         if csv_file:
-            csv_caption = f"📄 Промокоды для массового создания\n💫 Всего: {len(created_codes)} промокодов\n🎁 Бонус: {data['bonus_days']} дней каждый"
+            csv_caption = f"📄 Промокоды для массового создания\n💫 Всего: {len(created_codes)} промокодов\n🎁 Бонус: {data['bonus_days']} дней каждый"  # noqa: E501
             await message_obj.answer_document(csv_file, caption=csv_caption)
 
         await state.clear()

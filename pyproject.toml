@@ -16,12 +16,9 @@ select = [
     "I", # isort
 ]
 ignore = [
-    "E501", # line length (legacy lines; tighten later if desired)
     "E731", # lambda assignment (common in handlers)
-    "E701", # multiple statements on one line (compact early returns)
     "E712", # `== True` / `== False` in SQLAlchemy filters
     "E711", # `== None` on ORM columns (use `.is_(None)` in refactors)
-    "F841", # unused locals (clean up incrementally)
 ]
 
 [tool.ruff.lint.isort]

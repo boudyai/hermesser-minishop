@@ -99,7 +99,7 @@ async def upsert_subscription(session: AsyncSession, sub_payload: Dict[str, Any]
 
     if existing_sub:
         logging.info(
-            f"Updating existing subscription {existing_sub.subscription_id} by panel_sub_uuid {panel_sub_uuid}"
+            f"Updating existing subscription {existing_sub.subscription_id} by panel_sub_uuid {panel_sub_uuid}"  # noqa: E501
         )
         for key, value in sub_payload.items():
             if hasattr(existing_sub, key):
@@ -120,7 +120,7 @@ async def upsert_subscription(session: AsyncSession, sub_payload: Dict[str, Any]
             user = await get_user_by_id(session, sub_payload["user_id"])
             if not user:
                 raise ValueError(
-                    f"User {sub_payload['user_id']} not found for new subscription with panel_uuid {panel_sub_uuid}."
+                    f"User {sub_payload['user_id']} not found for new subscription with panel_uuid {panel_sub_uuid}."  # noqa: E501
                 )
 
         new_sub = Subscription(**sub_payload)
@@ -147,7 +147,7 @@ async def deactivate_other_active_subscriptions(
     result = await session.execute(stmt)
     if result.rowcount > 0:
         logging.info(
-            f"Deactivated {result.rowcount} other active subscriptions for panel_user_uuid {panel_user_uuid}."
+            f"Deactivated {result.rowcount} other active subscriptions for panel_user_uuid {panel_user_uuid}."  # noqa: E501
         )
 
 
@@ -160,7 +160,7 @@ async def deactivate_all_user_subscriptions(session: AsyncSession, user_id: int)
     result = await session.execute(stmt)
     if result.rowcount > 0:
         logging.info(
-            f"Deactivated {result.rowcount} subscriptions for user {user_id} due to missing panel user."
+            f"Deactivated {result.rowcount} subscriptions for user {user_id} due to missing panel user."  # noqa: E501
         )
     return result.rowcount
 

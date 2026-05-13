@@ -71,7 +71,7 @@ async def process_successful_payment(
         or (not payment_db_id_str and not auto_renew_subscription_id_str)
     ):
         logging.error(
-            f"Missing crucial metadata for payment: {payment_info_from_webhook.get('id')}, metadata: {metadata}"
+            f"Missing crucial metadata for payment: {payment_info_from_webhook.get('id')}, metadata: {metadata}"  # noqa: E501
         )
         return
 
@@ -103,7 +103,7 @@ async def process_successful_payment(
             try:
                 if not yk_payment_id_from_hook:
                     logging.error(
-                        "Auto-renew webhook missing YooKassa payment id; cannot ensure payment record."
+                        "Auto-renew webhook missing YooKassa payment id; cannot ensure payment record."  # noqa: E501
                     )
                     return
                 from db.dal import payment_dal as _payment_dal
@@ -126,7 +126,7 @@ async def process_successful_payment(
                 payment_db_id = payment_record.payment_id
             except Exception as e_ensure:
                 logging.error(
-                    f"Failed to ensure payment record for auto-renew webhook (YK {payment_info_from_webhook.get('id')}): {e_ensure}",
+                    f"Failed to ensure payment record for auto-renew webhook (YK {payment_info_from_webhook.get('id')}): {e_ensure}",  # noqa: E501
                     exc_info=True,
                 )
                 return
@@ -140,14 +140,14 @@ async def process_successful_payment(
 
         if payment_record and payment_record.status == "succeeded":
             logging.info(
-                f"Skipping duplicate YooKassa webhook for payment {payment_db_id} (YK: {yk_payment_id_from_hook})."
+                f"Skipping duplicate YooKassa webhook for payment {payment_db_id} (YK: {yk_payment_id_from_hook})."  # noqa: E501
             )
             return
 
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user:
             logging.error(
-                f"User {user_id} not found in DB during successful payment processing for YK ID {payment_info_from_webhook.get('id')}. Payment record {payment_db_id}."
+                f"User {user_id} not found in DB during successful payment processing for YK ID {payment_info_from_webhook.get('id')}. Payment record {payment_db_id}."  # noqa: E501
             )
 
             await payment_dal.update_payment_status_by_db_id(
@@ -260,7 +260,7 @@ async def process_successful_payment(
 
         if not activation_details or not activation_details.get("end_date"):
             logging.error(
-                f"Failed to activate subscription for user {user_id} after payment {yk_payment_id_from_hook}"
+                f"Failed to activate subscription for user {user_id} after payment {yk_payment_id_from_hook}"  # noqa: E501
             )
             raise Exception(f"Subscription Error: Failed to activate for user {user_id}")
 
@@ -272,7 +272,7 @@ async def process_successful_payment(
         )
         if not updated_payment_record:
             logging.error(
-                f"Failed to update payment record {payment_db_id} for yk_id {yk_payment_id_from_hook}"
+                f"Failed to update payment record {payment_db_id} for yk_id {yk_payment_id_from_hook}"  # noqa: E501
             )
             raise Exception(f"DB Error: Could not update payment record {payment_db_id}")
 
@@ -403,7 +403,7 @@ async def process_successful_payment(
                 )
             else:
                 logging.error(
-                    f"Critical error: final_end_date_for_user is None for user {user_id} after successful payment logic."
+                    f"Critical error: final_end_date_for_user is None for user {user_id} after successful payment logic."  # noqa: E501
                 )
                 details_message = _("payment_successful_error_details")
 
@@ -455,7 +455,7 @@ async def process_successful_payment(
 
     except Exception as e_process:
         logging.error(
-            f"Error during process_successful_payment main try block for user {user_id}: {e_process}",
+            f"Error during process_successful_payment main try block for user {user_id}: {e_process}",  # noqa: E501
             exc_info=True,
         )
 
@@ -496,11 +496,11 @@ async def process_cancelled_payment(
 
         if updated_payment:
             logging.info(
-                f"Payment {payment_db_id} (YK: {payment_info_from_webhook.get('id')}) status updated to cancelled for user {user_id}."
+                f"Payment {payment_db_id} (YK: {payment_info_from_webhook.get('id')}) status updated to cancelled for user {user_id}."  # noqa: E501
             )
         else:
             logging.warning(
-                f"Could not find payment record {payment_db_id} to update status to cancelled for user {user_id}."
+                f"Could not find payment record {payment_db_id} to update status to cancelled for user {user_id}."  # noqa: E501
             )
 
         db_user = await user_dal.get_user_by_id(session, user_id)
@@ -513,7 +513,7 @@ async def process_cancelled_payment(
 
     except Exception as e_process_cancel:
         logging.error(
-            f"Error processing cancelled payment for user {user_id}, payment_db_id {payment_db_id}: {e_process_cancel}",
+            f"Error processing cancelled payment for user {user_id}, payment_db_id {payment_db_id}: {e_process_cancel}",  # noqa: E501
             exc_info=True,
         )
         raise
@@ -547,7 +547,7 @@ async def yookassa_webhook_route(request: web.Request):
 
         logging.info(
             f"YooKassa Webhook Parsed: Event='{notification_object.event}', "
-            f"PaymentId='{payment_data_from_notification.id}', Status='{payment_data_from_notification.status}'"
+            f"PaymentId='{payment_data_from_notification.id}', Status='{payment_data_from_notification.status}'"  # noqa: E501
         )
 
         if (
@@ -556,7 +556,7 @@ async def yookassa_webhook_route(request: web.Request):
             or payment_data_from_notification.metadata is None
         ):
             logging.error(
-                f"YooKassa webhook payment {payment_data_from_notification.id} lacks metadata. Cannot process."
+                f"YooKassa webhook payment {payment_data_from_notification.id} lacks metadata. Cannot process."  # noqa: E501
             )
             return web.Response(status=200, text="ok_error_no_metadata")
 
@@ -633,8 +633,8 @@ async def yookassa_webhook_route(request: web.Request):
                             await session.commit()
                         else:
                             logging.warning(
-                                f"Payment Succeeded event for {payment_dict_for_processing.get('id')} "
-                                f"but data not as expected: status='{payment_dict_for_processing.get('status')}', "
+                                f"Payment Succeeded event for {payment_dict_for_processing.get('id')} "  # noqa: E501
+                                f"but data not as expected: status='{payment_dict_for_processing.get('status')}', "  # noqa: E501
                                 f"paid='{payment_dict_for_processing.get('paid')}'"
                             )
                     elif notification_object.event == YOOKASSA_EVENT_PAYMENT_CANCELED:
@@ -682,7 +682,7 @@ async def yookassa_webhook_route(request: web.Request):
                                             "yoo-money",
                                             "wallet",
                                         }:
-                                            # Normalize wallet display name to avoid leaking full account from title
+                                            # Normalize wallet display name to avoid leaking full account from title  # noqa: E501
                                             display_network = "YooMoney"
                                             if (
                                                 isinstance(account_number, str)
@@ -767,7 +767,7 @@ async def yookassa_webhook_route(request: web.Request):
                 except Exception:
                     await session.rollback()
                     logging.exception(
-                        "Error processing YooKassa webhook event '%s' for YK Payment ID %s in DB transaction.",
+                        "Error processing YooKassa webhook event '%s' for YK Payment ID %s in DB transaction.",  # noqa: E501
                         notification_object.event,
                         payment_dict_for_processing.get("id"),
                     )

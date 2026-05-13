@@ -179,7 +179,7 @@ async def pay_platega_callback_handler(
             except Exception as e_status:
                 await session.rollback()
                 logging.error(
-                    f"Platega: failed to store transaction id for payment {payment_record.payment_id}: {e_status}",
+                    f"Platega: failed to store transaction id for payment {payment_record.payment_id}: {e_status}",  # noqa: E501
                     exc_info=True,
                 )
 
@@ -232,7 +232,7 @@ async def pay_platega_callback_handler(
             return
 
         logging.error(
-            "Platega: transaction created but missing transaction id or payment link for payment %s. Response: %s",
+            "Platega: transaction created but missing transaction id or payment link for payment %s. Response: %s",  # noqa: E501
             payment_record.payment_id,
             response_data,
         )
@@ -247,7 +247,7 @@ async def pay_platega_callback_handler(
     except Exception as e_status:
         await session.rollback()
         logging.error(
-            f"Platega: failed to mark payment {payment_record.payment_id} as failed_creation: {e_status}",
+            f"Platega: failed to mark payment {payment_record.payment_id} as failed_creation: {e_status}",  # noqa: E501
             exc_info=True,
         )
 

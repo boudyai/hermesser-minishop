@@ -97,7 +97,7 @@ async def show_statistics_handler(
             nodes_stats = await panel_service.get_nodes_statistics()
 
             logging.info(
-                f"Panel stats response: system={system_stats}, bandwidth={bandwidth_stats}, nodes={nodes_stats}"
+                f"Panel stats response: system={system_stats}, bandwidth={bandwidth_stats}, nodes={nodes_stats}"  # noqa: E501
             )
 
             if system_stats:
@@ -173,7 +173,7 @@ async def show_statistics_handler(
                 total_nodes_count = len(unique_nodes)
                 # Assume all nodes are active since we don't have status info
                 stats_text_parts.append(
-                    f"🔗 {_('admin_panel_nodes_label')}: <b>{total_nodes_count}/{total_nodes_count}</b>"
+                    f"🔗 {_('admin_panel_nodes_label')}: <b>{total_nodes_count}/{total_nodes_count}</b>"  # noqa: E501
                 )
             else:
                 # Use nodes total from system stats as fallback
@@ -191,7 +191,7 @@ async def show_statistics_handler(
 
     stats_text_parts.append(f"\n<b>💰 {_('admin_financial_stats_header')}</b>")
     stats_text_parts.append(
-        f"📅 {_('admin_financial_today_label')}: <b>{financial_stats['today_revenue']:.2f} RUB</b> ({financial_stats['today_payments_count']} {_('admin_financial_payments_label')})"
+        f"📅 {_('admin_financial_today_label')}: <b>{financial_stats['today_revenue']:.2f} RUB</b> ({financial_stats['today_payments_count']} {_('admin_financial_payments_label')})"  # noqa: E501
     )
     stats_text_parts.append(
         f"📅 {_('admin_financial_week_label')}: <b>{financial_stats['week_revenue']:.2f} RUB</b>"
@@ -200,7 +200,7 @@ async def show_statistics_handler(
         f"📅 {_('admin_financial_month_label')}: <b>{financial_stats['month_revenue']:.2f} RUB</b>"
     )
     stats_text_parts.append(
-        f"🏆 {_('admin_financial_all_time_label')}: <b>{financial_stats['all_time_revenue']:.2f} RUB</b>"
+        f"🏆 {_('admin_financial_all_time_label')}: <b>{financial_stats['all_time_revenue']:.2f} RUB</b>"  # noqa: E501
     )
 
     last_payments_models: List[Payment] = await payment_dal.get_recent_payment_logs_with_user(
@@ -264,7 +264,7 @@ async def show_statistics_handler(
         stats_text_parts.append(f"  {_('admin_stats_sync_time')}: {sync_time_str}")
         stats_text_parts.append(f"  {_('admin_stats_sync_status')}: {sync_status_model.status}")
         stats_text_parts.append(
-            f"  {_('admin_stats_sync_users_processed')}: {sync_status_model.users_processed_from_panel}"
+            f"  {_('admin_stats_sync_users_processed')}: {sync_status_model.users_processed_from_panel}"  # noqa: E501
         )
         stats_text_parts.append(
             f"  {_('admin_stats_sync_subs_synced')}: {sync_status_model.subscriptions_synced}"

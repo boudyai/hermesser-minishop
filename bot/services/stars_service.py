@@ -74,7 +74,7 @@ class StarsService:
                 title=description,
                 description=description,
                 payload=payload,
-                provider_token="",  # Required to be empty for Telegram Stars (XTR) per Telegram Bot API.
+                provider_token="",  # Required to be empty for Telegram Stars (XTR) per Telegram Bot API.  # noqa: E501
                 currency="XTR",
                 prices=prices,
             )

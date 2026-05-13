@@ -72,7 +72,7 @@ async def build_and_start_web_app(
             secret_token=settings.WEBHOOK_SECRET_TOKEN,
         ).register(app, path=telegram_webhook_path)
         logging.info(
-            f"Telegram webhook route configured at: [POST] {telegram_webhook_path} (relative to base URL)"
+            f"Telegram webhook route configured at: [POST] {telegram_webhook_path} (relative to base URL)"  # noqa: E501
         )
 
     from bot.handlers.user.payment import yookassa_webhook_route

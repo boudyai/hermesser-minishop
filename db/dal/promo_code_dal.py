@@ -170,7 +170,7 @@ async def record_promo_activation(
     existing_activation = await get_user_activation_for_promo(session, promo_code_id, user_id)
     if existing_activation:
         logging.info(
-            f"User {user_id} has already activated promo code {promo_code_id}. Activation ID: {existing_activation.activation_id}"
+            f"User {user_id} has already activated promo code {promo_code_id}. Activation ID: {existing_activation.activation_id}"  # noqa: E501
         )
         return existing_activation
 
@@ -203,6 +203,6 @@ async def record_promo_activation(
     await session.flush()
     await session.refresh(new_activation)
     logging.info(
-        f"Promo code {promo_code_id} activated by user {user_id}. Activation ID: {new_activation.activation_id}"
+        f"Promo code {promo_code_id} activated by user {user_id}. Activation ID: {new_activation.activation_id}"  # noqa: E501
     )
     return new_activation

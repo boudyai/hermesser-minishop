@@ -1,0 +1,58 @@
+# ruff: noqa: F401,F403,F405,I001
+from ._runtime import *  # noqa: F403,F405
+
+
+def _require_admin_user_id(request: web.Request) -> int:
+    """Return the authenticated user id, or raise 401/403 for non-admins."""
+
+    from bot.app.web.session import extract_authenticated_user_id
+
+    settings: Settings = request.app["settings"]
+    user_id = extract_authenticated_user_id(request)
+    if not user_id:
+        raise web.HTTPUnauthorized(
+            text=json.dumps({"ok": False, "error": "unauthorized"}),
+            content_type="application/json",
+        )
+
+    admin_ids = settings.ADMIN_IDS or []
+    db_user_telegram_id = request.get("admin_telegram_id")
+    if db_user_telegram_id is None:
+        raise web.HTTPForbidden(
+            text=json.dumps({"ok": False, "error": "forbidden"}),
+            content_type="application/json",
+        )
+
+    if int(db_user_telegram_id) not in {int(x) for x in admin_ids}:
+        raise web.HTTPForbidden(
+            text=json.dumps({"ok": False, "error": "forbidden"}),
+            content_type="application/json",
+        )
+    return int(user_id)
+
+
+@web.middleware
+async def admin_auth_middleware(request: web.Request, handler):
+    """Resolve the Telegram id of the current user and stash it on the request.
+
+    Doing this once per request lets every admin route call
+    ``_require_admin_user_id`` without re-querying the DB.
+    """
+
+    if not request.path.startswith("/api/admin"):
+        return await handler(request)
+
+    from bot.app.web.session import extract_authenticated_user_id
+
+    user_id = extract_authenticated_user_id(request)
+    if user_id:
+        async_session_factory: sessionmaker = request.app["async_session_factory"]
+        async with async_session_factory() as session:
+            db_user = await user_dal.get_user_by_id(session, user_id)
+        if db_user and db_user.telegram_id:
+            request["admin_telegram_id"] = int(db_user.telegram_id)
+        elif db_user:
+            # No telegram_id yet (email-only user) — can't be an admin
+            request["admin_telegram_id"] = None
+
+    return await handler(request)

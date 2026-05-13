@@ -19,7 +19,7 @@ class JsonI18n:
         self.locales_data: Dict[str, Dict[str, str]] = {}
         self._load_locales()
         logging.info(
-            f"JsonI18n initialized. Loaded languages: {list(self.locales_data.keys())}. Default: {self.default_lang}"
+            f"JsonI18n initialized. Loaded languages: {list(self.locales_data.keys())}. Default: {self.default_lang}"  # noqa: E501
         )
 
     def _load_locales(self):
@@ -35,7 +35,7 @@ class JsonI18n:
                         self.locales_data[lang_code] = json.load(f)
                 except json.JSONDecodeError as e_json_load:
                     logging.error(
-                        f"Error loading locale {lang_code} from {file_path} (JSON Decode Error): {e_json_load}"
+                        f"Error loading locale {lang_code} from {file_path} (JSON Decode Error): {e_json_load}"  # noqa: E501
                     )
                 except Exception as e_load:
                     logging.error(
@@ -66,7 +66,7 @@ class JsonI18n:
                     except Exception:
                         return text
             logging.warning(
-                f"No language data for '{effective_lang_code}' (default '{self.default_lang}' also missing). Key '{key}' will be returned as is."
+                f"No language data for '{effective_lang_code}' (default '{self.default_lang}' also missing). Key '{key}' will be returned as is."  # noqa: E501
             )
             return key.format(**kwargs) if kwargs else key
 
@@ -78,19 +78,19 @@ class JsonI18n:
 
             if text is None:
                 logging.warning(
-                    f"Translation key '{key}' not found for lang '{effective_lang_code}' or default '{self.default_lang}'. Returning key."
+                    f"Translation key '{key}' not found for lang '{effective_lang_code}' or default '{self.default_lang}'. Returning key."  # noqa: E501
                 )
                 return key.format(**kwargs) if kwargs else key
         try:
             return text.format(**kwargs) if kwargs else text
         except KeyError as e_format:
             logging.warning(
-                f"Missing format key '{e_format}' for i18n key '{key}' (lang: {effective_lang_code}). Original text: '{text}'"
+                f"Missing format key '{e_format}' for i18n key '{key}' (lang: {effective_lang_code}). Original text: '{text}'"  # noqa: E501
             )
             return text
         except Exception as e_general_format:
             logging.error(
-                f"General error formatting i18n key '{key}' (lang: {effective_lang_code}): {e_general_format}. Original text: '{text}'",
+                f"General error formatting i18n key '{key}' (lang: {effective_lang_code}): {e_general_format}. Original text: '{text}'",  # noqa: E501
                 exc_info=True,
             )
             return text
@@ -147,7 +147,7 @@ class I18nMiddleware(BaseMiddleware):
                         current_language = event_user.language_code.lower()
             except Exception as e_db_lang:
                 logging.error(
-                    f"I18nMiddleware: Error fetching user lang from DB for {event_user.id}: {e_db_lang}. Falling back.",
+                    f"I18nMiddleware: Error fetching user lang from DB for {event_user.id}: {e_db_lang}. Falling back.",  # noqa: E501
                     exc_info=True,
                 )
                 if event_user.language_code:

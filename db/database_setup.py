@@ -65,7 +65,7 @@ async def init_db(settings: Settings, session_factory: sessionmaker):
         logging.warning("init_db: async_engine was None, re-initializing via init_db_connection.")
 
         raise RuntimeError(
-            "async_engine is not initialized. Call init_db_connection and get session_factory first."
+            "async_engine is not initialized. Call init_db_connection and get session_factory first."  # noqa: E501
         )
 
     async with async_engine.begin() as conn:
@@ -136,7 +136,7 @@ async def init_db(settings: Settings, session_factory: sessionmaker):
                             )
                         WHERE s.is_active = TRUE
                           AND s.tariff_key IS NULL
-                        """
+                        """  # noqa: E501
                     ),
                     {
                         "tariff_key": default_tariff.key,

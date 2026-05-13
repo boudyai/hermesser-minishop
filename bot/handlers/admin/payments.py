@@ -138,7 +138,7 @@ async def view_payments_handler(
 
     for i, payment in enumerate(payments, 1):
         text_parts.append(
-            f"<b>{page * page_size + i}.</b> {format_payment_text(payment, i18n, current_lang, settings)}"
+            f"<b>{page * page_size + i}.</b> {format_payment_text(payment, i18n, current_lang, settings)}"  # noqa: E501
         )
         text_parts.append("")  # Empty line between payments
 

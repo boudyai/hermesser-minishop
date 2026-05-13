@@ -25,7 +25,7 @@ def append_query_params(base_url: str, params: dict[str, str]) -> str:
 
 
 def subscription_mini_app_topup_url(settings: Settings, kind: str) -> Optional[str]:
-    """Return Mini App URL that opens the traffic top-up flow for ``kind`` (``regular`` or ``premium``)."""
+    """Return Mini App URL that opens the traffic top-up flow for ``kind`` (``regular`` or ``premium``)."""  # noqa: E501
     base = str(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", None) or "").strip()
     if not base:
         return None

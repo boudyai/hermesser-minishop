@@ -54,7 +54,7 @@ async def on_startup_configured(dispatcher: Dispatcher):
         try:
             current_webhook_info = await bot.get_webhook_info()
             logging.info(
-                f"STARTUP: Current Telegram webhook info BEFORE setting: {current_webhook_info.model_dump_json(exclude_none=True, indent=2)}"
+                f"STARTUP: Current Telegram webhook info BEFORE setting: {current_webhook_info.model_dump_json(exclude_none=True, indent=2)}"  # noqa: E501
             )
 
             set_success = await bot.set_webhook(
@@ -76,11 +76,11 @@ async def on_startup_configured(dispatcher: Dispatcher):
 
             new_webhook_info = await bot.get_webhook_info()
             logging.info(
-                f"STARTUP: Telegram Webhook info AFTER setting: {new_webhook_info.model_dump_json(exclude_none=True, indent=2)}"
+                f"STARTUP: Telegram Webhook info AFTER setting: {new_webhook_info.model_dump_json(exclude_none=True, indent=2)}"  # noqa: E501
             )
             if not new_webhook_info.url:
                 logging.error(
-                    "STARTUP: CRITICAL - Telegram Webhook URL is EMPTY after set attempt. Check bot token and URL validity."
+                    "STARTUP: CRITICAL - Telegram Webhook URL is EMPTY after set attempt. Check bot token and URL validity."  # noqa: E501
                 )
 
         except Exception:
@@ -144,11 +144,11 @@ async def on_startup_configured(dispatcher: Dispatcher):
 
         if sync_result.get("status") == "completed":
             logging.info(
-                f"STARTUP: Automatic sync completed successfully. Details: {sync_result.get('details', 'N/A')}"
+                f"STARTUP: Automatic sync completed successfully. Details: {sync_result.get('details', 'N/A')}"  # noqa: E501
             )
         else:
             logging.warning(
-                f"STARTUP: Automatic sync completed with issues. Status: {sync_result.get('status', 'unknown')}"
+                f"STARTUP: Automatic sync completed with issues. Status: {sync_result.get('status', 'unknown')}"  # noqa: E501
             )
 
     except Exception:
@@ -234,7 +234,7 @@ async def run_bot(settings_param: Settings):
             logging.warning("Bot username is empty; Telegram Login Widget will be unavailable.")
     except Exception as e:
         logging.error(
-            f"Failed to get bot info (e.g., for YooKassa default URL): {e}. Using fallback: {actual_bot_username}"
+            f"Failed to get bot info (e.g., for YooKassa default URL): {e}. Using fallback: {actual_bot_username}"  # noqa: E501
         )
 
     services = build_core_services(

@@ -165,7 +165,7 @@ async def update_provider_payment_and_status(
         await session.flush()
         await session.refresh(payment)
         logging.info(
-            f"Payment record {payment.payment_id} updated with provider id {provider_payment_id} and status {new_status}."
+            f"Payment record {payment.payment_id} updated with provider id {provider_payment_id} and status {new_status}."  # noqa: E501
         )
     else:
         logging.warning(f"Payment record with DB ID {payment_db_id} not found for provider update.")

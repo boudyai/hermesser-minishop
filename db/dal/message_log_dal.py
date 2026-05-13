@@ -75,7 +75,7 @@ async def create_message_log_no_commit(session: AsyncSession, log_data: dict) ->
         target_user = await get_user_by_id(session, log_data["target_user_id"])
         if not target_user:
             logging.warning(
-                f"Target user {log_data['target_user_id']} not found for message log. Setting to NULL."
+                f"Target user {log_data['target_user_id']} not found for message log. Setting to NULL."  # noqa: E501
             )
             log_data["target_user_id"] = None
 
@@ -83,6 +83,6 @@ async def create_message_log_no_commit(session: AsyncSession, log_data: dict) ->
     session.add(new_log)
 
     logging.debug(
-        f"Message log added to session: user {log_data.get('user_id')}, event {log_data.get('event_type')}"
+        f"Message log added to session: user {log_data.get('user_id')}, event {log_data.get('event_type')}"  # noqa: E501
     )
     return new_log

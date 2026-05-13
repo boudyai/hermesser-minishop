@@ -1,0 +1,111 @@
+# ruff: noqa: F401,F403,F405,I001
+from ._runtime import *  # noqa: F403,F405
+
+
+class PaymentContextMixin:
+    async def _record_payment_context(
+        self,
+        session: AsyncSession,
+        payment_db_id: int,
+        *,
+        sale_mode: str,
+        tariff_key: Optional[str],
+        purchased_gb: Optional[float] = None,
+        purchased_hwid_devices: Optional[int] = None,
+    ) -> None:
+        payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)
+        if not payment:
+            return
+        payment.sale_mode = sale_mode
+        payment.tariff_key = tariff_key
+        payment.purchased_gb = purchased_gb
+        payment.purchased_hwid_devices = purchased_hwid_devices
+        await session.flush()
+
+    async def get_user_language(self, session: AsyncSession, user_id: int) -> str:
+        user_record = await user_dal.get_user_by_id(session, user_id)
+        return (
+            user_record.language_code
+            if user_record and user_record.language_code
+            else self.settings.DEFAULT_LANGUAGE
+        )
+
+    async def has_had_any_subscription(self, session: AsyncSession, user_id: int) -> bool:
+        return await subscription_dal.has_any_subscription_for_user(session, user_id)
+
+    async def has_active_subscription(self, session: AsyncSession, user_id: int) -> bool:
+        """Return True if user currently has an active subscription (end_date in future)."""
+        try:
+            user_record = await user_dal.get_user_by_id(session, user_id)
+            if not user_record or not user_record.panel_user_uuid:
+                return False
+            active_sub = await subscription_dal.get_active_subscription_by_user_id(
+                session, user_id, user_record.panel_user_uuid
+            )
+            if not active_sub or not active_sub.end_date:
+                return False
+            from datetime import datetime, timezone
+
+            return active_sub.is_active and active_sub.end_date > datetime.now(timezone.utc)
+        except Exception:
+            return False
+
+    async def _send_payment_success_email(
+        self,
+        *,
+        db_user: User,
+        sale_mode: str,
+        months: int,
+        traffic_gb: Optional[float],
+        payment_amount: float,
+        end_date: Optional[datetime],
+        provider: str,
+    ) -> None:
+        """Best-effort branded email confirming the payment. No-op if SMTP or
+        the user's email aren't set. Failures are logged and swallowed so the
+        payment flow is never blocked by mail delivery."""
+        if not self.settings.email_auth_configured:
+            return
+        recipient = (db_user.email or "").strip() if db_user else ""
+        if not recipient:
+            return
+
+        end_date_text = end_date.strftime("%Y-%m-%d") if end_date else ""
+        provider_label = self._PROVIDER_LABELS.get((provider or "").lower())
+        dashboard_url = (self.settings.SUBSCRIPTION_MINI_APP_URL or "").strip() or None
+
+        try:
+            content = render_payment_success(
+                self.settings,
+                language_code=db_user.language_code or self.settings.DEFAULT_LANGUAGE,
+                sale_mode=sale_mode,
+                months=int(months or 0),
+                traffic_gb=traffic_gb,
+                amount=float(payment_amount or 0),
+                currency=self.settings.DEFAULT_CURRENCY_SYMBOL,
+                end_date_text=end_date_text,
+                dashboard_url=dashboard_url,
+                provider_label=provider_label,
+            )
+            email_service = EmailAuthService(self.settings)
+            await email_service.send_rendered_email(email=recipient, content=content)
+        except Exception:
+            logging.exception("Failed to send payment success email to user %s", db_user.user_id)
+
+    async def update_last_notification_sent(
+        self, session: AsyncSession, user_id: int, subscription_end_date: datetime
+    ):
+        sub_to_update = await subscription_dal.find_subscription_for_notification_update(
+            session, user_id, subscription_end_date
+        )
+        if sub_to_update:
+            await subscription_dal.update_subscription_notification_time(
+                session, sub_to_update.subscription_id, datetime.now(timezone.utc)
+            )
+            logging.info(
+                f"Updated last_notification_sent for user {user_id}, sub_id {sub_to_update.subscription_id}"  # noqa: E501
+            )
+        else:
+            logging.warning(
+                f"Could not find subscription for user {user_id} ending at {subscription_end_date.isoformat()} to update notification time."  # noqa: E501
+            )

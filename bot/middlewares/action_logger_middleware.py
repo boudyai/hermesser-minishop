@@ -76,7 +76,7 @@ class ActionLoggerMiddleware(BaseMiddleware):
                 user_exists = await user_dal.get_user_by_id(session, user_id)
                 if not user_exists:
                     logging.warning(
-                        f"ActionLoggerMiddleware: User {user_id} not found in DB. Logging action with user_id=NULL."
+                        f"ActionLoggerMiddleware: User {user_id} not found in DB. Logging action with user_id=NULL."  # noqa: E501
                     )
                     log_user_id_for_db = None
 
@@ -95,7 +95,7 @@ class ActionLoggerMiddleware(BaseMiddleware):
                 await message_log_dal.create_message_log_no_commit(session, log_payload)
             except Exception as e_log:
                 logging.error(
-                    f"ActionLoggerMiddleware: Failed to add log to session for user {user_id}, type {current_event_type}: {e_log}",
+                    f"ActionLoggerMiddleware: Failed to add log to session for user {user_id}, type {current_event_type}: {e_log}",  # noqa: E501
                     exc_info=True,
                 )
 

@@ -445,7 +445,7 @@ class TariffTrafficWorker:
         ratio = used_val / limit_val
         levels = list(getattr(self.settings, "tariff_traffic_warning_levels", [85, 90, 95]))
 
-        # Fully exhausted or over quota — one message per period (same idea as regular traffic at 100%).
+        # Fully exhausted or over quota — one message per period (same idea as regular traffic at 100%).  # noqa: E501
         if ratio >= 1.0:
             depleted_existing = await tariff_dal.get_warning(
                 session,

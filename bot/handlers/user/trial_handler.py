@@ -40,10 +40,9 @@ async def request_trial_confirmation_handler(
             pass
         return
 
-    show_trial_btn_in_menu_if_fail = False
     if settings.TRIAL_ENABLED:
         if not await subscription_service.has_had_any_subscription(session, user_id):
-            show_trial_btn_in_menu_if_fail = True
+            pass
 
     if not settings.TRIAL_ENABLED:
         await callback.message.edit_text(

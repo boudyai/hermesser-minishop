@@ -119,7 +119,7 @@ class PromoCodeService:
                 return True, new_end_date
             else:
                 logging.error(
-                    f"Failed to record activation or increment usage for promo {promo_data.code} by user {user_id}"
+                    f"Failed to record activation or increment usage for promo {promo_data.code} by user {user_id}"  # noqa: E501
                 )
                 return False, _("error_applying_promo_bonus")
         else:

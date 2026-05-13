@@ -29,7 +29,7 @@ async def referral_command_handler(
     target_message_obj = event.message if isinstance(event, types.CallbackQuery) else event
     if not target_message_obj:
         logging.error(
-            "Target message is None in referral_command_handler (possibly from callback without message)."
+            "Target message is None in referral_command_handler (possibly from callback without message)."  # noqa: E501
         )
         if isinstance(event, types.CallbackQuery):
             await event.answer("Error displaying referral info.", show_alert=True)

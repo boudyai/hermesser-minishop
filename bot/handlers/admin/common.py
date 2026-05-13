@@ -78,7 +78,7 @@ async def admin_panel_actions_callback_handler(
 
     if not callback.message:
         logging.error(
-            f"CallbackQuery {callback.id} from {callback.from_user.id} has no message for admin_action {action}"
+            f"CallbackQuery {callback.id} from {callback.from_user.id} has no message for admin_action {action}"  # noqa: E501
         )
         await callback.answer("Error processing action: message context lost.", show_alert=True)
         return

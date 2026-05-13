@@ -319,7 +319,7 @@ async def format_user_card(
     # Panel info
     if user.panel_user_uuid:
         card_parts.append(
-            f"{_('admin_user_panel_uuid_label')} {hcode(user.panel_user_uuid[:8] + '...' if len(user.panel_user_uuid) > 8 else user.panel_user_uuid)}"
+            f"{_('admin_user_panel_uuid_label')} {hcode(user.panel_user_uuid[:8] + '...' if len(user.panel_user_uuid) > 8 else user.panel_user_uuid)}"  # noqa: E501
         )
 
     card_parts.append("")  # Empty line
@@ -371,12 +371,12 @@ async def format_user_card(
             premium_bonus_bytes = int(subscription_details.get("premium_bonus_bytes") or 0)
             if premium_unlimited:
                 card_parts.append(
-                    f"{_('admin_user_premium_override_label')} {hcode(_('admin_user_premium_override_unlimited'))}"
+                    f"{_('admin_user_premium_override_label')} {hcode(_('admin_user_premium_override_unlimited'))}"  # noqa: E501
                 )
             elif premium_bonus_bytes > 0:
                 bonus_gb = premium_bonus_bytes / (1024**3)
                 card_parts.append(
-                    f"{_('admin_user_premium_override_label')} {hcode(_('admin_user_premium_override_bonus_value', gb=f'{bonus_gb:.2f}'))}"
+                    f"{_('admin_user_premium_override_label')} {hcode(_('admin_user_premium_override_bonus_value', gb=f'{bonus_gb:.2f}'))}"  # noqa: E501
                 )
         else:
             card_parts.append(
@@ -929,7 +929,6 @@ async def handle_toggle_ban(
 
         # Update on panel if user has panel UUID
         if user.panel_user_uuid:
-            panel_status = "DISABLED" if new_ban_status else "ACTIVE"
             await panel_service.update_user_status_on_panel(
                 user.panel_user_uuid, not new_ban_status
             )
@@ -1431,7 +1430,7 @@ async def process_direct_message_handler(
             await message.answer(_("admin_direct_empty_message"))
             return
 
-        caption_with_signature = (content.text + admin_signature) if content.text else None
+        (content.text + admin_signature) if content.text else None
 
         # Send to target user using our fancy match/case function
         try:

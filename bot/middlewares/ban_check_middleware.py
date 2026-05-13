@@ -49,7 +49,7 @@ class BanCheckMiddleware(BaseMiddleware):
 
         if db_user_model and db_user_model.is_banned:
             logging.info(
-                f"User {event_user.id} ({event_user.username or 'NoUsername'}) is banned. Blocking access."
+                f"User {event_user.id} ({event_user.username or 'NoUsername'}) is banned. Blocking access."  # noqa: E501
             )
 
             i18n_data_from_event = data.get("i18n_data", {})
@@ -113,7 +113,7 @@ class BanCheckMiddleware(BaseMiddleware):
                 logging.warning(f"BanCheck: Bot is blocked by user {event_user.id}.")
             except Exception as e_send:
                 logging.error(
-                    f"BanCheck: Failed to notify banned user {event_user.id}: {type(e_send).__name__} - {e_send}",
+                    f"BanCheck: Failed to notify banned user {event_user.id}: {type(e_send).__name__} - {e_send}",  # noqa: E501
                     exc_info=True,
                 )
 
