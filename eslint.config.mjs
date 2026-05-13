@@ -25,6 +25,12 @@ export default [
     },
   },
   {
+    files: ["bot/app/web/frontend/**/*.svelte"],
+    rules: {
+      "no-useless-assignment": "off",
+    },
+  },
+  {
     files: ["bot/app/web/frontend/**/*.{js,svelte}"],
     languageOptions: {
       globals: {

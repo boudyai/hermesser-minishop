@@ -8,8 +8,13 @@ README.md
 .env.*
 !.env.example
 scratch_*.py
+scratch/
+.claude/
 *.local.*
 node_modules/
+docker-compose-dev.yml
+data/*
+!data/tariffs.example.json
 
 
 # CI

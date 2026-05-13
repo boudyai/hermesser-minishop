@@ -1,5 +1,6 @@
 import logging
 
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -11,11 +12,21 @@ from .migrator import run_database_migrations
 async_engine = None
 
 
+def redacted_database_url(database_url: str) -> str:
+    try:
+        return make_url(database_url).render_as_string(hide_password=True)
+    except Exception:
+        return "<invalid database url>"
+
+
 def init_db_connection(settings: Settings) -> sessionmaker:
     global async_engine
 
     if async_engine is None:
-        logging.info(f"Attempting to create SQLAlchemy engine with URL: {settings.DATABASE_URL}")
+        logging.info(
+            "Attempting to create SQLAlchemy engine with URL: %s",
+            redacted_database_url(settings.DATABASE_URL),
+        )
         async_engine = create_async_engine(
             settings.DATABASE_URL,
             echo=False,

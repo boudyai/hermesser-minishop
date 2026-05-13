@@ -1050,6 +1050,8 @@
   "admin_tariff_squads": "Squads",
   "admin_tariff_premium": "Premium",
   "admin_settings_badge_secret": "Secret",
+  "admin_settings_secret_configured": "Secret is set",
+  "admin_settings_secret_empty": "Not set",
   "admin_settings_badge_override": "Override",
   "admin_status_limited": "Limited",
   "admin_status_expired": "Expired",

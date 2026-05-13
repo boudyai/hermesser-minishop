@@ -79,7 +79,15 @@ nano .env
 
 Если файл из `TARIFFS_CONFIG_PATH` существует, бот использует каталог тарифов. Если файла нет, применяется конфигурация из переменных `.env`.
 
-В `docker-compose-dev.yml` каталог `./data` монтируется в контейнер как `/app/data`, чтобы Web App админка могла сохранять `data/tariffs.json`. После изменения compose-файла пересоздайте контейнер:
+В `docker-compose-dev.yml` каталог `./data` монтируется в контейнер как `/app/data`, чтобы Web App админка могла сохранять `data/tariffs.json`. Тот же каталог используется для кеша логотипа Web App (`data/webapp-logo`) и animated emoji (`data/webapp-emoji`). Если этот bind mount включен на Ubuntu-сервере, создайте подкаталоги и отдайте `data` UID `10001`, под которым работает приложение внутри контейнера:
+
+```bash
+mkdir -p data/webapp-logo data/webapp-emoji
+chown -R 10001:10001 data
+chmod -R u+rwX data
+```
+
+После изменения compose-файла или прав пересоздайте контейнер:
 
 ```bash
 docker compose -f docker-compose-dev.yml up -d --build --force-recreate

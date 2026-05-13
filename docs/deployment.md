@@ -19,6 +19,27 @@ IMAGE_TAG=3.1.0 docker compose -f docker-compose-remote-server.yml up -d
 
 `docker-compose-remote-server.yml` можно использовать как шаблон и заменить `image:` на нужный образ. По умолчанию используется `ghcr.io/3252a8/remnawave-minishop:latest`.
 
+### Права на `./data`
+
+Если в Compose включен bind mount `./data:/app/data` или `./data:/app/data:rw`, каталог на хосте должен быть доступен на запись пользователю контейнера. Контейнер запускает приложение от `appuser` с UID `10001`; запуск Docker от `root` на Ubuntu не делает этот каталог writable внутри контейнера, если на хосте он принадлежит `root:root` с обычными правами `755`.
+
+Перед запуском или после добавления mount выполните на сервере из каталога проекта:
+
+```bash
+mkdir -p data/webapp-logo data/webapp-emoji
+chown -R 10001:10001 data
+chmod -R u+rwX data
+docker compose up -d --force-recreate remnawave-minishop
+```
+
+Проверка прав:
+
+```bash
+docker compose exec remnawave-minishop sh -lc 'id; ls -ldn /app/data /app/data/webapp-emoji; touch /app/data/webapp-emoji/test && rm /app/data/webapp-emoji/test'
+```
+
+Если проверочный `touch` проходит без `Permission denied`, Web App сможет сохранять каталог тарифов, кеш `WEBAPP_LOGO_URL` в `/app/data/webapp-logo` и кеш animated emoji в `/app/data/webapp-emoji`.
+
 ## Обновление версии
 
 Образ приложения: `ghcr.io/3252a8/remnawave-minishop`. Тег задаётся переменной окружения **`IMAGE_TAG`** (в Compose подставляется как `${IMAGE_TAG:-latest}`). Для продакшена разумно закрепить **конкретный тег релиза** вместо `latest`, чтобы обновляться осознанно и иметь откат.

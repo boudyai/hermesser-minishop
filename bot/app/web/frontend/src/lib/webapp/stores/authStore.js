@@ -96,8 +96,8 @@ export function createAuthStore({
       const referralParam = readReferralParam(getTg());
       if (referralParam) payload.referral_code = referralParam;
       const response = await publicApi("/auth/email/magic", payload);
-      if (response.ok && response.token) {
-        setToken(response.token, response.csrf_token);
+      if (response.ok && response.csrf_token) {
+        setToken("", response.csrf_token);
         clearAuthQuery();
         await loadData();
         return true;
@@ -126,8 +126,8 @@ export function createAuthStore({
       const referralParam = readReferralParam(getTg());
       if (referralParam) payload.referral_code = referralParam;
       const response = await publicApi("/auth/token", payload, { signal: options.signal });
-      if (response.ok && response.token) {
-        setToken(response.token, response.csrf_token);
+      if (response.ok && response.csrf_token) {
+        setToken("", response.csrf_token);
         clearAuthQuery();
         setAuthStatus("");
         await loadData();
@@ -202,8 +202,8 @@ export function createAuthStore({
       const referralParam = readReferralParam(getTg());
       if (referralParam) payload.referral_code = referralParam;
       const response = await publicApi("/auth/email/verify", payload);
-      if (!response.ok || !response.token) throw response;
-      setToken(response.token, response.csrf_token);
+      if (!response.ok || !response.csrf_token) throw response;
+      setToken("", response.csrf_token);
       await loadData();
       setAuthStatus("");
     } catch (error) {

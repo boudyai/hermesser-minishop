@@ -80,6 +80,14 @@ docker compose logs -f remnawave-minishop
 
 Для каталога тарифов используется `TARIFFS_CONFIG_PATH` со значением по умолчанию `data/tariffs.json`. Пример формата лежит в [data/tariffs.example.json](data/tariffs.example.json), подробности - в [docs/tariffs.md](docs/tariffs.md).
 
+Если в Docker Compose включаете bind mount `./data:/app/data`, заранее создайте каталог и отдайте его пользователю контейнера. Это нужно для сохранения `data/tariffs.json`, кеша логотипа Web App и animated emoji:
+
+```bash
+mkdir -p data/webapp-logo data/webapp-emoji
+chown -R 10001:10001 data
+chmod -R u+rwX data
+```
+
 ## Полезные команды
 
 ```bash

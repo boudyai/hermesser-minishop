@@ -65,6 +65,12 @@
     revealedSecrets = next;
   }
 
+  function secretPlaceholder(field) {
+    if (settingsDirty[field.key]?.deleted) return field.placeholder || "••••••••";
+    if (field.has_value) return at("settings_secret_configured", {}, "Secret is set");
+    return field.placeholder || at("settings_secret_empty", {}, "Not set");
+  }
+
   function groupSectionFields(section) {
     const groups = new Map();
     for (const field of section.fields || []) {
@@ -124,7 +130,9 @@
     <div class="admin-setting-meta">
       <strong>
         {fieldLabelText(field)}
-        <AdminBadge variant="warning">{at("settings_badge_secret", {}, "Secret")}</AdminBadge>
+        {#if field.secret}
+          <AdminBadge variant="warning">{at("settings_badge_secret", {}, "Secret")}</AdminBadge>
+        {/if}
         {#if isOverridden(field)}
           <AdminBadge variant="success">{at("settings_badge_override", {}, "Override")}</AdminBadge>
         {/if}
@@ -189,7 +197,7 @@
         <input
           class="input"
           type={revealed ? "text" : "password"}
-          placeholder={field.placeholder || "••••••••"}
+          placeholder={secretPlaceholder(field)}
           autocomplete="off"
           value={valueFor(field) ?? ""}
           on:input={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}

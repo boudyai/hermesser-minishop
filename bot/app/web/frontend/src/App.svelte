@@ -53,9 +53,7 @@
     CSRF_COOKIE_NAME,
     isManuallyLoggedOut as readManualLogoutFlag,
     markManualLogout as markManualLogoutInStorage,
-    persistToken,
     readCookie,
-    readStoredToken,
   } from "./lib/webapp/session.js";
   import { createTelegramSdk } from "./lib/webapp/telegramSdk.js";
   import { mockApi as runMockApi } from "./lib/webapp/mockApi.js";
@@ -105,7 +103,7 @@
   let languageClickGuardArmTimer = null;
   let emailAvatarUrl = "";
   let avatarHashToken = "";
-  let token = MOCK ? "local-preview" : readStoredToken();
+  let token = MOCK ? "local-preview" : "";
   let csrfToken = MOCK ? "" : readCookie(CSRF_COOKIE_NAME) || "";
   let scrollLockApplied = false;
   let tg = null;
@@ -132,7 +130,6 @@
   const apiClient = createApiClient({
     apiBase: CFG.apiBase,
     csrfCookieName: CSRF_COOKIE_NAME,
-    getToken: () => token,
     getCsrfToken: () => csrfToken,
     onUnauthorized: () => {
       clearToken();
@@ -621,7 +618,7 @@
     clearManualLogoutFlag();
     token = nextToken || "";
     csrfToken = nextCsrf || readCookie(CSRF_COOKIE_NAME) || "";
-    if (token && !MOCK) persistToken(token);
+    if (!MOCK) clearStoredToken();
   }
 
   function clearToken() {

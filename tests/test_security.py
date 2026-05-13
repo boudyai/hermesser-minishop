@@ -1,13 +1,14 @@
 import hashlib
 import hmac
+import json
 import unittest
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qs, urlsplit
 
 from aiohttp import web
 
-from bot.app.web import subscription_webapp
+from bot.app.web import admin_api, subscription_webapp
 from bot.app.web.webapp_auth import (
     create_telegram_oauth_nonce,
     create_webapp_session_token,
@@ -17,6 +18,8 @@ from bot.handlers.user.payment import yookassa_webhook_route
 from bot.services.crypto_pay_service import CryptoPayService
 from bot.services.freekassa_service import FreeKassaService
 from bot.utils.request_security import request_client_ip
+from config.settings import Settings
+from db.database_setup import redacted_database_url
 
 
 class RequestSecurityTests(unittest.IsolatedAsyncioTestCase):
@@ -131,6 +134,28 @@ class CryptoPayServiceTests(unittest.TestCase):
 
 
 class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
+    def test_auth_response_sets_cookies_and_does_not_return_session_token(self):
+        settings = SimpleNamespace(
+            WEBAPP_SESSION_SECRET="session-secret",
+            WEBAPP_SESSION_TTL_SECONDS=3600,
+        )
+
+        response = subscription_webapp._build_webapp_auth_response(
+            settings,
+            {"user_id": 321},
+            token="raw-session-token",
+            csrf_token="csrf-token",
+        )
+        payload = json.loads(response.text)
+
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["csrf_token"], "csrf-token")
+        self.assertNotIn("token", payload)
+        self.assertEqual(response.cookies["rw_webapp_session"].value, "raw-session-token")
+        self.assertTrue(response.cookies["rw_webapp_session"]["httponly"])
+        self.assertEqual(response.cookies["rw_webapp_csrf"].value, "csrf-token")
+        self.assertFalse(response.cookies["rw_webapp_csrf"]["httponly"])
+
     def test_require_user_id_falls_back_to_cookie_session(self):
         settings = SimpleNamespace(
             WEBAPP_SESSION_SECRET="session-secret",
@@ -296,6 +321,120 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
             subscription_webapp._resolve_telegram_oauth_request_access(settings),
             ["write", "phone"],
         )
+
+    def test_public_webapp_base_url_ignores_forwarded_headers_from_untrusted_remote(self):
+        settings = SimpleNamespace(
+            SUBSCRIPTION_MINI_APP_URL="",
+            trusted_proxies=["127.0.0.1"],
+        )
+        request = SimpleNamespace(
+            remote="203.0.113.10",
+            scheme="http",
+            host="internal.local",
+            headers={
+                "Host": "internal.local",
+                "X-Forwarded-Proto": "https",
+                "X-Forwarded-Host": "evil.example.com",
+            },
+        )
+
+        self.assertEqual(
+            subscription_webapp._public_webapp_base_url(settings, request),
+            "http://internal.local",
+        )
+
+    def test_public_webapp_base_url_accepts_forwarded_headers_from_trusted_proxy(self):
+        settings = SimpleNamespace(
+            SUBSCRIPTION_MINI_APP_URL="",
+            trusted_proxies=["127.0.0.1"],
+        )
+        request = SimpleNamespace(
+            remote="127.0.0.1",
+            scheme="http",
+            host="internal.local",
+            headers={
+                "Host": "internal.local",
+                "X-Forwarded-Proto": "https",
+                "X-Forwarded-Host": "app.example.com",
+            },
+        )
+
+        self.assertEqual(
+            subscription_webapp._public_webapp_base_url(settings, request),
+            "https://app.example.com",
+        )
+
+    async def test_security_headers_csp_excludes_unsafe_eval_and_plain_http_images(self):
+        request = {"settings": SimpleNamespace()}
+        handler = AsyncMock(return_value=web.Response(text="ok"))
+
+        response = await subscription_webapp._security_headers_middleware(request, handler)
+        csp = response.headers["Content-Security-Policy"]
+
+        self.assertNotIn("'unsafe-eval'", csp)
+        self.assertIn("img-src 'self' data: https:;", csp)
+        self.assertNotIn("img-src 'self' data: https: http:;", csp)
+
+
+class AdminSettingsSecurityTests(unittest.IsolatedAsyncioTestCase):
+    async def test_admin_settings_masks_secret_values_and_exposes_has_value(self):
+        class AsyncSessionFactory:
+            def __call__(self):
+                return self
+
+            async def __aenter__(self):
+                return object()
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            YOOKASSA_SECRET_KEY="super-secret",
+            SHOP_NAME="Visible shop",
+        )
+        request = SimpleNamespace(
+            app={"settings": settings, "async_session_factory": AsyncSessionFactory()},
+            headers={},
+            cookies={},
+            admin_telegram_id=1,
+        )
+        request.get = lambda key, default=None: getattr(request, key, default)
+
+        with (
+            patch.object(admin_api, "_require_admin_user_id", return_value=1),
+            patch.object(
+                admin_api.app_settings_dal,
+                "get_overrides_with_meta",
+                AsyncMock(return_value=[]),
+            ),
+        ):
+            response = await admin_api.admin_settings_get_route(request)
+
+        payload = json.loads(response.text)
+        secret_field = next(
+            field
+            for section in payload["sections"]
+            for field in section["fields"]
+            if field["key"] == "YOOKASSA_SECRET_KEY"
+        )
+
+        self.assertEqual(secret_field["value"], "")
+        self.assertTrue(secret_field["has_value"])
+        self.assertNotIn("super-secret", response.text)
+
+
+class DatabaseLoggingSecurityTests(unittest.TestCase):
+    def test_database_url_redaction_hides_password(self):
+        raw_url = "postgresql+asyncpg://user:raw-password@db.example.com:5432/app"
+
+        redacted = redacted_database_url(raw_url)
+
+        self.assertIn("user:***@", redacted)
+        self.assertNotIn("raw-password", redacted)
 
 
 def asyncio_run(coro):

@@ -13,16 +13,6 @@ export function readCookie(name) {
   return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : "";
 }
 
-export function readStoredToken(storageKey = TOKEN_STORAGE_KEY) {
-  if (typeof localStorage === "undefined") return "";
-  return localStorage.getItem(storageKey) || "";
-}
-
-export function persistToken(token, storageKey = TOKEN_STORAGE_KEY) {
-  if (!token || typeof localStorage === "undefined") return;
-  localStorage.setItem(storageKey, token);
-}
-
 export function clearStoredToken(storageKey = TOKEN_STORAGE_KEY) {
   if (typeof localStorage === "undefined") return;
   localStorage.removeItem(storageKey);

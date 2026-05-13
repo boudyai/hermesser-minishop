@@ -201,10 +201,10 @@ export async function mockApi(path, options = {}, context = {}) {
   if (path === "/me") return clone(DEV_MOCK.data);
   if (path === "/auth/email/request") return { ok: true };
   if (path === "/auth/email/verify" || path === "/auth/email/magic") {
-    return { ok: true, token: "local-preview", csrf_token: "local-preview-csrf" };
+    return { ok: true, csrf_token: "local-preview-csrf" };
   }
   if (path === "/auth/token") {
-    return { ok: true, token: "local-preview", csrf_token: "local-preview-csrf" };
+    return { ok: true, csrf_token: "local-preview-csrf" };
   }
   if (path === "/promo/apply") return { ok: true, end_date_text: "31.05.2026" };
   if (path === "/devices") return clone(DEV_MOCK.data.devices);
@@ -267,10 +267,10 @@ export async function mockApi(path, options = {}, context = {}) {
     return { ok: true };
   }
   if (path === "/account/email/verify" && String(options.method || "").toUpperCase() === "POST") {
-    return { ok: true, token: "local-preview", csrf_token: "local-preview-csrf" };
+    return { ok: true, csrf_token: "local-preview-csrf" };
   }
   if (path === "/account/telegram/link" && String(options.method || "").toUpperCase() === "POST") {
-    return { ok: true, token: "local-preview", csrf_token: "local-preview-csrf" };
+    return { ok: true, csrf_token: "local-preview-csrf" };
   }
   if (path === "/payments" && String(options.method || "").toUpperCase() === "POST") {
     return {

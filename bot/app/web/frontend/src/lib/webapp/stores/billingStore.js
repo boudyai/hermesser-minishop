@@ -34,7 +34,7 @@ export function createBillingStore({ billing, loadData, t, showToast, openExtern
     defaultMethod = ""
   ) {
     state.update((s) => {
-      let step = s.paymentStep;
+      let step;
       let plan = s.selectedPlan;
       let tariffKey = s.selectedTariffKey;
 

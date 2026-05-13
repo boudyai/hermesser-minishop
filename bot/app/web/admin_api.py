@@ -1906,14 +1906,17 @@ async def admin_settings_get_route(request: web.Request) -> web.Response:
                 "fields": [],
             }
         override = overrides_by_key.get(key)
-        sections[section_id]["fields"].append(
-            {
-                **field,
-                "value": current_value(settings, key),
-                "overridden": bool(override),
-                "updated_at": override.get("updated_at") if override else None,
-            }
-        )
+        value = current_value(settings, key)
+        is_secret = bool(field.get("secret"))
+        response_field = {
+            **field,
+            "value": "" if is_secret else value,
+            "overridden": bool(override),
+            "updated_at": override.get("updated_at") if override else None,
+        }
+        if is_secret:
+            response_field["has_value"] = bool(value)
+        sections[section_id]["fields"].append(response_field)
 
     ordered_sections = sorted(sections.values(), key=lambda s: s["order"])
     return _ok({"sections": ordered_sections})

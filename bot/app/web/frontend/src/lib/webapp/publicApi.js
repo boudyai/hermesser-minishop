@@ -3,7 +3,6 @@ import { readCookie } from "./session.js";
 export function createApiClient({
   apiBase = "",
   csrfCookieName = "rw_webapp_csrf",
-  getToken = () => "",
   getCsrfToken = () => "",
   onUnauthorized = () => {},
   mockApi = null,
@@ -14,8 +13,6 @@ export function createApiClient({
 
     const method = String(options.method || "GET").toUpperCase();
     const headers = { ...(options.headers || {}) };
-    const token = getToken();
-    if (token) headers.Authorization = `Bearer ${token}`;
 
     const csrf = getCsrfToken() || readCookie(csrfCookieName) || "";
     if (csrf && ["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
@@ -23,7 +20,11 @@ export function createApiClient({
     }
     if (options.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
 
-    const response = await fetch(`${apiBase}${path}`, { ...options, headers });
+    const response = await fetch(`${apiBase}${path}`, {
+      ...options,
+      headers,
+      credentials: "same-origin",
+    });
     const payload = await response.json().catch(() => ({}));
     if (response.status === 401) onUnauthorized();
     return payload;
@@ -38,6 +39,7 @@ export function createApiClient({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
       signal: options.signal,
+      credentials: "same-origin",
     });
     return response.json();
   }

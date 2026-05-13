@@ -51,7 +51,7 @@ from bot.services.severpay_service import SeverPayService
 from bot.services.subscription_service import SubscriptionService
 from bot.services.yookassa_service import YooKassaService
 from bot.utils.config_link import prepare_config_links
-from bot.utils.request_security import request_client_ip
+from bot.utils.request_security import parse_ip_entries, request_client_ip
 from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from config.settings import Settings
 from db.dal import payment_dal, subscription_dal, user_dal
@@ -353,9 +353,32 @@ def _public_webapp_base_url(settings: Settings, request: web.Request) -> str:
         if parsed_url.scheme and parsed_url.netloc:
             return f"{parsed_url.scheme}://{parsed_url.netloc}"
 
-    scheme = request.headers.get("X-Forwarded-Proto") or request.scheme
-    host = request.headers.get("X-Forwarded-Host") or request.headers.get("Host") or request.host
+    headers = request.headers
+    if _request_remote_is_trusted_proxy(settings, request):
+        scheme = _first_header_value(headers.get("X-Forwarded-Proto")) or request.scheme
+        host = (
+            _first_header_value(headers.get("X-Forwarded-Host"))
+            or headers.get("Host")
+            or request.host
+        )
+    else:
+        scheme = request.scheme
+        host = headers.get("Host") or request.host
     return f"{scheme}://{host}".rstrip("/")
+
+
+def _first_header_value(value: Optional[str]) -> str:
+    if not value:
+        return ""
+    return value.split(",", 1)[0].strip()
+
+
+def _request_remote_is_trusted_proxy(settings: Settings, request: web.Request) -> bool:
+    try:
+        remote_ip = ipaddress.ip_address(str(request.remote or "").strip())
+    except ValueError:
+        return False
+    return any(remote_ip in network for network in parse_ip_entries(settings.trusted_proxies))
 
 
 def _telegram_oauth_callback_url(settings: Settings, request: web.Request) -> str:
@@ -838,12 +861,12 @@ async def _security_headers_middleware(request: web.Request, handler):
         "Content-Security-Policy",
         (
             "default-src 'self'; "
-            f"script-src 'self' 'nonce-{nonce}' 'unsafe-eval' https://telegram.org; "
+            f"script-src 'self' 'nonce-{nonce}' https://telegram.org; "
             "frame-src https://oauth.telegram.org; "
             "frame-ancestors https://web.telegram.org https://t.me; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "
             "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; "
-            "img-src 'self' data: https: http:; "
+            "img-src 'self' data: https:; "
             "connect-src 'self' https://oauth.telegram.org; "
             "object-src 'none'; "
             "base-uri 'self'; "
@@ -2860,7 +2883,6 @@ def _build_webapp_auth_response(
 ) -> web.Response:
     response_payload = dict(payload)
     response_payload["ok"] = True
-    response_payload["token"] = token
     csrf_value = csrf_token or secrets.token_hex(32)
     response_payload["csrf_token"] = csrf_value
     response = web.json_response(response_payload)
