@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 import aiohttp
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
 from db.dal import panel_sync_dal
 from db.models import PanelSyncStatus
@@ -27,6 +28,10 @@ class PanelApiService:
         self.api_key = settings.PANEL_API_KEY
         self._session: Optional[aiohttp.ClientSession] = None
         self.default_client_ip = "127.0.0.1"
+        # Cache slow-changing reference data fetched from the panel. Errors and
+        # None responses are not cached, so transient failures self-heal.
+        self._squads_cache: AsyncTTLCache = AsyncTTLCache(ttl_seconds=300)
+        self._hosts_cache: AsyncTTLCache = AsyncTTLCache(ttl_seconds=300)
 
     async def __aenter__(self):
         """Context manager entry"""
@@ -604,7 +609,13 @@ class PanelApiService:
         )
         return None
 
+    def _invalidate_squad_caches(self) -> None:
+        self._squads_cache.invalidate()
+
     async def get_internal_squads(self) -> Optional[List[Dict[str, Any]]]:
+        return await self._squads_cache.get_or_load("list", self._get_internal_squads_uncached)
+
+    async def _get_internal_squads_uncached(self) -> Optional[List[Dict[str, Any]]]:
         response_data = await self._request("GET", "/internal-squads", log_full_response=False)
         if response_data and not response_data.get("error") and "response" in response_data:
             response = response_data.get("response")
@@ -619,6 +630,12 @@ class PanelApiService:
         return None
 
     async def get_internal_squad(self, squad_uuid: str) -> Optional[Dict[str, Any]]:
+        return await self._squads_cache.get_or_load(
+            f"detail:{squad_uuid}",
+            lambda: self._get_internal_squad_uncached(squad_uuid),
+        )
+
+    async def _get_internal_squad_uncached(self, squad_uuid: str) -> Optional[Dict[str, Any]]:
         response_data = await self._request(
             "GET", f"/internal-squads/{squad_uuid}", log_full_response=False
         )
@@ -637,6 +654,15 @@ class PanelApiService:
         return None
 
     async def get_internal_squad_accessible_nodes(
+        self,
+        squad_uuid: str,
+    ) -> Optional[List[Dict[str, Any]]]:
+        return await self._squads_cache.get_or_load(
+            f"nodes:{squad_uuid}",
+            lambda: self._get_internal_squad_accessible_nodes_uncached(squad_uuid),
+        )
+
+    async def _get_internal_squad_accessible_nodes_uncached(
         self,
         squad_uuid: str,
     ) -> Optional[List[Dict[str, Any]]]:
@@ -665,6 +691,9 @@ class PanelApiService:
         return None
 
     async def get_hosts(self) -> Optional[List[Dict[str, Any]]]:
+        return await self._hosts_cache.get_or_load("list", self._get_hosts_uncached)
+
+    async def _get_hosts_uncached(self) -> Optional[List[Dict[str, Any]]]:
         response_data = await self._request("GET", "/hosts", log_full_response=False)
         if response_data and not response_data.get("error") and "response" in response_data:
             response = response_data.get("response")
@@ -695,6 +724,7 @@ class PanelApiService:
             log_full_response=False,
         )
         if response_data and not response_data.get("error"):
+            self._invalidate_squad_caches()
             return True
         logging.error("Failed to add users to squad %s. Response: %s", squad_uuid, response_data)
         return False
@@ -710,6 +740,7 @@ class PanelApiService:
             log_full_response=False,
         )
         if response_data and not response_data.get("error"):
+            self._invalidate_squad_caches()
             return True
         logging.error(
             "Failed to remove users from squad %s. Response: %s", squad_uuid, response_data
