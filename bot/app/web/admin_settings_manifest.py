@@ -79,6 +79,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
     SettingField(
         "WEBAPP_PRIMARY_COLOR", "color", "appearance", "Основной цвет", placeholder="#00fe7a"
     ),
+    SettingField("WEBAPP_LOGO_USE_EMOJI", "bool", "appearance", "Использовать эмоджи-логотип"),
     SettingField("WEBAPP_LOGO_URL", "url", "appearance", "URL логотипа"),
     SettingField("WEBAPP_LOGO_EMOJI", "string", "appearance", "Эмоджи-логотип", placeholder="🫥"),
     SettingField(
@@ -99,6 +100,9 @@ SETTINGS_MANIFEST: List[SettingField] = [
             ("noto-local", "Noto Emoji (local)"),
         ),
     ),
+    SettingField("WEBAPP_FAVICON_USE_CUSTOM", "bool", "appearance", "Использовать отдельную favicon"),
+    SettingField("WEBAPP_FAVICON_URL", "url", "appearance", "URL отдельной favicon"),
+    SettingField("WEBAPP_LOGO_FAVICON_URL", "url", "appearance", "Favicon из логотипа"),
     SettingField("WEBAPP_ENABLED", "bool", "appearance", "Web App включён"),
     # ─── Subscription periods & pricing ────────────────────────────
     SettingField("MONTH_1_ENABLED", "bool", "pricing", "Тариф 1 месяц"),

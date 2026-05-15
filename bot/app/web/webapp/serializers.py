@@ -1,6 +1,8 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
 
+from config.webapp_themes_config import public_themes_catalog_payload
+
 
 async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, Any]:
     settings: Settings = request.app["settings"]
@@ -96,6 +98,11 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             stars_traffic_packages=cached["stars_traffic_packages"],
         ),
         "payment_methods": _serialize_payment_methods(settings, request.app),
+        "themes_catalog": public_themes_catalog_payload(
+            settings.webapp_themes_catalog,
+            settings.WEBAPP_PRIMARY_COLOR or "#00fe7a",
+            enabled_only=True,
+        ),
         "settings": {
             "support_url": settings.SUPPORT_LINK,
             "traffic_mode": bool(settings.traffic_sale_mode),

@@ -24,10 +24,8 @@ WEBAPP_SERVER_HOST=0.0.0.0
 WEBAPP_SERVER_PORT=8081
 SUBSCRIPTION_MINI_APP_URL=https://app.domain.com/
 WEBAPP_TITLE="Моя подписка"
-WEBAPP_PRIMARY_COLOR="#00fe7a"
-WEBAPP_LOGO_URL=
-WEBAPP_LOGO_EMOJI="🫥"
-WEBAPP_LOGO_EMOJI_FONT=system
+WEBAPP_THEMES_DIR=data/themes
+WEBAPP_DEFAULT_THEME=
 WEBAPP_SESSION_SECRET=<stable-random-secret>
 WEBHOOK_SECRET_TOKEN=<stable-random-secret>
 WEBAPP_SESSION_TTL_SECONDS=86400
@@ -49,7 +47,9 @@ SMTP_FROM_EMAIL=no-reply@domain.com
 SMTP_FROM_NAME=Remnawave Minishop
 ```
 
-Если `WEBAPP_LOGO_URL` пустой, в шапке и на экране входа показывается запасной **emoji-логотип** (`WEBAPP_LOGO_EMOJI`) и при необходимости стиль отрисовки (`WEBAPP_LOGO_EMOJI_FONT`: например `system`, `noto-color`, `noto-color-animated`, `twemoji`). Если SMTP-настройки не заполнены, вход по email скрывается.
+Внешний вид настраивается в админке: раздел **Внешний вид** управляет логотипом, emoji-логотипом, accent-цветом, выбранной темой и масштабом логотипа. Кастомные темы читаются из `WEBAPP_THEMES_DIR`, а `WEBAPP_DEFAULT_THEME` может принудительно выбрать тему по ключу. Подробный контракт `theme.json`, CSS/asset-роуты и пайплайн создания темы описаны в [webapp-themes.md](webapp-themes.md).
+
+Если SMTP-настройки не заполнены, вход по email скрывается.
 
 ## Telegram-авторизация
 

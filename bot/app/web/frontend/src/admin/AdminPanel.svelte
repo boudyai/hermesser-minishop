@@ -11,6 +11,7 @@
     LayoutDashboard,
     Megaphone,
     Menu,
+    Paintbrush,
     Plus,
     RefreshCw,
     Save,
@@ -34,6 +35,7 @@
   import StatsSection from "./sections/StatsSection.svelte";
   import TariffEditorModal from "./sections/TariffEditorModal.svelte";
   import TariffsSection from "./sections/TariffsSection.svelte";
+  import AppearanceSection from "./sections/AppearanceSection.svelte";
   import UserDetailModal from "./sections/UserDetailModal.svelte";
   import UsersSection from "./sections/UsersSection.svelte";
   import { createAdsStore } from "../lib/admin/stores/adsStore.js";
@@ -44,6 +46,7 @@
   import { createSettingsStore } from "../lib/admin/stores/settingsStore.js";
   import { createStatsStore } from "../lib/admin/stores/statsStore.js";
   import { createTariffsStore } from "../lib/admin/stores/tariffsStore.js";
+  import { createThemesStore } from "../lib/admin/stores/themesStore.js";
   import { createUsersStore } from "../lib/admin/stores/usersStore.js";
   import {
     fmtDate,
@@ -70,8 +73,11 @@
   export let onSectionChange = () => {};
   export let onSettingsSaved = () => {};
   export let onTariffsSaved = () => {};
+  export let onThemesSaved = () => {};
   export let brand = {};
   export let brandTitle = "/minishop";
+  export let appFaviconUrl = "";
+  export let appFaviconUseCustom = false;
   export let appVersion = "dev+local";
   export let appRepositoryUrl = "https://github.com/3252a8/remnawave-minishop";
   export let currentLang = "ru";
@@ -111,6 +117,7 @@
       label: at("nav_system", {}, "Система"),
       items: [
         { id: "tariffs", label: at("nav_tariffs", {}, "Тарифы"), icon: Coins },
+        { id: "appearance", label: at("nav_appearance", {}, "Внешний вид"), icon: Paintbrush },
         { id: "settings", label: at("nav_settings", {}, "Настройки"), icon: Sliders },
       ],
     },
@@ -152,6 +159,10 @@
     tariffs: {
       title: at("section_tariffs_title", {}, "Тарифы"),
       subtitle: at("section_tariffs_subtitle", {}, "Каталог продаж, периоды, пакеты и лимиты"),
+    },
+    appearance: {
+      title: at("section_appearance_title", {}, "Внешний вид"),
+      subtitle: at("section_appearance_subtitle", {}, "Логотип, темы и акцентные цвета Mini App"),
     },
     settings: {
       title: at("section_settings_title", {}, "Настройки приложения"),
@@ -196,6 +207,7 @@
   const settingsStore = createSettingsStore({ api, onToast: flash, at });
   const statsStore = createStatsStore({ api, onToast: flash, at });
   const tariffsStore = createTariffsStore({ api, onToast: flash, onTariffsSaved, flash, at });
+  const themesStore = createThemesStore({ api, onThemesSaved, flash, at });
   const usersStore = createUsersStore({ api, onToast: flash, at });
 
   setContext("promosStore", promosStore);
@@ -207,6 +219,7 @@
   setContext("settingsStore", settingsStore);
   setContext("usersStore", usersStore);
   setContext("tariffsStore", tariffsStore);
+  setContext("themesStore", themesStore);
 
   $: usersStore.setActive(active);
   $: dirtyCount = Object.keys($settingsStore.settingsDirty || {}).length;
@@ -633,6 +646,17 @@
 
           {#if active === "tariffs"}
             <TariffsSection {at} {fmtMoney} />
+          {/if}
+
+          {#if active === "appearance"}
+            <AppearanceSection
+              {at}
+              {currentLang}
+              {onSettingsSaved}
+              {brand}
+              {appFaviconUrl}
+              {appFaviconUseCustom}
+            />
           {/if}
 
           {#if active === "settings"}

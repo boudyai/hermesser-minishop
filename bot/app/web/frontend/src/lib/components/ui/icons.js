@@ -35,6 +35,7 @@ export {
   Menu,
   MessageSquare,
   MousePointerClick,
+  Paintbrush,
   Plus,
   QrCode,
   Radio,

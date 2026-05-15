@@ -270,6 +270,10 @@ def _write_tariffs_config_file(path: Path, config: TariffsConfig) -> None:
         path.write_text(payload, encoding="utf-8")
 
 
+def _webapp_themes_catalog_payload(config: Any) -> Dict[str, Any]:
+    return config.model_dump(mode="json", exclude_none=True)
+
+
 def _panel_node_uuid_key(node: Dict[str, Any]) -> str:
     uid = node.get("nodeUuid") or node.get("node_uuid") or node.get("uuid") or node.get("id")
     return str(uid).strip().lower() if uid else ""

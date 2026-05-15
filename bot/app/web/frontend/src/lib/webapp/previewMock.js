@@ -1,10 +1,37 @@
+const WINDOWS_95_THEME = {
+  key: "windows95",
+  names: { ru: "Windows 95", en: "Windows 95" },
+  enabled: true,
+  default: false,
+  css_file: "style.css",
+  tokens: {
+    color_scheme: "light",
+    style_preset: "win95",
+  },
+};
+
+const ASCII_THEME = {
+  key: "ascii",
+  names: { ru: "ASCII", en: "ASCII" },
+  enabled: true,
+  default: false,
+  css_file: "style.css",
+  tokens: {
+    color_scheme: "dark",
+    style_preset: "ascii",
+  },
+};
+
 export const DEV_MOCK = {
   config: {
     title: "/minishop",
     primaryColor: "#00fe7a",
     logoUrl: "",
+    logoUseEmoji: false,
     logoEmoji: "🫥",
     logoEmojiFont: "system",
+    faviconUrl: "",
+    faviconUseCustom: false,
     apiBase: "/api",
     supportUrl: "https://t.me/support",
     privacyPolicyUrl: "https://example.com/privacy",
@@ -18,6 +45,37 @@ export const DEV_MOCK = {
     telegramOAuthRequestAccess: ["write"],
     appVersion: "dev+local",
     appRepositoryUrl: "https://github.com/3252a8/remnawave-minishop",
+    themesCatalog: {
+      default_theme: "dark",
+      themes: [
+        {
+          key: "dark",
+          names: { ru: "Тёмная", en: "Dark" },
+          enabled: true,
+          default: true,
+          tokens: {
+            color_scheme: "dark",
+            accent: "#00fe7a",
+            bg: "#03070b",
+            panel: "#111820",
+            text: "#f2f7f4",
+            muted: "#a9b4b0",
+          },
+        },
+        {
+          key: "light",
+          names: { ru: "Светлая", en: "Light" },
+          enabled: true,
+          default: false,
+          css_file: "style.css",
+          tokens: {
+            color_scheme: "light",
+          },
+        },
+        WINDOWS_95_THEME,
+        ASCII_THEME,
+      ],
+    },
   },
   data: {
     ok: true,
@@ -124,6 +182,35 @@ export const DEV_MOCK = {
         { months: 12, title: "12 месяцев", inviter_days: 62, friend_days: 31 },
       ],
     },
+    themes_catalog: {
+      default_theme: "dark",
+      themes: [
+        {
+          key: "dark",
+          names: { ru: "Тёмная", en: "Dark" },
+          enabled: true,
+          tokens: {
+            color_scheme: "dark",
+            accent: "#00fe7a",
+            bg: "#03070b",
+            panel: "#111820",
+            text: "#f2f7f4",
+            muted: "#a9b4b0",
+          },
+        },
+        {
+          key: "light",
+          names: { ru: "Светлая", en: "Light" },
+          enabled: true,
+          css_file: "style.css",
+          tokens: {
+            color_scheme: "light",
+          },
+        },
+        WINDOWS_95_THEME,
+        ASCII_THEME,
+      ],
+    },
     settings: {
       support_url: "https://t.me/support",
       traffic_mode: false,
@@ -143,6 +230,20 @@ export function applyPreviewMock(kind) {
   const mode = String(kind || "")
     .trim()
     .toLowerCase();
+
+  const themeKeys = new Set((DEV_MOCK.config.themesCatalog.themes || []).map((theme) => theme.key));
+  if (themeKeys.has(mode)) {
+    DEV_MOCK.config.themesCatalog.default_theme = mode;
+    DEV_MOCK.data.themes_catalog.default_theme = mode;
+    for (const theme of DEV_MOCK.config.themesCatalog.themes || []) {
+      theme.default = theme.key === mode;
+    }
+    for (const theme of DEV_MOCK.data.themes_catalog.themes || []) {
+      theme.default = theme.key === mode;
+    }
+    return;
+  }
+
   if (mode === "traffic") {
     DEV_MOCK.data.settings.traffic_mode = true;
     DEV_MOCK.data.settings.trial_available = false;

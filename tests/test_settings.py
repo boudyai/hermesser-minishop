@@ -28,6 +28,31 @@ class SettingsTests(unittest.TestCase):
         self.assertTrue(settings.WEBHOOK_SECRET_TOKEN)
         self.assertEqual(settings.WEBAPP_SESSION_TTL_SECONDS, 86400)
 
+    def test_deprecated_webapp_appearance_env_values_are_ignored(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            WEBAPP_PRIMARY_COLOR="#ff0000",
+            WEBAPP_LOGO_URL="https://cdn.example.com/logo.png",
+            WEBAPP_LOGO_USE_EMOJI=True,
+            WEBAPP_LOGO_EMOJI="🔥",
+            WEBAPP_LOGO_EMOJI_FONT="twemoji",
+            WEBAPP_FAVICON_USE_CUSTOM=True,
+            WEBAPP_FAVICON_URL="https://cdn.example.com/favicon.png",
+            WEBAPP_LOGO_FAVICON_URL="/webapp-favicon/abcdef1234567890/icon-180.png",
+        )
+
+        self.assertEqual(settings.WEBAPP_PRIMARY_COLOR, "#00fe7a")
+        self.assertIsNone(settings.WEBAPP_LOGO_URL)
+        self.assertFalse(settings.WEBAPP_LOGO_USE_EMOJI)
+        self.assertEqual(settings.WEBAPP_LOGO_EMOJI, "🫥")
+        self.assertEqual(settings.WEBAPP_LOGO_EMOJI_FONT, "system")
+        self.assertFalse(settings.WEBAPP_FAVICON_USE_CUSTOM)
+        self.assertIsNone(settings.WEBAPP_FAVICON_URL)
+        self.assertIsNone(settings.WEBAPP_LOGO_FAVICON_URL)
+
     def test_tariffs_config_missing_uses_legacy_fallback(self):
         settings = Settings(
             _env_file=None,

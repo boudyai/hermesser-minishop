@@ -9,17 +9,33 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/devices", index_route)
     app.router.add_get("/settings", index_route)
     app.router.add_get("/admin", index_route)
-    app.router.add_get("/admin/{section:[a-z][a-z0-9_-]*}", index_route)
+    app.router.add_get(
+        (
+            "/admin/{section:stats|users|payments|promos|ads|broadcast|logs|tariffs|"
+            "appearance|settings}"
+        ),
+        index_route,
+    )
     app.router.add_get("/admin/users/{user_id:-?[0-9]+}", index_route)
     app.router.add_get("/auth/telegram/start", telegram_oauth_start_route)
     app.router.add_get("/auth/telegram/callback", telegram_oauth_callback_route)
     app.router.add_get("/health", health_route)
     app.router.add_get(WEBAPP_LOGO_PROXY_PATH, webapp_logo_route)
     app.router.add_get(
+        rf"{WEBAPP_UPLOADED_LOGO_PATH}/{{filename:[A-Za-z0-9_.-]+}}",
+        webapp_uploaded_logo_route,
+    )
+    app.router.add_get(
+        rf"{WEBAPP_FAVICON_PATH}/{{digest:[0-9a-f]{{16}}}}/{{filename:[A-Za-z0-9_.-]+}}",
+        webapp_favicon_route,
+    )
+    app.router.add_get(
         r"/webapp-emoji/{codepoints:[0-9a-f_]+}/512.{ext:gif|webp}",
         webapp_animated_emoji_route,
     )
     app.router.add_get("/subscription_webapp.css", css_asset_route)
+    app.router.add_get(r"/webapp-theme-css/{path:.+}", theme_css_asset_route)
+    app.router.add_get(r"/webapp-theme-assets/{path:.+}", theme_asset_route)
     app.router.add_get("/subscription_webapp.min.{asset_hash}.js", js_asset_route)
     app.router.add_get("/subscription_webapp.js", js_asset_route)
     app.router.add_post("/api/auth/telegram/nonce", telegram_oauth_nonce_route)

@@ -1,0 +1,17 @@
+{
+  "key": "ascii",
+  "names": {
+    "ru": "ASCII",
+    "en": "ASCII"
+  },
+  "enabled": true,
+  "default": false,
+  "use_primary_accent": false,
+  "use_in_admin": true,
+  "css_file": "style.css",
+  "assets_version": 1,
+  "tokens": {
+    "color_scheme": "dark",
+    "style_preset": "ascii"
+  }
+}

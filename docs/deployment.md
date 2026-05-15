@@ -26,7 +26,7 @@ IMAGE_TAG=3.1.0 docker compose -f docker-compose-remote-server.yml up -d
 Перед запуском или после добавления mount выполните на сервере из каталога проекта:
 
 ```bash
-mkdir -p data/webapp-logo data/webapp-emoji
+mkdir -p data/themes data/webapp-logo data/webapp-emoji
 chown -R 10001:10001 data
 chmod -R u+rwX data
 docker compose up -d --force-recreate remnawave-minishop
@@ -35,10 +35,10 @@ docker compose up -d --force-recreate remnawave-minishop
 Проверка прав:
 
 ```bash
-docker compose exec remnawave-minishop sh -lc 'id; ls -ldn /app/data /app/data/webapp-emoji; touch /app/data/webapp-emoji/test && rm /app/data/webapp-emoji/test'
+docker compose exec remnawave-minishop sh -lc 'id; ls -ldn /app/data /app/data/themes /app/data/webapp-emoji; touch /app/data/themes/test /app/data/webapp-emoji/test && rm /app/data/themes/test /app/data/webapp-emoji/test'
 ```
 
-Если проверочный `touch` проходит без `Permission denied`, Web App сможет сохранять каталог тарифов, кеш `WEBAPP_LOGO_URL` в `/app/data/webapp-logo` и кеш animated emoji в `/app/data/webapp-emoji`.
+Если проверочный `touch` проходит без `Permission denied`, Web App сможет сохранять каталог тарифов, темы в `/app/data/themes`, кеш логотипов в `/app/data/webapp-logo` и кеш animated emoji в `/app/data/webapp-emoji`.
 
 ## Обновление версии
 

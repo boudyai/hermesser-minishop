@@ -7,17 +7,14 @@
   --admin-sidebar-w: var(--desktop-rail-width);
   --admin-header-h: 60px;
   --admin-card-bg:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
-    var(--admin-surface);
-  --admin-card-shadow:
-    0 18px 48px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    linear-gradient(135deg, var(--surface-sheen), var(--surface-sheen-soft)), var(--admin-surface);
+  --admin-card-shadow: var(--shadow-soft), inset 0 1px 0 var(--inset-highlight);
 
   position: fixed;
   inset: 0;
   width: 100vw;
   height: 100dvh;
-  background: #02070b;
+  background: var(--admin-bg);
   color: var(--admin-text);
   overflow: hidden;
   overscroll-behavior: contain;
@@ -38,9 +35,9 @@
   gap: 2px;
   padding: 28px 14px;
   border-right: 1px solid var(--admin-border);
-  background: rgba(7, 12, 17, 0.55);
+  background: var(--rail-bg);
   backdrop-filter: blur(14px);
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.02);
+  box-shadow: inset -1px 0 0 var(--admin-border);
   overflow-y: auto;
 }
 
@@ -74,7 +71,8 @@
   color: var(--accent);
   font-size: 14px;
   font-weight: 800;
-  letter-spacing: -0.01em;
+  font-family: var(--font-logo);
+  letter-spacing: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -115,7 +113,10 @@
   text-align: left;
   width: 100%;
   cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease;
 }
 
 .admin-nav-item > svg {
@@ -124,7 +125,7 @@
 }
 
 .admin-nav-item:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface-hover);
   color: var(--admin-text);
 }
 
@@ -169,7 +170,7 @@
   gap: 8px;
   border: 1px solid var(--admin-border);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--surface-muted);
   color: var(--admin-text);
   padding: 8px 10px;
   text-align: left;
@@ -251,7 +252,7 @@
   gap: 16px;
   padding: 0 28px;
   border-bottom: 1px solid var(--admin-border);
-  background: color-mix(in srgb, #02070b 82%, transparent);
+  background: color-mix(in srgb, var(--admin-bg) 82%, transparent);
   backdrop-filter: blur(14px);
 }
 
@@ -265,7 +266,7 @@
   margin: 0;
   font-size: 16px;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .admin-header-title small {
@@ -427,7 +428,7 @@
 .admin-stat-card .admin-stat-value {
   font-size: 26px;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   color: var(--admin-text);
 }
 
@@ -457,7 +458,7 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--admin-text);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .admin-dashboard-section-head small {
@@ -528,7 +529,7 @@
 .admin-revenue-kpi-value {
   font-size: 18px;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   color: var(--admin-text);
   line-height: 1.15;
 }
@@ -545,11 +546,11 @@
 }
 
 .admin-revenue-kpi-growth.is-up {
-  color: color-mix(in srgb, #3ecf8e 92%, var(--admin-text));
+  color: var(--success-text);
 }
 
 .admin-revenue-kpi-growth.is-down {
-  color: color-mix(in srgb, #ff6b6b 88%, var(--admin-text));
+  color: var(--danger-text);
 }
 
 .admin-revenue-chart {
@@ -606,7 +607,7 @@
   border: 1px solid var(--admin-border);
   background: var(--admin-surface);
   color: var(--admin-text);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-popover);
 }
 
 .admin-revenue-range-popover__title {
@@ -946,7 +947,7 @@
 .admin-panel-dash-tile-value {
   font-size: 22px;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
   line-height: 1.1;
   color: color-mix(in srgb, var(--accent) 22%, var(--admin-text));
   font-variant-numeric: tabular-nums;
@@ -1248,7 +1249,7 @@
 }
 
 .admin-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--surface-hover);
 }
 
 .admin-table td.admin-cell-mono {
@@ -1531,7 +1532,9 @@
   font-size: 13px;
   resize: vertical;
   outline: none;
-  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
 .admin-textarea:focus,
@@ -2085,11 +2088,11 @@
 }
 
 .admin-traffic-card-premium {
-  border-color: color-mix(in srgb, var(--accent) 30%, var(--admin-border));
+  border-color: var(--info-border);
 }
 
 .admin-traffic-card-warning {
-  border-color: color-mix(in srgb, #ffb454 46%, var(--admin-border));
+  border-color: var(--warning-border);
 }
 
 .admin-traffic-head,
@@ -2131,11 +2134,11 @@
 }
 
 .admin-traffic-bar-premium span {
-  background: linear-gradient(90deg, #66e3ff, var(--accent));
+  background: linear-gradient(90deg, var(--info), color-mix(in srgb, var(--info) 64%, #ffffff));
 }
 
 .admin-traffic-card-warning .admin-traffic-bar span {
-  background: linear-gradient(90deg, #ffb454, #ff6b6b);
+  background: linear-gradient(90deg, var(--warning), var(--danger));
 }
 
 .admin-traffic-meta {
@@ -2357,7 +2360,7 @@
     z-index: 80;
     transform: translateX(-100%);
     transition: transform 0.22s ease;
-    box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6);
+    box-shadow: var(--shadow-strong);
   }
 
   .admin-screen-wrap.is-sidebar-open .admin-sidebar {
@@ -2367,7 +2370,7 @@
   .admin-sidebar-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--overlay-scrim);
     z-index: 70;
     border: 0;
     cursor: pointer;
@@ -2501,7 +2504,9 @@
   padding: 10px 12px;
   width: 100%;
   cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
 }
 
 .settings-row.settings-row-admin:hover {
@@ -2560,7 +2565,10 @@
   border-radius: 7px;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    box-shadow 0.12s ease;
   outline: none;
 }
 
@@ -2571,7 +2579,7 @@
 .admin-tabs-trigger[data-state="active"] {
   background: var(--admin-surface);
   color: var(--admin-text);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-soft);
 }
 
 .admin-tabs-trigger:focus-visible {
@@ -2641,13 +2649,15 @@
   border: 1px solid var(--admin-border);
   background: var(--admin-elev);
   cursor: pointer;
-  transition: background 0.18s ease, border-color 0.18s ease;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease;
   outline: none;
 }
 
 .admin-switch-root[data-state="checked"] {
-  background: color-mix(in srgb, var(--accent) 80%, var(--admin-elev));
-  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--success) 82%, var(--admin-elev));
+  border-color: color-mix(in srgb, var(--success) 52%, transparent);
 }
 
 .admin-switch-root:focus-visible {
@@ -2693,7 +2703,9 @@
   cursor: pointer;
   text-align: left;
   outline: none;
-  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
 .admin-select-trigger:hover {
@@ -2724,10 +2736,9 @@
   border: 1px solid var(--admin-border);
   border-radius: 10px;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
-    var(--admin-surface);
+    linear-gradient(135deg, var(--surface-sheen), var(--surface-sheen-soft)), var(--admin-surface);
   padding: 4px;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-popover);
   outline: none;
   display: flex;
   flex-direction: column;
@@ -3069,9 +3080,9 @@
 }
 
 .admin-danger-zone {
-  border: 1px solid color-mix(in srgb, #ff6b6b 32%, transparent);
+  border: 1px solid var(--danger-border);
   border-radius: 12px;
-  background: color-mix(in srgb, #ff6b6b 6%, var(--admin-surface));
+  background: var(--danger-soft);
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
@@ -3088,13 +3099,13 @@
 .admin-danger-zone-head strong {
   font-size: 13px;
   font-weight: 700;
-  color: #ffb4b4;
+  color: var(--danger-text);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .admin-danger-zone-head small {
-  color: color-mix(in srgb, #ffb4b4 70%, var(--admin-muted));
+  color: color-mix(in srgb, var(--danger-text) 70%, var(--admin-muted));
   font-size: 12px;
   line-height: 1.45;
 }

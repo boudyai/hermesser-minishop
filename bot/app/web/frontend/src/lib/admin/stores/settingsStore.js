@@ -38,13 +38,30 @@ export function createSettingsStore({ api, onToast, at }) {
     });
   }
 
+  function setFieldValue(key, value) {
+    state.update((s) => {
+      const nextDirty = { ...s.settingsDirty };
+      delete nextDirty[key];
+      return {
+        ...s,
+        settingsDirty: nextDirty,
+        settingsSections: (s.settingsSections || []).map((section) => ({
+          ...section,
+          fields: (section.fields || []).map((field) =>
+            field.key === key ? { ...field, value, overridden: true } : field
+          ),
+        })),
+      };
+    });
+  }
+
   async function saveSettings(onSettingsSaved) {
     let dirty = {};
     state.update((s) => {
       dirty = s.settingsDirty;
       return s;
     });
-    if (!Object.keys(dirty).length) return;
+    if (!Object.keys(dirty).length) return true;
 
     state.update((s) => ({ ...s, settingsSaving: true }));
     try {
@@ -63,6 +80,7 @@ export function createSettingsStore({ api, onToast, at }) {
         state.update((s) => ({ ...s, settingsDirty: {} }));
         if (onSettingsSaved) await onSettingsSaved({ updates, deletes });
         await loadSettings();
+        return true;
       } else if (res?.errors) {
         const summary = Object.entries(res.errors)
           .map(([k, v]) => `${k}: ${v}`)
@@ -71,6 +89,7 @@ export function createSettingsStore({ api, onToast, at }) {
       } else {
         onToast(res?.error || "Ошибка");
       }
+      return false;
     } finally {
       state.update((s) => ({ ...s, settingsSaving: false }));
     }
@@ -91,6 +110,7 @@ export function createSettingsStore({ api, onToast, at }) {
     loadSettings,
     markDirty,
     clearDirty,
+    setFieldValue,
     resetField,
     saveSettings,
   };

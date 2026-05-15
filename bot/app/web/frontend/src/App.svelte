@@ -40,6 +40,13 @@
   import { normalizedEmail, telegramName } from "./lib/webapp/formatters.js";
   import { activeTariffName, buildTariffCatalog } from "./lib/webapp/tariffs.js";
   import { premiumTrafficPercent, trafficPercent } from "./lib/webapp/traffic.js";
+  import {
+    findThemeEntry,
+    resolveEffectiveThemeKey,
+    themeCssHref,
+    themeEntryToInlineStyle,
+    themeRootClass,
+  } from "./lib/webapp/themeStyle.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -80,6 +87,7 @@
     ...(MOCK ? MOCK.config : {}),
     ...(injectedConfig || {}),
   };
+  const themePreviewKey = String(CFG.themePreviewKey || query.get("theme_preview") || "").trim();
   const I18N = injectedI18n || {};
   let telegramSdkStatus = "idle";
   let telegramMiniAppInitData = "";
@@ -239,11 +247,14 @@
   $: brandEmojiFont = CFG.logoEmojiFont || "system";
   $: brand = normalizeBrand({
     title: brandTitle,
-    logoUrl: CFG.logoUrl,
+    logoUrl: CFG.logoUseEmoji ? "" : CFG.logoUrl,
     emoji: brandEmoji,
     emojiFont: brandEmojiFont,
   });
-  $: accent = CFG.primaryColor || "#00fe7a";
+  $: faviconBrand = normalizeBrand({
+    ...brand,
+    logoUrl: String(CFG.faviconUrl || "").trim() || brand.logoUrl,
+  });
   $: plans = data?.plans?.length ? data.plans : DEV_MOCK.data.plans;
   $: methods = data?.payment_methods?.length ? data.payment_methods : [];
   $: appSettings = data?.settings || DEV_MOCK.data.settings;
@@ -300,6 +311,30 @@
       premiumTrafficPercent(subscription) >= TRAFFIC_TOPUP_UNLOCK_PERCENT)
   );
   $: user = data?.user || {};
+  $: themesCatalog = data?.themes_catalog ||
+    CFG.themesCatalog || { default_theme: "dark", themes: [] };
+  $: previewThemeAllowed = Boolean(themePreviewKey && (!data?.user || user?.is_admin));
+  $: previewThemeEntry = previewThemeAllowed
+    ? findThemeEntry(themesCatalog, themePreviewKey)
+    : null;
+  $: resolvedThemeKey = previewThemeEntry?.key || resolveEffectiveThemeKey(themesCatalog);
+  $: activeThemeEntry = findThemeEntry(themesCatalog, resolvedThemeKey);
+  $: darkThemeEntry = findThemeEntry(themesCatalog, "dark");
+  $: effectiveThemeEntry =
+    screen === "admin" && activeThemeEntry?.use_in_admin === false
+      ? darkThemeEntry || activeThemeEntry
+      : activeThemeEntry;
+  $: shellStyle = themeEntryToInlineStyle(effectiveThemeEntry, CFG.primaryColor);
+  $: shellToneClass =
+    effectiveThemeEntry?.tokens?.color_scheme === "light" ? "theme-light" : "theme-dark";
+  $: shellThemeClass = themeRootClass(effectiveThemeEntry);
+  $: shellThemeCssHref = themeCssHref(effectiveThemeEntry);
+  $: if (typeof document !== "undefined" && effectiveThemeEntry?.tokens) {
+    const scheme = effectiveThemeEntry.tokens.color_scheme || "dark";
+    document.documentElement.style.colorScheme = scheme;
+    const bg = effectiveThemeEntry.tokens.bg;
+    if (bg) document.body.style.backgroundColor = bg;
+  }
   $: isAdmin = Boolean(user?.is_admin);
   $: if (screen === "admin" && !isAdmin) {
     screen = "settings";
@@ -346,7 +381,7 @@
       : telegramLoginUnavailable
         ? t("wa_auth_telegram_not_configured")
         : "";
-  $: applyFavicon(brand);
+  $: applyFavicon(faviconBrand);
   $: syncBodyScrollLock(
     paymentModalOpen ||
       changeModalOpen ||
@@ -844,12 +879,34 @@
     );
   }
 
-  async function handleAdminPersistedSaved() {
+  function adminPayloadHasLogoChange(options = {}) {
+    const keys = new Set([
+      ...Object.keys(options.updates || {}),
+      ...(Array.isArray(options.deletes) ? options.deletes : []),
+    ]);
+    return [
+      "WEBAPP_LOGO_URL",
+      "WEBAPP_LOGO_USE_EMOJI",
+      "WEBAPP_LOGO_EMOJI",
+      "WEBAPP_LOGO_EMOJI_FONT",
+      "WEBAPP_FAVICON_URL",
+      "WEBAPP_FAVICON_USE_CUSTOM",
+      "WEBAPP_LOGO_FAVICON_URL",
+    ].some((key) => keys.has(key));
+  }
+
+  async function handleAdminPersistedSaved(options = {}) {
     invalidateWebappTariffOptionCaches(billingStore);
     try {
       await loadData();
     } catch {
       // Admin save already succeeded; a later full refresh will pick up new settings or catalog.
+    }
+    const shouldReloadFrontend =
+      options?.reloadFrontend === true ||
+      (!options?.deferFrontendReload && adminPayloadHasLogoChange(options));
+    if (shouldReloadFrontend && typeof window !== "undefined") {
+      window.location.reload();
     }
   }
 
@@ -873,6 +930,9 @@
 
 <svelte:head>
   <title>{brandTitle}</title>
+  {#if shellThemeCssHref}
+    <link rel="stylesheet" href={shellThemeCssHref} data-theme-css={resolvedThemeKey} />
+  {/if}
 </svelte:head>
 
 <Tooltip.Provider>
@@ -880,7 +940,7 @@
     {#if isPreviewBoard}
       <PreviewBoard config={CFG} mockData={DEV_MOCK.data} />
     {:else}
-      <div class="app-shell" style={`--accent: ${accent};`}>
+      <div class="app-shell {shellToneClass} {shellThemeClass}" style={shellStyle}>
         {#if mode === "loading"}
           <div class="loader">
             <BrandMark {brand} size="md" />
@@ -931,8 +991,11 @@
             onSectionChange={handleAdminSectionChange}
             onSettingsSaved={handleAdminPersistedSaved}
             onTariffsSaved={handleAdminPersistedSaved}
+            onThemesSaved={handleAdminPersistedSaved}
             {brandTitle}
             {brand}
+            appFaviconUrl={CFG.faviconUrl}
+            appFaviconUseCustom={CFG.faviconUseCustom}
             appVersion={CFG.appVersion}
             appRepositoryUrl={CFG.appRepositoryUrl}
             {currentLang}

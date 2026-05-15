@@ -1,0 +1,16 @@
+{
+  "key": "light",
+  "names": {
+    "ru": "Светлая",
+    "en": "Light"
+  },
+  "enabled": true,
+  "default": false,
+  "use_primary_accent": true,
+  "use_in_admin": true,
+  "css_file": "style.css",
+  "assets_version": 2,
+  "tokens": {
+    "color_scheme": "light"
+  }
+}

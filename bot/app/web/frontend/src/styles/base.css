@@ -4,21 +4,14 @@
     format("woff2");
   font-display: swap;
   unicode-range:
-    U+1F1E6-1F1FF,
-    U+1F3F4,
-    U+E0062-E0063,
-    U+E0065,
-    U+E0067,
-    U+E006C,
-    U+E006E,
-    U+E0073-E0074,
-    U+E0077,
-    U+E007F;
+    U+1F1E6-1F1FF, U+1F3F4, U+E0062-E0063, U+E0065, U+E0067, U+E006C, U+E006E, U+E0073-E0074,
+    U+E0077, U+E007F;
 }
 
 :root {
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
+  --font-logo: var(--font-mono);
   color-scheme: dark;
   --accent: #00fe7a;
   --bg: #03070b;
@@ -31,8 +24,36 @@
   --muted: #a9b4b0;
   --dim: #68736f;
   --danger: #ff6b6b;
+  --danger-text: #ffb4b4;
+  --danger-soft: color-mix(in srgb, var(--danger) 12%, var(--panel));
+  --danger-border: color-mix(in srgb, var(--danger) 34%, var(--border));
+  --success: #3ecf8e;
+  --success-text: #7ff0b9;
+  --success-soft: color-mix(in srgb, var(--success) 12%, var(--panel));
+  --success-border: color-mix(in srgb, var(--success) 34%, var(--border));
+  --warning: #ffd166;
+  --warning-text: #ffd166;
+  --warning-soft: color-mix(in srgb, var(--warning) 12%, var(--panel));
+  --warning-border: color-mix(in srgb, var(--warning) 34%, var(--border));
+  --info: #2d9cff;
+  --info-text: #8ed0ff;
+  --info-soft: color-mix(in srgb, var(--info) 12%, var(--panel));
+  --info-border: color-mix(in srgb, var(--info) 34%, var(--border));
   --blue: #2d9cff;
   --radius: 8px;
+  --accent-contrast: #03100a;
+  --surface-sheen: rgba(255, 255, 255, 0.055);
+  --surface-sheen-soft: rgba(255, 255, 255, 0.018);
+  --surface-hover: rgba(255, 255, 255, 0.04);
+  --surface-muted: rgba(255, 255, 255, 0.035);
+  --surface-subtle-border: rgba(255, 255, 255, 0.1);
+  --overlay-scrim: rgba(0, 0, 0, 0.56);
+  --nav-bg: rgba(7, 12, 17, 0.88);
+  --rail-bg: rgba(7, 12, 17, 0.55);
+  --shadow-soft: 0 18px 48px rgba(0, 0, 0, 0.22);
+  --shadow-strong: 0 26px 70px rgba(0, 0, 0, 0.46);
+  --shadow-popover: 0 20px 34px rgba(0, 0, 0, 0.42);
+  --inset-highlight: rgba(255, 255, 255, 0.05);
 
   /* Admin design tokens — kept on :root so portal-rendered admin
      surfaces (dialogs, bits-ui Select.Portal content) inherit them. */
@@ -59,6 +80,10 @@
   font-family: var(--font-sans);
 }
 
+.theme-light {
+  color-scheme: light;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -72,7 +97,7 @@ body,
 }
 
 body {
-  background: #02070b;
+  background: var(--bg, #02070b);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   letter-spacing: 0;
@@ -86,7 +111,7 @@ input {
 
 .app-shell {
   min-height: 100dvh;
-  background: #02070b !important;
+  background: var(--bg, #02070b) !important;
 }
 
 :root {

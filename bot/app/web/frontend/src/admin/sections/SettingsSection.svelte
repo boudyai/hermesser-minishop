@@ -17,28 +17,32 @@
   const settingsStore = getContext("settingsStore");
 
   $: ({ settingsSections, settingsLoading, settingsDirty, settingsSaving } = $settingsStore);
+  $: visibleSettingsSections = settingsSections.filter((section) => section.id !== "appearance");
 
   let settingsOpenSections = [];
   let settingsOpenSubsections = {};
   let revealedSecrets = new Set();
 
   $: settingsAllOpen =
-    settingsSections.length > 0 && settingsOpenSections.length === settingsSections.length;
+    visibleSettingsSections.length > 0 &&
+    settingsOpenSections.length === visibleSettingsSections.length;
 
   onMount(() => {
     settingsStore.loadSettings().then(() => {
       if ($settingsStore.settingsSections.length) {
-        const ids = $settingsStore.settingsSections.map((s) => s.id);
+        const ids = $settingsStore.settingsSections
+          .filter((s) => s.id !== "appearance")
+          .map((s) => s.id);
         settingsOpenSections = isCompact ? ids.slice(0, 1) : ids.slice();
       }
     });
   });
 
   function toggleAllSections() {
-    if (settingsOpenSections.length === settingsSections.length) {
+    if (settingsOpenSections.length === visibleSettingsSections.length) {
       settingsOpenSections = [];
     } else {
-      settingsOpenSections = settingsSections.map((s) => s.id);
+      settingsOpenSections = visibleSettingsSections.map((s) => s.id);
     }
   }
 
@@ -229,7 +233,7 @@
   </div>
 {/snippet}
 
-{#if settingsLoading || !settingsSections.length}
+{#if settingsLoading || !visibleSettingsSections.length}
   <AdminEmptyState
     >{settingsLoading
       ? at("loading", {}, "Загрузка…")
@@ -265,7 +269,7 @@
     </div>
   </div>
   <Accordion.Root type="multiple" bind:value={settingsOpenSections} class="admin-accordion">
-    {#each settingsSections as section}
+    {#each visibleSettingsSections as section}
       {@const dirtyInSection = section.fields.filter((f) => Boolean(settingsDirty[f.key])).length}
       {@const overriddenInSection = section.fields.filter((f) => isOverridden(f)).length}
       <Accordion.Item value={section.id} class="admin-accordion-item admin-card">

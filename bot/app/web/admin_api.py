@@ -17,6 +17,7 @@ from bot.app.web.admin_api_impl import (
     stats as _stats,
     sync as _sync,
     tariffs as _tariffs,
+    themes as _themes,
     users as _users,
 )
 
@@ -34,6 +35,7 @@ _MODULES = (
     _ads,
     _settings,
     _tariffs,
+    _themes,
     _panel,
     _routes,
 )

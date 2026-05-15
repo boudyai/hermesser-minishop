@@ -2,6 +2,7 @@
 import asyncio
 import base64
 import hashlib
+import html
 import hmac
 import io
 import ipaddress
@@ -17,7 +18,7 @@ from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import LabeledPrice
@@ -65,6 +66,10 @@ TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "templates" / "subscriptio
 ASSET_DIR = TEMPLATE_PATH.parent
 WEBAPP_LOGO_PROXY_PATH = "/webapp-logo"
 WEBAPP_LOGO_CACHE_DIR = Path(__file__).resolve().parents[4] / "data" / "webapp-logo"
+WEBAPP_UPLOADED_LOGO_DIR = WEBAPP_LOGO_CACHE_DIR / "uploads"
+WEBAPP_UPLOADED_LOGO_PATH = "/webapp-uploaded-logo"
+WEBAPP_FAVICON_DIR = WEBAPP_LOGO_CACHE_DIR / "favicons"
+WEBAPP_FAVICON_PATH = "/webapp-favicon"
 WEBAPP_EMOJI_CACHE_DIR = Path(__file__).resolve().parents[4] / "data" / "webapp-emoji"
 WEBAPP_CONFIG_PLACEHOLDER = "<!-- WEBAPP_CONFIG_SCRIPT -->"
 WEBAPP_I18N_PLACEHOLDER = "<!-- WEBAPP_I18N_SCRIPT -->"
@@ -76,6 +81,17 @@ WEBAPP_RATE_LIMIT_WINDOW_SECONDS = 60
 WEBAPP_RATE_LIMIT_MAX_REQUESTS = 30
 WEBAPP_LOGO_MAX_BYTES = 2 * 1024 * 1024
 WEBAPP_EMOJI_MAX_BYTES = 4 * 1024 * 1024
+WEBAPP_THEME_CSS_MAX_BYTES = 512 * 1024
+WEBAPP_THEME_ASSET_MAX_BYTES = 1024 * 1024
+WEBAPP_THEME_ASSET_CONTENT_TYPES = {
+    ".gif": "image/gif",
+    ".ico": "image/x-icon",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".svg": "image/svg+xml",
+    ".webp": "image/webp",
+}
 WEBAPP_TELEGRAM_AVATAR_MAX_BYTES = 128 * 1024
 WEBAPP_TELEGRAM_AVATAR_REFRESH_SECONDS = 24 * 60 * 60
 WEBAPP_TELEGRAM_AVATAR_FETCH_TIMEOUT_SECONDS = 4

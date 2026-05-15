@@ -33,6 +33,7 @@
   export let emojiFont = "";
   export let size = "sm";
   export let animate = false;
+  export let fallbackEmoji = true;
   let className = "";
   export { className as class };
 
@@ -206,7 +207,7 @@
         clearLogoLoadTimeout();
       }}
     />
-  {:else if useAnimatedEmoji}
+  {:else if fallbackEmoji && useAnimatedEmoji}
     <img
       class="brand-mark-animated-emoji loaded"
       src={animatedEmojiStaticFallback ? animatedEmojiFallbackSrc : animatedEmojiSrc}
@@ -222,7 +223,7 @@
         }
       }}
     />
-  {:else}
+  {:else if fallbackEmoji}
     <span
       class={cn("brand-mark-emoji", getEmojiFontClass(normalizedEmojiFont))}
       style="opacity: {fontLoaded ? 1 : 0}; transition: opacity 0.2s ease;"

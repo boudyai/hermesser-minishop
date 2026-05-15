@@ -1,6 +1,14 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
 
+from config.webapp_themes_config import (
+    default_webapp_theme_asset_file,
+    default_webapp_theme_css_files,
+    ensure_default_webapp_theme_descriptor_files,
+    public_theme_payload,
+    public_themes_catalog_payload,
+)
+
 
 async def health_route(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
@@ -10,7 +18,120 @@ async def css_asset_route(request: web.Request) -> web.Response:
     return await _serve_template_asset(request, "subscription_webapp.css", "text/css")
 
 
+def _safe_theme_css_relative_path(raw_path: str) -> Optional[Path]:
+    return _safe_theme_relative_path(raw_path, allowed_suffixes={".css"}, max_length=180)
+
+
+def _safe_theme_asset_relative_path(raw_path: str) -> Optional[Path]:
+    return _safe_theme_relative_path(
+        raw_path,
+        allowed_suffixes=set(WEBAPP_THEME_ASSET_CONTENT_TYPES),
+        max_length=220,
+    )
+
+
+def _safe_theme_relative_path(
+    raw_path: str,
+    *,
+    allowed_suffixes: set[str],
+    max_length: int,
+) -> Optional[Path]:
+    value = str(raw_path or "").replace("\\", "/").strip().lstrip("/")
+    if not value or len(value) > max_length or "\x00" in value:
+        return None
+    parts = [part for part in value.split("/") if part]
+    if len(parts) < 2 or any(part in {".", ".."} for part in parts):
+        return None
+    if any(not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", part) for part in parts):
+        return None
+    rel_path = Path(*parts)
+    if rel_path.suffix.lower() not in allowed_suffixes:
+        return None
+    return rel_path
+
+
+async def theme_css_asset_route(request: web.Request) -> web.Response:
+    settings: Settings = request.app["settings"]
+    if not settings.WEBAPP_ENABLED:
+        raise web.HTTPNotFound(text="webapp_disabled")
+
+    ensure_default_webapp_theme_descriptor_files(settings.WEBAPP_THEMES_DIR)
+    rel_path = _safe_theme_css_relative_path(request.match_info.get("path") or "")
+    if rel_path is None:
+        raise web.HTTPNotFound(text="theme_css_not_found")
+
+    root = Path(settings.WEBAPP_THEMES_DIR).expanduser().resolve()
+    path = (root / rel_path).resolve()
+    try:
+        path.relative_to(root)
+    except ValueError:
+        raise web.HTTPNotFound(text="theme_css_not_found") from None
+
+    try:
+        if path.stat().st_size > WEBAPP_THEME_CSS_MAX_BYTES:
+            raise web.HTTPNotFound(text="theme_css_too_large")
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        defaults = default_webapp_theme_css_files()
+        text = defaults.get(rel_path.as_posix())
+        if text is None:
+            raise web.HTTPNotFound(text="theme_css_not_found") from None
+
+    response = web.Response(text=text, content_type="text/css", charset="utf-8")
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
+async def theme_asset_route(request: web.Request) -> web.Response:
+    settings: Settings = request.app["settings"]
+    if not settings.WEBAPP_ENABLED:
+        raise web.HTTPNotFound(text="webapp_disabled")
+
+    ensure_default_webapp_theme_descriptor_files(settings.WEBAPP_THEMES_DIR)
+    rel_path = _safe_theme_asset_relative_path(request.match_info.get("path") or "")
+    if rel_path is None:
+        raise web.HTTPNotFound(text="theme_asset_not_found")
+
+    root = Path(settings.WEBAPP_THEMES_DIR).expanduser().resolve()
+    path = (root / rel_path).resolve()
+    try:
+        path.relative_to(root)
+    except ValueError:
+        raise web.HTTPNotFound(text="theme_asset_not_found") from None
+
+    suffix = rel_path.suffix.lower()
+    content_type = WEBAPP_THEME_ASSET_CONTENT_TYPES.get(suffix)
+    if not content_type:
+        raise web.HTTPNotFound(text="theme_asset_not_found")
+
+    try:
+        if path.stat().st_size > WEBAPP_THEME_ASSET_MAX_BYTES:
+            raise web.HTTPNotFound(text="theme_asset_too_large")
+        body = path.read_bytes()
+    except OSError:
+        fallback = default_webapp_theme_asset_file(rel_path)
+        if fallback is None:
+            raise web.HTTPNotFound(text="theme_asset_not_found") from None
+        body, fallback_suffix = fallback
+        content_type = WEBAPP_THEME_ASSET_CONTENT_TYPES.get(fallback_suffix, content_type)
+
+    if not body or len(body) > WEBAPP_THEME_ASSET_MAX_BYTES:
+        raise web.HTTPNotFound(text="theme_asset_not_found")
+
+    query = getattr(request, "query", {})
+    response = web.Response(body=body, content_type=content_type)
+    response.headers["Cache-Control"] = (
+        "public, max-age=31536000, immutable"
+        if query.get("v")
+        else "public, max-age=3600"
+    )
+    return response
+
+
 def _resolve_webapp_logo_url(settings: Settings) -> str:
+    if getattr(settings, "WEBAPP_LOGO_USE_EMOJI", False):
+        return ""
+
     raw_logo_url = (settings.WEBAPP_LOGO_URL or "").strip()
     if not raw_logo_url:
         return ""
@@ -23,6 +144,27 @@ def _resolve_webapp_logo_url(settings: Settings) -> str:
         return raw_logo_url
     if raw_logo_url.startswith("/"):
         return raw_logo_url
+    return ""
+
+
+def _resolve_webapp_favicon_url(settings: Settings, logo_url: str = "") -> str:
+    raw_custom_url = (getattr(settings, "WEBAPP_FAVICON_URL", None) or "").strip()
+    raw_logo_favicon_url = (getattr(settings, "WEBAPP_LOGO_FAVICON_URL", None) or "").strip()
+    if getattr(settings, "WEBAPP_FAVICON_USE_CUSTOM", False) and raw_custom_url:
+        return _resolve_webapp_asset_url(raw_custom_url)
+    if logo_url and raw_logo_favicon_url:
+        resolved = _resolve_webapp_asset_url(raw_logo_favicon_url)
+        if resolved:
+            return resolved
+    return logo_url or ""
+
+
+def _resolve_webapp_asset_url(raw_url: str) -> str:
+    parsed_url = urlsplit(raw_url)
+    if parsed_url.scheme in {"https", "http", "data"}:
+        return raw_url
+    if raw_url.startswith("/"):
+        return raw_url
     return ""
 
 
@@ -61,6 +203,8 @@ def _webapp_animated_emoji_asset_path(emoji: str, ext: str = "gif") -> str:
 
 async def webapp_logo_route(request: web.Request) -> web.Response:
     settings: Settings = request.app["settings"]
+    if getattr(settings, "WEBAPP_LOGO_USE_EMOJI", False):
+        raise web.HTTPNotFound(text="webapp_logo_disabled")
     raw_logo_url = (settings.WEBAPP_LOGO_URL or "").strip()
     if not raw_logo_url:
         raise web.HTTPNotFound(text="webapp_logo_not_configured")
@@ -89,6 +233,82 @@ async def webapp_logo_route(request: web.Request) -> web.Response:
         raise web.HTTPNotFound(text="webapp_logo_unavailable")
 
     _, body, content_type = logo_cache
+    response = web.Response(body=body, content_type=content_type)
+    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
+
+
+async def webapp_uploaded_logo_route(request: web.Request) -> web.Response:
+    settings: Settings = request.app["settings"]
+    if not settings.WEBAPP_ENABLED:
+        raise web.HTTPNotFound(text="webapp_disabled")
+
+    filename = str(request.match_info.get("filename") or "").strip()
+    if not re.fullmatch(r"logo-[0-9a-f]{16}\.(?:gif|ico|jpe?g|png|svg|webp)", filename):
+        raise web.HTTPNotFound(text="webapp_logo_not_found")
+
+    root = WEBAPP_UPLOADED_LOGO_DIR.expanduser().resolve()
+    path = (root / filename).resolve()
+    try:
+        path.relative_to(root)
+    except ValueError:
+        raise web.HTTPNotFound(text="webapp_logo_not_found") from None
+
+    content_type = WEBAPP_THEME_ASSET_CONTENT_TYPES.get(path.suffix.lower())
+    if not content_type:
+        raise web.HTTPNotFound(text="webapp_logo_not_found")
+
+    try:
+        if path.stat().st_size > WEBAPP_LOGO_MAX_BYTES:
+            raise web.HTTPNotFound(text="webapp_logo_too_large")
+        body = path.read_bytes()
+    except OSError:
+        raise web.HTTPNotFound(text="webapp_logo_not_found") from None
+
+    if not body:
+        raise web.HTTPNotFound(text="webapp_logo_not_found")
+
+    response = web.Response(body=body, content_type=content_type)
+    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
+
+
+async def webapp_favicon_route(request: web.Request) -> web.Response:
+    settings: Settings = request.app["settings"]
+    if not settings.WEBAPP_ENABLED:
+        raise web.HTTPNotFound(text="webapp_disabled")
+
+    digest = str(request.match_info.get("digest") or "").strip().lower()
+    filename = str(request.match_info.get("filename") or "").strip()
+    if not re.fullmatch(r"[0-9a-f]{16}", digest):
+        raise web.HTTPNotFound(text="webapp_favicon_not_found")
+    if not re.fullmatch(
+        r"(?:icon-(?:16|32|48|180|192|512)\.png|apple-touch-icon\.png|favicon\.(?:ico|svg))",
+        filename,
+    ):
+        raise web.HTTPNotFound(text="webapp_favicon_not_found")
+
+    root = WEBAPP_FAVICON_DIR.expanduser().resolve()
+    path = (root / digest / filename).resolve()
+    try:
+        path.relative_to(root)
+    except ValueError:
+        raise web.HTTPNotFound(text="webapp_favicon_not_found") from None
+
+    content_type = WEBAPP_THEME_ASSET_CONTENT_TYPES.get(path.suffix.lower())
+    if not content_type:
+        raise web.HTTPNotFound(text="webapp_favicon_not_found")
+
+    try:
+        if path.stat().st_size > WEBAPP_LOGO_MAX_BYTES:
+            raise web.HTTPNotFound(text="webapp_favicon_too_large")
+        body = path.read_bytes()
+    except OSError:
+        raise web.HTTPNotFound(text="webapp_favicon_not_found") from None
+
+    if not body:
+        raise web.HTTPNotFound(text="webapp_favicon_not_found")
+
     response = web.Response(body=body, content_type=content_type)
     response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
     return response
@@ -123,6 +343,8 @@ async def webapp_animated_emoji_route(request: web.Request) -> web.Response:
 
 async def _warm_webapp_logo_cache(app: web.Application) -> None:
     settings: Settings = app["settings"]
+    if getattr(settings, "WEBAPP_LOGO_USE_EMOJI", False):
+        return
     raw_logo_url = (settings.WEBAPP_LOGO_URL or "").strip()
     if not raw_logo_url or not _is_proxyable_webapp_logo_url(raw_logo_url):
         return
@@ -146,6 +368,8 @@ async def _warm_webapp_logo_cache(app: web.Application) -> None:
 
 async def _warm_webapp_animated_emoji_cache(app: web.Application) -> None:
     settings: Settings = app["settings"]
+    if not getattr(settings, "WEBAPP_LOGO_USE_EMOJI", False):
+        return
     if str(settings.WEBAPP_LOGO_EMOJI_FONT or "").strip() != "noto-color-animated":
         return
 
@@ -435,7 +659,7 @@ async def _security_headers_middleware(request: web.Request, handler):
             "frame-ancestors https://web.telegram.org https://t.me; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "  # noqa: E501
             "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; "
-            "img-src 'self' data: https:; "
+            "img-src 'self' data: blob: https:; "
             "connect-src 'self' https://oauth.telegram.org; "
             "object-src 'none'; "
             "base-uri 'self'; "
@@ -482,8 +706,10 @@ def _get_cached_webapp_settings(request: web.Request) -> Dict[str, Any]:
     cache = request.app["webapp_settings_cache"]
     now = time.monotonic()
     if now - float(cache.get("ts", 0.0)) >= 60 or not cache.get("data"):
+        logo_url = _resolve_webapp_logo_url(settings)
         cache["data"] = {
-            "logo_url": _resolve_webapp_logo_url(settings),
+            "logo_url": logo_url,
+            "favicon_url": _resolve_webapp_favicon_url(settings, logo_url),
             "subscription_options": settings.subscription_options,
             "stars_subscription_options": settings.stars_subscription_options,
             "traffic_packages": settings.traffic_packages,
@@ -628,12 +854,29 @@ async def index_route(request: web.Request) -> web.Response:
 
     html = TEMPLATE_PATH.read_text(encoding="utf-8")
     cached = _get_cached_webapp_settings(request)
+    themes_catalog = settings.webapp_themes_catalog
+    primary_color = settings.WEBAPP_PRIMARY_COLOR or "#00fe7a"
+    initial_theme = _initial_theme_for_request(request, themes_catalog)
+    preview_key = str(request.query.get("theme_preview") or "").strip()
+    preview_theme = themes_catalog.theme_by_key(preview_key) if preview_key else None
+    if preview_theme is None or not preview_theme.enabled:
+        preview_key = ""
     config = {
         "title": settings.WEBAPP_TITLE,
         "primaryColor": settings.WEBAPP_PRIMARY_COLOR,
+        "themesCatalog": public_themes_catalog_payload(
+            themes_catalog,
+            primary_color,
+            enabled_only=True,
+        ),
+        "themesDir": settings.WEBAPP_THEMES_DIR,
+        "themePreviewKey": preview_key,
         "logoUrl": cached["logo_url"],
+        "logoUseEmoji": bool(settings.WEBAPP_LOGO_USE_EMOJI),
         "logoEmoji": settings.WEBAPP_LOGO_EMOJI,
         "logoEmojiFont": settings.WEBAPP_LOGO_EMOJI_FONT,
+        "faviconUrl": cached["favicon_url"],
+        "faviconUseCustom": bool(settings.WEBAPP_FAVICON_USE_CUSTOM),
         "apiBase": "/api",
         "telegramLoginBotUsername": request.app.get("bot_username") or "",
         "telegramLoginBotId": _resolve_telegram_bot_id(settings.BOT_TOKEN) or 0,
@@ -650,6 +893,9 @@ async def index_route(request: web.Request) -> web.Response:
         "appRepositoryUrl": APP_REPOSITORY_URL,
     }
     html = _strip_marked_block(html, DEV_MOCK_START_MARKER, DEV_MOCK_END_MARKER)
+    initial_theme_markup = _initial_theme_head_markup(request, initial_theme, primary_color)
+    if initial_theme_markup:
+        html = html.replace("</head>", f"{initial_theme_markup}\n</head>", 1)
     i18n_instance: Optional[object] = request.app.get("i18n")
     i18n_payload = getattr(i18n_instance, "locales_data", {}) if i18n_instance else {}
     nonce = request.get("csp_nonce", "")
@@ -673,17 +919,27 @@ async def index_route(request: web.Request) -> web.Response:
         WEBAPP_JS_PLACEHOLDER,
         f'<script src="/{_resolve_webapp_js_asset_name()}" defer></script>',
     )
+    favicon_markup = _favicon_head_markup(cached["favicon_url"])
+    if favicon_markup:
+        html = html.replace(
+            '<link id="app-favicon" rel="icon" href="data:," sizes="any">',
+            favicon_markup,
+        )
     brand_asset_url = cached["logo_url"]
-    if not brand_asset_url and settings.WEBAPP_LOGO_EMOJI_FONT == "noto-color-animated":
+    if (
+        not brand_asset_url
+        and settings.WEBAPP_LOGO_USE_EMOJI
+        and settings.WEBAPP_LOGO_EMOJI_FONT == "noto-color-animated"
+    ):
         brand_asset_url = _webapp_animated_emoji_asset_path(settings.WEBAPP_LOGO_EMOJI)
     if brand_asset_url:
         html = html.replace(
-            '<link rel="preload" id="logo-preload" href="" as="image" fetchpriority="high" crossorigin="anonymous">',  # noqa: E501
-            f'<link rel="preload" href="{brand_asset_url}" as="image" fetchpriority="high" crossorigin="anonymous">',  # noqa: E501
+            '<link rel="preload" id="logo-preload" href="" as="image" fetchpriority="high">',
+            f'<link rel="preload" href="{brand_asset_url}" as="image" fetchpriority="high">',
         )
     else:
         html = html.replace(
-            '<link rel="preload" id="logo-preload" href="" as="image" fetchpriority="high" crossorigin="anonymous">',  # noqa: E501
+            '<link rel="preload" id="logo-preload" href="" as="image" fetchpriority="high">',
             "",
         )
     return web.Response(text=html, content_type="text/html", charset="utf-8")
@@ -722,6 +978,129 @@ def _resolve_webapp_js_asset_name() -> str:
         minified_assets.sort(reverse=True)
         return minified_assets[0][1]
     return "subscription_webapp.js"
+
+
+_INITIAL_THEME_TOKEN_CSS_MAP = {
+    "accent": "--accent",
+    "bg": "--bg",
+    "panel": "--panel",
+    "panel_2": "--panel-2",
+    "panel_3": "--panel-3",
+    "border": "--border",
+    "border_strong": "--border-strong",
+    "text": "--text",
+    "muted": "--muted",
+    "dim": "--dim",
+    "danger": "--danger",
+    "blue": "--blue",
+    "radius": "--radius",
+    "font_sans": "--font-sans",
+    "font_logo": "--font-logo",
+    "font_mono": "--font-mono",
+    "admin_bg": "--admin-bg",
+    "admin_surface": "--admin-surface",
+    "admin_surface_2": "--admin-surface-2",
+    "admin_elev": "--admin-elev",
+    "admin_border": "--admin-border",
+    "admin_border_strong": "--admin-border-strong",
+    "admin_text": "--admin-text",
+    "admin_muted": "--admin-muted",
+    "admin_dim": "--admin-dim",
+}
+
+
+def _theme_css_href_for_html(theme: Any) -> str:
+    css_file = str(getattr(theme, "css_file", "") or "").strip()
+    key = str(getattr(theme, "key", "") or "").strip()
+    if not css_file or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", key):
+        return ""
+    parts = [part for part in css_file.replace("\\", "/").split("/") if part]
+    if any(part in {".", ".."} for part in parts):
+        return ""
+    themed_path = "/".join([key, *parts])
+    encoded = "/".join(quote(part, safe="") for part in themed_path.split("/"))
+    return f"/webapp-theme-css/{encoded}" if encoded else ""
+
+
+def _initial_theme_for_request(request: web.Request, catalog: Any) -> Any:
+    preview_key = str(request.query.get("theme_preview") or "").strip()
+    if preview_key:
+        preview_theme = catalog.theme_by_key(preview_key)
+        if preview_theme is not None and preview_theme.enabled:
+            return preview_theme
+
+    theme = catalog.theme_by_key(catalog.default_theme)
+    if theme is not None:
+        return theme
+    return catalog.enabled_themes()[0] if catalog.enabled_themes() else None
+
+
+def _initial_theme_head_markup(request: web.Request, theme: Any, primary_color: str) -> str:
+    if theme is None:
+        return ""
+
+    payload = public_theme_payload(theme, primary_color)
+    tokens = payload.get("tokens") if isinstance(payload, dict) else {}
+    tokens = tokens if isinstance(tokens, dict) else {}
+    declarations = []
+    for token_key, css_name in _INITIAL_THEME_TOKEN_CSS_MAP.items():
+        value = str(tokens.get(token_key) or "").strip()
+        if value:
+            declarations.append(f"{css_name}:{value}")
+
+    scheme = "light" if tokens.get("color_scheme") == "light" else "dark"
+    bg = str(tokens.get("bg") or "").strip()
+    css_rules = [f"html{{color-scheme:{scheme};}}"]
+    if bg:
+        css_rules.append(f"body{{background-color:{bg};}}")
+    if declarations:
+        css_rules.append(f".app-shell{{{';'.join(declarations)}}}")
+
+    nonce = html.escape(str(request.get("csp_nonce", "")), quote=True)
+    style_tag = (
+        f'<style id="webapp-initial-theme" nonce="{nonce}">' + "".join(css_rules) + "</style>"
+    )
+    href = _theme_css_href_for_html(theme)
+    if not href:
+        return style_tag
+    stylesheet = (
+        f'<link rel="stylesheet" href="{html.escape(href, quote=True)}" '
+        f'data-initial-theme-css="{html.escape(str(theme.key), quote=True)}">'
+    )
+    return stylesheet + "\n" + style_tag
+
+
+def _favicon_head_markup(favicon_url: str) -> str:
+    href = str(favicon_url or "").strip()
+    if not href:
+        return ""
+
+    escaped_href = html.escape(href, quote=True)
+    match = re.fullmatch(
+        rf"{re.escape(WEBAPP_FAVICON_PATH)}/([0-9a-f]{{16}})/icon-(?:16|32|48|180|192|512)\.png",
+        href,
+    )
+    if not match:
+        rel = "apple-touch-icon" if href.endswith(".png") else "icon"
+        return (
+            f'<link id="app-favicon" rel="icon" href="{escaped_href}" sizes="any">\n'
+            f'<link rel="{rel}" href="{escaped_href}">'
+        )
+
+    digest = match.group(1)
+    base = f"{WEBAPP_FAVICON_PATH}/{digest}"
+    return "\n".join(
+        [
+            (
+                f'<link id="app-favicon" rel="icon" type="image/png" sizes="32x32" '
+                f'href="{base}/icon-32.png">'
+            ),
+            f'<link rel="icon" type="image/x-icon" sizes="any" href="{base}/favicon.ico">',
+            f'<link rel="icon" type="image/png" sizes="16x16" href="{base}/icon-16.png">',
+            f'<link rel="icon" type="image/png" sizes="192x192" href="{base}/icon-192.png">',
+            f'<link rel="apple-touch-icon" sizes="180x180" href="{base}/apple-touch-icon.png">',
+        ]
+    )
 
 
 def _strip_marked_block(html: str, start_marker: str, end_marker: str) -> str:

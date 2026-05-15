@@ -1,0 +1,953 @@
+/*
+ * ASCII / console theme.
+ * Pure black background, white foreground, monospace everything,
+ * 1px white borders, animated ASCII spinners and block-progress bars.
+ */
+
+.theme-key-ascii {
+  color-scheme: dark;
+  --accent: #ffffff;
+  --accent-contrast: #000000;
+  --bg: #000000;
+  --panel: #000000;
+  --panel-2: #050505;
+  --panel-3: #0c0c0c;
+  --border: #ffffff;
+  --border-strong: #ffffff;
+  --text: #ffffff;
+  --muted: #b0b0b0;
+  --dim: #6a6a6a;
+  --danger: #ff5555;
+  --blue: #ffffff;
+  --radius: 0px;
+  --font-sans: "JetBrains Mono", "Cascadia Code", "Fira Code", "Consolas",
+    "Source Code Pro", "Courier New", ui-monospace, monospace;
+  --font-logo: "JetBrains Mono", "Cascadia Code", "Consolas", "Courier New",
+    ui-monospace, monospace;
+  --font-mono: "JetBrains Mono", "Cascadia Code", "Consolas", "Courier New",
+    ui-monospace, monospace;
+  --surface-sheen: transparent;
+  --surface-sheen-soft: transparent;
+  --surface-hover: rgba(255, 255, 255, 0.08);
+  --surface-muted: #0a0a0a;
+  --surface-subtle-border: #ffffff;
+  --overlay-scrim: rgba(0, 0, 0, 0.85);
+  --nav-bg: #000000;
+  --rail-bg: #000000;
+  --shadow-soft: none;
+  --shadow-strong: none;
+  --shadow-popover: 0 0 0 1px #ffffff;
+  --inset-highlight: transparent;
+  --admin-bg: #000000;
+  --admin-surface: #000000;
+  --admin-surface-2: #050505;
+  --admin-elev: #0c0c0c;
+  --admin-border: #ffffff;
+  --admin-border-strong: #ffffff;
+  --admin-text: #ffffff;
+  --admin-muted: #b0b0b0;
+  --admin-dim: #6a6a6a;
+}
+
+/* ---------- Base typography ---------- */
+
+.theme-key-ascii,
+.theme-key-ascii body,
+.theme-key-ascii button,
+.theme-key-ascii input,
+.theme-key-ascii textarea,
+.theme-key-ascii select {
+  font-family: var(--font-sans);
+  letter-spacing: 0;
+  font-synthesis: none;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  font-variant-ligatures: none;
+}
+
+.theme-key-ascii.app-shell {
+  background: var(--bg) !important;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.025) 0,
+      rgba(255, 255, 255, 0.025) 1px,
+      transparent 1px,
+      transparent 3px
+    ) !important;
+}
+
+/* Slight CRT-like flicker on the shell. */
+@keyframes ascii-flicker {
+  0%, 96%, 100% { opacity: 1; }
+  97% { opacity: 0.96; }
+  98% { opacity: 1; }
+  99% { opacity: 0.94; }
+}
+
+.theme-key-ascii.app-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.02) 0,
+    rgba(255, 255, 255, 0.02) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  animation: ascii-flicker 5s infinite;
+}
+
+/* ---------- Panels / cards ---------- */
+
+.theme-key-ascii .card,
+.theme-key-ascii .period-card,
+.theme-key-ascii .method-card,
+.theme-key-ascii .settings-row,
+.theme-key-ascii .option-row,
+.theme-key-ascii .tariff-selected-card,
+.theme-key-ascii .tariff-action-card,
+.theme-key-ascii .tariff-warning-card,
+.theme-key-ascii .topup-carryover-note,
+.theme-key-ascii .input,
+.theme-key-ascii .dialog-card,
+.theme-key-ascii .language-select-content,
+.theme-key-ascii .bottom-nav,
+.theme-key-ascii .toast,
+.theme-key-ascii .admin-sidebar,
+.theme-key-ascii .admin-header,
+.theme-key-ascii .admin-card,
+.theme-key-ascii .admin-stat-card,
+.theme-key-ascii .admin-revenue-panel,
+.theme-key-ascii .admin-empty,
+.theme-key-ascii .admin-tariff-card,
+.theme-key-ascii .admin-toolbar-card,
+.theme-key-ascii .admin-table-card,
+.theme-key-ascii .admin-panel-dash-card,
+.theme-key-ascii .admin-select-trigger,
+.theme-key-ascii .admin-select-content,
+.theme-key-ascii .admin-cn-card[data-slot="card"],
+.theme-key-ascii .admin-dialog .dialog-card,
+.theme-key-ascii .admin-theme-editor-section {
+  border: 1px solid #ffffff;
+  border-radius: 0;
+  background: var(--panel);
+  box-shadow: none;
+}
+
+/* No ribbon/corner overlays: those caused dialog overflow scrollbars.
+ * The console feel comes from the crisp 1px borders, monospace text,
+ * and the animated marquees / glitches applied to interactive elements. */
+
+/* ---------- Buttons ---------- */
+
+.theme-key-ascii .btn,
+.theme-key-ascii .language-select-trigger,
+.theme-key-ascii .bottom-nav button,
+.theme-key-ascii .admin-btn,
+.theme-key-ascii .admin-chip,
+.theme-key-ascii .admin-tabs-trigger,
+.theme-key-ascii .admin-revenue-period-btn,
+.theme-key-ascii .admin-mobile-toggle,
+.theme-key-ascii .admin-nav-item {
+  border: 1px solid #ffffff;
+  border-radius: 0;
+  background: #000000;
+  color: #ffffff;
+  box-shadow: none;
+  text-transform: none;
+  font-family: var(--font-sans);
+  transform: none;
+  position: relative;
+}
+
+.theme-key-ascii .btn:hover:not(:disabled),
+.theme-key-ascii .admin-btn:hover:not(:disabled),
+.theme-key-ascii .admin-nav-item:hover,
+.theme-key-ascii .admin-tabs-trigger:hover,
+.theme-key-ascii .admin-revenue-period-btn:hover,
+.theme-key-ascii .bottom-nav button:hover {
+  background: #ffffff;
+  color: #000000;
+}
+
+.theme-key-ascii .btn:active:not(:disabled),
+.theme-key-ascii .bottom-nav button:active,
+.theme-key-ascii .admin-btn:active:not(:disabled) {
+  background: #ffffff;
+  color: #000000;
+  transform: translate(1px, 1px);
+}
+
+.theme-key-ascii .btn-primary,
+.theme-key-ascii .admin-btn-primary,
+.theme-key-ascii .bottom-nav button.active,
+.theme-key-ascii .period-card.active,
+.theme-key-ascii .method-card.active,
+.theme-key-ascii .option-row.active,
+.theme-key-ascii .admin-nav-item.active,
+.theme-key-ascii .admin-tabs-trigger[data-state="active"],
+.theme-key-ascii .admin-revenue-period-btn.is-active {
+  background: #ffffff;
+  color: #000000;
+  border-color: #ffffff;
+}
+
+.theme-key-ascii .btn-primary:hover:not(:disabled),
+.theme-key-ascii .admin-btn-primary:hover:not(:disabled) {
+  background: #000000;
+  color: #ffffff;
+  outline: 1px solid #ffffff;
+  outline-offset: -2px;
+}
+
+/* Blinking caret-style focus ring. */
+@keyframes ascii-caret {
+  0%, 49% { outline-color: #ffffff; }
+  50%, 100% { outline-color: transparent; }
+}
+
+.theme-key-ascii .btn:focus-visible,
+.theme-key-ascii .admin-btn:focus-visible,
+.theme-key-ascii .admin-nav-item:focus-visible,
+.theme-key-ascii .admin-tabs-trigger:focus-visible,
+.theme-key-ascii .admin-revenue-period-btn:focus-visible,
+.theme-key-ascii .admin-mobile-toggle:focus-visible,
+.theme-key-ascii .language-select-trigger:focus-visible,
+.theme-key-ascii .bottom-nav button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 1px;
+  animation: ascii-caret 1s steps(1) infinite;
+}
+
+/* ---------- Inputs ---------- */
+
+.theme-key-ascii .input,
+.theme-key-ascii .admin-input,
+.theme-key-ascii .admin-textarea,
+.theme-key-ascii .admin-screen-wrap textarea,
+.theme-key-ascii .admin-dialog textarea {
+  border: 1px solid #ffffff;
+  border-radius: 0;
+  background: #000000;
+  color: #ffffff;
+  box-shadow: none;
+  font-family: var(--font-mono);
+  caret-color: #ffffff;
+}
+
+.theme-key-ascii .input::placeholder,
+.theme-key-ascii .admin-input::placeholder,
+.theme-key-ascii .admin-textarea::placeholder,
+.theme-key-ascii .admin-screen-wrap textarea::placeholder,
+.theme-key-ascii .admin-dialog textarea::placeholder {
+  color: var(--dim);
+  font-style: normal;
+}
+
+.theme-key-ascii .input:focus,
+.theme-key-ascii .admin-input:focus,
+.theme-key-ascii .admin-textarea:focus,
+.theme-key-ascii .admin-screen-wrap textarea:focus,
+.theme-key-ascii .admin-dialog textarea:focus {
+  outline: none;
+  border-color: #ffffff;
+  box-shadow: inset 0 0 0 1px #ffffff;
+}
+
+/* ---------- Bottom nav (desktop rail) ---------- */
+
+@media (min-width: 1024px) {
+  .theme-key-ascii .bottom-nav {
+    border-right: 1px solid #ffffff !important;
+    background: var(--rail-bg) !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+  }
+
+  .theme-key-ascii .bottom-nav button {
+    border: 1px solid #ffffff !important;
+    border-radius: 0 !important;
+    background: #000000 !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+  }
+
+  .theme-key-ascii .bottom-nav button.active {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+}
+
+/* ---------- ASCII progress bar ---------- *
+ * Empty track:  ░░░░░░░░░░░  (low-contrast dotted fill).
+ * Filled span:  ██████        (solid white blocks).
+ */
+
+.theme-key-ascii .progress {
+  height: 14px;
+  border: 1px solid #ffffff;
+  border-radius: 0 !important;
+  background-color: #000000;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.22) 0,
+    rgba(255, 255, 255, 0.22) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  position: relative;
+  overflow: hidden;
+  font-family: var(--font-mono);
+}
+
+.theme-key-ascii .progress span {
+  border-radius: 0 !important;
+  background: #ffffff !important;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.0) 0,
+    rgba(0, 0, 0, 0.0) 5px,
+    rgba(0, 0, 0, 0.35) 5px,
+    rgba(0, 0, 0, 0.35) 6px
+  ) !important;
+  box-shadow: none;
+}
+
+/* Indeterminate scanning effect for any progress lacking a width-set span. */
+@keyframes ascii-scan {
+  0% { background-position: 0 0; }
+  100% { background-position: 12px 0; }
+}
+
+/* ---------- ASCII spinner replacement ---------- */
+
+.theme-key-ascii .ui-spinner,
+.theme-key-ascii .telegram-button-spinner,
+.theme-key-ascii .brand-mark-spinner {
+  border: none !important;
+  border-radius: 0 !important;
+  width: 1ch !important;
+  height: 1em !important;
+  background: transparent !important;
+  position: relative;
+  animation: none !important;
+  color: currentColor;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-align: center;
+  vertical-align: middle;
+  overflow: visible;
+}
+
+.theme-key-ascii .ui-spinner::before,
+.theme-key-ascii .telegram-button-spinner::before,
+.theme-key-ascii .brand-mark-spinner::before {
+  content: "|";
+  display: inline-block;
+  animation: ascii-spin 0.8s steps(1) infinite;
+  font-family: var(--font-mono);
+  line-height: 1;
+}
+
+@keyframes ascii-spin {
+  0%   { content: "|"; }
+  25%  { content: "/"; }
+  50%  { content: "-"; }
+  75%  { content: "\\"; }
+  100% { content: "|"; }
+}
+
+/* Some browsers don't animate content; fallback rotation of a glyph. */
+@supports not (animation-name: ascii-spin) {
+  .theme-key-ascii .ui-spinner::before,
+  .theme-key-ascii .telegram-button-spinner::before,
+  .theme-key-ascii .brand-mark-spinner::before {
+    content: "+";
+    animation: ascii-spin-rotate 0.8s steps(4) infinite;
+  }
+  @keyframes ascii-spin-rotate {
+    to { transform: rotate(360deg); }
+  }
+}
+
+/* Blinking cursor appended to brand text. */
+.theme-key-ascii .login-brand h1::after,
+.theme-key-ascii .admin-sidebar-brand strong::after,
+.theme-key-ascii .brand-row strong::after {
+  content: "_";
+  display: inline-block;
+  margin-left: 0.2ch;
+  color: #ffffff;
+  animation: ascii-blink 1s steps(1) infinite;
+}
+
+@keyframes ascii-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* Section heading prompt prefix. */
+.theme-key-ascii .admin-card-head h2::before,
+.theme-key-ascii .admin-card-head h3::before,
+.theme-key-ascii .card > h2:first-child::before,
+.theme-key-ascii .card > h3:first-child::before {
+  content: "> ";
+  color: #ffffff;
+  opacity: 0.85;
+  font-family: var(--font-mono);
+}
+
+/* ---------- Tables ---------- */
+
+.theme-key-ascii .admin-table thead th {
+  background: #000000;
+  color: #ffffff;
+  border-bottom: 1px solid #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+.theme-key-ascii .admin-table tbody tr {
+  border-bottom: 1px dashed #ffffff;
+}
+
+.theme-key-ascii .admin-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ---------- Badges / chips ---------- */
+
+.theme-key-ascii .admin-badge,
+.theme-key-ascii .admin-cn-badge {
+  border: 1px solid #ffffff;
+  border-radius: 0;
+  background: #000000;
+  color: #ffffff;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.theme-key-ascii .admin-badge::before,
+.theme-key-ascii .admin-cn-badge::before {
+  content: "[";
+}
+
+.theme-key-ascii .admin-badge::after,
+.theme-key-ascii .admin-cn-badge::after {
+  content: "]";
+}
+
+/* ---------- Links ---------- */
+
+.theme-key-ascii a:not(.btn):not(.bottom-nav button):not([class*="-trigger"]),
+.theme-key-ascii .admin-screen-wrap a:not(.admin-btn):not(.admin-nav-item) {
+  color: #ffffff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.theme-key-ascii a:not(.btn):not(.bottom-nav button):not([class*="-trigger"]):hover,
+.theme-key-ascii .admin-screen-wrap a:not(.admin-btn):not(.admin-nav-item):hover {
+  background: #ffffff;
+  color: #000000;
+  text-decoration: none;
+}
+
+/* ---------- Selection ---------- */
+
+.theme-key-ascii ::selection {
+  background: #ffffff;
+  color: #000000;
+}
+
+/* ---------- Scrollbars ---------- */
+
+.theme-key-ascii ::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.theme-key-ascii ::-webkit-scrollbar-track {
+  background-color: #000000;
+  background-image: repeating-linear-gradient(
+    0deg,
+    #ffffff 0,
+    #ffffff 1px,
+    transparent 1px,
+    transparent 4px
+  );
+}
+
+.theme-key-ascii ::-webkit-scrollbar-thumb {
+  background: #ffffff;
+  border: 1px solid #000000;
+}
+
+.theme-key-ascii ::-webkit-scrollbar-thumb:active {
+  background: #b0b0b0;
+}
+
+.theme-key-ascii ::-webkit-scrollbar-corner {
+  background: #000000;
+}
+
+/* ---------- Lucide icons: render as crisp white outlines ---------- */
+
+.theme-key-ascii svg.lucide,
+.theme-key-ascii svg[class*="lucide-"] {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  fill: none !important;
+  stroke-width: 1.75;
+  filter: none;
+}
+
+.theme-key-ascii .btn-primary svg.lucide,
+.theme-key-ascii .bottom-nav button.active svg.lucide,
+.theme-key-ascii .period-card.active svg.lucide,
+.theme-key-ascii .method-card.active svg.lucide,
+.theme-key-ascii .option-row.active svg.lucide,
+.theme-key-ascii .admin-btn-primary svg.lucide,
+.theme-key-ascii .admin-nav-item.active svg.lucide,
+.theme-key-ascii .admin-tabs-trigger[data-state="active"] svg.lucide,
+.theme-key-ascii .admin-revenue-period-btn.is-active svg.lucide {
+  color: #000000 !important;
+  stroke: #000000 !important;
+}
+
+/* ---------- Toast / language select polish ---------- */
+
+.theme-key-ascii .toast {
+  background: #000000;
+  border: 1px solid #ffffff;
+  color: #ffffff;
+}
+
+.theme-key-ascii .language-select-item {
+  border-radius: 0;
+}
+
+.theme-key-ascii .language-select-item[data-highlighted],
+.theme-key-ascii .language-select-item[data-selected] {
+  background: #ffffff;
+  color: #000000 !important;
+}
+
+/* ---------- Headings: stronger console feel ---------- */
+
+.theme-key-ascii h1,
+.theme-key-ascii h2,
+.theme-key-ascii h3,
+.theme-key-ascii h4 {
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.theme-key-ascii .admin-header {
+  background: #000000;
+  border-bottom: 1px solid #ffffff;
+  color: #ffffff;
+}
+
+.theme-key-ascii .admin-header-title h2,
+.theme-key-ascii .admin-header-title small {
+  color: #ffffff;
+}
+
+/* Make any element with role progressbar but no inner span show animated stripes. */
+.theme-key-ascii [role="progressbar"]:not(.progress) {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      #ffffff 0,
+      #ffffff 6px,
+      #000000 6px,
+      #000000 8px
+    );
+  animation: ascii-scan 0.6s linear infinite;
+  border: 1px solid #ffffff;
+  border-radius: 0;
+  color: #000000;
+}
+
+/* ============================================================
+ * Console-themed extras
+ * ============================================================ */
+
+/* ---------- ASCII skeletons ---------- *
+ * Subtle dark shimmer with a single bright scan line moving across.
+ */
+
+@keyframes ascii-skeleton-scan {
+  0%   { background-position: -120% 0; }
+  100% { background-position: 220% 0; }
+}
+
+.theme-key-ascii .ui-skeleton,
+.theme-key-ascii .admin-skeleton,
+.theme-key-ascii .skeleton-line,
+.theme-key-ascii .skeleton-dot,
+.theme-key-ascii .skeleton-pay-button,
+.theme-key-ascii .ui-skeleton-line,
+.theme-key-ascii .admin-skeleton-line,
+.theme-key-ascii .admin-skeleton-line-strong,
+.theme-key-ascii .admin-skeleton-line-soft,
+.theme-key-ascii .admin-skeleton-line-short,
+.theme-key-ascii .admin-skeleton-line-tiny,
+.theme-key-ascii .ui-skeleton-title,
+.theme-key-ascii .ui-skeleton-short,
+.theme-key-ascii .ui-skeleton-tiny,
+.theme-key-ascii .ui-skeleton-badge,
+.theme-key-ascii .admin-skeleton-badge,
+.theme-key-ascii .admin-skeleton-avatar,
+.theme-key-ascii .admin-stat-skeleton-card,
+.theme-key-ascii .admin-stat-skeleton-wide,
+.theme-key-ascii .admin-cn-card-skeleton--tall {
+  border-radius: 0 !important;
+  border: 1px solid #ffffff !important;
+  background-color: #050505 !important;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 40%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 60%,
+    transparent 100%
+  ) !important;
+  background-size: 200% 100% !important;
+  background-repeat: no-repeat !important;
+  color: #ffffff !important;
+  animation: ascii-skeleton-scan 1.6s linear infinite !important;
+}
+
+.theme-key-ascii .admin-skeleton-avatar {
+  width: 32px !important;
+  height: 32px !important;
+}
+
+/* ---------- Empty / loading state console message ---------- */
+.theme-key-ascii .admin-empty {
+  position: relative;
+}
+
+.theme-key-ascii .admin-empty::before {
+  content: "$ tail -f /var/log/empty.log";
+  display: block;
+  font-family: var(--font-mono);
+  color: var(--muted);
+  margin-bottom: 8px;
+  letter-spacing: 0;
+}
+
+/* ---------- Buttons: glitch on hover ---------- */
+
+@keyframes ascii-glitch {
+  0%, 100% { transform: translate(0, 0); clip-path: inset(0 0 0 0); }
+  20%      { transform: translate(-1px, 0); clip-path: inset(20% 0 50% 0); }
+  40%      { transform: translate(1px, 0);  clip-path: inset(40% 0 30% 0); }
+  60%      { transform: translate(-1px, 0); clip-path: inset(10% 0 70% 0); }
+  80%      { transform: translate(1px, 0);  clip-path: inset(60% 0 10% 0); }
+}
+
+.theme-key-ascii .btn:hover:not(:disabled)::after,
+.theme-key-ascii .admin-btn:hover:not(:disabled)::after {
+  content: attr(data-label, "");
+  pointer-events: none;
+}
+
+/* Disable glitch text duplication if the button has no data-label.
+ * Apply a subtle scanline overlay instead, which is content-agnostic. */
+.theme-key-ascii .btn,
+.theme-key-ascii .admin-btn,
+.theme-key-ascii .admin-nav-item,
+.theme-key-ascii .bottom-nav button {
+  overflow: hidden;
+}
+
+.theme-key-ascii .btn:hover:not(:disabled)::before,
+.theme-key-ascii .admin-btn:hover:not(:disabled)::before,
+.theme-key-ascii .admin-nav-item:hover::before,
+.theme-key-ascii .bottom-nav button:hover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.4) 0,
+    rgba(0, 0, 0, 0.4) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  animation: ascii-glitch 0.6s steps(1) infinite;
+  z-index: 1;
+}
+
+/* ---------- Bottom nav active markers "> item <" ---------- */
+
+.theme-key-ascii .bottom-nav button.active::before,
+.theme-key-ascii .admin-nav-item.active::before {
+  content: ">";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  color: #000000;
+  animation: ascii-blink 1s steps(1) infinite;
+  z-index: 2;
+}
+
+.theme-key-ascii .bottom-nav button.active::after,
+.theme-key-ascii .admin-nav-item.active::after {
+  content: "<";
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  color: #000000;
+  animation: ascii-blink 1s steps(1) infinite;
+  animation-delay: 0.5s;
+  z-index: 2;
+}
+
+.theme-key-ascii .bottom-nav button.active,
+.theme-key-ascii .admin-nav-item.active {
+  position: relative;
+}
+
+/* On the mobile bottom-bar (compact) hide the markers to avoid overlap. */
+@media (max-width: 1023px) {
+  .theme-key-ascii .bottom-nav button.active::before,
+  .theme-key-ascii .bottom-nav button.active::after {
+    content: none;
+  }
+}
+
+/* ---------- ASCII block progress fill ---------- *
+ * The actual fill renders as alternating █ blocks via the existing span
+ * gradient. We also overlay a slow scanning highlight to make it feel
+ * "live", and add a soft typed counter to the right edge.
+ */
+
+/* (duplicate progress fill rules removed — see definition above) */
+
+/* ---------- Headings: subtle CRT glitch on hover ---------- */
+
+@keyframes ascii-heading-jitter {
+  0%, 92%, 100% { transform: translate(0, 0); }
+  93% { transform: translate(-1px, 0); }
+  94% { transform: translate(1px, 0); }
+  95% { transform: translate(0, -1px); }
+  96% { transform: translate(0, 1px); }
+}
+
+.theme-key-ascii h1,
+.theme-key-ascii h2,
+.theme-key-ascii h3,
+.theme-key-ascii .login-brand h1,
+.theme-key-ascii .admin-sidebar-brand strong,
+.theme-key-ascii .admin-card-head h2,
+.theme-key-ascii .admin-card-head h3 {
+  display: inline-block;
+  animation: ascii-heading-jitter 7s steps(1) infinite;
+}
+
+/* ---------- App-shell boot banner ---------- *
+ * A non-blocking strip at the very top of the viewport that displays a
+ * typed "booting…" line, then settles. Pure CSS so it cannot interfere
+ * with any DOM. The animation runs once on mount.
+ */
+
+@keyframes ascii-boot-type {
+  0%   { width: 0; }
+  85%  { width: 28ch; }
+  100% { width: 28ch; }
+}
+
+@keyframes ascii-boot-fade {
+  0%, 70%   { opacity: 1; }
+  100%      { opacity: 0; visibility: hidden; }
+}
+
+.theme-key-ascii.app-shell::after {
+  content: "$ remnawave --start --tty=0";
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  display: block;
+  padding: 2px 8px;
+  max-width: 28ch;
+  overflow: hidden;
+  white-space: nowrap;
+  background: #000000;
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  border-right: 1px solid #ffffff;
+  border-bottom: 1px solid #ffffff;
+  pointer-events: none;
+  animation:
+    ascii-boot-type 1.6s steps(28) 1 both,
+    ascii-boot-fade 3s linear 1.6s 1 forwards;
+}
+
+/* ---------- Toggle / checkbox squareification (best-effort) ---------- */
+
+.theme-key-ascii input[type="checkbox"],
+.theme-key-ascii input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1em;
+  height: 1em;
+  border: 1px solid #ffffff;
+  background: #000000;
+  border-radius: 0 !important;
+  position: relative;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.theme-key-ascii input[type="checkbox"]:checked::after,
+.theme-key-ascii input[type="radio"]:checked::after {
+  content: "x";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1;
+}
+
+/* ---------- Code-like "$ " prefix on toast messages ---------- */
+
+.theme-key-ascii .toast::before {
+  content: "$ ";
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+/* ---------- Disabled state — strikethrough hatching ---------- */
+
+.theme-key-ascii .btn:disabled,
+.theme-key-ascii .admin-btn:disabled,
+.theme-key-ascii button:disabled {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0,
+    transparent 4px,
+    rgba(255, 255, 255, 0.18) 4px,
+    rgba(255, 255, 255, 0.18) 5px
+  );
+  color: var(--dim) !important;
+  border-color: var(--dim) !important;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+ * Square everything: drop all rounded corners on touched surfaces.
+ * ============================================================ */
+
+.theme-key-ascii :is(
+  .card, .dialog-card, .toast,
+  .btn, .input,
+  .period-card, .method-card, .settings-row, .option-row,
+  .tariff-selected-card, .tariff-action-card, .tariff-warning-card,
+  .topup-carryover-note, .language-select-content, .language-select-item,
+  .language-select-trigger, .bottom-nav, .bottom-nav button,
+  .field-error-tooltip,
+  .admin-card, .admin-card-head, .admin-card-body,
+  .admin-stat-card, .admin-stat-skeleton-card, .admin-stat-skeleton-wide,
+  .admin-revenue-panel, .admin-empty,
+  .admin-tariff-card, .admin-toolbar-card, .admin-table-card,
+  .admin-panel-dash-card,
+  .admin-select-trigger, .admin-select-content, .admin-select-item,
+  .admin-cn-card, .admin-cn-badge, .admin-badge,
+  .admin-cn-card-skeleton--tall,
+  .admin-input, .admin-textarea, .admin-btn, .admin-chip,
+  .admin-tabs-trigger, .admin-tabs-list,
+  .admin-nav-item, .admin-revenue-period-btn, .admin-mobile-toggle,
+  .admin-header, .admin-sidebar, .admin-sidebar-brand,
+  .admin-dialog,
+  .admin-theme-editor-section,
+  [data-slot="card"], [data-slot="card-header"],
+  [data-slot="card-content"], [data-slot="card-footer"]
+),
+.theme-key-ascii :is(
+  .card, .dialog-card, .toast,
+  .btn, .input,
+  .admin-card, .admin-card-head, .admin-card-body,
+  .admin-stat-card, .admin-revenue-panel, .admin-empty,
+  .admin-tariff-card, .admin-toolbar-card, .admin-table-card,
+  .admin-panel-dash-card,
+  .admin-select-trigger, .admin-select-content,
+  .admin-cn-card,
+  .admin-input, .admin-textarea, .admin-btn,
+  .admin-nav-item, .admin-tabs-trigger
+) * {
+  border-radius: 0 !important;
+}
+
+.theme-key-ascii img,
+.theme-key-ascii .admin-avatar,
+.theme-key-ascii .admin-skeleton-avatar {
+  border-radius: 0 !important;
+}
+
+/* ============================================================
+ * Console-style tables: cell borders, header underline,
+ * row separator using dashed line.
+ * ============================================================ */
+
+.theme-key-ascii .admin-table,
+.theme-key-ascii table {
+  border-collapse: collapse;
+  border: 1px solid #ffffff;
+  font-family: var(--font-mono);
+}
+
+.theme-key-ascii .admin-table th,
+.theme-key-ascii .admin-table td,
+.theme-key-ascii table th,
+.theme-key-ascii table td {
+  border: 1px solid #ffffff;
+  border-radius: 0 !important;
+  padding: 6px 10px;
+}
+
+.theme-key-ascii .admin-table thead th,
+.theme-key-ascii table thead th {
+  background: #000000;
+  border-bottom: 2px solid #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.theme-key-ascii .admin-table tbody tr,
+.theme-key-ascii table tbody tr {
+  border-bottom: 1px solid #ffffff;
+}
+
+.theme-key-ascii .admin-table tbody tr:hover,
+.theme-key-ascii table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.theme-key-ascii .admin-table tbody tr:hover td,
+.theme-key-ascii table tbody tr:hover td {
+  color: #ffffff;
+}

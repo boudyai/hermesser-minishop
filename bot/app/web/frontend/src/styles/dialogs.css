@@ -26,7 +26,7 @@
   inset: 0;
   z-index: 0;
   border: 0;
-  background: rgba(0, 0, 0, 0.56);
+  background: var(--overlay-scrim);
   backdrop-filter: blur(10px);
   cursor: pointer;
 }
@@ -43,9 +43,9 @@
   padding: 18px;
   border: 1px solid var(--border);
   border-radius: 24px;
-  background: color-mix(in srgb, var(--panel) 94%, #07111a);
+  background: color-mix(in srgb, var(--panel) 96%, var(--bg));
   color: var(--text);
-  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.46);
+  box-shadow: var(--shadow-strong);
 }
 
 .dialog-head {
@@ -92,7 +92,7 @@
 .payment-submit-button {
   border-color: color-mix(in srgb, var(--accent) 72%, transparent);
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 94%, white), var(--accent));
-  color: #031009;
+  color: var(--accent-contrast);
   box-shadow:
     0 16px 38px color-mix(in srgb, var(--accent) 28%, transparent),
     0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent),

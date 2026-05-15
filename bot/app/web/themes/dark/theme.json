@@ -1,0 +1,27 @@
+{
+  "key": "dark",
+  "names": {
+    "ru": "Темная",
+    "en": "Dark"
+  },
+  "enabled": true,
+  "default": true,
+  "use_primary_accent": true,
+  "use_in_admin": true,
+  "assets_version": 1,
+  "tokens": {
+    "color_scheme": "dark",
+    "bg": "#03070b",
+    "panel": "#111820",
+    "panel_2": "#0b1118",
+    "panel_3": "#17212b",
+    "border": "rgba(255, 255, 255, 0.12)",
+    "border_strong": "rgba(255, 255, 255, 0.2)",
+    "text": "#f2f7f4",
+    "muted": "#a9b4b0",
+    "dim": "#68736f",
+    "danger": "#ff6b6b",
+    "blue": "#2d9cff",
+    "radius": "8px"
+  }
+}

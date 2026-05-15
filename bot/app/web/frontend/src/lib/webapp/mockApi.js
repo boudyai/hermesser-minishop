@@ -195,7 +195,141 @@ export async function mockApi(path, options = {}, context = {}) {
       },
     };
   }
-  if (path === "/admin/settings") return { ok: true, sections: [] };
+  if (path === "/admin/themes") {
+    if (String(options.method || "GET").toUpperCase() === "PUT") {
+      try {
+        const body = options?.body ? JSON.parse(String(options.body)) : {};
+        const catalog = body.catalog || body;
+        if (catalog?.themes) {
+          DEV_MOCK.config.themesCatalog = clone(catalog);
+          DEV_MOCK.data.themes_catalog = clone(catalog);
+        }
+      } catch (_e) {
+        void _e;
+      }
+      return {
+        ok: true,
+        themes_dir: "data/themes",
+        catalog: clone(DEV_MOCK.config.themesCatalog),
+      };
+    }
+    return {
+      ok: true,
+      themes_dir: "data/themes",
+      catalog: clone(DEV_MOCK.config.themesCatalog),
+    };
+  }
+  if (path === "/admin/appearance/logo") {
+    return {
+      ok: true,
+      logo_url: "/webapp-uploaded-logo/logo-0000000000000000.png",
+      favicon_url: "/webapp-favicon/0000000000000000/icon-180.png",
+    };
+  }
+  if (path === "/admin/appearance/favicon") {
+    return {
+      ok: true,
+      favicon_url: "/webapp-favicon/1111111111111111/icon-180.png",
+      variants: {
+        "32": "/webapp-favicon/1111111111111111/icon-32.png",
+        apple_touch: "/webapp-favicon/1111111111111111/apple-touch-icon.png",
+      },
+    };
+  }
+  if (path === "/admin/settings" && String(options.method || "GET").toUpperCase() === "PATCH") {
+    try {
+      const body = options?.body ? JSON.parse(String(options.body)) : {};
+      const updates = body.updates || {};
+      if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_LOGO_URL")) {
+        DEV_MOCK.config.logoUrl = updates.WEBAPP_LOGO_URL || "";
+      }
+      if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_LOGO_USE_EMOJI")) {
+        DEV_MOCK.config.logoUseEmoji = Boolean(updates.WEBAPP_LOGO_USE_EMOJI);
+      }
+      if (updates.WEBAPP_LOGO_EMOJI) DEV_MOCK.config.logoEmoji = updates.WEBAPP_LOGO_EMOJI;
+      if (updates.WEBAPP_LOGO_EMOJI_FONT) {
+        DEV_MOCK.config.logoEmojiFont = updates.WEBAPP_LOGO_EMOJI_FONT;
+      }
+      if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_FAVICON_URL")) {
+        DEV_MOCK.config.faviconUrl = updates.WEBAPP_FAVICON_URL || "";
+      }
+      if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_LOGO_FAVICON_URL")) {
+        DEV_MOCK.config.faviconUrl = updates.WEBAPP_LOGO_FAVICON_URL || DEV_MOCK.config.faviconUrl || "";
+      }
+      if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_FAVICON_USE_CUSTOM")) {
+        DEV_MOCK.config.faviconUseCustom = Boolean(updates.WEBAPP_FAVICON_USE_CUSTOM);
+      }
+    } catch (_e) {
+      void _e;
+    }
+    return { ok: true, applied: 1, reverted: 0 };
+  }
+  if (path === "/admin/settings")
+    return {
+      ok: true,
+      sections: [
+        {
+          id: "appearance",
+          order: 2,
+          fields: [
+            {
+              key: "WEBAPP_LOGO_USE_EMOJI",
+              type: "bool",
+              section: "appearance",
+              label: "Emoji logo",
+              value: Boolean(DEV_MOCK.config.logoUseEmoji),
+            },
+            {
+              key: "WEBAPP_LOGO_URL",
+              type: "url",
+              section: "appearance",
+              label: "URL логотипа",
+              value: DEV_MOCK.config.logoUrl || "",
+            },
+            {
+              key: "WEBAPP_LOGO_EMOJI",
+              type: "string",
+              section: "appearance",
+              label: "Emoji",
+              value: DEV_MOCK.config.logoEmoji || "🫥",
+            },
+            {
+              key: "WEBAPP_LOGO_EMOJI_FONT",
+              type: "string",
+              section: "appearance",
+              label: "Emoji font",
+              value: DEV_MOCK.config.logoEmojiFont || "system",
+              choices: [
+                { value: "system", label: "Системный" },
+                { value: "noto-color", label: "Noto Color Emoji" },
+                { value: "noto-color-animated", label: "Noto Color Emoji Animated" },
+              ],
+            },
+            {
+              key: "WEBAPP_FAVICON_USE_CUSTOM",
+              type: "bool",
+              section: "appearance",
+              label: "Custom favicon",
+              value: Boolean(DEV_MOCK.config.faviconUseCustom),
+            },
+            {
+              key: "WEBAPP_FAVICON_URL",
+              type: "url",
+              section: "appearance",
+              label: "Favicon URL",
+              value: DEV_MOCK.config.faviconUrl || "",
+            },
+            {
+              key: "WEBAPP_LOGO_FAVICON_URL",
+              type: "url",
+              section: "appearance",
+              label: "Logo favicon URL",
+              value: DEV_MOCK.config.faviconUrl || "",
+            },
+          ],
+        },
+      ],
+    };
   if (cleanPath.startsWith("/admin/"))
     return { ok: true, payments: [], promos: [], logs: [], campaigns: [], total: 0 };
   if (path === "/me") return clone(DEV_MOCK.data);

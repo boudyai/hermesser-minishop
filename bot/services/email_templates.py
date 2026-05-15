@@ -1,7 +1,7 @@
 """Branded HTML email templates that mirror the subscription Mini App look.
 
 The web app uses a dark theme with a configurable accent colour
-(`WEBAPP_PRIMARY_COLOR`) and an optional logo (`WEBAPP_LOGO_URL`). The same
+admin-configured accent colour and logo. The same
 accent + logo are reused here so emails feel like part of the product. All
 copy goes through the shared `JsonI18n` instance so translations live in
 ``locales/<lang>.json`` next to the rest of the bot strings.
@@ -45,8 +45,10 @@ def _safe_color(value: Optional[str]) -> str:
 
 
 def _public_logo_url(settings: Settings) -> Optional[str]:
-    """Email recipients can't reach the in-app /webapp-logo proxy, so the
-    raw https URL from the env is used directly. Anything else is dropped."""
+    """Email recipients can't reach the in-app /webapp-logo proxy, so only a
+    stored public https URL can be used directly. Anything else is dropped."""
+    if getattr(settings, "WEBAPP_LOGO_USE_EMOJI", False):
+        return None
     raw = (settings.WEBAPP_LOGO_URL or "").strip()
     if not raw:
         return None

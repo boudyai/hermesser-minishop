@@ -113,7 +113,7 @@
 
 .admin-btn.admin-btn-primary {
   background: var(--accent);
-  color: #02110a;
+  color: var(--accent-contrast);
   border-color: color-mix(in srgb, var(--accent) 70%, #000);
   font-weight: 600;
 }
@@ -129,31 +129,31 @@
 }
 
 .admin-btn.admin-btn-ghost:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface-hover);
   color: var(--admin-text);
 }
 
 .admin-btn.admin-btn-danger {
-  background: color-mix(in srgb, #ff5757 80%, #000);
+  background: color-mix(in srgb, var(--danger) 80%, #000);
   color: #fff;
-  border-color: color-mix(in srgb, #ff5757 60%, #000);
+  border-color: color-mix(in srgb, var(--danger) 60%, #000);
   font-weight: 600;
 }
 
 .admin-btn.admin-btn-danger:hover:not(:disabled) {
-  background: #ff5757;
-  border-color: #ff5757;
+  background: var(--danger);
+  border-color: var(--danger);
 }
 
 .admin-btn.admin-btn-danger-soft {
-  color: #ffb4b4;
+  color: var(--danger-text);
   background: var(--admin-surface-2);
-  border-color: color-mix(in srgb, #ff6b6b 30%, transparent);
+  border-color: var(--danger-border);
 }
 
 .admin-btn.admin-btn-danger-soft:hover:not(:disabled) {
-  background: color-mix(in srgb, #ff6b6b 14%, var(--admin-surface));
-  border-color: color-mix(in srgb, #ff6b6b 50%, transparent);
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 50%, transparent);
 }
 
 .admin-btn.admin-btn-icon {
@@ -183,21 +183,21 @@
 }
 
 .admin-badge.admin-badge-success {
-  border-color: color-mix(in srgb, var(--accent) 36%, transparent);
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, var(--admin-surface));
+  border-color: var(--success-border);
+  color: var(--success-text);
+  background: var(--success-soft);
 }
 
 .admin-badge.admin-badge-danger {
-  border-color: color-mix(in srgb, #ff6b6b 32%, transparent);
-  color: #ffb4b4;
-  background: color-mix(in srgb, #ff6b6b 12%, var(--admin-surface));
+  border-color: var(--danger-border);
+  color: var(--danger-text);
+  background: var(--danger-soft);
 }
 
 .admin-badge.admin-badge-warning {
-  border-color: color-mix(in srgb, #ffd166 32%, transparent);
-  color: #ffd166;
-  background: color-mix(in srgb, #ffd166 12%, var(--admin-surface));
+  border-color: var(--warning-border);
+  color: var(--warning-text);
+  background: var(--warning-soft);
 }
 
 .admin-badge.admin-badge-muted {
@@ -270,7 +270,7 @@
 
 .admin-extend-control .admin-btn.admin-btn-primary {
   background: var(--accent);
-  color: #02110a;
+  color: var(--accent-contrast);
   border-color: color-mix(in srgb, var(--accent) 70%, #000);
   font-weight: 600;
 }

@@ -23,7 +23,7 @@ button:disabled {
   text-align: center;
   text-decoration: none;
   cursor: pointer;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--shadow-soft);
   transition:
     transform 0.16s ease,
     border-color 0.16s ease,
@@ -34,7 +34,7 @@ button:disabled {
 
 .btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--shadow-soft);
 }
 
 .btn:active:not(:disabled) {
@@ -45,7 +45,7 @@ button:disabled {
   outline: none;
   box-shadow:
     0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent),
-    0 14px 32px rgba(0, 0, 0, 0.22);
+    var(--shadow-soft);
 }
 
 .btn.wide,
@@ -56,7 +56,7 @@ button:disabled {
 .btn-primary {
   border-color: color-mix(in srgb, var(--accent) 72%, white);
   background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 76%, white));
-  color: #03100a;
+  color: var(--accent-contrast);
 }
 
 .btn-secondary {
@@ -111,7 +111,7 @@ button:disabled {
   margin-top: 12px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--muted) 18%, transparent);
 }
 
 .progress span {

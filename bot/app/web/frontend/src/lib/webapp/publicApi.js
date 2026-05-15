@@ -8,6 +8,8 @@ export function createApiClient({
   mockApi = null,
   getMockContext = () => ({}),
 } = {}) {
+  const isFormDataBody = (body) => typeof FormData !== "undefined" && body instanceof FormData;
+
   async function api(path, options = {}) {
     if (mockApi) return mockApi(path, options, getMockContext());
 
@@ -18,7 +20,9 @@ export function createApiClient({
     if (csrf && ["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
       headers["X-CSRF-Token"] = csrf;
     }
-    if (options.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
+    if (options.body && !headers["Content-Type"] && !isFormDataBody(options.body)) {
+      headers["Content-Type"] = "application/json";
+    }
 
     const response = await fetch(`${apiBase}${path}`, {
       ...options,

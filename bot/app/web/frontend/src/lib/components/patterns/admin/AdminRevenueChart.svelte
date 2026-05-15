@@ -24,7 +24,8 @@
 
   function readCssColor(name, fallback) {
     if (typeof document === "undefined") return fallback;
-    const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const scope = hostEl || document.documentElement;
+    const raw = getComputedStyle(scope).getPropertyValue(name).trim();
     return raw || fallback;
   }
 
@@ -65,7 +66,11 @@
     const muted = readCssColor("--admin-muted", "#9aa7a2");
     const border = readCssColor("--admin-border", "rgba(255,255,255,0.12)");
     const accent = readCssColor("--accent", "#00fe7a");
-    const lineStroke = readCssColor("--admin-text", "#e8f0ec");
+    const lineStroke = readCssColor(
+      "--admin-chart-stroke",
+      readCssColor("--admin-text", "#e8f0ec"),
+    );
+    const lineFill = readCssColor("--admin-chart-fill", "rgba(120, 140, 132, 0.14)");
 
     return {
       width: w,
@@ -94,7 +99,7 @@
           stroke: lineStroke,
           width: 2,
           cap: "round",
-          fill: "rgba(120, 140, 132, 0.14)",
+          fill: lineFill,
         },
       ],
       axes: [
