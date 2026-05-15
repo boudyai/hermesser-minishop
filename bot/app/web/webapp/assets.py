@@ -118,8 +118,13 @@ async def theme_asset_route(request: web.Request) -> web.Response:
     if not body or len(body) > WEBAPP_THEME_ASSET_MAX_BYTES:
         raise web.HTTPNotFound(text="theme_asset_not_found")
 
+    query = getattr(request, "query", {})
     response = web.Response(body=body, content_type=content_type)
-    response.headers["Cache-Control"] = "public, max-age=3600"
+    response.headers["Cache-Control"] = (
+        "public, max-age=31536000, immutable"
+        if query.get("v")
+        else "public, max-age=3600"
+    )
     return response
 
 
@@ -1058,10 +1063,11 @@ def _initial_theme_head_markup(request: web.Request, theme: Any, primary_color: 
     href = _theme_css_href_for_html(theme)
     if not href:
         return style_tag
-    return (
+    stylesheet = (
         f'<link rel="stylesheet" href="{html.escape(href, quote=True)}" '
-        f'data-initial-theme-css="{html.escape(str(theme.key), quote=True)}">\n' + style_tag
+        f'data-initial-theme-css="{html.escape(str(theme.key), quote=True)}">'
     )
+    return stylesheet + "\n" + style_tag
 
 
 def _favicon_head_markup(favicon_url: str) -> str:

@@ -163,7 +163,10 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             with patch.object(admin_themes, "WEBAPP_FAVICON_DIR", Path(tmpdir)):
                 payload = admin_themes._write_favicon_set(png_body, "image/png", "icon.png")
 
-            self.assertRegex(payload["favicon_url"], r"^/webapp-favicon/[0-9a-f]{16}/icon-180\.png$")
+            self.assertRegex(
+                payload["favicon_url"],
+                r"^/webapp-favicon/[0-9a-f]{16}/icon-180\.png$",
+            )
             digest = payload["favicon_url"].split("/")[2]
             self.assertTrue((Path(tmpdir) / digest / "icon-32.png").exists())
             self.assertTrue((Path(tmpdir) / digest / "apple-touch-icon.png").exists())
@@ -389,6 +392,28 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(response.content_type, "image/png")
             self.assertEqual(response.headers["Cache-Control"], "public, max-age=3600")
             self.assertEqual(response.body, b"png-bytes")
+
+    async def test_theme_asset_route_uses_immutable_cache_for_versioned_assets(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            themes_dir = Path(tmpdir)
+            (themes_dir / "custom" / "icons").mkdir(parents=True)
+            (themes_dir / "custom" / "icons" / "save.png").write_bytes(b"png-bytes")
+            request = SimpleNamespace(
+                app={
+                    "settings": SimpleNamespace(
+                        WEBAPP_ENABLED=True,
+                        WEBAPP_THEMES_DIR=str(themes_dir),
+                    )
+                },
+                match_info={"path": "custom/icons/save.png"},
+                query={"v": "6"},
+            )
+
+            response = await subscription_webapp.theme_asset_route(request)
+
+            self.assertEqual(
+                response.headers["Cache-Control"], "public, max-age=31536000, immutable"
+            )
 
     async def test_theme_asset_route_serves_default_theme_icon_from_theme_folder(self):
         with tempfile.TemporaryDirectory() as tmpdir:

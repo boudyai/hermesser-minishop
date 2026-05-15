@@ -33,7 +33,7 @@ class WebappThemesConfigTests(unittest.TestCase):
         self.assertEqual(win95.tokens.style_preset, "win95")
         self.assertFalse(win95.use_primary_accent)
         self.assertTrue(win95.use_in_admin)
-        self.assertEqual(win95.assets_version, 5)
+        self.assertEqual(win95.assets_version, 6)
         ascii_theme = cfg.theme_by_key("ascii")
         self.assertIsNotNone(ascii_theme)
         self.assertEqual(ascii_theme.css_file, "style.css")
@@ -380,13 +380,15 @@ class WebappThemesConfigTests(unittest.TestCase):
                 descriptor["assets_version"],
                 cfg.theme_by_key("windows95").assets_version,
             )
-            self.assertEqual(descriptor["assets_version"], 5)
+            self.assertEqual(descriptor["assets_version"], 6)
             self.assertIn("lucide-house", css)
             self.assertIn("lucide-earth", css)
             self.assertIn("lucide-circle-check", css)
             self.assertIn("lucide-circle-check-big", css)
             self.assertIn("filter: none !important", css)
             self.assertIn("Press Start 2P", css)
+            self.assertIn("::-webkit-slider-thumb", css)
+            self.assertIn("?v=6", css)
             self.assertIn(".theme-key-windows95 .traffic-top strong", css)
             self.assertTrue((stale_theme_dir / "icons" / "dashboard.png").exists())
 
