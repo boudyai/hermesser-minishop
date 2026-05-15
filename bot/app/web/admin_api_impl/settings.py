@@ -75,6 +75,12 @@ async def admin_settings_patch_route(request: web.Request) -> web.Response:
         or "WEBAPP_LOGO_URL" in deletes
         or "WEBAPP_LOGO_USE_EMOJI" in updates
         or "WEBAPP_LOGO_USE_EMOJI" in deletes
+        or "WEBAPP_FAVICON_URL" in updates
+        or "WEBAPP_FAVICON_URL" in deletes
+        or "WEBAPP_FAVICON_USE_CUSTOM" in updates
+        or "WEBAPP_FAVICON_USE_CUSTOM" in deletes
+        or "WEBAPP_LOGO_FAVICON_URL" in updates
+        or "WEBAPP_LOGO_FAVICON_URL" in deletes
     ):
         request.app["webapp_logo_cache"] = None
 

@@ -76,7 +76,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
             "Логотип загружен. Сохраните изменения, чтобы применить его."
           )
         );
-        return data.logo_url || "";
+        return { logoUrl: data.logo_url || "", faviconUrl: data.favicon_url || "" };
       }
       flash(
         data?.message ||
@@ -106,12 +106,73 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
             "Логотип загружен. Сохраните изменения, чтобы применить его."
           )
         );
-        return data.logo_url || "";
+        return { logoUrl: data.logo_url || "", faviconUrl: data.favicon_url || "" };
       }
       flash(
         data?.message ||
           data?.error ||
           at("appearance_logo_upload_failed", {}, "Не удалось загрузить логотип")
+      );
+      return null;
+    } finally {
+      state.update((s) => ({ ...s, themesSaving: false }));
+    }
+  }
+
+  async function uploadFaviconFile(file) {
+    if (!file) return null;
+    state.update((s) => ({ ...s, themesSaving: true }));
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const data = await api("/admin/appearance/favicon", {
+        method: "POST",
+        body,
+      });
+      if (data?.ok) {
+        flash(
+          at(
+            "appearance_favicon_uploaded_pending",
+            {},
+            "Favicon загружена. Сохраните изменения, чтобы применить ее."
+          )
+        );
+        return { faviconUrl: data.favicon_url || "", variants: data.variants || {} };
+      }
+      flash(
+        data?.message ||
+          data?.error ||
+          at("appearance_favicon_upload_failed", {}, "Не удалось загрузить favicon")
+      );
+      return null;
+    } finally {
+      state.update((s) => ({ ...s, themesSaving: false }));
+    }
+  }
+
+  async function uploadFaviconUrl(url) {
+    const sourceUrl = String(url || "").trim();
+    if (!sourceUrl) return null;
+    state.update((s) => ({ ...s, themesSaving: true }));
+    try {
+      const data = await api("/admin/appearance/favicon", {
+        method: "POST",
+        body: JSON.stringify({ url: sourceUrl }),
+      });
+      if (data?.ok) {
+        flash(
+          at(
+            "appearance_favicon_uploaded_pending",
+            {},
+            "Favicon загружена. Сохраните изменения, чтобы применить ее."
+          )
+        );
+        return { faviconUrl: data.favicon_url || "", variants: data.variants || {} };
+      }
+      flash(
+        data?.message ||
+          data?.error ||
+          at("appearance_favicon_upload_failed", {}, "Не удалось загрузить favicon")
       );
       return null;
     } finally {
@@ -213,5 +274,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
     toggleAdminUse,
     uploadLogoFile,
     uploadLogoUrl,
+    uploadFaviconFile,
+    uploadFaviconUrl,
   };
 }

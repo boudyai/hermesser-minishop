@@ -39,6 +39,9 @@ class SettingsTests(unittest.TestCase):
             WEBAPP_LOGO_USE_EMOJI=True,
             WEBAPP_LOGO_EMOJI="🔥",
             WEBAPP_LOGO_EMOJI_FONT="twemoji",
+            WEBAPP_FAVICON_USE_CUSTOM=True,
+            WEBAPP_FAVICON_URL="https://cdn.example.com/favicon.png",
+            WEBAPP_LOGO_FAVICON_URL="/webapp-favicon/abcdef1234567890/icon-180.png",
         )
 
         self.assertEqual(settings.WEBAPP_PRIMARY_COLOR, "#00fe7a")
@@ -46,6 +49,9 @@ class SettingsTests(unittest.TestCase):
         self.assertFalse(settings.WEBAPP_LOGO_USE_EMOJI)
         self.assertEqual(settings.WEBAPP_LOGO_EMOJI, "🫥")
         self.assertEqual(settings.WEBAPP_LOGO_EMOJI_FONT, "system")
+        self.assertFalse(settings.WEBAPP_FAVICON_USE_CUSTOM)
+        self.assertIsNone(settings.WEBAPP_FAVICON_URL)
+        self.assertIsNone(settings.WEBAPP_LOGO_FAVICON_URL)
 
     def test_tariffs_config_missing_uses_legacy_fallback(self):
         settings = Settings(

@@ -1,4 +1,5 @@
 import asyncio
+import io
 import json
 import os
 import tempfile
@@ -8,7 +9,10 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from PIL import Image
+
 from bot.app.web import subscription_webapp
+from bot.app.web.admin_api_impl import themes as admin_themes
 from bot.app.web.webapp import assets as webapp_assets
 from config.settings import Settings
 from config.webapp_themes_config import builtin_webapp_themes_config
@@ -109,6 +113,61 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(subscription_webapp._resolve_webapp_logo_url(settings), "")
+
+    def test_custom_webapp_favicon_takes_precedence(self):
+        settings = SimpleNamespace(
+            WEBAPP_FAVICON_USE_CUSTOM=True,
+            WEBAPP_FAVICON_URL="/webapp-favicon/abcdef1234567890/icon-180.png",
+            WEBAPP_LOGO_FAVICON_URL="/webapp-favicon/1111111111111111/icon-180.png",
+        )
+
+        self.assertEqual(
+            subscription_webapp._resolve_webapp_favicon_url(settings, "/logo.png"),
+            "/webapp-favicon/abcdef1234567890/icon-180.png",
+        )
+
+    def test_logo_generated_favicon_is_used_when_custom_disabled(self):
+        settings = SimpleNamespace(
+            WEBAPP_FAVICON_USE_CUSTOM=False,
+            WEBAPP_FAVICON_URL="/webapp-favicon/abcdef1234567890/icon-180.png",
+            WEBAPP_LOGO_FAVICON_URL="/webapp-favicon/1111111111111111/icon-180.png",
+        )
+
+        self.assertEqual(
+            subscription_webapp._resolve_webapp_favicon_url(settings, "/logo.png"),
+            "/webapp-favicon/1111111111111111/icon-180.png",
+        )
+
+    def test_logo_generated_favicon_is_not_used_without_logo(self):
+        settings = SimpleNamespace(
+            WEBAPP_FAVICON_USE_CUSTOM=False,
+            WEBAPP_FAVICON_URL="/webapp-favicon/abcdef1234567890/icon-180.png",
+            WEBAPP_LOGO_FAVICON_URL="/webapp-favicon/1111111111111111/icon-180.png",
+        )
+
+        self.assertEqual(subscription_webapp._resolve_webapp_favicon_url(settings, ""), "")
+
+    def test_favicon_head_markup_includes_touch_icon(self):
+        markup = subscription_webapp._favicon_head_markup(
+            "/webapp-favicon/abcdef1234567890/icon-180.png"
+        )
+
+        self.assertIn('rel="apple-touch-icon"', markup)
+        self.assertIn("/webapp-favicon/abcdef1234567890/icon-32.png", markup)
+
+    def test_favicon_set_generation_writes_common_icon_sizes(self):
+        buffer = io.BytesIO()
+        Image.new("RGBA", (2, 2), (0, 254, 122, 255)).save(buffer, format="PNG")
+        png_body = buffer.getvalue()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch.object(admin_themes, "WEBAPP_FAVICON_DIR", Path(tmpdir)):
+                payload = admin_themes._write_favicon_set(png_body, "image/png", "icon.png")
+
+            self.assertRegex(payload["favicon_url"], r"^/webapp-favicon/[0-9a-f]{16}/icon-180\.png$")
+            digest = payload["favicon_url"].split("/")[2]
+            self.assertTrue((Path(tmpdir) / digest / "icon-32.png").exists())
+            self.assertTrue((Path(tmpdir) / digest / "apple-touch-icon.png").exists())
+            self.assertTrue((Path(tmpdir) / digest / "favicon.ico").exists())
 
     def test_initial_theme_head_markup_includes_css_and_tokens(self):
         cfg = builtin_webapp_themes_config("#123456")

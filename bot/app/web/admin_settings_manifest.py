@@ -100,6 +100,9 @@ SETTINGS_MANIFEST: List[SettingField] = [
             ("noto-local", "Noto Emoji (local)"),
         ),
     ),
+    SettingField("WEBAPP_FAVICON_USE_CUSTOM", "bool", "appearance", "Использовать отдельную favicon"),
+    SettingField("WEBAPP_FAVICON_URL", "url", "appearance", "URL отдельной favicon"),
+    SettingField("WEBAPP_LOGO_FAVICON_URL", "url", "appearance", "Favicon из логотипа"),
     SettingField("WEBAPP_ENABLED", "bool", "appearance", "Web App включён"),
     # ─── Subscription periods & pricing ────────────────────────────
     SettingField("MONTH_1_ENABLED", "bool", "pricing", "Тариф 1 месяц"),

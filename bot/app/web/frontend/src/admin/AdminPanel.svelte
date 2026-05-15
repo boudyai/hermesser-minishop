@@ -76,6 +76,8 @@
   export let onThemesSaved = () => {};
   export let brand = {};
   export let brandTitle = "/minishop";
+  export let appFaviconUrl = "";
+  export let appFaviconUseCustom = false;
   export let appVersion = "dev+local";
   export let appRepositoryUrl = "https://github.com/3252a8/remnawave-minishop";
   export let currentLang = "ru";
@@ -647,7 +649,14 @@
           {/if}
 
           {#if active === "appearance"}
-            <AppearanceSection {at} {currentLang} {onSettingsSaved} {brand} />
+            <AppearanceSection
+              {at}
+              {currentLang}
+              {onSettingsSaved}
+              {brand}
+              {appFaviconUrl}
+              {appFaviconUseCustom}
+            />
           {/if}
 
           {#if active === "settings"}

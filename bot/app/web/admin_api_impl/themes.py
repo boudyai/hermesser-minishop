@@ -8,6 +8,7 @@ import re
 import socket
 
 from aiohttp import ClientSession, ClientTimeout
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from config.webapp_themes_config import (
     WebappThemesConfig,
@@ -20,6 +21,9 @@ from config.webapp_themes_config import (
 WEBAPP_LOGO_MAX_BYTES = 2 * 1024 * 1024
 WEBAPP_UPLOADED_LOGO_DIR = Path(__file__).resolve().parents[4] / "data" / "webapp-logo" / "uploads"
 WEBAPP_UPLOADED_LOGO_PATH = "/webapp-uploaded-logo"
+WEBAPP_FAVICON_DIR = Path(__file__).resolve().parents[4] / "data" / "webapp-logo" / "favicons"
+WEBAPP_FAVICON_PATH = "/webapp-favicon"
+WEBAPP_FAVICON_SIZES = (16, 32, 48, 180, 192, 512)
 WEBAPP_LOGO_UPLOAD_CONTENT_TYPES = {
     ".gif": "image/gif",
     ".ico": "image/x-icon",
@@ -67,6 +71,66 @@ def _write_uploaded_logo(body: bytes, content_type: str = "", filename: str = ""
     WEBAPP_UPLOADED_LOGO_DIR.mkdir(parents=True, exist_ok=True)
     (WEBAPP_UPLOADED_LOGO_DIR / safe_name).write_bytes(body)
     return f"{WEBAPP_UPLOADED_LOGO_PATH}/{safe_name}"
+
+
+def _image_to_square_icon(source: Image.Image, size: int) -> Image.Image:
+    fitted = source.copy()
+    fitted.thumbnail((size, size), Image.Resampling.LANCZOS)
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    left = (size - fitted.width) // 2
+    top = (size - fitted.height) // 2
+    canvas.alpha_composite(fitted, (left, top))
+    return canvas
+
+
+def _write_favicon_set(body: bytes, content_type: str = "", filename: str = "") -> Dict[str, Any]:
+    if not body or len(body) > WEBAPP_LOGO_MAX_BYTES:
+        raise ValueError("favicon source must be a non-empty image up to 2 MiB")
+
+    ext = _detect_logo_extension(body, content_type, filename)
+    digest = hashlib.sha256(body).hexdigest()[:16]
+    target_dir = WEBAPP_FAVICON_DIR / digest
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    if ext == ".svg":
+        safe_name = "favicon.svg"
+        (target_dir / safe_name).write_bytes(body)
+        return {
+            "favicon_url": f"{WEBAPP_FAVICON_PATH}/{digest}/{safe_name}",
+            "variants": {"svg": f"{WEBAPP_FAVICON_PATH}/{digest}/{safe_name}"},
+        }
+
+    try:
+        with Image.open(io.BytesIO(body)) as image:
+            image.seek(0)
+            source = ImageOps.exif_transpose(image).convert("RGBA")
+    except (OSError, UnidentifiedImageError, ValueError) as exc:
+        raise ValueError("favicon source must be a raster image") from exc
+
+    if source.width < 1 or source.height < 1 or source.width > 8192 or source.height > 8192:
+        raise ValueError("favicon source dimensions are not supported")
+
+    variants: Dict[str, str] = {}
+    png_icons: Dict[int, Image.Image] = {}
+    for size in WEBAPP_FAVICON_SIZES:
+        icon = _image_to_square_icon(source, size)
+        png_icons[size] = icon
+        filename = f"icon-{size}.png"
+        icon.save(target_dir / filename, format="PNG", optimize=True)
+        variants[f"{size}"] = f"{WEBAPP_FAVICON_PATH}/{digest}/{filename}"
+
+    png_icons[180].save(target_dir / "apple-touch-icon.png", format="PNG", optimize=True)
+    variants["apple_touch"] = f"{WEBAPP_FAVICON_PATH}/{digest}/apple-touch-icon.png"
+    png_icons[32].save(
+        target_dir / "favicon.ico",
+        format="ICO",
+        sizes=[(16, 16), (32, 32), (48, 48)],
+    )
+    variants["ico"] = f"{WEBAPP_FAVICON_PATH}/{digest}/favicon.ico"
+    return {
+        "favicon_url": variants["180"],
+        "variants": variants,
+    }
 
 
 async def _read_uploaded_logo_file(request: web.Request) -> tuple[bytes, str, str]:
@@ -169,13 +233,39 @@ async def admin_appearance_logo_upload_route(request: web.Request) -> web.Respon
                 return _error(400, "invalid_payload", "url or file is required")
             body, detected_content_type, filename = await _fetch_logo_from_url(source_url)
         logo_url = _write_uploaded_logo(body, detected_content_type, filename)
+        try:
+            favicon_payload = _write_favicon_set(body, detected_content_type, filename)
+        except ValueError:
+            favicon_payload = {}
     except ValueError as exc:
         return _error(400, "invalid_logo", str(exc))
     except OSError as exc:
         logger.exception("Failed to save uploaded webapp logo")
         return _error(500, "write_failed", str(exc))
 
-    return _ok({"logo_url": logo_url})
+    return _ok({"logo_url": logo_url, **favicon_payload})
+
+
+async def admin_appearance_favicon_upload_route(request: web.Request) -> web.Response:
+    _require_admin_user_id(request)
+    content_type = (request.headers.get("Content-Type") or "").lower()
+    try:
+        if content_type.startswith("multipart/form-data"):
+            body, detected_content_type, filename = await _read_uploaded_logo_file(request)
+        else:
+            payload = await _read_json(request)
+            source_url = str(payload.get("url") or "").strip()
+            if not source_url:
+                return _error(400, "invalid_payload", "url or file is required")
+            body, detected_content_type, filename = await _fetch_logo_from_url(source_url)
+        favicon_payload = _write_favicon_set(body, detected_content_type, filename)
+    except ValueError as exc:
+        return _error(400, "invalid_favicon", str(exc))
+    except OSError as exc:
+        logger.exception("Failed to save uploaded webapp favicon")
+        return _error(500, "write_failed", str(exc))
+
+    return _ok(favicon_payload)
 
 
 async def admin_themes_get_route(request: web.Request) -> web.Response:

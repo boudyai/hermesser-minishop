@@ -142,6 +142,27 @@ def _resolve_webapp_logo_url(settings: Settings) -> str:
     return ""
 
 
+def _resolve_webapp_favicon_url(settings: Settings, logo_url: str = "") -> str:
+    raw_custom_url = (getattr(settings, "WEBAPP_FAVICON_URL", None) or "").strip()
+    raw_logo_favicon_url = (getattr(settings, "WEBAPP_LOGO_FAVICON_URL", None) or "").strip()
+    if getattr(settings, "WEBAPP_FAVICON_USE_CUSTOM", False) and raw_custom_url:
+        return _resolve_webapp_asset_url(raw_custom_url)
+    if logo_url and raw_logo_favicon_url:
+        resolved = _resolve_webapp_asset_url(raw_logo_favicon_url)
+        if resolved:
+            return resolved
+    return logo_url or ""
+
+
+def _resolve_webapp_asset_url(raw_url: str) -> str:
+    parsed_url = urlsplit(raw_url)
+    if parsed_url.scheme in {"https", "http", "data"}:
+        return raw_url
+    if raw_url.startswith("/"):
+        return raw_url
+    return ""
+
+
 def _webapp_logo_cache_key(logo_url: str) -> str:
     return hashlib.sha256(logo_url.encode("utf-8")).hexdigest()
 
@@ -241,6 +262,47 @@ async def webapp_uploaded_logo_route(request: web.Request) -> web.Response:
 
     if not body:
         raise web.HTTPNotFound(text="webapp_logo_not_found")
+
+    response = web.Response(body=body, content_type=content_type)
+    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
+
+
+async def webapp_favicon_route(request: web.Request) -> web.Response:
+    settings: Settings = request.app["settings"]
+    if not settings.WEBAPP_ENABLED:
+        raise web.HTTPNotFound(text="webapp_disabled")
+
+    digest = str(request.match_info.get("digest") or "").strip().lower()
+    filename = str(request.match_info.get("filename") or "").strip()
+    if not re.fullmatch(r"[0-9a-f]{16}", digest):
+        raise web.HTTPNotFound(text="webapp_favicon_not_found")
+    if not re.fullmatch(
+        r"(?:icon-(?:16|32|48|180|192|512)\.png|apple-touch-icon\.png|favicon\.(?:ico|svg))",
+        filename,
+    ):
+        raise web.HTTPNotFound(text="webapp_favicon_not_found")
+
+    root = WEBAPP_FAVICON_DIR.expanduser().resolve()
+    path = (root / digest / filename).resolve()
+    try:
+        path.relative_to(root)
+    except ValueError:
+        raise web.HTTPNotFound(text="webapp_favicon_not_found") from None
+
+    content_type = WEBAPP_THEME_ASSET_CONTENT_TYPES.get(path.suffix.lower())
+    if not content_type:
+        raise web.HTTPNotFound(text="webapp_favicon_not_found")
+
+    try:
+        if path.stat().st_size > WEBAPP_LOGO_MAX_BYTES:
+            raise web.HTTPNotFound(text="webapp_favicon_too_large")
+        body = path.read_bytes()
+    except OSError:
+        raise web.HTTPNotFound(text="webapp_favicon_not_found") from None
+
+    if not body:
+        raise web.HTTPNotFound(text="webapp_favicon_not_found")
 
     response = web.Response(body=body, content_type=content_type)
     response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
@@ -639,8 +701,10 @@ def _get_cached_webapp_settings(request: web.Request) -> Dict[str, Any]:
     cache = request.app["webapp_settings_cache"]
     now = time.monotonic()
     if now - float(cache.get("ts", 0.0)) >= 60 or not cache.get("data"):
+        logo_url = _resolve_webapp_logo_url(settings)
         cache["data"] = {
-            "logo_url": _resolve_webapp_logo_url(settings),
+            "logo_url": logo_url,
+            "favicon_url": _resolve_webapp_favicon_url(settings, logo_url),
             "subscription_options": settings.subscription_options,
             "stars_subscription_options": settings.stars_subscription_options,
             "traffic_packages": settings.traffic_packages,
@@ -806,6 +870,8 @@ async def index_route(request: web.Request) -> web.Response:
         "logoUseEmoji": bool(settings.WEBAPP_LOGO_USE_EMOJI),
         "logoEmoji": settings.WEBAPP_LOGO_EMOJI,
         "logoEmojiFont": settings.WEBAPP_LOGO_EMOJI_FONT,
+        "faviconUrl": cached["favicon_url"],
+        "faviconUseCustom": bool(settings.WEBAPP_FAVICON_USE_CUSTOM),
         "apiBase": "/api",
         "telegramLoginBotUsername": request.app.get("bot_username") or "",
         "telegramLoginBotId": _resolve_telegram_bot_id(settings.BOT_TOKEN) or 0,
@@ -848,6 +914,12 @@ async def index_route(request: web.Request) -> web.Response:
         WEBAPP_JS_PLACEHOLDER,
         f'<script src="/{_resolve_webapp_js_asset_name()}" defer></script>',
     )
+    favicon_markup = _favicon_head_markup(cached["favicon_url"])
+    if favicon_markup:
+        html = html.replace(
+            '<link id="app-favicon" rel="icon" href="data:," sizes="any">',
+            favicon_markup,
+        )
     brand_asset_url = cached["logo_url"]
     if (
         not brand_asset_url
@@ -989,6 +1061,39 @@ def _initial_theme_head_markup(request: web.Request, theme: Any, primary_color: 
     return (
         f'<link rel="stylesheet" href="{html.escape(href, quote=True)}" '
         f'data-initial-theme-css="{html.escape(str(theme.key), quote=True)}">\n' + style_tag
+    )
+
+
+def _favicon_head_markup(favicon_url: str) -> str:
+    href = str(favicon_url or "").strip()
+    if not href:
+        return ""
+
+    escaped_href = html.escape(href, quote=True)
+    match = re.fullmatch(
+        rf"{re.escape(WEBAPP_FAVICON_PATH)}/([0-9a-f]{{16}})/icon-(?:16|32|48|180|192|512)\.png",
+        href,
+    )
+    if not match:
+        rel = "apple-touch-icon" if href.endswith(".png") else "icon"
+        return (
+            f'<link id="app-favicon" rel="icon" href="{escaped_href}" sizes="any">\n'
+            f'<link rel="{rel}" href="{escaped_href}">'
+        )
+
+    digest = match.group(1)
+    base = f"{WEBAPP_FAVICON_PATH}/{digest}"
+    return "\n".join(
+        [
+            (
+                f'<link id="app-favicon" rel="icon" type="image/png" sizes="32x32" '
+                f'href="{base}/icon-32.png">'
+            ),
+            f'<link rel="icon" type="image/x-icon" sizes="any" href="{base}/favicon.ico">',
+            f'<link rel="icon" type="image/png" sizes="16x16" href="{base}/icon-16.png">',
+            f'<link rel="icon" type="image/png" sizes="192x192" href="{base}/icon-192.png">',
+            f'<link rel="apple-touch-icon" sizes="180x180" href="{base}/apple-touch-icon.png">',
+        ]
     )
 
 

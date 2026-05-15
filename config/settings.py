@@ -95,6 +95,9 @@ class WebAppSettings(BaseModel):
     logo_use_emoji: bool
     logo_emoji: str
     logo_emoji_font: str
+    favicon_use_custom: bool
+    favicon_url: Optional[str]
+    logo_favicon_url: Optional[str]
     session_ttl_seconds: int
     session_secret: str
     webhook_secret_token: str
@@ -379,6 +382,9 @@ class Settings(BaseSettings):
             "noto-emoji, twemoji, openmoji, apple, segoe, noto-local"
         ),
     )
+    WEBAPP_FAVICON_USE_CUSTOM: bool = Field(default=False)
+    WEBAPP_FAVICON_URL: Optional[str] = Field(default=None)
+    WEBAPP_LOGO_FAVICON_URL: Optional[str] = Field(default=None)
     WEBAPP_SESSION_SECRET: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     WEBHOOK_SECRET_TOKEN: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     WEBAPP_SESSION_TTL_SECONDS: int = Field(default=24 * 60 * 60)
@@ -550,6 +556,9 @@ class Settings(BaseSettings):
             logo_use_emoji=self.WEBAPP_LOGO_USE_EMOJI,
             logo_emoji=self.WEBAPP_LOGO_EMOJI,
             logo_emoji_font=self.WEBAPP_LOGO_EMOJI_FONT,
+            favicon_use_custom=self.WEBAPP_FAVICON_USE_CUSTOM,
+            favicon_url=self.WEBAPP_FAVICON_URL,
+            logo_favicon_url=self.WEBAPP_LOGO_FAVICON_URL,
             session_ttl_seconds=self.WEBAPP_SESSION_TTL_SECONDS,
             session_secret=self.WEBAPP_SESSION_SECRET,
             webhook_secret_token=self.WEBHOOK_SECRET_TOKEN,
@@ -863,6 +872,21 @@ class Settings(BaseSettings):
     @classmethod
     def ignore_deprecated_webapp_logo_emoji_font_env(cls, _value):
         return "system"
+
+    @field_validator("WEBAPP_FAVICON_USE_CUSTOM", mode="before")
+    @classmethod
+    def ignore_deprecated_webapp_favicon_use_custom_env(cls, _value):
+        return False
+
+    @field_validator("WEBAPP_FAVICON_URL", mode="before")
+    @classmethod
+    def ignore_deprecated_webapp_favicon_url_env(cls, _value):
+        return None
+
+    @field_validator("WEBAPP_LOGO_FAVICON_URL", mode="before")
+    @classmethod
+    def ignore_deprecated_webapp_logo_favicon_url_env(cls, _value):
+        return None
 
     @computed_field
     @property

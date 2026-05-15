@@ -26,6 +26,10 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
         webapp_uploaded_logo_route,
     )
     app.router.add_get(
+        rf"{WEBAPP_FAVICON_PATH}/{{digest:[0-9a-f]{{16}}}}/{{filename:[A-Za-z0-9_.-]+}}",
+        webapp_favicon_route,
+    )
+    app.router.add_get(
         r"/webapp-emoji/{codepoints:[0-9a-f_]+}/512.{ext:gif|webp}",
         webapp_animated_emoji_route,
     )

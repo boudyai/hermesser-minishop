@@ -16,9 +16,23 @@
   export let currentLang = "ru";
   export let onSettingsSaved = () => {};
   export let brand = {};
+  export let appFaviconUrl = "";
+  export let appFaviconUseCustom = false;
 
   const settingsStore = getContext("settingsStore");
   const themesStore = getContext("themesStore");
+  const APPEARANCE_SETTING_KEYS = new Set([
+    "WEBAPP_TITLE",
+    "WEBAPP_PRIMARY_COLOR",
+    "WEBAPP_LOGO_URL",
+    "WEBAPP_LOGO_USE_EMOJI",
+    "WEBAPP_LOGO_EMOJI",
+    "WEBAPP_LOGO_EMOJI_FONT",
+    "WEBAPP_FAVICON_URL",
+    "WEBAPP_FAVICON_USE_CUSTOM",
+    "WEBAPP_LOGO_FAVICON_URL",
+    "WEBAPP_ENABLED",
+  ]);
 
   $: ({ settingsSections, settingsLoading, settingsDirty, settingsSaving } = $settingsStore);
   $: ({ themesCatalog, themesLoading, themesDir, themesSaving } = $themesStore);
@@ -31,6 +45,25 @@
   $: currentLogoUrl = !useEmojiLogo ? pendingLogoPreviewUrl || logoUrl || brand?.logoUrl || "" : "";
   $: previewLogoUrl =
     logoPreviewNonce && currentLogoUrl ? withLogoCacheBust(currentLogoUrl) : currentLogoUrl;
+  $: persistedUseCustomFavicon = boolValue(
+    valueForKey("WEBAPP_FAVICON_USE_CUSTOM", appFaviconUseCustom)
+  );
+  $: if (
+    !Object.prototype.hasOwnProperty.call(settingsDirty, "WEBAPP_FAVICON_USE_CUSTOM") &&
+    lastPersistedUseCustomFavicon !== persistedUseCustomFavicon
+  ) {
+    faviconUseCustomDraft = persistedUseCustomFavicon;
+    lastPersistedUseCustomFavicon = persistedUseCustomFavicon;
+  }
+  $: useCustomFavicon = faviconUseCustomDraft;
+  $: faviconUrl = valueForKey("WEBAPP_FAVICON_URL", appFaviconUrl);
+  $: logoFaviconUrl = valueForKey("WEBAPP_LOGO_FAVICON_URL");
+  $: generatedFaviconUrl = !useEmojiLogo ? logoFaviconUrl || previewLogoUrl || "" : "";
+  $: currentFaviconUrl = useCustomFavicon
+    ? pendingFaviconPreviewUrl || faviconUrl || ""
+    : generatedFaviconUrl;
+  $: previewFaviconUrl =
+    faviconPreviewNonce && currentFaviconUrl ? withCacheBust(currentFaviconUrl) : currentFaviconUrl;
   $: logoEmoji = valueForKey("WEBAPP_LOGO_EMOJI");
   $: logoEmojiInput = useEmojiLogo ? logoEmoji : "";
   $: logoEmojiPreview = logoEmoji || "🫥";
@@ -46,36 +79,51 @@
     label: item.label,
   }));
   $: dirtyCount = Object.keys(settingsDirty || {}).filter((key) =>
-    appearanceFields.some((field) => field.key === key)
+    isAppearanceSettingKey(key)
   ).length;
   $: appearanceDirtyKeys = Object.keys(settingsDirty || {}).filter((key) =>
-    appearanceFields.some((field) => field.key === key)
+    isAppearanceSettingKey(key)
   );
 
   let logoFileInput;
+  let faviconFileInput;
   let logoSourceUrl = "";
+  let faviconSourceUrl = "";
   let logoPreviewNonce = 0;
+  let faviconPreviewNonce = 0;
   let logoPreviewFailed = false;
+  let faviconPreviewFailed = false;
   let lastPreviewLogoUrl = "";
+  let lastPreviewFaviconUrl = "";
+  let lastPersistedUseCustomFavicon;
+  let faviconUseCustomDraft = false;
   let pendingLogoPreviewUrl = "";
+  let pendingFaviconPreviewUrl = "";
   let pendingObjectUrl = "";
+  let pendingFaviconObjectUrl = "";
 
   $: if (previewLogoUrl !== lastPreviewLogoUrl) {
     lastPreviewLogoUrl = previewLogoUrl;
     logoPreviewFailed = false;
   }
 
-  function valueFor(field) {
-    if (!field) return "";
-    if (settingsDirty[field.key]?.deleted) return "";
-    if (Object.prototype.hasOwnProperty.call(settingsDirty, field.key)) {
-      return settingsDirty[field.key].value;
-    }
-    return field.value ?? "";
+  $: if (previewFaviconUrl !== lastPreviewFaviconUrl) {
+    lastPreviewFaviconUrl = previewFaviconUrl;
+    faviconPreviewFailed = false;
   }
 
-  function valueForKey(key) {
-    return valueFor(fieldMap.get(key));
+  function valueForKey(key, fallback = "") {
+    if (settingsDirty[key]?.deleted) return "";
+    if (Object.prototype.hasOwnProperty.call(settingsDirty, key)) {
+      return settingsDirty[key].value;
+    }
+    const field = fieldMap.get(key);
+    if (!field) return fallback;
+    return field.value ?? fallback;
+  }
+
+  function isAppearanceSettingKey(key) {
+    return APPEARANCE_SETTING_KEYS.has(key) || appearanceFields.some((field) => field.key === key);
   }
 
   function boolValue(value) {
@@ -88,9 +136,13 @@
   }
 
   function withLogoCacheBust(url) {
+    return withCacheBust(url, logoPreviewNonce);
+  }
+
+  function withCacheBust(url, nonce) {
     if (!url || url.startsWith("data:") || url.startsWith("blob:")) return url;
     const separator = url.includes("?") ? "&" : "?";
-    return `${url}${separator}v=${logoPreviewNonce}`;
+    return `${url}${separator}v=${nonce}`;
   }
 
   function clearPendingObjectUrl() {
@@ -100,12 +152,27 @@
     pendingObjectUrl = "";
   }
 
+  function clearPendingFaviconObjectUrl() {
+    if (pendingFaviconObjectUrl && typeof URL !== "undefined") {
+      URL.revokeObjectURL(pendingFaviconObjectUrl);
+    }
+    pendingFaviconObjectUrl = "";
+  }
+
   function setPendingLogoPreview(url, objectUrl = "") {
     clearPendingObjectUrl();
     pendingObjectUrl = objectUrl;
     pendingLogoPreviewUrl = url;
     logoPreviewFailed = false;
     logoPreviewNonce = Date.now();
+  }
+
+  function setPendingFaviconPreview(url, objectUrl = "") {
+    clearPendingFaviconObjectUrl();
+    pendingFaviconObjectUrl = objectUrl;
+    pendingFaviconPreviewUrl = url;
+    faviconPreviewFailed = false;
+    faviconPreviewNonce = Date.now();
   }
 
   function themeTitle(theme) {
@@ -151,26 +218,75 @@
       const objectUrl = URL.createObjectURL(file);
       setPendingLogoPreview(objectUrl, objectUrl);
     }
-    themesStore.uploadLogoFile(file).then((uploadedUrl) => {
+    themesStore.uploadLogoFile(file).then((uploaded) => {
+      const uploadedUrl = uploaded?.logoUrl || "";
       if (!uploadedUrl) {
         pendingLogoPreviewUrl = "";
         clearPendingObjectUrl();
         return;
       }
       settingsStore.markDirty("WEBAPP_LOGO_URL", uploadedUrl);
+      if (uploaded?.faviconUrl) {
+        settingsStore.markDirty("WEBAPP_LOGO_FAVICON_URL", uploaded.faviconUrl);
+      }
       settingsStore.markDirty("WEBAPP_LOGO_USE_EMOJI", false);
       if (logoFileInput) logoFileInput.value = "";
     });
   }
 
   function uploadLogoFromUrl() {
-    themesStore.uploadLogoUrl(logoSourceUrl).then((uploadedUrl) => {
+    themesStore.uploadLogoUrl(logoSourceUrl).then((uploaded) => {
+      const uploadedUrl = uploaded?.logoUrl || "";
       if (!uploadedUrl) return;
       setPendingLogoPreview(uploadedUrl);
       logoSourceUrl = "";
       settingsStore.markDirty("WEBAPP_LOGO_URL", uploadedUrl);
+      if (uploaded?.faviconUrl) {
+        settingsStore.markDirty("WEBAPP_LOGO_FAVICON_URL", uploaded.faviconUrl);
+      }
       settingsStore.markDirty("WEBAPP_LOGO_USE_EMOJI", false);
     });
+  }
+
+  function handleFaviconFileChange(event) {
+    const file = event.currentTarget.files?.[0];
+    if (!file) return;
+    if (typeof URL !== "undefined") {
+      const objectUrl = URL.createObjectURL(file);
+      setPendingFaviconPreview(objectUrl, objectUrl);
+    }
+    themesStore.uploadFaviconFile(file).then((uploaded) => {
+      const uploadedUrl = uploaded?.faviconUrl || "";
+      if (!uploadedUrl) {
+        pendingFaviconPreviewUrl = "";
+        clearPendingFaviconObjectUrl();
+        return;
+      }
+      settingsStore.markDirty("WEBAPP_FAVICON_URL", uploadedUrl);
+      setCustomFavicon(true);
+      if (faviconFileInput) faviconFileInput.value = "";
+    });
+  }
+
+  function uploadFaviconFromUrl() {
+    themesStore.uploadFaviconUrl(faviconSourceUrl).then((uploaded) => {
+      const uploadedUrl = uploaded?.faviconUrl || "";
+      if (!uploadedUrl) return;
+      setPendingFaviconPreview(uploadedUrl);
+      faviconSourceUrl = "";
+      settingsStore.markDirty("WEBAPP_FAVICON_URL", uploadedUrl);
+      setCustomFavicon(true);
+    });
+  }
+
+  function setCustomFavicon(enabled) {
+    const nextEnabled = Boolean(enabled);
+    faviconUseCustomDraft = nextEnabled;
+    settingsStore.markDirty("WEBAPP_FAVICON_USE_CUSTOM", nextEnabled);
+    if (!nextEnabled) {
+      pendingFaviconPreviewUrl = "";
+      clearPendingFaviconObjectUrl();
+    }
   }
 
   function setEmojiLogo(enabled) {
@@ -199,6 +315,9 @@
         "WEBAPP_LOGO_USE_EMOJI",
         "WEBAPP_LOGO_EMOJI",
         "WEBAPP_LOGO_EMOJI_FONT",
+        "WEBAPP_FAVICON_URL",
+        "WEBAPP_FAVICON_USE_CUSTOM",
+        "WEBAPP_LOGO_FAVICON_URL",
       ].includes(key)
     );
     let settingsSaved = true;
@@ -251,6 +370,7 @@
 
   onDestroy(() => {
     clearPendingObjectUrl();
+    clearPendingFaviconObjectUrl();
   });
 </script>
 
@@ -375,6 +495,74 @@
                 placeholder={at("appearance_emoji_font", {}, "Шрифт emoji")}
                 onValueChange={(value) => setAppearanceValue("WEBAPP_LOGO_EMOJI_FONT", value)}
               />
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="admin-card-body appearance-logo-grid appearance-favicon-grid">
+        <div class="appearance-logo-preview appearance-favicon-preview">
+          {#if previewFaviconUrl && !faviconPreviewFailed}
+            <img
+              class="appearance-logo-image"
+              src={previewFaviconUrl}
+              alt=""
+              loading="eager"
+              decoding="async"
+              onerror={() => {
+                faviconPreviewFailed = true;
+              }}
+            />
+          {:else if !useCustomFavicon && useEmojiLogo}
+            <BrandMark brand={logoBrand} size="lg" />
+          {:else}
+            <span class="appearance-logo-empty" aria-hidden="true"></span>
+          {/if}
+        </div>
+
+        <div class="appearance-controls">
+          <section class="appearance-control-card">
+            <label class="appearance-switch">
+              <Switch.Root
+                bind:checked={faviconUseCustomDraft}
+                onCheckedChange={setCustomFavicon}
+                class="admin-switch-root"
+              >
+                <Switch.Thumb class="admin-switch-thumb" />
+              </Switch.Root>
+              <span>{at("appearance_use_custom_favicon", {}, "Использовать отдельную favicon")}</span>
+            </label>
+            <input
+              bind:this={faviconFileInput}
+              class="appearance-file-input"
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/x-icon,.ico"
+              onchange={handleFaviconFileChange}
+            />
+            <AdminButton
+              class="appearance-control"
+              size="sm"
+              onclick={() => faviconFileInput?.click()}
+              disabled={themesSaving}
+            >
+              <FileText size={13} />
+              {at("appearance_favicon_upload_file", {}, "Загрузить favicon")}
+            </AdminButton>
+            <div class="appearance-url-row">
+              <input
+                class="input appearance-control"
+                type="url"
+                placeholder="https://example.com/icon.png"
+                bind:value={faviconSourceUrl}
+              />
+              <AdminButton
+                class="appearance-control"
+                size="sm"
+                onclick={uploadFaviconFromUrl}
+                disabled={themesSaving || !faviconSourceUrl.trim()}
+              >
+                {at("appearance_favicon_upload_url", {}, "По ссылке")}
+              </AdminButton>
             </div>
           </section>
         </div>
@@ -548,6 +736,11 @@
     align-items: stretch;
   }
 
+  .appearance-favicon-grid {
+    grid-template-columns: minmax(132px, 140px) minmax(0, 520px);
+    border-top: 1px solid var(--admin-border);
+  }
+
   .appearance-logo-preview {
     display: inline-flex;
     align-items: center;
@@ -562,6 +755,12 @@
     border: 1px solid var(--admin-border);
     border-radius: 8px;
     background: color-mix(in srgb, var(--admin-surface-2) 54%, var(--admin-surface));
+  }
+
+  .appearance-favicon-preview {
+    width: 140px;
+    height: 140px;
+    max-width: 100%;
   }
 
   .appearance-logo-image {
@@ -799,6 +998,11 @@
       grid-row: auto;
       height: auto;
       width: min(164px, 100%);
+    }
+
+    .appearance-favicon-preview {
+      width: min(140px, 100%);
+      height: auto;
     }
 
     .appearance-url-row,

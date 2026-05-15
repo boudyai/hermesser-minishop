@@ -251,6 +251,10 @@
     emoji: brandEmoji,
     emojiFont: brandEmojiFont,
   });
+  $: faviconBrand = normalizeBrand({
+    ...brand,
+    logoUrl: String(CFG.faviconUrl || "").trim() || brand.logoUrl,
+  });
   $: plans = data?.plans?.length ? data.plans : DEV_MOCK.data.plans;
   $: methods = data?.payment_methods?.length ? data.payment_methods : [];
   $: appSettings = data?.settings || DEV_MOCK.data.settings;
@@ -377,7 +381,7 @@
       : telegramLoginUnavailable
         ? t("wa_auth_telegram_not_configured")
         : "";
-  $: applyFavicon(brand);
+  $: applyFavicon(faviconBrand);
   $: syncBodyScrollLock(
     paymentModalOpen ||
       changeModalOpen ||
@@ -885,6 +889,9 @@
       "WEBAPP_LOGO_USE_EMOJI",
       "WEBAPP_LOGO_EMOJI",
       "WEBAPP_LOGO_EMOJI_FONT",
+      "WEBAPP_FAVICON_URL",
+      "WEBAPP_FAVICON_USE_CUSTOM",
+      "WEBAPP_LOGO_FAVICON_URL",
     ].some((key) => keys.has(key));
   }
 
@@ -987,6 +994,8 @@
             onThemesSaved={handleAdminPersistedSaved}
             {brandTitle}
             {brand}
+            appFaviconUrl={CFG.faviconUrl}
+            appFaviconUseCustom={CFG.faviconUseCustom}
             appVersion={CFG.appVersion}
             appRepositoryUrl={CFG.appRepositoryUrl}
             {currentLang}

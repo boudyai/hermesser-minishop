@@ -30,6 +30,8 @@ export const DEV_MOCK = {
     logoUseEmoji: false,
     logoEmoji: "🫥",
     logoEmojiFont: "system",
+    faviconUrl: "",
+    faviconUseCustom: false,
     apiBase: "/api",
     supportUrl: "https://t.me/support",
     privacyPolicyUrl: "https://example.com/privacy",

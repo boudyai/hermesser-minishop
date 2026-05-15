@@ -220,7 +220,21 @@ export async function mockApi(path, options = {}, context = {}) {
     };
   }
   if (path === "/admin/appearance/logo") {
-    return { ok: true, logo_url: "/webapp-uploaded-logo/logo-0000000000000000.png" };
+    return {
+      ok: true,
+      logo_url: "/webapp-uploaded-logo/logo-0000000000000000.png",
+      favicon_url: "/webapp-favicon/0000000000000000/icon-180.png",
+    };
+  }
+  if (path === "/admin/appearance/favicon") {
+    return {
+      ok: true,
+      favicon_url: "/webapp-favicon/1111111111111111/icon-180.png",
+      variants: {
+        "32": "/webapp-favicon/1111111111111111/icon-32.png",
+        apple_touch: "/webapp-favicon/1111111111111111/apple-touch-icon.png",
+      },
+    };
   }
   if (path === "/admin/settings" && String(options.method || "GET").toUpperCase() === "PATCH") {
     try {
@@ -235,6 +249,15 @@ export async function mockApi(path, options = {}, context = {}) {
       if (updates.WEBAPP_LOGO_EMOJI) DEV_MOCK.config.logoEmoji = updates.WEBAPP_LOGO_EMOJI;
       if (updates.WEBAPP_LOGO_EMOJI_FONT) {
         DEV_MOCK.config.logoEmojiFont = updates.WEBAPP_LOGO_EMOJI_FONT;
+      }
+      if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_FAVICON_URL")) {
+        DEV_MOCK.config.faviconUrl = updates.WEBAPP_FAVICON_URL || "";
+      }
+      if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_LOGO_FAVICON_URL")) {
+        DEV_MOCK.config.faviconUrl = updates.WEBAPP_LOGO_FAVICON_URL || DEV_MOCK.config.faviconUrl || "";
+      }
+      if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_FAVICON_USE_CUSTOM")) {
+        DEV_MOCK.config.faviconUseCustom = Boolean(updates.WEBAPP_FAVICON_USE_CUSTOM);
       }
     } catch (_e) {
       void _e;
@@ -281,6 +304,27 @@ export async function mockApi(path, options = {}, context = {}) {
                 { value: "noto-color", label: "Noto Color Emoji" },
                 { value: "noto-color-animated", label: "Noto Color Emoji Animated" },
               ],
+            },
+            {
+              key: "WEBAPP_FAVICON_USE_CUSTOM",
+              type: "bool",
+              section: "appearance",
+              label: "Custom favicon",
+              value: Boolean(DEV_MOCK.config.faviconUseCustom),
+            },
+            {
+              key: "WEBAPP_FAVICON_URL",
+              type: "url",
+              section: "appearance",
+              label: "Favicon URL",
+              value: DEV_MOCK.config.faviconUrl || "",
+            },
+            {
+              key: "WEBAPP_LOGO_FAVICON_URL",
+              type: "url",
+              section: "appearance",
+              label: "Logo favicon URL",
+              value: DEV_MOCK.config.faviconUrl || "",
             },
           ],
         },
