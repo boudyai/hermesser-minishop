@@ -41,6 +41,7 @@ def _inject_shared_instances(
         "panel_webhook_service",
         "platega_service",
         "severpay_service",
+        "wata_service",
     ):
         if hasattr(dp, "workflow_data") and key in dp.workflow_data:  # type: ignore
             app[key] = dp.workflow_data[key]  # type: ignore
@@ -96,6 +97,7 @@ async def build_and_start_web_app(
     from bot.services.panel_webhook_service import panel_webhook_route
     from bot.services.platega_service import platega_webhook_route
     from bot.services.severpay_service import severpay_webhook_route
+    from bot.services.wata_service import wata_webhook_route
 
     cp_path = settings.cryptopay_webhook_path
     if cp_path.startswith("/"):
@@ -116,6 +118,11 @@ async def build_and_start_web_app(
     if sp_path.startswith("/"):
         app.router.add_post(sp_path, severpay_webhook_route)
         logging.info(f"SeverPay webhook route configured at: [POST] {sp_path}")
+
+    wata_path = settings.wata_webhook_path
+    if wata_path.startswith("/"):
+        app.router.add_post(wata_path, wata_webhook_route)
+        logging.info(f"Wata webhook route configured at: [POST] {wata_path}")
 
     # YooKassa webhook (register only when base URL present and path configured)
     yk_path = settings.yookassa_webhook_path

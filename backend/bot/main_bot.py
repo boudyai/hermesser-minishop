@@ -200,6 +200,7 @@ async def on_shutdown_configured(dispatcher: Dispatcher):
         "referral_service",
         "platega_service",
         "severpay_service",
+        "wata_service",
     ):
         await close_service(service_key)
 

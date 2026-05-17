@@ -48,7 +48,7 @@ nano .env
 
 | Переменная | Назначение |
 | --- | --- |
-| `PAYMENT_METHODS_ORDER` | Порядок кнопок оплаты через запятую: `severpay`, `freekassa`, `platega`, `yookassa`, `stars`, `cryptopay`. |
+| `PAYMENT_METHODS_ORDER` | Порядок кнопок оплаты через запятую: `severpay`, `wata`, `freekassa`, `platega`, `yookassa`, `stars`, `cryptopay`. |
 | `YOOKASSA_ENABLED` | Включает YooKassa. |
 | `YOOKASSA_SHOP_ID` / `YOOKASSA_SECRET_KEY` | Данные магазина YooKassa. |
 | `YOOKASSA_RETURN_URL` | URL возврата пользователя после оплаты. |
@@ -73,6 +73,14 @@ nano .env
 | `SEVERPAY_BASE_URL` | Базовый URL API SeverPay. |
 | `SEVERPAY_RETURN_URL` | URL возврата после оплаты. |
 | `SEVERPAY_LIFETIME_MINUTES` | Время жизни платежной ссылки. |
+| `WATA_ENABLED` | Включает Wata. |
+| `WATA_API_TOKEN` | Bearer-токен терминала Wata. |
+| `WATA_BASE_URL` | Базовый URL API Wata (`https://api.wata.pro/api/h2h`, для песочницы `https://api-sandbox.wata.pro/api/h2h`). |
+| `WATA_RETURN_URL` / `WATA_FAILED_URL` | URL возврата после успешной или неуспешной оплаты. |
+| `WATA_PAYMENT_LINK_TTL_DAYS` | Время жизни платежной ссылки в днях, от 1 до 30. |
+| `WATA_WEBHOOK_VERIFY_SIGNATURE` | Проверять `X-Signature` вебхука через RSA/SHA512. |
+| `WATA_PUBLIC_KEY` | Необязательный публичный ключ Wata для проверки вебхуков; если пусто, backend загрузит его из API. |
+| `WATA_TRUSTED_IPS` | IP-адреса Wata, с которых принимаются вебхуки. |
 | `CRYPTOPAY_ENABLED` | Включает CryptoPay. |
 | `CRYPTOPAY_TOKEN` | Токен CryptoPay App. |
 | `CRYPTOPAY_NETWORK` | Сеть: `mainnet` или `testnet`. |

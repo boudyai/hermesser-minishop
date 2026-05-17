@@ -52,6 +52,7 @@ from bot.services.promo_code_service import PromoCodeService
 from bot.services.referral_service import ReferralService
 from bot.services.severpay_service import SeverPayService
 from bot.services.subscription_service import SubscriptionService
+from bot.services.wata_service import WataService
 from bot.services.yookassa_service import YooKassaService
 from bot.utils.config_link import prepare_config_links
 from bot.utils.request_security import parse_ip_entries, request_client_ip

@@ -568,6 +568,7 @@ def _serialize_payment_methods(
     app: web.Application,
 ) -> List[Dict[str, Any]]:
     labels = {
+        "wata": "Wata",
         "severpay": "SeverPay",
         "freekassa": "FreeKassa / СБП",
         "platega_sbp": "Platega · СБП",
@@ -603,6 +604,12 @@ def _serialize_payment_methods(
             and settings.PLATEGA_ENABLED
             and settings.PLATEGA_CRYPTO_ENABLED
             and _service_configured(app, "platega_service")
+        ):
+            methods.append({"id": method, "name": labels[method]})
+        elif (
+            method == "wata"
+            and settings.WATA_ENABLED
+            and _service_configured(app, "wata_service")
         ):
             methods.append({"id": method, "name": labels[method]})
         elif (

@@ -708,6 +708,19 @@ async def _create_subscription_payment(
             sale_mode=sale_mode,
             traffic_gb=traffic_gb,
         )
+    if method == "wata":
+        if not settings.WATA_ENABLED:
+            return _json_error(400, "payment_unavailable", "Payment method unavailable")
+        return await _create_wata_payment(
+            request,
+            session,
+            user_id,
+            months,
+            price,
+            description,
+            sale_mode=sale_mode,
+            traffic_gb=traffic_gb,
+        )
     if method == "cryptopay":
         service: CryptoPayService = request.app["cryptopay_service"]
         if not settings.CRYPTOPAY_ENABLED or not service or not service.configured:
@@ -1115,6 +1128,77 @@ async def _create_severpay_payment(
     except Exception:
         await session.rollback()
         logger.exception("SeverPay WebApp payment failed")
+        return _json_error(502, "payment_failed", "Failed to create payment")
+
+
+async def _create_wata_payment(
+    request: web.Request,
+    session: AsyncSession,
+    user_id: int,
+    months: Any,
+    price: float,
+    description: str,
+    *,
+    sale_mode: str = "subscription",
+    traffic_gb: Optional[float] = None,
+) -> web.Response:
+    settings: Settings = request.app["settings"]
+    service: WataService = request.app["wata_service"]
+    if not service or not service.configured:
+        return _json_error(400, "payment_unavailable", "Payment method unavailable")
+
+    try:
+        traffic_sale = _sale_mode_is_traffic(sale_mode)
+        hwid_devices_sale = _sale_mode_is_hwid_devices(sale_mode)
+        payment = await _create_base_payment_record(
+            session,
+            user_id=user_id,
+            amount=price,
+            currency=settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+            status="pending_wata",
+            description=description,
+            months=int(float(months)) if not traffic_sale else int(float(traffic_gb or months)),
+            provider="wata",
+            sale_mode=sale_mode,
+            tariff_key=_sale_mode_tariff_key(sale_mode),
+            purchased_gb=float(traffic_gb or months) if traffic_sale else None,
+            purchased_hwid_devices=int(float(months)) if hwid_devices_sale else None,
+        )
+        success, response_data = await service.create_payment_link(
+            payment_db_id=payment.payment_id,
+            amount=price,
+            currency=settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+            description=description,
+        )
+        payment_url = response_data.get("url") if success else None
+        provider_id = response_data.get("id")
+        if provider_id:
+            await payment_dal.update_provider_payment_and_status(
+                session,
+                payment.payment_id,
+                str(provider_id),
+                payment.status,
+            )
+            await session.commit()
+        if not payment_url:
+            await payment_dal.update_payment_status_by_db_id(
+                session,
+                payment.payment_id,
+                "failed_creation",
+            )
+            await session.commit()
+            return _json_error(502, "payment_failed", "Failed to create payment")
+        return web.json_response(
+            {
+                "ok": True,
+                "action": "open_link",
+                "payment_url": payment_url,
+                "payment_id": payment.payment_id,
+            }
+        )
+    except Exception:
+        await session.rollback()
+        logger.exception("Wata WebApp payment failed")
         return _json_error(502, "payment_failed", "Failed to create payment")
 
 

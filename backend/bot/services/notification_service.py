@@ -376,6 +376,7 @@ class NotificationService:
         )
 
         provider_emoji = {
+            "wata": "💳",
             "yookassa": "💳",
             "freekassa": "💳",
             "cryptopay": "₿",

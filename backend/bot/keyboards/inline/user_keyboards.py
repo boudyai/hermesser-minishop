@@ -360,6 +360,11 @@ def get_payment_method_keyboard(
                 text=_("pay_with_severpay_button"),
                 callback_data=f"pay_severpay:{value_str}:{price}{mode_suffix}",
             )
+        elif method == "wata" and getattr(settings, "WATA_ENABLED", False):
+            builder.button(
+                text=_("pay_with_wata_button"),
+                callback_data=f"pay_wata:{value_str}:{price}{mode_suffix}",
+            )
         elif method == "freekassa" and settings.FREEKASSA_ENABLED:
             builder.button(
                 text=_("pay_with_sbp_button"),

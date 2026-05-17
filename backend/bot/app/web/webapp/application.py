@@ -45,6 +45,7 @@ def create_subscription_webapp_application(
         "cryptopay_service",
         "platega_service",
         "severpay_service",
+        "wata_service",
         "promo_code_service",
         "referral_service",
         "panel_service",

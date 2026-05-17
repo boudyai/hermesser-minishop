@@ -15,6 +15,7 @@
     if (id.includes("yookassa") || id.includes("card"))
       return { title: t("pay_with_yookassa_button"), icon: null };
     if (id.includes("severpay")) return { title: t("pay_with_severpay_button"), icon: null };
+    if (id.includes("wata")) return { title: t("pay_with_wata_button"), icon: null };
     if (id.includes("freekassa")) return { title: t("pay_with_sbp_button"), icon: null };
     if (id.includes("cryptopay") || id.includes("crypto"))
       return { title: t("pay_with_cryptopay_button"), icon: null };

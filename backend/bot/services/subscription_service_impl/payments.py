@@ -12,6 +12,7 @@ class PaymentContextMixin:
         "freekassa": "FreeKassa",
         "platega": "Platega",
         "severpay": "SeverPay",
+        "wata": "Wata",
         "cryptopay": "Crypto Pay",
         "telegram_stars": "Telegram Stars",
     }

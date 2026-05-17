@@ -215,6 +215,7 @@ async def show_statistics_handler(
                 "pending_freekassa",
                 "pending_platega",
                 "pending_severpay",
+                "pending_wata",
                 "pending_cryptopay",
             ]
             status_emoji = (

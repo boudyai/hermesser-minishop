@@ -13,6 +13,7 @@ from bot.services.referral_service import ReferralService
 from bot.services.severpay_service import SeverPayService
 from bot.services.stars_service import StarsService
 from bot.services.subscription_service import SubscriptionService
+from bot.services.wata_service import WataService
 from bot.services.yookassa_service import YooKassaService
 from config.settings import Settings
 
@@ -65,6 +66,15 @@ def build_core_services(
         referral_service=referral_service,
         default_return_url=bot_username_for_default_return,
     )
+    wata_service = WataService(
+        bot=bot,
+        settings=settings,
+        i18n=i18n,
+        async_session_factory=async_session_factory,
+        subscription_service=subscription_service,
+        referral_service=referral_service,
+        default_return_url=bot_username_for_default_return,
+    )
     panel_webhook_service = PanelWebhookService(
         bot, settings, i18n, async_session_factory, panel_service
     )
@@ -101,4 +111,5 @@ def build_core_services(
         "lknpd_service": lknpd_service,
         "platega_service": platega_service,
         "severpay_service": severpay_service,
+        "wata_service": wata_service,
     }
