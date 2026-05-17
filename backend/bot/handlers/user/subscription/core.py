@@ -994,7 +994,16 @@ async def my_subscription_command_handler(
                     )
                 ]
             )
-            if settings.tariffs_config and local_sub and local_sub.tariff_key:
+            # Skip the buy-devices button entirely when the user has unlimited
+            # devices (max_devices == 0). Otherwise the button leads to an
+            # alert "hwid_devices_unlimited_no_topup" — confusing dead end.
+            devices_topup_allowed = (
+                settings.tariffs_config
+                and local_sub
+                and local_sub.tariff_key
+                and max_devices_value not in (None, 0)
+            )
+            if devices_topup_allowed:
                 try:
                     tariff_for_devices = settings.tariffs_config.require(local_sub.tariff_key)
                     if (

@@ -46,7 +46,7 @@
       value={devicesPercent(devicesData)}
       label={t("wa_devices_title")}
     />
-    {#if subscription?.active && subscription?.max_devices !== 0}
+    {#if subscription?.active && subscription?.max_devices !== 0 && subscription?.can_topup_devices}
       <Button variant="secondary" class="wide" onclick={openDeviceTopupModal}>
         <Plus size={17} />
         {t("wa_buy_hwid_devices")}
