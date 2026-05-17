@@ -28,6 +28,7 @@ RUN set -eu; \
     fi; \
     if [ -n "$dirty" ]; then version="${version}-dirty"; fi; \
     printf '%s' "$version" > /build-version; \
+    printf '%s' "${tag:-unknown}" > /build-tag; \
     printf '%s' "${sha:-unknown}" > /build-commit
 
 
@@ -49,6 +50,7 @@ COPY backend ./backend
 COPY locales ./locales
 COPY data ./data
 COPY --from=version-builder /build-version /app/.build-version
+COPY --from=version-builder /build-tag /app/.build-tag
 COPY --from=version-builder /build-commit /app/.build-commit
 RUN mkdir -p /app/logs /app/data && chown -R appuser:appuser /app/logs /app/data
 
@@ -99,6 +101,7 @@ LABEL org.opencontainers.image.source="https://github.com/3252a8/remnawave-minis
 
 COPY deploy/docker/frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY deploy/docker/frontend/00-startup-banner.sh /docker-entrypoint.d/00-startup-banner.sh
+COPY --from=version-builder /build-tag /build-tag
 COPY --from=version-builder /build-commit /build-commit
 COPY backend/bot/app/web/templates/subscription_webapp.html /usr/share/nginx/html/index.html
 COPY --from=frontend-builder /app/backend/bot/app/web/templates/subscription_webapp.css /usr/share/nginx/html/subscription_webapp.css

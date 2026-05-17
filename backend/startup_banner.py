@@ -24,16 +24,44 @@ def _env(name: str, default: str = "-") -> str:
     return os.getenv(name) or default
 
 
+def _build_file(name: str, default: str = "-") -> str:
+    try:
+        value = (_APP_ROOT / name).read_text(encoding="utf-8").strip()
+    except OSError:
+        return default
+    return value or default
+
+
 def _build_commit() -> str:
     for env_name in ("REMNAWAVE_MINISHOP_COMMIT", "GIT_COMMIT", "COMMIT_SHA"):
         value = os.getenv(env_name)
         if value:
             return value.strip()[:40] or "-"
-    try:
-        value = (_APP_ROOT / ".build-commit").read_text(encoding="utf-8").strip()
-    except OSError:
-        return "-"
-    return value[:40] or "-"
+    return _build_file(".build-commit")[:40] or "-"
+
+
+def _build_tag() -> str:
+    for env_name in ("REMNAWAVE_MINISHOP_TAG", "GIT_TAG", "BUILD_TAG"):
+        value = os.getenv(env_name)
+        if value:
+            return value.strip()[:40] or "-"
+    return _build_file(".build-tag")[:40] or "-"
+
+
+def _image_tag_display(image_tag: str) -> str:
+    normalized = image_tag.lower()
+    build_tag = _build_tag()
+    build_commit = _build_commit()
+    if normalized == "latest" and build_tag != "-":
+        return f"latest-{build_tag}"
+    if normalized == "dev":
+        if build_tag != "-" and build_commit != "-":
+            return f"dev-{build_tag}+{build_commit}"
+        if build_tag != "-":
+            return f"dev-{build_tag}"
+        if build_commit != "-":
+            return f"dev+{build_commit}"
+    return image_tag
 
 
 def _bool_env(name: str) -> str:
@@ -70,7 +98,7 @@ def _service_details(service: str) -> str:
     image_tag = _env("IMAGE_TAG", "local")
     log_level = _env("LOG_LEVEL", "INFO")
     common = [
-        f"image tag :: {image_tag}",
+        f"image tag :: {_image_tag_display(image_tag)}",
         f"commit :: {_build_commit()}",
         f"log level :: {log_level}",
     ]

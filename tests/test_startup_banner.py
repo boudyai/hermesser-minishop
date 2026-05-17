@@ -22,6 +22,7 @@ class StartupBannerTests(unittest.TestCase):
                     service,
                     {
                         "IMAGE_TAG": "test-tag",
+                        "REMNAWAVE_MINISHOP_TAG": "v3.4.0",
                         "REMNAWAVE_MINISHOP_COMMIT": "abc1234",
                         "POSTGRES_HOST": "postgres",
                         "POSTGRES_DB": "postgres",
@@ -34,6 +35,27 @@ class StartupBannerTests(unittest.TestCase):
                 self.assertIn("remnawave-minishop", output)
                 self.assertIn("███", output)
                 self.assertNotIn("в", output)
+
+    def test_startup_banner_expands_latest_and_dev_tags(self):
+        latest_output = _render(
+            "backend",
+            {
+                "IMAGE_TAG": "latest",
+                "REMNAWAVE_MINISHOP_TAG": "v3.4.0",
+                "REMNAWAVE_MINISHOP_COMMIT": "abc1234",
+            },
+        )
+        self.assertIn("image tag :: latest-v3.4.0", latest_output)
+
+        dev_output = _render(
+            "backend",
+            {
+                "IMAGE_TAG": "dev",
+                "REMNAWAVE_MINISHOP_TAG": "v3.4.0",
+                "REMNAWAVE_MINISHOP_COMMIT": "abc1234",
+            },
+        )
+        self.assertIn("image tag :: dev-v3.4.0+abc1234", dev_output)
 
 
 class StartupBannerServiceDetailsTests(unittest.TestCase):
