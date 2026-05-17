@@ -30,12 +30,12 @@ class RenewalMixin:
             logging.info(f"Auto-renew skipped: no saved payment method for user {sub.user_id}")
             return False
 
-        try:
-            from .yookassa_service import YooKassaService  # local import to avoid cycles
-
-            yk: YooKassaService = self.yookassa_service  # type: ignore[attr-defined]
-        except Exception:
-            yk = None  # type: ignore
+        # ``yookassa_service`` is wired onto the subscription service via
+        # ``build_core_services`` (setattr). Read it directly — the previous
+        # ``from .yookassa_service import …`` pointed at a non-existent module
+        # inside this package, the ImportError got swallowed, and every
+        # auto-renew silently returned False.
+        yk = getattr(self, "yookassa_service", None)
         if not yk or not getattr(yk, "configured", False):
             logging.warning("YooKassa unavailable for auto-renew")
             return False
