@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import json
 import logging
+from collections import OrderedDict
 from typing import Any, Dict, List, Optional, Tuple
 
 from aiogram import Bot, F, Router, types
@@ -133,7 +134,12 @@ class HeleketPresentation(ProviderEnvConfig):
     TELEGRAM_EMOJI: Optional[str] = None
 
 
-def _serialize_for_signature(payload: Dict[str, Any]) -> str:
+def _serialize_for_signature(
+    payload: Dict[str, Any],
+    *,
+    ensure_ascii: bool = False,
+    escape_slashes: bool = True,
+) -> str:
     """Serialize JSON exactly the way Heleket signs it.
 
     Heleket's PHP example uses ``json_encode`` with ``JSON_UNESCAPED_UNICODE``
@@ -141,14 +147,59 @@ def _serialize_for_signature(payload: Dict[str, Any]) -> str:
     keeps unicode untouched, then we manually escape ``/`` so that the base64
     payload matches the one signed on the Heleket side.
     """
-    encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-    return encoded.replace("/", "\\/")
+    encoded = json.dumps(payload, ensure_ascii=ensure_ascii, separators=(",", ":"))
+    return encoded.replace("/", "\\/") if escape_slashes else encoded
 
 
-def _compute_signature(payload: Dict[str, Any], api_key: str) -> str:
-    body = _serialize_for_signature(payload).encode("utf-8")
+def _compute_signature(
+    payload: Dict[str, Any],
+    api_key: str,
+    *,
+    ensure_ascii: bool = False,
+    escape_slashes: bool = True,
+) -> str:
+    body = _serialize_for_signature(
+        payload,
+        ensure_ascii=ensure_ascii,
+        escape_slashes=escape_slashes,
+    ).encode("utf-8")
     b64 = base64.b64encode(body).decode("ascii")
-    return hashlib.md5((b64 + api_key).encode("utf-8")).hexdigest()
+    return hashlib.md5((b64 + str(api_key or "")).encode("utf-8")).hexdigest()
+
+
+def _signature_candidates(payload: Dict[str, Any], api_key: str) -> List[Tuple[str, str, str]]:
+    variants = (
+        ("php_unicode_slash", False, True),
+        ("unicode_no_slash", False, False),
+        ("ascii_slash", True, True),
+        ("ascii_no_slash", True, False),
+    )
+    candidates: List[Tuple[str, str, str]] = []
+    seen: set[str] = set()
+    for name, ensure_ascii, escape_slashes in variants:
+        signature = _compute_signature(
+            payload,
+            api_key,
+            ensure_ascii=ensure_ascii,
+            escape_slashes=escape_slashes,
+        )
+        if signature in seen:
+            continue
+        seen.add(signature)
+        canonical = _serialize_for_signature(
+            payload,
+            ensure_ascii=ensure_ascii,
+            escape_slashes=escape_slashes,
+        )
+        candidates.append((name, signature, canonical))
+    return candidates
+
+
+def _signature_preview(signature: str) -> str:
+    signature = str(signature or "")
+    if len(signature) <= 12:
+        return signature
+    return f"{signature[:6]}...{signature[-6:]}"
 
 
 class HeleketService(HttpClientMixin):
@@ -193,11 +244,11 @@ class HeleketService(HttpClientMixin):
 
     @property
     def merchant_id(self) -> str:
-        return self.config.MERCHANT_ID or ""
+        return (self.config.MERCHANT_ID or "").strip()
 
     @property
     def api_key(self) -> str:
-        return self.config.API_KEY or ""
+        return (self.config.API_KEY or "").strip()
 
     @property
     def currency(self) -> str:
@@ -297,9 +348,25 @@ class HeleketService(HttpClientMixin):
         received = payload.get("sign")
         if not isinstance(received, str) or not received:
             return False
-        data = {k: v for k, v in payload.items() if k != "sign"}
-        expected = _compute_signature(data, self.api_key)
-        return hmac.compare_digest(expected, received)
+        data = OrderedDict((k, v) for k, v in payload.items() if k != "sign")
+        candidates = _signature_candidates(data, self.api_key)
+        for name, expected, _canonical in candidates:
+            if hmac.compare_digest(expected, received):
+                if name != "php_unicode_slash":
+                    logging.info("Heleket webhook: signature matched variant %s.", name)
+                return True
+        logging.warning(
+            "Heleket webhook: invalid signature "
+            "(received=%s expected=%s canonical_json_sha256=%s api_key_len=%s).",
+            _signature_preview(received),
+            [_signature_preview(expected) for _name, expected, _canonical in candidates],
+            [
+                hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+                for _name, _expected, canonical in candidates
+            ],
+            len(self.api_key),
+        )
+        return False
 
     async def webhook_route(self, request: web.Request) -> web.Response:
         if not self.configured:
@@ -330,7 +397,6 @@ class HeleketService(HttpClientMixin):
             return web.Response(status=400, text="bad_request")
 
         if self.verify_webhook_signature and not self._verify_signature(payload):
-            logging.warning("Heleket webhook: invalid signature.")
             return web.Response(status=403, text="invalid_signature")
 
         uuid_value = str(payload.get("uuid") or "").strip()

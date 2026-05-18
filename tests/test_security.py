@@ -17,6 +17,7 @@ from bot.app.web.webapp_auth import (
 )
 from bot.payment_providers.cryptopay import CryptoPayService
 from bot.payment_providers.freekassa import FreeKassaService
+from bot.payment_providers.heleket import HeleketConfig, HeleketService, _compute_signature
 from bot.payment_providers.yookassa import yookassa_webhook_route
 from bot.utils.request_security import request_client_ip
 from config.settings import Settings
@@ -138,6 +139,61 @@ class CryptoPayServiceTests(unittest.TestCase):
         service = self._make_service()
 
         self.assertFalse(service._validate_webhook_signature(b"payload", "not-a-signature"))
+
+
+class HeleketServiceTests(unittest.TestCase):
+    def _make_service(self, api_key: str = " payment-api-key ") -> HeleketService:
+        service = HeleketService.__new__(HeleketService)
+        service.config = HeleketConfig(ENABLED=True, MERCHANT_ID="merchant", API_KEY=api_key)
+        return service
+
+    def test_verify_signature_accepts_php_style_webhook_with_unicode_and_nested_payload(self):
+        payload = {
+            "type": "payment",
+            "uuid": "1467f384-b053-42db-9066-d8a445cc52d3",
+            "order_id": "435",
+            "amount": "190.00000000",
+            "payment_amount": "2.61000000",
+            "payment_amount_usd": "2.61",
+            "merchant_amount": "2.55780000",
+            "commission": "0.05220000",
+            "is_final": True,
+            "status": "paid",
+            "from": "0x7876fa0152a8eceb847154297b4ffdc85e3c4bd1",
+            "wallet_address_uuid": None,
+            "network": "polygon",
+            "currency": "RUB",
+            "payer_currency": "USDT",
+            "payer_amount": "2.61000000",
+            "payer_amount_exchange_rate": "72.72073217",
+            "additional_data": "Подписка на 1 месяц",
+            "transfer_id": None,
+            "convert": {
+                "to_currency": "USDC",
+                "commission": "0.00000000",
+                "rate": "0.99870036",
+                "amount": "2.55447580",
+            },
+            "txid": "0x91f2a28213bf79fba51675f92a741c820ee321babe6ec48a3ae9301d31977f83",
+        }
+        payload["sign"] = _compute_signature(payload, "payment-api-key")
+
+        self.assertTrue(self._make_service()._verify_signature(payload))
+
+    def test_verify_signature_accepts_escaped_unicode_webhook_variant(self):
+        payload = {
+            "order_id": "435",
+            "status": "paid",
+            "additional_data": "Подписка на 1 месяц",
+        }
+        payload["sign"] = _compute_signature(payload, "payment-api-key", ensure_ascii=True)
+
+        self.assertTrue(self._make_service()._verify_signature(payload))
+
+    def test_verify_signature_rejects_invalid_signature(self):
+        service = self._make_service("payment-api-key")
+
+        self.assertFalse(service._verify_signature({"order_id": "435", "sign": "bad"}))
 
 
 class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
