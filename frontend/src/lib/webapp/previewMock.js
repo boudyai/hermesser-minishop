@@ -33,6 +33,8 @@ export const DEV_MOCK = {
     faviconUrl: "",
     faviconUseCustom: false,
     apiBase: "/api",
+    adminJsAsset: "subscription_webapp_admin.js",
+    adminCssAsset: "subscription_webapp_admin.css",
     supportUrl: "https://t.me/support",
     privacyPolicyUrl: "https://example.com/privacy",
     userAgreementUrl: "https://example.com/agreement",

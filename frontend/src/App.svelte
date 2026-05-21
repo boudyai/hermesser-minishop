@@ -9,7 +9,6 @@
 
   import BrandMark from "$lib/webapp/BrandMark.svelte";
   import PreviewBoard from "./PreviewBoard.svelte";
-  import AdminPanel from "./admin/AdminPanel.svelte";
   import WebAppShell from "./webapp/WebAppShell.svelte";
   import AuthScreen from "./webapp/auth/AuthScreen.svelte";
   import PaymentDialogs from "./webapp/PaymentDialogs.svelte";
@@ -120,6 +119,9 @@
   let scrollLockApplied = false;
   let adminI18nLoaded = false;
   let adminI18nPromise = null;
+  let AdminPanelComponent = null;
+  let adminBundlePromise = null;
+  let adminBundleError = "";
   let tg = null;
   const telegramSdk = createTelegramSdk({
     scriptUrl: TELEGRAM_WEBAPP_SCRIPT_URL,
@@ -485,12 +487,16 @@
       if (mode === "app") {
         if (section === "admin" && isAdmin) {
           const pathAtStart = window.location.pathname;
-          void ensureI18nScope("admin").finally(() => {
-            if (sectionFromPath(window.location.pathname) !== "admin") return;
-            if (window.location.pathname !== pathAtStart) return;
-            activeTab = "settings";
-            screen = "admin";
-          });
+          void Promise.all([ensureI18nScope("admin"), ensureAdminBundle()])
+            .then(() => {
+              if (sectionFromPath(window.location.pathname) !== "admin") return;
+              if (window.location.pathname !== pathAtStart) return;
+              activeTab = "settings";
+              screen = "admin";
+            })
+            .catch(() => {
+              showToast(t("wa_unavailable"));
+            });
           return;
         }
         const nextSection =
@@ -608,6 +614,71 @@
     return adminI18nPromise;
   }
 
+  function resolveWebappAssetPath(configValue, fallbackName) {
+    const raw = String(configValue || "").trim() || fallbackName;
+    if (/^(?:https?:)?\/\//i.test(raw) || raw.startsWith("data:")) return fallbackName;
+    if (window.location.protocol === "file:" && raw.startsWith("/")) return raw.slice(1);
+    return raw.startsWith("/") ? raw : `/${raw}`;
+  }
+
+  function appendStylesheetOnce(id, href) {
+    if (!href || document.getElementById(id)) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const link = document.createElement("link");
+      link.id = id;
+      link.rel = "stylesheet";
+      link.href = href;
+      link.onload = () => resolve();
+      link.onerror = () => reject(new Error(`stylesheet_load_failed:${href}`));
+      document.head.appendChild(link);
+    });
+  }
+
+  function appendScriptOnce(id, src) {
+    if (!src || document.getElementById(id)) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.id = id;
+      script.src = src;
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error(`script_load_failed:${src}`));
+      document.head.appendChild(script);
+    });
+  }
+
+  async function ensureAdminBundle() {
+    if (AdminPanelComponent) return true;
+    if (adminBundlePromise) return adminBundlePromise;
+
+    const existing = window.SubscriptionWebAppAdminPanel;
+    if (existing) {
+      AdminPanelComponent = existing.default || existing;
+      return true;
+    }
+
+    adminBundleError = "";
+    adminBundlePromise = (async () => {
+      const cssHref = resolveWebappAssetPath(CFG.adminCssAsset, "subscription_webapp_admin.css");
+      const jsSrc = resolveWebappAssetPath(CFG.adminJsAsset, "subscription_webapp_admin.js");
+      await appendStylesheetOnce("subscription-webapp-admin-css", cssHref);
+      await appendScriptOnce("subscription-webapp-admin-js", jsSrc);
+      const loaded = window.SubscriptionWebAppAdminPanel;
+      if (!loaded) throw new Error("admin_bundle_missing_component");
+      AdminPanelComponent = loaded.default || loaded;
+      return true;
+    })()
+      .catch((error) => {
+        adminBundleError = error?.message || "admin_bundle_load_failed";
+        throw error;
+      })
+      .finally(() => {
+        adminBundlePromise = null;
+      });
+
+    return adminBundlePromise;
+  }
+
   async function boot() {
     await runWebappBoot({
       MOCK,
@@ -702,7 +773,15 @@
     const initialAdminSection =
       section === "admin" ? adminSectionFromPath(window.location.pathname) : null;
     if (section === "admin" && payload.user?.is_admin) {
-      await ensureI18nScope("admin");
+      try {
+        await ensureI18nScope("admin");
+        await ensureAdminBundle();
+      } catch (_error) {
+        void _error;
+        section = "settings";
+        activeTab = "settings";
+        showToast(t("wa_unavailable"));
+      }
     }
     const initialSupportTicketId =
       section === "support" ? supportTicketIdFromPath(window.location.pathname) : null;
@@ -1000,7 +1079,14 @@
     if (!isAdmin) return;
     clearLanguageClickGuard();
     billingStore.closePaymentModal();
-    await ensureI18nScope("admin");
+    try {
+      await ensureI18nScope("admin");
+      await ensureAdminBundle();
+    } catch (_error) {
+      void _error;
+      showToast(t("wa_unavailable"));
+      return;
+    }
     activeTab = "settings";
     screen = "admin";
     syncSectionPath("admin", false, adminSectionFromPath(window.location.pathname));
@@ -1135,28 +1221,36 @@
             setPasswordLoginMode={(enabled) => setPasswordLoginMode(enabled)}
           />
         {:else if screen === "admin" && isAdmin}
-          <AdminPanel
-            {api}
-            onClose={closeAdminPanel}
-            onToast={(text) => showToast(text)}
-            initialSection={adminSectionFromPath(window.location.pathname)}
-            initialUserId={adminUserIdFromPath(window.location.pathname)}
-            onSectionChange={handleAdminSectionChange}
-            onSettingsSaved={handleAdminPersistedSaved}
-            onTariffsSaved={handleAdminPersistedSaved}
-            onThemesSaved={handleAdminPersistedSaved}
-            {brandTitle}
-            {brand}
-            appFaviconUrl={CFG.faviconUrl}
-            appFaviconUseCustom={CFG.faviconUseCustom}
-            appVersion={CFG.appVersion}
-            appRepositoryUrl={CFG.appRepositoryUrl}
-            {currentLang}
-            {languageOptions}
-            {languageBusy}
-            onLanguageChange={accountStore.updateAccountLanguage}
-            {t}
-          />
+          {#if AdminPanelComponent}
+            <svelte:component
+              this={AdminPanelComponent}
+              {api}
+              onClose={closeAdminPanel}
+              onToast={(text) => showToast(text)}
+              initialSection={adminSectionFromPath(window.location.pathname)}
+              initialUserId={adminUserIdFromPath(window.location.pathname)}
+              onSectionChange={handleAdminSectionChange}
+              onSettingsSaved={handleAdminPersistedSaved}
+              onTariffsSaved={handleAdminPersistedSaved}
+              onThemesSaved={handleAdminPersistedSaved}
+              {brandTitle}
+              {brand}
+              appFaviconUrl={CFG.faviconUrl}
+              appFaviconUseCustom={CFG.faviconUseCustom}
+              appVersion={CFG.appVersion}
+              appRepositoryUrl={CFG.appRepositoryUrl}
+              {currentLang}
+              {languageOptions}
+              {languageBusy}
+              onLanguageChange={accountStore.updateAccountLanguage}
+              {t}
+            />
+          {:else}
+            <div class="loader">
+              <BrandMark {brand} size="md" />
+              <div>{adminBundleError ? t("wa_unavailable") : t("wa_loading")}</div>
+            </div>
+          {/if}
         {:else}
           <WebAppShell
             {screen}

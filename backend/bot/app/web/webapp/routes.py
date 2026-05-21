@@ -39,10 +39,17 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     )
     app.router.add_get("/subscription_webapp.{asset_hash:[0-9a-f]{8}}.css", css_asset_route)
     app.router.add_get("/subscription_webapp.css", css_asset_route)
+    app.router.add_get(
+        "/subscription_webapp_admin.{asset_hash:[0-9a-f]{8}}.css",
+        admin_css_asset_route,
+    )
+    app.router.add_get("/subscription_webapp_admin.css", admin_css_asset_route)
     app.router.add_get(r"/webapp-theme-css/{path:.+}", theme_css_asset_route)
     app.router.add_get(r"/webapp-theme-assets/{path:.+}", theme_asset_route)
     app.router.add_get("/subscription_webapp.min.{asset_hash}.js", js_asset_route)
     app.router.add_get("/subscription_webapp.js", js_asset_route)
+    app.router.add_get("/subscription_webapp_admin.min.{asset_hash}.js", admin_js_asset_route)
+    app.router.add_get("/subscription_webapp_admin.js", admin_js_asset_route)
     app.router.add_post("/api/auth/telegram/nonce", telegram_oauth_nonce_route)
     app.router.add_post("/api/auth/token", auth_token_route)
     app.router.add_post("/api/auth/email/request", email_auth_request_route)
