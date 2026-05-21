@@ -300,6 +300,7 @@
     : plans;
   $: devicesEnabled = Boolean(appSettings?.my_devices_enabled);
   $: supportEnabled = Boolean(appSettings?.support_tickets_enabled ?? true);
+  $: supportStore.setActive(Boolean(mode === "app" && screen === "support" && supportEnabled));
   $: subscription = data?.subscription || DEV_MOCK.data.subscription;
   $: hasActiveTariffSubscription = Boolean(
     tariffMode && subscription?.active && subscription?.tariff_key
@@ -851,8 +852,9 @@
     if (payload.settings?.support_tickets_enabled !== false) {
       if (typeof payload.support_unread_count !== "undefined") {
         supportStore.hydrateUnread(payload.support_unread_count);
+      } else {
+        void supportStore.refreshUnread();
       }
-      void supportStore.refreshUnread();
       supportStore.startPolling({ includeList: false });
     }
     if (section === "support" && initialSupportTicketId) {

@@ -1,6 +1,15 @@
 import { writable } from "svelte/store";
 
 export function createSupportStore({ api, t, showToast }) {
+  const ACTIVE_POLL_MS = 15_000;
+  const BACKGROUND_POLL_MS = 45_000;
+  const IDLE_POLL_MS = 120_000;
+  const PAUSED_POLL_MS = 300_000;
+  const HIDDEN_POLL_MS = 300_000;
+  const ERROR_POLL_MS = 90_000;
+  const IDLE_AFTER_EMPTY_POLLS = 3;
+  const PAUSE_AFTER_EMPTY_POLLS = 6;
+
   const state = writable({
     tickets: [],
     openedTicketId: null,
@@ -19,14 +28,56 @@ export function createSupportStore({ api, t, showToast }) {
   });
 
   let pollTimer = null;
-  let pollIncludeList = false;
+  let pollingEnabled = false;
+  let pollInFlight = false;
+  let supportActive = false;
+  let emptyUnreadPolls = 0;
+  let lastUnreadCount = 0;
+  let visibilityHandler = null;
   let listRequestSeq = 0;
   let listPromise = null;
   let listPromiseKey = "";
   let unreadPromise = null;
 
-  function hydrateUnread(value) {
+  function updateUnreadBackoff(value, countEmptyPoll = false) {
     const next = Math.max(0, Number(value || 0));
+    if (countEmptyPoll && next === 0 && next === lastUnreadCount) emptyUnreadPolls += 1;
+    else if (next > 0 || next !== lastUnreadCount) emptyUnreadPolls = 0;
+    lastUnreadCount = next;
+    return next;
+  }
+
+  function nextPollDelay() {
+    if (supportActive) return ACTIVE_POLL_MS;
+    if (lastUnreadCount > 0) return BACKGROUND_POLL_MS;
+    if (emptyUnreadPolls >= PAUSE_AFTER_EMPTY_POLLS) return PAUSED_POLL_MS;
+    if (emptyUnreadPolls >= IDLE_AFTER_EMPTY_POLLS) return IDLE_POLL_MS;
+    return BACKGROUND_POLL_MS;
+  }
+
+  function clearPollTimer() {
+    if (!pollTimer) return;
+    if (typeof window !== "undefined") window.clearTimeout(pollTimer);
+    pollTimer = null;
+  }
+
+  function schedulePoll(delayMs = nextPollDelay()) {
+    if (!pollingEnabled || typeof window === "undefined") return;
+    clearPollTimer();
+    pollTimer = window.setTimeout(runPollTick, Math.max(0, Number(delayMs) || 0));
+  }
+
+  function currentOpenedTicketId() {
+    let opened = null;
+    state.update((s) => {
+      opened = s.openedTicketId;
+      return s;
+    });
+    return opened;
+  }
+
+  function hydrateUnread(value) {
+    const next = updateUnreadBackoff(value);
     state.update((s) => ({
       ...s,
       unreadCount: next,
@@ -213,22 +264,24 @@ export function createSupportStore({ api, t, showToast }) {
     await refreshUnread();
   }
 
-  async function refreshUnread() {
+  async function refreshUnread(options = {}) {
     if (unreadPromise) return unreadPromise;
-    state.update((s) => ({ ...s, unreadLoading: true }));
+    const silent = options.silent === true;
+    if (!silent) state.update((s) => ({ ...s, unreadLoading: true }));
     unreadPromise = (async () => {
       try {
         const res = await api("/support/unread");
         if (res?.ok) {
+          const unreadCount = updateUnreadBackoff(res.unread, options.countEmpty === true);
           state.update((s) => ({
             ...s,
-            unreadCount: Math.max(0, Number(res.unread || 0)),
+            unreadCount,
             unreadLoaded: true,
           }));
         }
         return res;
       } finally {
-        state.update((s) => ({ ...s, unreadLoading: false }));
+        if (!silent) state.update((s) => ({ ...s, unreadLoading: false }));
         unreadPromise = null;
       }
     })();
@@ -240,33 +293,82 @@ export function createSupportStore({ api, t, showToast }) {
     loadList({ force: true, showLoading: true });
   }
 
-  function startPolling(options = {}) {
-    const includeList = options.includeList !== false;
-    pollIncludeList = pollIncludeList || includeList;
-    if (pollTimer || typeof window === "undefined") return;
-    state.update((s) => ({ ...s, polling: true }));
-    const tick = async () => {
-      if (document.visibilityState === "visible") {
-        await refreshUnread();
-        if (!pollIncludeList) return;
-        let opened = null;
-        state.update((s) => {
-          opened = s.openedTicketId;
-          return s;
-        });
+  async function runPollTick() {
+    pollTimer = null;
+    if (!pollingEnabled || typeof document === "undefined") return;
+    if (document.visibilityState !== "visible") {
+      schedulePoll(HIDDEN_POLL_MS);
+      return;
+    }
+    if (pollInFlight) {
+      schedulePoll(ACTIVE_POLL_MS);
+      return;
+    }
+
+    pollInFlight = true;
+    let failed = false;
+    try {
+      await refreshUnread({ silent: true, countEmpty: true });
+      if (supportActive) {
+        const opened = currentOpenedTicketId();
         if (opened) await refreshCurrentTicket(opened);
         else await loadList({ silent: true });
       }
-    };
-    pollTimer = window.setInterval(tick, 15000);
-    document.addEventListener("visibilitychange", tick);
+    } catch (_error) {
+      failed = true;
+    } finally {
+      pollInFlight = false;
+      if (pollingEnabled) schedulePoll(failed ? ERROR_POLL_MS : nextPollDelay());
+    }
+  }
+
+  function setActive(active) {
+    const next = Boolean(active);
+    if (supportActive === next) return;
+    supportActive = next;
+    if (supportActive) emptyUnreadPolls = 0;
+    if (pollingEnabled) schedulePoll(supportActive ? ACTIVE_POLL_MS : nextPollDelay());
+  }
+
+  function startPolling(options = {}) {
+    const includeList = options.includeList !== false;
+    if (typeof window === "undefined") return;
+    pollingEnabled = true;
+    if (includeList) supportActive = true;
+    state.update((s) => (s.polling ? s : { ...s, polling: true }));
+    if (!visibilityHandler && typeof document !== "undefined") {
+      visibilityHandler = () => {
+        if (!pollingEnabled) return;
+        if (document.visibilityState === "visible") {
+          emptyUnreadPolls = 0;
+          schedulePoll(0);
+        } else {
+          schedulePoll(HIDDEN_POLL_MS);
+        }
+      };
+      document.addEventListener("visibilitychange", visibilityHandler);
+    }
+    if (!pollTimer && !pollInFlight) {
+      schedulePoll(supportActive ? ACTIVE_POLL_MS : nextPollDelay());
+    } else if (supportActive) {
+      schedulePoll(ACTIVE_POLL_MS);
+    }
+  }
+
+  function stopVisibilityListener() {
+    if (!visibilityHandler || typeof document === "undefined") return;
+    document.removeEventListener("visibilitychange", visibilityHandler);
+    visibilityHandler = null;
   }
 
   function closePolling() {
-    if (pollTimer) window.clearInterval(pollTimer);
-    pollTimer = null;
-    pollIncludeList = false;
-    state.update((s) => ({ ...s, polling: false }));
+    pollingEnabled = false;
+    supportActive = false;
+    pollInFlight = false;
+    emptyUnreadPolls = 0;
+    clearPollTimer();
+    stopVisibilityListener();
+    state.update((s) => (s.polling ? { ...s, polling: false } : s));
   }
 
   return {
@@ -281,6 +383,7 @@ export function createSupportStore({ api, t, showToast }) {
     markRead,
     refreshUnread,
     setStatusFilter,
+    setActive,
     startPolling,
     closePolling,
   };
