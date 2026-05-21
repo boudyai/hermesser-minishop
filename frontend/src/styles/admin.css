@@ -1594,6 +1594,7 @@
 }
 
 .admin-textarea:focus,
+.admin-screen-wrap textarea:focus,
 .admin-dialog textarea:focus {
   border-color: var(--admin-ring);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);

@@ -297,12 +297,32 @@
   width: 100%;
   min-height: 92px;
   resize: vertical;
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
-  border-radius: 8px;
-  background: var(--input-bg, rgba(255, 255, 255, 0.06));
-  color: inherit;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  color: var(--text);
   padding: 10px 12px;
   font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+.textarea::placeholder {
+  color: var(--dim);
+}
+
+.textarea:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
 }
 
 .scroll-area {

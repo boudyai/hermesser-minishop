@@ -373,6 +373,7 @@ def _builtin_theme_assets_need_refresh(key: str, target_dir: Path) -> bool:
             or "ascii-skeleton-scan" not in style
             or "ascii-boot-type" not in style
             or "Console-style tables" not in style
+            or "New webapp surfaces: support, purchase info, password login" not in style
         )
     if key != "windows95":
         return False
@@ -391,7 +392,9 @@ def _builtin_theme_assets_need_refresh(key: str, target_dir: Path) -> bool:
         or "lucide-circle-check" not in style
         or "border-radius: 0 !important" not in style
         or "::-webkit-slider-thumb" not in style
-        or "?v=6" not in style
+        or "?v=8" not in style
+        or "lucide-life-buoy" not in style
+        or "New webapp surfaces: support, purchase info, password login" not in style
         or any(not (target_dir / "icons" / icon).exists() for icon in required_icons)
     )
 
