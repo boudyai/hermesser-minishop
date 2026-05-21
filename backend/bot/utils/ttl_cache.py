@@ -15,6 +15,7 @@ class AsyncTTLCache:
         self.namespace = namespace
         self._data: Dict[str, Tuple[float, Any]] = {}
         self._locks: Dict[str, asyncio.Lock] = {}
+        self._inflight: Dict[str, asyncio.Task] = {}
 
     def _is_fresh(self, expires_at: float) -> bool:
         return time.monotonic() < expires_at
@@ -46,37 +47,49 @@ class AsyncTTLCache:
             cached = self.get_fresh(key)
             if cached is not None:
                 return cached
+            task = self._inflight.get(key)
+            if task is None:
+                task = asyncio.create_task(self._load_and_store(key, loader))
+                self._inflight[key] = task
 
-            cache_key = None
-            if self.settings is not None and self.namespace:
+                def _forget_inflight(done_task: asyncio.Task) -> None:
+                    if self._inflight.get(key) is done_task:
+                        self._inflight.pop(key, None)
+
+                task.add_done_callback(_forget_inflight)
+        return await task
+
+    async def _load_and_store(self, key: str, loader: Callable[[], Awaitable[Any]]) -> Any:
+        cache_key = None
+        if self.settings is not None and self.namespace:
+            try:
+                from bot.infra.redis import cache_get_json, redis_key
+
+                cache_key = redis_key(self.settings, "cache", self.namespace, key)
+                cached = await cache_get_json(self.settings, cache_key)
+                if cached is not None:
+                    if self._is_cacheable(cached):
+                        self._data[key] = (time.monotonic() + self.ttl_seconds, cached)
+                    return cached
+            except Exception:
+                cache_key = None
+
+        value = await loader()
+        if self._is_cacheable(value):
+            self._data[key] = (time.monotonic() + self.ttl_seconds, value)
+            if cache_key is not None:
                 try:
-                    from bot.infra.redis import cache_get_json, redis_key
+                    from bot.infra.redis import cache_set_json
 
-                    cache_key = redis_key(self.settings, "cache", self.namespace, key)
-                    cached = await cache_get_json(self.settings, cache_key)
-                    if cached is not None:
-                        if self._is_cacheable(cached):
-                            self._data[key] = (time.monotonic() + self.ttl_seconds, cached)
-                        return cached
+                    await cache_set_json(
+                        self.settings,
+                        cache_key,
+                        value,
+                        max(1, int(self.ttl_seconds)),
+                    )
                 except Exception:
-                    cache_key = None
-
-            value = await loader()
-            if self._is_cacheable(value):
-                self._data[key] = (time.monotonic() + self.ttl_seconds, value)
-                if cache_key is not None:
-                    try:
-                        from bot.infra.redis import cache_set_json
-
-                        await cache_set_json(
-                            self.settings,
-                            cache_key,
-                            value,
-                            max(1, int(self.ttl_seconds)),
-                        )
-                    except Exception:
-                        pass
-            return value
+                    pass
+        return value
 
     def invalidate(self, key: Optional[str] = None) -> None:
         if key is None:

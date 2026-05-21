@@ -1,5 +1,7 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
+
+from bot.app.web.webapp.cache_helpers import webapp_cached_user_payload
 from .auth import _hash_email_password
 from .common import _invalidate_webapp_user_caches
 
@@ -433,12 +435,13 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
 async def me_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     settings: Settings = request.app["settings"]
-    cache_key = redis_key(settings, "cache", "webapp", "me", user_id)
-    cached = await cache_get_json(settings, cache_key)
-    if cached:
-        return web.json_response({"ok": True, **cached})
-    data = await _build_user_payload(request, user_id)
-    await cache_set_json(settings, cache_key, data, settings.WEBAPP_ME_CACHE_TTL_SECONDS)
+    data = await webapp_cached_user_payload(
+        settings,
+        "me",
+        user_id,
+        int(getattr(settings, "WEBAPP_ME_CACHE_TTL_SECONDS", 15) or 0),
+        lambda: _build_user_payload(request, user_id),
+    )
     return web.json_response({"ok": True, **data})
 
 

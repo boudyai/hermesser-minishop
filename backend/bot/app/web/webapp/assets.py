@@ -9,6 +9,11 @@ from config.webapp_themes_config import (
     public_themes_catalog_payload,
 )
 
+_TEXT_FILE_CACHE: Dict[tuple[str, bool], tuple[int, int, str]] = {}
+_ASSET_NAME_CACHE: Dict[tuple[str, str], tuple[float, str]] = {}
+_I18N_PAYLOAD_CACHE: Dict[tuple[int, str, tuple[tuple[str, int, int], ...]], Dict[str, Any]] = {}
+_ASSET_NAME_CACHE_TTL_SECONDS = 30.0
+
 
 async def health_route(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
@@ -910,11 +915,28 @@ def _normalize_i18n_scope(raw_scope: object) -> str:
     return scope if scope in WEBAPP_I18N_SCOPES else "webapp"
 
 
+def _i18n_cache_fingerprint(
+    locales_data: Dict[str, Any],
+) -> tuple[tuple[str, int, int], ...]:
+    return tuple(
+        sorted(
+            (str(lang), id(messages), len(messages))
+            for lang, messages in locales_data.items()
+            if isinstance(messages, dict)
+        )
+    )
+
+
 def _filter_webapp_i18n_payload(locales_data: object, scope: str = "webapp") -> Dict[str, Any]:
     if not isinstance(locales_data, dict):
         return {}
 
     normalized_scope = _normalize_i18n_scope(scope)
+    cache_key = (id(locales_data), normalized_scope, _i18n_cache_fingerprint(locales_data))
+    cached = _I18N_PAYLOAD_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
     payload: Dict[str, Any] = {}
     for lang, messages in locales_data.items():
         if not isinstance(messages, dict):
@@ -928,6 +950,9 @@ def _filter_webapp_i18n_payload(locales_data: object, scope: str = "webapp") -> 
             ):
                 filtered[key_text] = value
         payload[str(lang)] = filtered
+    if len(_I18N_PAYLOAD_CACHE) > 32:
+        _I18N_PAYLOAD_CACHE.clear()
+    _I18N_PAYLOAD_CACHE[cache_key] = payload
     return payload
 
 
@@ -1005,7 +1030,7 @@ async def index_route(request: web.Request) -> web.Response:
     if not settings.WEBAPP_ENABLED:
         raise web.HTTPNotFound(text="webapp_disabled")
 
-    html = TEMPLATE_PATH.read_text(encoding="utf-8")
+    html = _read_template_text_cached(TEMPLATE_PATH)
     cached = _get_cached_webapp_settings(request)
     themes_catalog = settings.webapp_themes_catalog
     primary_color = settings.WEBAPP_PRIMARY_COLOR or "#00fe7a"
@@ -1082,6 +1107,17 @@ async def _serve_template_asset(
         raise web.HTTPNotFound(text="webapp_disabled")
 
     path = ASSET_DIR / filename
+    text = _read_template_text_cached(path, strip_dev_mock=strip_dev_mock)
+    return web.Response(text=text, content_type=content_type, charset="utf-8")
+
+
+def _read_template_text_cached(path: Path, *, strip_dev_mock: bool = False) -> str:
+    stat = path.stat()
+    key = (str(path.resolve()), strip_dev_mock)
+    cached = _TEXT_FILE_CACHE.get(key)
+    if cached and cached[0] == stat.st_mtime_ns and cached[1] == stat.st_size:
+        return cached[2]
+
     text = path.read_text(encoding="utf-8")
     if strip_dev_mock:
         text = _strip_marked_block(
@@ -1089,10 +1125,17 @@ async def _serve_template_asset(
             "/* WEBAPP_DEV_MOCK_START */",
             "/* WEBAPP_DEV_MOCK_END */",
         )
-    return web.Response(text=text, content_type=content_type, charset="utf-8")
+    _TEXT_FILE_CACHE[key] = (stat.st_mtime_ns, stat.st_size, text)
+    if len(_TEXT_FILE_CACHE) > 24:
+        _TEXT_FILE_CACHE.clear()
+        _TEXT_FILE_CACHE[key] = (stat.st_mtime_ns, stat.st_size, text)
+    return text
 
 
 def _resolve_webapp_js_asset_name() -> str:
+    cached = _get_cached_asset_name("js")
+    if cached:
+        return cached
     minified_assets = []
     for path in ASSET_DIR.glob("subscription_webapp.min.*.js"):
         try:
@@ -1101,11 +1144,14 @@ def _resolve_webapp_js_asset_name() -> str:
             continue
     if minified_assets:
         minified_assets.sort(reverse=True)
-        return minified_assets[0][1]
-    return "subscription_webapp.js"
+        return _set_cached_asset_name("js", minified_assets[0][1])
+    return _set_cached_asset_name("js", "subscription_webapp.js")
 
 
 def _resolve_webapp_css_asset_name() -> str:
+    cached = _get_cached_asset_name("css")
+    if cached:
+        return cached
     hashed_assets = []
     for path in ASSET_DIR.glob("subscription_webapp.*.css"):
         if not re.fullmatch(r"subscription_webapp\.[0-9a-f]{8}\.css", path.name):
@@ -1116,8 +1162,25 @@ def _resolve_webapp_css_asset_name() -> str:
             continue
     if hashed_assets:
         hashed_assets.sort(reverse=True)
-        return hashed_assets[0][1]
-    return "subscription_webapp.css"
+        return _set_cached_asset_name("css", hashed_assets[0][1])
+    return _set_cached_asset_name("css", "subscription_webapp.css")
+
+
+def _get_cached_asset_name(kind: str) -> Optional[str]:
+    key = (str(ASSET_DIR.resolve()), kind)
+    cached = _ASSET_NAME_CACHE.get(key)
+    if not cached:
+        return None
+    cached_at, filename = cached
+    if time.monotonic() - cached_at >= _ASSET_NAME_CACHE_TTL_SECONDS:
+        return None
+    return filename
+
+
+def _set_cached_asset_name(kind: str, filename: str) -> str:
+    key = (str(ASSET_DIR.resolve()), kind)
+    _ASSET_NAME_CACHE[key] = (time.monotonic(), filename)
+    return filename
 
 
 _INITIAL_THEME_TOKEN_CSS_MAP = {

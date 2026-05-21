@@ -1,6 +1,10 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
 
+from bot.app.web.webapp.cache_helpers import (
+    invalidate_local_webapp_user_payload,
+)
+
 
 async def _read_json(request: web.Request) -> Dict[str, Any]:
     try:
@@ -35,8 +39,10 @@ async def _invalidate_webapp_user_caches(
             continue
         seen.add(user_id)
         keys.append(redis_key(settings, "cache", "webapp", "me", user_id))
+        invalidate_local_webapp_user_payload(settings, "me", user_id)
         if include_devices:
             keys.append(redis_key(settings, "cache", "webapp", "devices", user_id))
+            invalidate_local_webapp_user_payload(settings, "devices", user_id)
     if keys:
         await cache_delete(settings, *keys)
 
