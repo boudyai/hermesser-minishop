@@ -145,6 +145,12 @@ export function createAccountStore({
     clearPasswordCooldownTimer();
   }
 
+  function getTelegramOAuthClientId() {
+    const value =
+      typeof telegramOAuthClientId === "function" ? telegramOAuthClientId() : telegramOAuthClientId;
+    return Number(value || 0);
+  }
+
   function closeSetPasswordDialog() {
     state.update((s) => ({
       ...s,
@@ -318,19 +324,21 @@ export function createAccountStore({
     }
   }
 
-  async function linkTelegramAccount(getTelegramMiniAppInitData) {
+  async function linkTelegramAccount(getTelegramMiniAppInitData = () => "") {
     const s = get(state);
     if (s.linkTelegramBusy) return;
+    const readTelegramMiniAppInitData =
+      typeof getTelegramMiniAppInitData === "function" ? getTelegramMiniAppInitData : () => "";
     const isTelegramMiniAppAttempt = telegramSdk.hasLaunchParams();
     if (isTelegramMiniAppAttempt) {
       await telegramSdk.ensureForAction();
     }
-    const initData = getTelegramMiniAppInitData();
+    const initData = readTelegramMiniAppInitData();
     if (initData) {
       await linkTelegramAccountWithPayload({ init_data: initData });
       return;
     }
-    if (!telegramOAuthClientId) {
+    if (!getTelegramOAuthClientId()) {
       showToast(t("wa_auth_telegram_not_configured"));
       return;
     }

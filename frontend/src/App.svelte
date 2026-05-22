@@ -194,7 +194,7 @@
     showLogin,
     telegramSdk,
     getTg: () => tg,
-    telegramOAuthClientId,
+    telegramOAuthClientId: () => telegramOAuthClientId,
     currentLang: () => currentLang,
     normalizeLangCode,
     updateLocalData: (updatedLanguage) => {
@@ -1443,7 +1443,8 @@
                 {userAgreementUrl}
                 {userLanguage}
                 showLogout={!telegramMiniAppContext}
-                linkTelegramAccount={accountStore.linkTelegramAccount}
+                linkTelegramAccount={() =>
+                  accountStore.linkTelegramAccount(() => telegramMiniAppInitData)}
                 logout={accountStore.logout}
                 {openAdminPanel}
                 {openExternalLink}
