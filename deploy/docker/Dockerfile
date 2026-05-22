@@ -1,32 +1,45 @@
-# Resolve the application version from .git at build time and emit a single
-# tiny ``.build-version`` file. The .git tree is consumed in this throwaway
-# stage and never copied into the runtime image — only the resulting one-line
-# version string ships. This matches the runtime fallback chain in
-# ``_resolve_app_version`` (REMNAWAVE_MINISHOP_VERSION env > .build-version
-# file > live git > "dev+unknown") so the admin sidebar always shows a tag /
-# sha even though the runtime images have no git tooling and no .git tree.
+# Resolve the application version from .git at build time and emit a tiny
+# .build-version file. The .git tree is consumed in this throwaway stage and
+# never copied into the runtime image; only the tag + commit version string
+# ships. Non-main builds include the branch name so they are visibly distinct
+# from release builds. This matches the runtime fallback chain in _resolve_app_version
+# (REMNAWAVE_MINISHOP_VERSION env > .build-version file > live git >
+# "dev+unknown") so the admin sidebar always shows a tag / sha even though the
+# runtime images have no git tooling and no .git tree.
 FROM alpine:3.20 AS version-builder
 RUN apk add --no-cache git
 WORKDIR /repo
+ARG REMNAWAVE_MINISHOP_BRANCH=""
+ARG GIT_BRANCH=""
+ARG BRANCH_NAME=""
+ARG GITHUB_REF_NAME=""
+ARG CI_COMMIT_REF_NAME=""
 COPY .git ./.git
 RUN set -eu; \
     git config --global --add safe.directory /repo; \
     tag=$(git describe --tags --abbrev=0 2>/dev/null || true); \
     sha=$(git rev-parse --short HEAD 2>/dev/null || true); \
-    dirty=$(git status --porcelain 2>/dev/null | head -c1 || true); \
+    branch="${REMNAWAVE_MINISHOP_BRANCH:-${GIT_BRANCH:-${BRANCH_NAME:-${GITHUB_REF_NAME:-${CI_COMMIT_REF_NAME:-}}}}}"; \
+    if [ -z "$branch" ]; then branch=$(git branch --show-current 2>/dev/null || true); fi; \
+    if [ -z "$branch" ]; then branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true); fi; \
+    case "$branch" in \
+        refs/heads/*) branch="${branch#refs/heads/}" ;; \
+        refs/remotes/origin/*) branch="${branch#refs/remotes/origin/}" ;; \
+        origin/*) branch="${branch#origin/}" ;; \
+        HEAD) branch="" ;; \
+    esac; \
+    branch_slug=$(printf '%s' "$branch" | sed -E 's/[^A-Za-z0-9._-]+/-/g; s/^-+//; s/-+$//' | cut -c1-48); \
+    branch_suffix=""; \
+    if [ -n "$branch_slug" ] && [ "$branch_slug" != "main" ]; then branch_suffix="-$branch_slug"; fi; \
     if [ -n "$tag" ] && [ -n "$sha" ]; then \
-        commits_since_tag=$(git rev-list "$tag..HEAD" --count 2>/dev/null || true); \
-        if [ -n "$commits_since_tag" ] && [ "$commits_since_tag" != "0" ]; then \
-            version="${tag}+${commits_since_tag}.g${sha}"; \
-        else \
-            version="$tag"; \
-        fi; \
+        version="${tag}${branch_suffix}+g${sha}"; \
     elif [ -n "$sha" ]; then \
-        version="dev+g${sha}"; \
+        version="dev${branch_suffix}+g${sha}"; \
+    elif [ -n "$tag" ]; then \
+        version="${tag}${branch_suffix}"; \
     else \
-        version="dev+unknown"; \
+        version="dev${branch_suffix}+unknown"; \
     fi; \
-    if [ -n "$dirty" ]; then version="${version}-dirty"; fi; \
     printf '%s' "$version" > /build-version; \
     printf '%s' "${tag:-unknown}" > /build-tag; \
     printf '%s' "${sha:-unknown}" > /build-commit

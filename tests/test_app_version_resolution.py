@@ -1,20 +1,21 @@
-"""Tests for ``_resolve_app_version`` — the source of the admin sidebar footer.
+"""Tests for ``_resolve_app_version``: the admin sidebar footer source.
 
 The admin sidebar shows ``{appVersion}`` next to a "remnawave-minishop" GitHub
-link. That string is rendered by
-``backend/bot/app/web/webapp/assets.py::_resolve_app_version`` through the
-following precedence chain:
+link. Release builds from ``main`` should render the latest reachable tag and
+commit sha, without a dirty suffix. Builds from other branches include the
+branch name. That string is rendered by
+``backend/bot/app/web/webapp/assets.py::_resolve_app_version`` through this
+precedence chain:
 
-  1. ``REMNAWAVE_MINISHOP_VERSION`` env var — manual override;
-  2. ``$APP_ROOT/.build-version`` file — baked at Docker build time by the
-     ``version-builder`` stage in ``deploy/docker/Dockerfile`` (consumes .git
-     in a throwaway stage and ships only this one tiny file);
-  3. live ``git describe`` / ``rev-parse`` — works in local dev where .git
-     is present;
+  1. ``REMNAWAVE_MINISHOP_VERSION`` env var: manual override;
+  2. ``$APP_ROOT/.build-version`` file: baked at Docker build time by the
+     ``version-builder`` stage in ``deploy/docker/Dockerfile``;
+  3. live ``git describe`` / ``rev-parse``: local dev fallback where .git is
+     present;
   4. ``"dev+unknown"`` as the ultimate fallback.
 
-Before the build-time bake, the admin footer in production silently fell back
-to step 4 because the Docker image carries no .git tree and no git binary.
+The Docker image carries no git binary and no .git tree at runtime, so the
+baked ``.build-version`` file is the production source for the sidebar.
 """
 
 import importlib
@@ -28,17 +29,33 @@ from unittest.mock import patch
 import bot.app.web.subscription_webapp  # noqa: F401
 from bot.app.web.webapp import assets as assets_module
 
+_VERSION_ENV_NAMES = (
+    "REMNAWAVE_MINISHOP_VERSION",
+    "REMNAWAVE_MINISHOP_BRANCH",
+    "GIT_BRANCH",
+    "BRANCH_NAME",
+    "GITHUB_REF_NAME",
+    "CI_COMMIT_REF_NAME",
+)
+
 
 def _reset_cache() -> None:
     # The resolver memoizes the first result in a module-level global.
     assets_module._APP_VERSION_CACHE = None  # type: ignore[attr-defined]
-    # Some callers reach through the facade re-export — clear that too.
+    # Some callers reach through the facade re-export; clear that too.
     runtime = importlib.import_module("bot.app.web.webapp._runtime")
     runtime._APP_VERSION_CACHE = None  # type: ignore[attr-defined]
 
 
 def _resolve():
     return assets_module._resolve_app_version()
+
+
+def _clean_version_env() -> dict:
+    env = dict(os.environ)
+    for name in _VERSION_ENV_NAMES:
+        env.pop(name, None)
+    return env
 
 
 class EnvOverrideTests(unittest.TestCase):
@@ -62,12 +79,13 @@ class EnvOverrideTests(unittest.TestCase):
         self.assertEqual(called["git"], 0)
 
     def test_blank_env_var_falls_through(self):
-        env = {"REMNAWAVE_MINISHOP_VERSION": "   "}
+        env = _clean_version_env()
+        env["REMNAWAVE_MINISHOP_VERSION"] = "   "
         with (
-            patch.dict(os.environ, env),
+            patch.dict(os.environ, env, clear=True),
             patch.object(assets_module, "_run_git_command", lambda *a: ""),
         ):
-            # No env, no file, no git → fallback string.
+            # No env, no file, no git: fallback string.
             self.assertEqual(_resolve(), "dev+unknown")
 
 
@@ -80,24 +98,22 @@ class BuildVersionFileTests(unittest.TestCase):
 
     def test_reads_baked_version_file(self):
         with tempfile.TemporaryDirectory() as tmp:
-            (Path(tmp) / ".build-version").write_text("v3.4.5+12.gabcdef1", encoding="utf-8")
-            env = dict(os.environ)
-            env.pop("REMNAWAVE_MINISHOP_VERSION", None)
+            (Path(tmp) / ".build-version").write_text("v3.4.5+gabcdef1", encoding="utf-8")
+            env = _clean_version_env()
             with (
                 patch.dict(os.environ, env, clear=True),
                 patch.object(assets_module, "APP_ROOT", Path(tmp)),
-                # ensure live git doesn't accidentally win if file read fails:
+                # Ensure live git does not accidentally win if file read fails.
                 patch.object(assets_module, "_run_git_command", lambda *a: ""),
             ):
-                self.assertEqual(_resolve(), "v3.4.5+12.gabcdef1")
+                self.assertEqual(_resolve(), "v3.4.5+gabcdef1")
 
     def test_strips_trailing_whitespace_and_newlines_in_file(self):
-        # Shell ``printf '%s'`` writes no newline, but earlier helpers used
-        # ``echo`` which appends one. Both must produce the same result.
+        # Shell ``printf '%s'`` writes no newline, but older helpers may have
+        # used ``echo``. Both must produce the same result.
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / ".build-version").write_text("v1.2.3\n\n", encoding="utf-8")
-            env = dict(os.environ)
-            env.pop("REMNAWAVE_MINISHOP_VERSION", None)
+            env = _clean_version_env()
             with (
                 patch.dict(os.environ, env, clear=True),
                 patch.object(assets_module, "APP_ROOT", Path(tmp)),
@@ -108,14 +124,13 @@ class BuildVersionFileTests(unittest.TestCase):
     def test_empty_file_falls_through_to_git_then_unknown(self):
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / ".build-version").write_text("", encoding="utf-8")
-            env = dict(os.environ)
-            env.pop("REMNAWAVE_MINISHOP_VERSION", None)
+            env = _clean_version_env()
             with (
                 patch.dict(os.environ, env, clear=True),
                 patch.object(assets_module, "APP_ROOT", Path(tmp)),
                 patch.object(assets_module, "_run_git_command", lambda *a: ""),
             ):
-                # No env, empty file, no live git → ultimate fallback.
+                # No env, empty file, no live git: ultimate fallback.
                 self.assertEqual(_resolve(), "dev+unknown")
 
 
@@ -126,56 +141,83 @@ class LiveGitFallbackTests(unittest.TestCase):
         _reset_cache()
         self.addCleanup(_reset_cache)
 
-    def _run_with_git(self, replies: dict, *, dirty: bool = False) -> str:
-        # Map (subcommand, *args) tuples to canned stdout values.
-        def fake_git(*args):
-            return replies.get(args, "")
-
+    def _run_with_git(self, replies: dict) -> str:
         with tempfile.TemporaryDirectory() as tmp:
             # ``.build-version`` deliberately absent so we fall through.
-            env = dict(os.environ)
-            env.pop("REMNAWAVE_MINISHOP_VERSION", None)
+            env = _clean_version_env()
             base = {
                 ("describe", "--tags", "--abbrev=0"): replies.get("tag", ""),
                 ("rev-parse", "--short", "HEAD"): replies.get("sha", ""),
-                ("status", "--porcelain"): "M file\n" if dirty else "",
-                ("rev-list", f"{replies.get('tag', '')}..HEAD", "--count"): replies.get(
-                    "commits_since_tag", "0"
-                ),
+                ("branch", "--show-current"): replies.get("branch", ""),
             }
 
-            def real_fake_git(*args):
+            def fake_git(*args):
                 return base.get(args, "")
 
             with (
                 patch.dict(os.environ, env, clear=True),
                 patch.object(assets_module, "APP_ROOT", Path(tmp)),
-                patch.object(assets_module, "_run_git_command", real_fake_git),
+                patch.object(assets_module, "_run_git_command", fake_git),
             ):
                 return _resolve()
 
-    def test_tag_with_zero_commits_since_returns_bare_tag(self):
-        result = self._run_with_git({"tag": "v2.0.0", "sha": "abcdef1", "commits_since_tag": "0"})
-        self.assertEqual(result, "v2.0.0")
+    def test_tag_with_sha_returns_tag_plus_sha(self):
+        result = self._run_with_git({"tag": "v2.0.0", "sha": "abcdef1"})
+        self.assertEqual(result, "v2.0.0+gabcdef1")
 
-    def test_tag_plus_distance_plus_sha_format(self):
+    def test_main_branch_does_not_add_branch_suffix(self):
+        result = self._run_with_git({"tag": "v2.0.0", "sha": "abcdef1", "branch": "main"})
+        self.assertEqual(result, "v2.0.0+gabcdef1")
+
+    def test_non_main_branch_adds_branch_suffix(self):
+        result = self._run_with_git({"tag": "v2.0.0", "sha": "abcdef1", "branch": "dev"})
+        self.assertEqual(result, "v2.0.0-dev+gabcdef1")
+
+    def test_branch_name_is_sanitized_for_version(self):
+        result = self._run_with_git(
+            {"tag": "v2.0.0", "sha": "abcdef1", "branch": "feature/cool build"}
+        )
+        self.assertEqual(result, "v2.0.0-feature-cool-build+gabcdef1")
+
+    def test_commit_distance_is_not_included(self):
         result = self._run_with_git({"tag": "v2.0.0", "sha": "abcdef1", "commits_since_tag": "7"})
-        self.assertEqual(result, "v2.0.0+7.gabcdef1")
+        self.assertEqual(result, "v2.0.0+gabcdef1")
 
     def test_sha_only_when_no_tag(self):
         result = self._run_with_git({"sha": "abcdef1"})
         self.assertEqual(result, "dev+gabcdef1")
 
+    def test_tag_only_when_no_sha(self):
+        result = self._run_with_git({"tag": "v2.0.0"})
+        self.assertEqual(result, "v2.0.0")
+
     def test_neither_tag_nor_sha_is_unknown(self):
         result = self._run_with_git({})
         self.assertEqual(result, "dev+unknown")
 
-    def test_dirty_suffix_is_appended(self):
-        result = self._run_with_git(
-            {"tag": "v2.0.0", "sha": "abcdef1", "commits_since_tag": "0"},
-            dirty=True,
-        )
-        self.assertEqual(result, "v2.0.0-dirty")
+    def test_dirty_suffix_is_not_appended_or_queried(self):
+        calls = []
+
+        def fake_git(*args):
+            calls.append(args)
+            replies = {
+                ("describe", "--tags", "--abbrev=0"): "v2.0.0",
+                ("rev-parse", "--short", "HEAD"): "abcdef1",
+                ("status", "--porcelain"): "M file\n",
+            }
+            return replies.get(args, "")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            env = _clean_version_env()
+            with (
+                patch.dict(os.environ, env, clear=True),
+                patch.object(assets_module, "APP_ROOT", Path(tmp)),
+                patch.object(assets_module, "_run_git_command", fake_git),
+            ):
+                result = _resolve()
+
+        self.assertEqual(result, "v2.0.0+gabcdef1")
+        self.assertNotIn(("status", "--porcelain"), calls)
 
 
 class CacheBehaviourTests(unittest.TestCase):
@@ -191,8 +233,7 @@ class CacheBehaviourTests(unittest.TestCase):
             return "abcdef1" if args == ("rev-parse", "--short", "HEAD") else ""
 
         with tempfile.TemporaryDirectory() as tmp:
-            env = dict(os.environ)
-            env.pop("REMNAWAVE_MINISHOP_VERSION", None)
+            env = _clean_version_env()
             with (
                 patch.dict(os.environ, env, clear=True),
                 patch.object(assets_module, "APP_ROOT", Path(tmp)),
