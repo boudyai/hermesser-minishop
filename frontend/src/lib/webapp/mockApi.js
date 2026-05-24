@@ -108,6 +108,53 @@ export async function mockApi(path, options = {}, context = {}) {
       user: adminUsers[0],
     },
   ];
+  const adminPayments = [
+    {
+      payment_id: 12,
+      user_id: 100200300,
+      user_label: "anna_ops",
+      telegram_id: 100200300,
+      traffic_regular_gb: null,
+      traffic_premium_gb: null,
+      provider: "yookassa",
+      provider_payment_id: "2f3a7c9e-yk-preview",
+      yookassa_payment_id: "2f3a7c9e-yk-preview",
+      idempotence_key: "admin-preview-payment-12",
+      amount: 790,
+      currency: "RUB",
+      status: "succeeded",
+      description: "Standard · 1 месяц",
+      subscription_duration_months: 1,
+      sale_mode: "subscription",
+      tariff_key: "standard",
+      purchased_gb: null,
+      purchased_hwid_devices: null,
+      promo_code: "SPRING",
+      created_at: "2026-05-01T14:15:00Z",
+      updated_at: "2026-05-01T14:17:00Z",
+    },
+    {
+      payment_id: 13,
+      user_id: 100200301,
+      user_label: "client_pro",
+      telegram_id: 87543123,
+      traffic_regular_gb: 25,
+      traffic_premium_gb: null,
+      provider: "platega",
+      provider_payment_id: "platega-demo-13",
+      amount: 199,
+      currency: "RUB",
+      status: "pending_platega",
+      description: "",
+      subscription_duration_months: null,
+      sale_mode: "traffic_package",
+      tariff_key: "standard",
+      purchased_gb: 25,
+      purchased_hwid_devices: null,
+      created_at: new Date(Date.now() - 3 * 3600000).toISOString(),
+      updated_at: null,
+    },
+  ];
   function supportCounts(items = supportTickets) {
     const byStatus = { open: 0, awaiting_admin: 0, awaiting_user: 0, resolved: 0 };
     for (const item of items) {
@@ -242,19 +289,23 @@ export async function mockApi(path, options = {}, context = {}) {
         users_processed: 172,
         subscriptions_synced: 168,
       },
-      recent_payments: [
-        {
-          payment_id: 1,
-          user_id: 100200300,
-          user_label: "anna_ops",
-          amount: 790,
-          currency: "RUB",
-          provider: "yookassa",
-          status: "succeeded",
-          created_at: new Date().toISOString(),
-        },
-      ],
+      recent_payments: adminPayments.slice(0, 1),
     };
+  }
+  if (cleanPath === "/admin/payments") {
+    return {
+      ok: true,
+      payments: clone(adminPayments),
+      total: adminPayments.length,
+      page: 0,
+      page_size: 25,
+    };
+  }
+  if (cleanPath.startsWith("/admin/payments/")) {
+    const id = Number(cleanPath.split("/")[3]);
+    if (!Number.isFinite(id)) return { ok: false, error: "not_found" };
+    const payment = adminPayments.find((item) => item.payment_id === id) || adminPayments[0];
+    return { ok: true, payment: clone(payment) };
   }
   if (cleanPath === "/admin/users")
     return { ok: true, users: adminUsers, total: adminUsers.length, page: 0, page_size: 25 };

@@ -41,7 +41,7 @@ export function adminSectionFromPath(pathname) {
   const normalized = String(pathname || "")
     .toLowerCase()
     .replace(/\/+$/, "");
-  const m = normalized.match(/^\/admin\/([a-z0-9_-]+)(?:\/[^/]+)?$/);
+  const m = normalized.match(/^\/admin\/([a-z0-9_-]+)(?:\/.*)?$/);
   if (m && ADMIN_SECTIONS.has(m[1])) return m[1];
   return "stats";
 }
@@ -51,6 +51,14 @@ export function adminUserIdFromPath(pathname) {
     .toLowerCase()
     .replace(/\/+$/, "");
   const m = normalized.match(/^\/admin\/users\/(-?\d+)$/);
+  return m ? Number(m[1]) : null;
+}
+
+export function adminPaymentIdFromPath(pathname) {
+  const normalized = String(pathname || "")
+    .toLowerCase()
+    .replace(/\/+$/, "");
+  const m = normalized.match(/^\/admin\/payments\/(\d+)$/);
   return m ? Number(m[1]) : null;
 }
 
@@ -80,8 +88,10 @@ export function syncSectionPath(section, replace = false, adminSection = null, a
       adminUserId ?? (adm === "users" ? adminUserIdFromPath(window.location.pathname) : null);
     const supportTicketId =
       adm === "support" ? adminSupportTicketIdFromPath(window.location.pathname) : null;
+    const paymentId = adm === "payments" ? adminPaymentIdFromPath(window.location.pathname) : null;
     if (adm === "users" && uid) targetPath = `/admin/users/${uid}`;
     else if (adm === "support" && supportTicketId) targetPath = `/admin/support/${supportTicketId}`;
+    else if (adm === "payments" && paymentId) targetPath = `/admin/payments/${paymentId}`;
     else targetPath = `/admin/${adm}`;
   }
   if (window.location.pathname === targetPath) return;

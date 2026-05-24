@@ -36,6 +36,7 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_delete("/api/admin/users/{user_id:-?\\d+}", admin_user_delete_route)
 
     router.add_get("/api/admin/payments", admin_payments_list_route)
+    router.add_get("/api/admin/payments/{payment_id:\\d+}", admin_payment_detail_route)
     router.add_get("/api/admin/payments/export.csv", admin_payments_export_route)
 
     router.add_get("/api/admin/promos", admin_promos_list_route)

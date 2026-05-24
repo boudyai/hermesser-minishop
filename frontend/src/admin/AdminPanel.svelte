@@ -30,6 +30,7 @@
   import AdsSection from "./sections/AdsSection.svelte";
   import BroadcastSection from "./sections/BroadcastSection.svelte";
   import LogsSection from "./sections/LogsSection.svelte";
+  import PaymentDetailModal from "./sections/PaymentDetailModal.svelte";
   import PaymentsSection from "./sections/PaymentsSection.svelte";
   import PromosSection from "./sections/PromosSection.svelte";
   import SettingsSection from "./sections/SettingsSection.svelte";
@@ -75,6 +76,7 @@
   export let onClose = () => {};
   export let onToast = () => {};
   export let initialSection = "stats";
+  export let initialPaymentId = null;
   export let initialUserId = null;
   export let onSectionChange = () => {};
   export let onSettingsSaved = () => {};
@@ -213,7 +215,7 @@
   const adsStore = createAdsStore({ api, onToast: flash, at });
   const broadcastStore = createBroadcastStore({ api, onToast: flash, at });
   const logsStore = createLogsStore({ api, at });
-  const paymentsStore = createPaymentsStore({ api, at });
+  const paymentsStore = createPaymentsStore({ api, onToast: flash, at });
   const promosStore = createPromosStore({ api, onToast: flash, at });
   const settingsStore = createSettingsStore({ api, onToast: flash, at });
   const statsStore = createStatsStore({ api, onToast: flash, at });
@@ -235,6 +237,7 @@
   setContext("themesStore", themesStore);
 
   $: usersStore.setActive(active);
+  $: paymentsStore.setActive(active);
   $: supportStore.setActive(active);
   $: dirtyCount = Object.keys($settingsStore.settingsDirty || {}).length;
   $: syncBusy = $statsStore.syncBusy;
@@ -251,13 +254,14 @@
     if (active === next) return;
     active = next;
     usersStore.closeUser();
+    paymentsStore.closePayment();
     supportStore.closeTicketView();
     onSectionChange(next);
   }
 
   function readSectionFromPath() {
     if (typeof window === "undefined") return "stats";
-    const match = window.location.pathname.match(/^\/admin\/([a-z0-9_-]+)(?:\/[^/]+)?$/i);
+    const match = window.location.pathname.match(/^\/admin\/([a-z0-9_-]+)(?:\/.*)?$/i);
     return normalizeSection(match ? match[1].toLowerCase() : "stats");
   }
 
@@ -273,6 +277,12 @@
     return match ? Number(match[1]) : null;
   }
 
+  function readPaymentIdFromPath() {
+    if (typeof window === "undefined") return null;
+    const match = window.location.pathname.match(/^\/admin\/payments\/(\d+)$/);
+    return match ? Number(match[1]) : null;
+  }
+
   function onPopState() {
     active = readSectionFromPath();
     sidebarOpen = false;
@@ -283,6 +293,14 @@
       }
     } else if ($usersStore.openedUser) {
       usersStore.closeUser({ skipPush: true });
+    }
+    const paymentId = readPaymentIdFromPath();
+    if (active === "payments" && paymentId) {
+      if (!$paymentsStore.openedPaymentId || $paymentsStore.openedPaymentId !== paymentId) {
+        paymentsStore.openPayment(paymentId, { skipPush: true });
+      }
+    } else if ($paymentsStore.openedPaymentId) {
+      paymentsStore.closePayment({ skipPush: true });
     }
     const ticketId = readSupportTicketIdFromPath();
     if (active === "support" && ticketId) {
@@ -433,6 +451,15 @@
   ) {
     usersStore.openUser(initialUserId, { skipPush: true });
   }
+
+  $: if (
+    active === "payments" &&
+    initialPaymentId &&
+    (!$paymentsStore.openedPaymentId || $paymentsStore.openedPaymentId !== initialPaymentId)
+  ) {
+    paymentsStore.openPayment(initialPaymentId, { skipPush: true });
+  }
+
 </script>
 
 <div class="admin-screen-wrap" class:is-sidebar-open={sidebarOpen}>
@@ -710,6 +737,14 @@
 </div>
 
 <TariffEditorModal {at} />
+
+<PaymentDetailModal
+  {at}
+  {fmtDate}
+  {fmtMoney}
+  {paymentStatusVariant}
+  onOpenUserCard={openPaymentUserCard}
+/>
 
 <UserDetailModal
   {at}

@@ -32,6 +32,35 @@ async def admin_payments_list_route(request: web.Request) -> web.Response:
     )
 
 
+async def admin_payment_detail_route(request: web.Request) -> web.Response:
+    _require_admin_user_id(request)
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+
+    try:
+        payment_id = int(request.match_info["payment_id"])
+    except (TypeError, ValueError):
+        return _error(400, "invalid_payment", "Invalid payment id")
+
+    async with async_session_factory() as session:
+        payment = await payment_dal.get_payment_by_db_id(session, payment_id)
+        if not payment:
+            return _error(404, "not_found", "Payment not found")
+
+        payload = _serialize_payment(payment)
+        payload.update(
+            {
+                "yookassa_payment_id": payment.yookassa_payment_id,
+                "idempotence_key": payment.idempotence_key,
+                "promo_code": (
+                    payment.promo_code_used.code if payment.promo_code_used is not None else None
+                ),
+                "updated_at": payment.updated_at.isoformat() if payment.updated_at else None,
+            }
+        )
+
+    return _ok({"payment": payload})
+
+
 async def admin_payments_export_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     async_session_factory: sessionmaker = request.app["async_session_factory"]

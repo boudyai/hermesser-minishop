@@ -8,7 +8,7 @@
     AdminTable,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
-  import { User } from "$components/ui/icons.js";
+  import { FileText, User } from "$components/ui/icons.js";
 
   export let at = (key) => key;
   export let fmtDate = (value) => value;
@@ -117,7 +117,19 @@
       <tbody>
         {#each payments as p}
           <tr>
-            <td class="admin-cell-id" data-label="ID">#{p.payment_id}</td>
+            <td class="admin-cell-id" data-label="ID">
+              <AdminButton
+                class="admin-payment-id-btn"
+                variant="ghost"
+                size="sm"
+                title={at("payment_detail_open", {}, "Открыть платеж")}
+                aria-label={at("payment_detail_open", {}, "Открыть платеж")}
+                onclick={() => paymentsStore.openPayment(p)}
+              >
+                <FileText size={14} />
+                #{p.payment_id}
+              </AdminButton>
+            </td>
             <td class="admin-cell-user-with-action" data-label={at("user", {}, "Пользователь")}>
               <span class="admin-payments-user-cell">
                 <AdminButton
@@ -212,5 +224,16 @@
     font-size: 12px;
     white-space: nowrap;
     color: var(--admin-muted);
+  }
+
+  .admin-cell-id :global(.admin-payment-id-btn.admin-btn) {
+    height: 28px;
+    min-height: 28px;
+    padding: 0 8px;
+    gap: 6px;
+    border-radius: 7px;
+    color: var(--admin-text);
+    font-family: var(--font-mono);
+    font-size: 12px;
   }
 </style>
