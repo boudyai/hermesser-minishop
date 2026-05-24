@@ -1439,6 +1439,9 @@
   }
 
   function primaryPayActionLabel() {
+    if (!subscription.active && appSettings?.trial_enabled && appSettings?.trial_available) {
+      return t("wa_pay_full_subscription", {}, "Оплатить полную подписку");
+    }
     if (trafficMode || selectedPlan?.sale_mode === "traffic_package") return t("wa_buy_traffic");
     return subscription.active ? t("wa_renew") : t("wa_pay_subscription");
   }

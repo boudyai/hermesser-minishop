@@ -467,12 +467,21 @@ a {
 }
 
 .trial-card {
-  padding: 13px 14px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.trial-offer-card {
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 11%, transparent), transparent 48%),
+    linear-gradient(135deg, var(--surface-sheen), var(--surface-sheen-soft));
 }
 
 .trial-card-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 11px;
 }
 
@@ -496,6 +505,46 @@ a {
   color: var(--muted);
   font-size: 11px;
   line-height: 1.28;
+}
+
+.trial-card-description {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.42;
+}
+
+.trial-card-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.trial-card-facts span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--surface-subtle-border);
+  border-radius: 12px;
+  background: var(--surface-subtle);
+}
+
+.trial-card-facts small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.trial-card-facts strong {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.trial-card-action {
+  margin-top: 2px;
 }
 
 .devices-summary-card {

@@ -69,6 +69,17 @@
     const limit = Number(appSettings?.trial_traffic_limit_gb || 0);
     return limit > 0 ? formatTrafficGb(limit) : t("wa_unlimited_traffic");
   }
+  function trialDurationLabel() {
+    const days = Number(appSettings?.trial_duration_days || 0);
+    return t("wa_sub_term_value_unit", {
+      value: days,
+      unit: termUnitLabel(days, "day"),
+    });
+  }
+
+  $: trialOfferAvailable = Boolean(
+    !subscription?.active && appSettings?.trial_enabled && appSettings?.trial_available
+  );
 
   export let activateTrial = () => {};
   export let openConnectLink = () => {};
@@ -214,20 +225,36 @@
           </div>
         </Card>
       {/if}
-    {:else if appSettings?.trial_enabled && appSettings?.trial_available}
-      <Card class="trial-card">
+    {:else if trialOfferAvailable}
+      <Card class="trial-card trial-offer-card">
         <div class="trial-card-head">
           <Gift size={22} />
           <span>
-            <strong>{t("wa_trial_title")}</strong>
-            <small
-              >{t("wa_trial_details", {
-                days: Number(appSettings?.trial_duration_days || 0),
-                traffic: trialTrafficLabel(),
-              })}</small
-            >
+            <strong>{t("wa_trial_offer_title", {}, "Можно начать с льготного периода")}</strong>
+            <small>{t("wa_trial_title")}</small>
           </span>
         </div>
+        <p class="trial-card-description">
+          {t(
+            "wa_trial_offer_description",
+            { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
+            "Активируйте триал: {duration} доступа и {traffic} для скачивания без оплаты."
+          )}
+        </p>
+        <div class="trial-card-facts">
+          <span>
+            <small>{t("wa_trial_duration_label", {}, "Срок")}</small>
+            <strong>{trialDurationLabel()}</strong>
+          </span>
+          <span>
+            <small>{t("wa_trial_download_traffic_label", {}, "Доступно для скачивания")}</small>
+            <strong>{trialTrafficLabel()}</strong>
+          </span>
+        </div>
+        <Button class="wide trial-card-action" onclick={activateTrial} disabled={trialBusy}>
+          <Gift size={18} />
+          {t("wa_trial_try_free", {}, "Попробовать бесплатно")}
+        </Button>
       </Card>
     {/if}
 
@@ -250,12 +277,6 @@
         {/if}
         {primaryPayActionLabel()}
       </Button>
-      {#if !subscription.active && appSettings?.trial_enabled && appSettings?.trial_available}
-        <Button class="wide" variant="secondary" onclick={activateTrial} disabled={trialBusy}>
-          <Gift size={18} />
-          {t("wa_activate_trial")}
-        </Button>
-      {/if}
       {#if canChangeTariff}
         <Button class="wide" variant="secondary" onclick={openTariffChangeModal}>
           <RefreshCw size={18} />
