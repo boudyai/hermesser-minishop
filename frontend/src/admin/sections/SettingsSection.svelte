@@ -7,7 +7,6 @@
     EyeOff,
     FileText,
     Search,
-    TriangleAlert,
     X,
   } from "$components/ui/icons.js";
   import * as UiIcons from "$components/ui/icons.js";
@@ -28,7 +27,12 @@
   const settingsStore = getContext("settingsStore");
 
   $: ({ settingsSections, settingsLoading, settingsDirty, settingsSaving } = $settingsStore);
-  $: visibleSettingsSections = settingsSections.filter((section) => section.id !== "appearance");
+
+  const SETTINGS_SECTION_IDS_HIDDEN_IN_GENERAL_SETTINGS = new Set(["appearance", "pricing"]);
+
+  $: visibleSettingsSections = settingsSections.filter(
+    (section) => !SETTINGS_SECTION_IDS_HIDDEN_IN_GENERAL_SETTINGS.has(section.id)
+  );
 
   let settingsOpenSections = [];
   let settingsOpenSubsections = {};
@@ -41,22 +45,11 @@
   const PLATEGA_SBP_KEYS = new Set(["PLATEGA_SBP_ENABLED", "PLATEGA_SBP_METHOD"]);
   const PLATEGA_CRYPTO_KEYS = new Set(["PLATEGA_CRYPTO_ENABLED", "PLATEGA_CRYPTO_METHOD"]);
   const PLATEGA_LEGACY_KEYS = new Set(["PLATEGA_PAYMENT_METHOD"]);
-  const LEGACY_TARIFF_TRAFFIC_KEYS = new Set(["TRAFFIC_PACKAGES", "STARS_TRAFFIC_PACKAGES"]);
-  const TRIAL_TARIFF_KEYS = new Set([
-    "TRIAL_ENABLED",
-    "TRIAL_DURATION_DAYS",
-    "TRIAL_TRAFFIC_LIMIT_GB",
-    "TRIAL_TRAFFIC_STRATEGY",
-    "TRIAL_SQUAD_UUIDS",
-  ]);
   const SEMANTIC_FIELD_GROUP_ORDER = {
     platega_common: 1,
     platega_sbp: 2,
     platega_crypto: 3,
     platega_legacy: 4,
-    trial_tariff_settings: 0,
-    legacy_tariff_periods: 1,
-    legacy_tariff_traffic: 2,
   };
 
   $: settingsAllOpen =
@@ -289,41 +282,9 @@
     );
   }
 
-  function legacyTariffSemanticGroup(field) {
-    const key = String(field?.key || "");
-    if (TRIAL_TARIFF_KEYS.has(key)) {
-      return fieldGroupMeta(
-        "trial_tariff_settings",
-        "settings_group_trial_tariff_settings",
-        "Trial access",
-        "settings_group_trial_tariff_settings_hint",
-        "Trial duration, traffic limit, and Remnawave squads are also available on the Tariffs page."
-      );
-    }
-    if (LEGACY_TARIFF_TRAFFIC_KEYS.has(key)) {
-      return fieldGroupMeta(
-        "legacy_tariff_traffic",
-        "settings_group_legacy_tariff_traffic",
-        "Legacy traffic packages",
-        "settings_group_legacy_tariff_traffic_hint",
-        "Packages used only when the JSON tariff catalog is not configured."
-      );
-    }
-    return fieldGroupMeta(
-      "legacy_tariff_periods",
-      "settings_group_legacy_tariff_periods",
-      "Legacy subscription periods",
-      "settings_group_legacy_tariff_periods_hint",
-      "Month toggles and prices used only by the old remnawave-tg-shop mode."
-    );
-  }
-
   function semanticFieldGroup(section, group, field) {
     if (section?.id === "payments" && group?.id === "Platega") {
       return plategaSemanticGroup(field);
-    }
-    if (section?.id === "pricing") {
-      return legacyTariffSemanticGroup(field);
     }
     return null;
   }
@@ -468,25 +429,6 @@
         {/if}
       </AdminButton>
     </div>
-  </div>
-{/snippet}
-
-{#snippet renderLegacyTariffsWarning()}
-  <div class="admin-settings-warning" role="status">
-    <TriangleAlert size={16} aria-hidden="true" />
-    <div class="admin-settings-warning-copy">
-      <strong>{at("settings_legacy_tariffs_warning_title", {}, "Legacy tariffs")}</strong>
-      <p>
-        {at(
-          "settings_legacy_tariffs_warning_body",
-          {},
-          "These settings are ignored when tariffs are configured in the dedicated Tariffs section."
-        )}
-      </p>
-    </div>
-    <a class="admin-settings-warning-link" href="/admin/tariffs">
-      {at("settings_legacy_tariffs_warning_link", {}, "Open Tariffs")}
-    </a>
   </div>
 {/snippet}
 
@@ -754,9 +696,6 @@
           {@const rootGroup = groups.find((g) => !g.label)}
           {@const labelGroups = groups.filter((g) => g.label)}
           <div class="admin-settings-fields">
-            {#if section.id === "pricing"}
-              {@render renderLegacyTariffsWarning()}
-            {/if}
             {#if rootGroup}
               {#if rootGroup.webhook}
                 {@render renderWebhookHint(rootGroup.webhook)}

@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 from bot.app.web.admin_settings_manifest import manifest_payload
@@ -29,6 +30,51 @@ SUBSCRIPTION_GUIDE_SETTINGS = (
     "SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED",
     "SUBSCRIPTION_PAGE_CONFIG_PATH",
     "SUBSCRIPTION_PAGE_CONFIG_JSON",
+)
+
+ADMIN_TARIFF_SETTINGS_PAGE_KEYS = {
+    "admin_tariffs_trial_title",
+    "admin_tariffs_trial_subtitle",
+    "admin_tariffs_trial_enabled",
+    "admin_tariffs_trial_days",
+    "admin_tariffs_trial_traffic",
+    "admin_tariffs_trial_strategy",
+    "admin_tariffs_trial_squads",
+    "admin_tariffs_trial_squads_hint",
+    "admin_tariffs_trial_add_squad",
+    "admin_tariffs_legacy_title",
+    "admin_tariffs_legacy_subtitle",
+    "admin_tariffs_legacy_period",
+    "admin_tariffs_legacy_enabled",
+    "admin_tariffs_legacy_traffic_packages",
+    "admin_tariffs_legacy_stars_traffic_packages",
+    "admin_tariffs_legacy_traffic_hint",
+    "admin_payment_rub",
+    "admin_payment_stars",
+}
+
+ADMIN_VISIBLE_RU_KEYS = {
+    "admin_appearance_theme_accent",
+    "admin_clear",
+    "admin_save",
+    "admin_saving",
+    "admin_search",
+    "admin_settings_badge_override",
+    "admin_settings_badge_secret",
+    "admin_settings_icon_current",
+    "admin_settings_icon_default_value",
+    "admin_settings_icon_empty",
+    "admin_settings_icon_picker_title",
+    "admin_settings_icon_use_default",
+    "admin_tariff_label_premium_squads",
+    "admin_tariff_premium",
+    "admin_tariff_squads",
+    "admin_tariff_tab_premium",
+}
+
+ADMIN_AT_SIMPLE_FALLBACK_RE = re.compile(
+    r"""\bat\(\s*["'`](?P<key>[^"'`$]+)["'`]\s*,\s*\{[^)]*?\}\s*,\s*["'`](?P<fallback>[^"'`$]*)["'`]""",
+    re.DOTALL,
 )
 
 
@@ -135,3 +181,33 @@ def test_platega_settings_share_one_admin_subsection():
 
     assert platega_keys
     assert {manifest[key]["subsection"] for key in platega_keys} == {"Platega"}
+
+
+def test_tariff_settings_page_i18n_keys_exist():
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        assert ADMIN_TARIFF_SETTINGS_PAGE_KEYS <= messages.keys()
+
+
+def test_visible_admin_russian_labels_do_not_fall_back_to_english():
+    messages = _locale("ru")
+
+    for key in ADMIN_VISIBLE_RU_KEYS:
+        assert key in messages
+
+    missing_latin_fallbacks = []
+    for file_path in (REPO_ROOT / "frontend" / "src" / "admin").rglob("*"):
+        if file_path.suffix not in {".svelte", ".js"}:
+            continue
+        text = file_path.read_text(encoding="utf-8")
+        for match in ADMIN_AT_SIMPLE_FALLBACK_RE.finditer(text):
+            locale_key = f"admin_{match.group('key')}"
+            fallback = match.group("fallback")
+            if locale_key in messages:
+                continue
+            has_latin = any("A" <= char <= "Z" or "a" <= char <= "z" for char in fallback)
+            has_cyrillic = any("А" <= char <= "я" or char in "Ёё" for char in fallback)
+            if has_latin and not has_cyrillic:
+                missing_latin_fallbacks.append((locale_key, fallback, str(file_path)))
+
+    assert missing_latin_fallbacks == []

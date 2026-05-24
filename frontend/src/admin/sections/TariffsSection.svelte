@@ -1,5 +1,13 @@
 <script>
-  import { RefreshCw, Trash2, Plus, Save, TriangleAlert, X } from "$components/ui/icons.js";
+  import {
+    ChevronRight,
+    RefreshCw,
+    Trash2,
+    Plus,
+    Save,
+    TriangleAlert,
+    X,
+  } from "$components/ui/icons.js";
   import { getContext, onMount } from "svelte";
   import {
     AdminBadge,
@@ -7,7 +15,7 @@
     AdminEmptyState,
     AdminSelect,
   } from "$components/patterns/admin/index.js";
-  import { Switch } from "$components/ui/primitives.js";
+  import { Accordion, Switch } from "$components/ui/primitives.js";
 
   export let at;
   export let fmtMoney;
@@ -68,6 +76,7 @@
   }));
 
   let selectedTrialSquad = "";
+  let tariffSettingsOpen = [];
 
   function tariffName(tariff) {
     return tariff?.names?.ru || tariff?.names?.en || tariff?.key || "—";
@@ -434,115 +443,138 @@
     </div>
   </article>
 
-  <article class="admin-card admin-tariff-settings-card">
-    <header class="admin-card-head">
-      <div>
-        <h3>{at("tariffs_legacy_title", {}, "Legacy tariff compatibility")}</h3>
-        <small>
-          {at(
-            "tariffs_legacy_subtitle",
-            {},
-            "Old remnawave-tg-shop periods and traffic packages used only when the JSON tariff catalog is not configured."
-          )}
-        </small>
-      </div>
-      <div class="admin-editor-section-actions">
-        {#if legacyDirtyCount}
-          <AdminBadge variant="warning">
+  <Accordion.Root
+    type="multiple"
+    bind:value={tariffSettingsOpen}
+    class="admin-accordion admin-tariff-settings-accordion"
+  >
+    <Accordion.Item
+      value="legacy-tariffs"
+      class="admin-accordion-item admin-card admin-tariff-settings-card"
+    >
+      <Accordion.Header class="admin-accordion-header">
+        <Accordion.Trigger class="admin-accordion-trigger">
+          <span class="admin-accordion-title">
+            {at("tariffs_legacy_title", {}, "Совместимость с legacy-тарифами")}
+          </span>
+          <span class="admin-accordion-meta">
             {at(
-              "settings_dirty_count",
-              { count: legacyDirtyCount },
-              `Changes: ${legacyDirtyCount}`
-            )}
-          </AdminBadge>
-          <AdminButton
-            size="sm"
-            variant="primary"
-            onclick={saveTariffSettings}
-            disabled={settingsSaving}
-          >
-            <Save size={13} />
-            {settingsSaving ? at("btn_saving", {}, "Saving...") : at("btn_save", {}, "Save")}
-          </AdminButton>
-        {/if}
-      </div>
-    </header>
-    <div class="admin-card-body">
-      <div class="admin-settings-warning" role="status">
-        <TriangleAlert size={16} aria-hidden="true" />
-        <div class="admin-settings-warning-copy">
-          <strong>{at("settings_legacy_tariffs_warning_title", {}, "Legacy tariffs")}</strong>
-          <p>
-            {at(
-              "settings_legacy_tariffs_warning_body",
+              "tariffs_legacy_subtitle",
               {},
-              "These settings are ignored when tariffs are configured in the dedicated Tariffs section."
-            )}
-          </p>
-        </div>
-      </div>
-
-      <div class="admin-legacy-tariff-table">
-        <div class="admin-legacy-tariff-row admin-legacy-tariff-head">
-          <span>{at("tariffs_legacy_period", {}, "Period")}</span>
-          <span>{at("tariffs_legacy_enabled", {}, "Enabled")}</span>
-          <span>{at("payment_rub", {}, "RUB")}</span>
-          <span>{at("payment_stars", {}, "Stars")}</span>
-        </div>
-        {#each LEGACY_PERIODS as [months, enabledKey, rubKey, starsKey]}
-          <div class="admin-legacy-tariff-row">
-            <strong>{months} {at("months_short", {}, "mo")}</strong>
-            <div class="admin-setting-switch">
-              <Switch.Root
-                checked={boolValue(enabledKey)}
-                onCheckedChange={(checked) => setSetting(enabledKey, checked)}
-                class="admin-switch-root"
+              "Старые периоды и пакеты трафика remnawave-tg-shop, которые используются только без JSON-каталога."
+            )}{#if legacyDirtyCount}
+              · {at(
+                "settings_dirty_count",
+                { count: legacyDirtyCount },
+                `Изменений: ${legacyDirtyCount}`
+              )}{/if}
+          </span>
+          <ChevronRight size={16} class="admin-accordion-chev" />
+        </Accordion.Trigger>
+      </Accordion.Header>
+      <Accordion.Content class="admin-accordion-content">
+        <div class="admin-card-body">
+          {#if legacyDirtyCount}
+            <div class="admin-editor-section-actions admin-tariff-settings-save-row">
+              <AdminBadge variant="warning">
+                {at(
+                  "settings_dirty_count",
+                  { count: legacyDirtyCount },
+                  `Изменений: ${legacyDirtyCount}`
+                )}
+              </AdminBadge>
+              <AdminButton
+                size="sm"
+                variant="primary"
+                onclick={saveTariffSettings}
+                disabled={settingsSaving}
               >
-                <Switch.Thumb class="admin-switch-thumb" />
-              </Switch.Root>
+                <Save size={13} />
+                {settingsSaving
+                  ? at("btn_saving", {}, "Сохранение...")
+                  : at("btn_save", {}, "Сохранить")}
+              </AdminButton>
             </div>
-            <input
-              class="input"
-              type="number"
-              min="0"
-              step="1"
-              value={valueForKey(rubKey)}
-              oninput={(event) => setSetting(rubKey, event.currentTarget.value)}
-            />
-            <input
-              class="input"
-              type="number"
-              min="0"
-              step="1"
-              value={valueForKey(starsKey)}
-              oninput={(event) => setSetting(starsKey, event.currentTarget.value)}
-            />
+          {/if}
+          <div class="admin-settings-warning" role="status">
+            <TriangleAlert size={16} aria-hidden="true" />
+            <div class="admin-settings-warning-copy">
+              <strong>{at("settings_legacy_tariffs_warning_title", {}, "Legacy tariffs")}</strong>
+              <p>
+                {at(
+                  "settings_legacy_tariffs_warning_body",
+                  {},
+                  "These settings are ignored when tariffs are configured in the dedicated Tariffs section."
+                )}
+              </p>
+            </div>
           </div>
-        {/each}
-      </div>
 
-      <div class="admin-form-row admin-form-row-2 admin-legacy-traffic-row">
-        <label class="admin-field-label admin-field-label-compact">
-          <span>{at("tariffs_legacy_traffic_packages", {}, "Traffic packages")}</span>
-          <small>{at("tariffs_legacy_traffic_hint", {}, "Format: 10:199,50:799")}</small>
-          <input
-            class="input"
-            type="text"
-            value={valueForKey("TRAFFIC_PACKAGES")}
-            oninput={(event) => setSetting("TRAFFIC_PACKAGES", event.currentTarget.value)}
-          />
-        </label>
-        <label class="admin-field-label admin-field-label-compact">
-          <span>{at("tariffs_legacy_stars_traffic_packages", {}, "Traffic packages, Stars")}</span>
-          <small>{at("tariffs_legacy_traffic_hint", {}, "Format: 10:199,50:799")}</small>
-          <input
-            class="input"
-            type="text"
-            value={valueForKey("STARS_TRAFFIC_PACKAGES")}
-            oninput={(event) => setSetting("STARS_TRAFFIC_PACKAGES", event.currentTarget.value)}
-          />
-        </label>
-      </div>
-    </div>
-  </article>
+          <div class="admin-legacy-tariff-table">
+            <div class="admin-legacy-tariff-row admin-legacy-tariff-head">
+              <span>{at("tariffs_legacy_period", {}, "Period")}</span>
+              <span>{at("tariffs_legacy_enabled", {}, "Enabled")}</span>
+              <span>{at("payment_rub", {}, "RUB")}</span>
+              <span>{at("payment_stars", {}, "Stars")}</span>
+            </div>
+            {#each LEGACY_PERIODS as [months, enabledKey, rubKey, starsKey]}
+              <div class="admin-legacy-tariff-row">
+                <strong>{months} {at("months_short", {}, "mo")}</strong>
+                <div class="admin-setting-switch">
+                  <Switch.Root
+                    checked={boolValue(enabledKey)}
+                    onCheckedChange={(checked) => setSetting(enabledKey, checked)}
+                    class="admin-switch-root"
+                  >
+                    <Switch.Thumb class="admin-switch-thumb" />
+                  </Switch.Root>
+                </div>
+                <input
+                  class="input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={valueForKey(rubKey)}
+                  oninput={(event) => setSetting(rubKey, event.currentTarget.value)}
+                />
+                <input
+                  class="input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={valueForKey(starsKey)}
+                  oninput={(event) => setSetting(starsKey, event.currentTarget.value)}
+                />
+              </div>
+            {/each}
+          </div>
+
+          <div class="admin-form-row admin-form-row-2 admin-legacy-traffic-row">
+            <label class="admin-field-label admin-field-label-compact">
+              <span>{at("tariffs_legacy_traffic_packages", {}, "Traffic packages")}</span>
+              <small>{at("tariffs_legacy_traffic_hint", {}, "Format: 10:199,50:799")}</small>
+              <input
+                class="input"
+                type="text"
+                value={valueForKey("TRAFFIC_PACKAGES")}
+                oninput={(event) => setSetting("TRAFFIC_PACKAGES", event.currentTarget.value)}
+              />
+            </label>
+            <label class="admin-field-label admin-field-label-compact">
+              <span
+                >{at("tariffs_legacy_stars_traffic_packages", {}, "Traffic packages, Stars")}</span
+              >
+              <small>{at("tariffs_legacy_traffic_hint", {}, "Format: 10:199,50:799")}</small>
+              <input
+                class="input"
+                type="text"
+                value={valueForKey("STARS_TRAFFIC_PACKAGES")}
+                oninput={(event) => setSetting("STARS_TRAFFIC_PACKAGES", event.currentTarget.value)}
+              />
+            </label>
+          </div>
+        </div>
+      </Accordion.Content>
+    </Accordion.Item>
+  </Accordion.Root>
 {/if}
