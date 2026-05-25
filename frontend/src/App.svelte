@@ -2051,10 +2051,8 @@
             onclose={closeActivationSuccessDialog}
             class="activation-success-dialog"
           >
+            <CheckCircle2 slot="titleIcon" size={23} />
             <div class="activation-success-dialog-body">
-              <div class="activation-success-mark" aria-hidden="true">
-                <CheckCircle2 size={34} />
-              </div>
               <Button class="wide" onclick={closeActivationSuccessDialog}>
                 {t("wa_ok", {}, "OK")}
               </Button>

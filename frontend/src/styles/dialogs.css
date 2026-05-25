@@ -50,6 +50,30 @@
   align-items: start;
 }
 
+.dialog-title-block {
+  min-width: 0;
+}
+
+.dialog-title-with-icon {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.dialog-title-icon {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  color: var(--accent);
+}
+
+.dialog-title-icon svg {
+  width: 23px;
+  height: 23px;
+}
+
 .dialog-head h2 {
   margin: 0;
   color: var(--text);
@@ -80,26 +104,23 @@
 
 .activation-success-dialog {
   width: min(100%, 440px);
+  gap: 22px;
+  padding: 22px 20px 20px;
+}
+
+.activation-success-dialog .dialog-title-with-icon {
+  gap: 14px;
+}
+
+.activation-success-dialog .dialog-head p {
+  margin-top: 8px;
+  line-height: 1.52;
 }
 
 .activation-success-dialog-body {
   display: grid;
   justify-items: center;
-  gap: 16px;
-}
-
-.activation-success-mark {
-  display: grid;
-  width: 70px;
-  height: 70px;
-  place-items: center;
-  border: 1px solid color-mix(in srgb, var(--success) 38%, transparent);
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 30% 25%, color-mix(in srgb, white 42%, transparent), transparent 34%),
-    color-mix(in srgb, var(--success) 16%, var(--panel));
-  color: var(--success);
-  box-shadow: 0 18px 38px color-mix(in srgb, var(--success) 20%, transparent);
+  padding-top: 2px;
 }
 
 .activation-success-dialog-body .btn {

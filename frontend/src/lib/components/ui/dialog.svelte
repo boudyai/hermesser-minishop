@@ -50,9 +50,16 @@
     ></button>
     <section class={cn("dialog-card", className)} in:fly={cardIn} out:fly={cardOut}>
       <div class="dialog-head">
-        <div>
-          {#if title}<h2>{title}</h2>{/if}
-          {#if description}<p>{description}</p>{/if}
+        <div class:dialog-title-with-icon={$$slots.titleIcon} class="dialog-title-block">
+          {#if $$slots.titleIcon}
+            <span class="dialog-title-icon" aria-hidden="true">
+              <slot name="titleIcon" />
+            </span>
+          {/if}
+          <div class="dialog-title-copy">
+            {#if title}<h2>{title}</h2>{/if}
+            {#if description}<p>{description}</p>{/if}
+          </div>
         </div>
         <Button variant="icon" size="icon" onclick={onclose} aria-label={closeLabel}>
           <X size={18} />
