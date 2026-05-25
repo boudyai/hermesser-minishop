@@ -330,6 +330,7 @@ async def select_tariff_period_callback(
         settings,
         sale_mode=sale_mode_with_callback_context(f"subscription@{tariff.key}", callback_context),
         back_callback=f"tariff:select:{tariff.key}{callback_suffix_for_context(callback_context)}",
+        user_id=callback.from_user.id,
     )
     await callback.message.edit_text(get_text("choose_payment_method"), reply_markup=markup)
     await callback.answer()
@@ -382,6 +383,7 @@ async def select_tariff_package_callback(
         settings,
         sale_mode=sale_mode,
         back_callback=back_callback,
+        user_id=callback.from_user.id,
     )
     await callback.message.edit_text(get_text("choose_payment_method_traffic"), reply_markup=markup)
     await callback.answer()
@@ -494,6 +496,7 @@ async def select_tariff_premium_package_callback(
         settings,
         sale_mode=f"premium_topup@{tariff.key}",
         back_callback="tariff_topup:list",
+        user_id=callback.from_user.id,
     )
     await callback.message.edit_text(get_text("choose_payment_method_traffic"), reply_markup=markup)
     await callback.answer()
@@ -573,6 +576,7 @@ async def hwid_devices_package_callback(
         settings,
         sale_mode=f"hwid_devices@{tariff.key}",
         back_callback="hwid_devices:list",
+        user_id=callback.from_user.id,
     )
     await callback.message.edit_text(
         get_text("choose_payment_method_hwid_devices"), reply_markup=markup
@@ -843,6 +847,7 @@ async def tariff_change_pay_callback(
         settings,
         sale_mode=f"tariff_upgrade@{tariff_key}",
         back_callback=f"tariff_change:confirm_pay:{tariff_key}:{amount_raw}",
+        user_id=callback.from_user.id,
     )
     await callback.message.edit_text("Выберите способ оплаты", reply_markup=markup)
     await callback.answer()

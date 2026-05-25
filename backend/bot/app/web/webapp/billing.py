@@ -253,6 +253,8 @@ async def create_payment_route(request: web.Request) -> web.Response:
         if not db_user or db_user.is_banned:
             return _json_error(403, "access_denied", "Access denied")
         lang = db_user.language_code or settings.DEFAULT_LANGUAGE
+        admin_ids = {int(item) for item in (settings.ADMIN_IDS or [])}
+        is_admin = bool(db_user.telegram_id and int(db_user.telegram_id) in admin_ids)
         return await _create_subscription_payment(
             request=request,
             session=session,
@@ -264,6 +266,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
             lang=lang,
             sale_mode=sale_mode,
             traffic_gb=traffic_gb_for_payment,
+            is_admin=is_admin,
         )
 
 
@@ -796,6 +799,7 @@ async def _create_subscription_payment(
     lang: str,
     sale_mode: str = "subscription",
     traffic_gb: Optional[float] = None,
+    is_admin: bool = False,
 ) -> web.Response:
     settings: Settings = request.app["settings"]
     sale_mode = str(sale_mode or "subscription")
@@ -813,11 +817,11 @@ async def _create_subscription_payment(
 
     provider_spec = get_provider_spec(method)
     if provider_spec and provider_spec.create_webapp_payment:
-        if not provider_spec.is_visible(settings, request.app):
+        if not provider_spec.is_visible_for_user(settings, request.app, is_admin=is_admin):
             logger.warning(
                 "WebApp payment method unavailable: method=%s enabled=%s configured=%s",
                 method,
-                provider_spec.is_enabled(settings),
+                provider_spec.is_effectively_enabled(settings),
                 provider_spec.is_service_configured(request.app),
             )
             return _json_error(400, "payment_unavailable", "Payment method unavailable")

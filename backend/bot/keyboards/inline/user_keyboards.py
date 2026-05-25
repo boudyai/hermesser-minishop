@@ -451,6 +451,8 @@ def get_payment_method_keyboard(
     settings: Settings,
     sale_mode: str = "subscription",
     back_callback: Optional[str] = None,
+    user_id: Optional[int] = None,
+    is_admin: Optional[bool] = None,
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -469,7 +471,16 @@ def get_payment_method_keyboard(
 
     for method in settings.payment_methods_order:
         spec = get_provider_spec(method)
-        if not spec or not spec.callback_prefix or not spec.is_enabled(settings):
+        if (
+            not spec
+            or not spec.callback_prefix
+            or not spec.is_available_to_user(
+                settings,
+                user_id=user_id,
+                is_admin=is_admin,
+                require_configured=False,
+            )
+        ):
             continue
         callback_data = spec.callback_data(
             value=value_str,

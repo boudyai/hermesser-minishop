@@ -29,6 +29,7 @@ from .base import (
     ServiceFactoryContext,
     WebAppPaymentContext,
     provider_env_file,
+    provider_runtime_enabled,
 )
 from .shared import (
     HttpClientMixin,
@@ -152,14 +153,14 @@ class FreeKassaService(HttpClientMixin):
             logging.warning(
                 "FreeKassaService initialized but not fully configured. Payments disabled."
             )
-        if config.ENABLED and not self.server_ip:
+        if provider_runtime_enabled(config) and not self.server_ip:
             logging.warning(
                 "FreeKassaService: FREEKASSA_PAYMENT_IP is not set. Requests may be rejected by the provider."  # noqa: E501
             )
 
     @property
     def configured(self) -> bool:
-        return bool(self.config.ENABLED and self.shop_id and self.api_key)
+        return bool(provider_runtime_enabled(self.config) and self.shop_id and self.api_key)
 
     @property
     def shop_id(self):
@@ -449,6 +450,14 @@ async def pay_fk_callback_handler(
 
     if not i18n or not callback.message:
         await notify_callback_parse_error(callback, translator)
+        return
+
+    if not SPEC.is_available_to_user(
+        settings,
+        user_id=callback.from_user.id,
+        require_configured=False,
+    ):
+        await notify_service_unavailable(callback, translator)
         return
 
     if not freekassa_service or not freekassa_service.configured:

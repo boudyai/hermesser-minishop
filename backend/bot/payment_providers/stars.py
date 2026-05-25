@@ -197,7 +197,11 @@ async def pay_stars_callback_handler(
         await notify_callback_parse_error(callback, translator)
         return
 
-    if not settings.STARS_ENABLED:
+    if not SPEC.is_available_to_user(
+        settings,
+        user_id=callback.from_user.id,
+        require_configured=False,
+    ):
         await notify_service_unavailable(callback, translator)
         return
 
@@ -440,9 +444,8 @@ SPEC = PaymentProviderSpec(
     webapp_icon="Sparkles",
     telegram_labels={"ru": "Звёзды Telegram", "en": "Telegram Stars"},
     pending_status="pending_stars",
-    # STARS_ENABLED stays on the global Settings — subscription_options reads
-    # it together with STARS_PRICE_* fields, so it has cross-cutting bizlogic
-    # reach beyond just the provider flag.
+    # Stars toggles stay on global Settings because stars_subscription_options
+    # reads them together with STARS_PRICE_* fields.
     enabled=lambda settings: bool(getattr(settings, "STARS_ENABLED", False)),
     service_key="stars_service",
     callback_prefix="pay_stars",

@@ -262,6 +262,19 @@ SETTINGS_MANIFEST: List[SettingField] = [
     # Common
     SettingField("STARS_ENABLED", "bool", "payments", "Telegram Stars", subsection="common"),
     SettingField(
+        "STARS_ADMIN_ONLY_ENABLED",
+        "bool",
+        "payments",
+        "Telegram Stars admin-only",
+        (
+            "Shows Telegram Stars only to users from ADMIN_IDS. "
+            "Payment callbacks remain active for admin test payments."
+        ),
+        subsection="common",
+        i18n_label_key="admin_settings_provider_admin_only_label",
+        i18n_description_key="admin_settings_provider_admin_only_description",
+    ),
+    SettingField(
         "PAYMENT_METHODS_ORDER",
         "string",
         "payments",
@@ -603,6 +616,7 @@ def manifest_payload() -> List[dict]:
     from bot.payment_providers import (
         find_manifest_owner,
         manifest_field_default,
+        provider_admin_only_pairs,
         provider_webhook_metadata,
     )
 
@@ -617,6 +631,11 @@ def manifest_payload() -> List[dict]:
         "support": 8,
         "devices": 9,
         "subscription_guides": 10,
+    }
+    exclusive_map = {
+        key: opposite
+        for public_key, admin_key in provider_admin_only_pairs()
+        for key, opposite in ((public_key, admin_key), (admin_key, public_key))
     }
     items: List[dict] = []
     for field in aggregated_manifest():
@@ -659,6 +678,8 @@ def manifest_payload() -> List[dict]:
             "optional": field.optional,
             "secret": field.secret,
         }
+        if field.key in exclusive_map:
+            item["mutually_exclusive_key"] = exclusive_map[field.key]
         if default_value is not None:
             item["default"] = default_value
         if webhook_metadata:

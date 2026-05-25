@@ -321,8 +321,13 @@ def pending_statuses() -> List[str]:
 def iter_provider_manifest_fields() -> Iterable[tuple[PaymentProviderSpec, ProviderManifestField]]:
     """Yield (spec, manifest_field) for every fragment declared on a provider SPEC."""
     for spec in PAYMENT_PROVIDER_SPECS:
+        emitted_keys: set[str] = set()
         for field in spec.manifest_fields:
+            emitted_keys.add(field.key)
             yield spec, field
+        admin_only_field = provider_admin_only_manifest_field(spec)
+        if admin_only_field is not None and admin_only_field.key not in emitted_keys:
+            yield spec, admin_only_field
 
 
 def find_manifest_owner(key: str) -> Optional[tuple[PaymentProviderSpec, ProviderManifestField]]:
@@ -331,6 +336,45 @@ def find_manifest_owner(key: str) -> Optional[tuple[PaymentProviderSpec, Provide
         if field.key == key:
             return spec, field
     return None
+
+
+def provider_admin_only_manifest_field(
+    spec: PaymentProviderSpec,
+) -> Optional[ProviderManifestField]:
+    if spec.config_class is None:
+        return None
+
+    subsection = spec.label
+    for field in spec.manifest_fields:
+        if field.subsection:
+            subsection = field.subsection
+            break
+
+    return ProviderManifestField(
+        spec.admin_only_field_key,
+        "bool",
+        "Only for admins",
+        (
+            "Shows this payment method only to users from ADMIN_IDS. "
+            "Webhooks and provider services remain active for admin test payments."
+        ),
+        subsection=subsection,
+        attr=spec.admin_only_config_attr,
+        i18n_label_key="admin_settings_provider_admin_only_label",
+        i18n_description_key="admin_settings_provider_admin_only_description",
+    )
+
+
+def provider_admin_only_pairs() -> List[tuple[str, str]]:
+    pairs: List[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for spec in PAYMENT_PROVIDER_SPECS:
+        pair = (spec.enabled_field_key, spec.admin_only_field_key)
+        if pair in seen:
+            continue
+        seen.add(pair)
+        pairs.append(pair)
+    return pairs
 
 
 def _webhook_spec_for(spec: PaymentProviderSpec) -> Optional[PaymentProviderSpec]:

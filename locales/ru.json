@@ -1007,6 +1007,8 @@
   "admin_settings_provider_webhook_url": "Webhook URL",
   "admin_settings_provider_webhook_url_hint": "Укажите этот адрес в настройках вебхуков провайдера.",
   "admin_settings_provider_webhook_base_missing": "Укажите WEBHOOK_BASE_URL в .env, чтобы увидеть полный адрес для {path}.",
+  "admin_settings_provider_admin_only_label": "Только для админов",
+  "admin_settings_provider_admin_only_description": "Показывает провайдер только администраторам. Вебхуки и обработка статусов остаются активными для тестовых платежей.",
   "admin_copy": "Копировать",
   "admin_copied": "Скопировано",
   "admin_settings_validation_errors": "Ошибки: {errors}",

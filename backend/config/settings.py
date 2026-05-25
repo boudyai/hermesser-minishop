@@ -164,6 +164,7 @@ class Settings(BaseSettings):
     )
 
     STARS_ENABLED: bool = Field(default=True)
+    STARS_ADMIN_ONLY_ENABLED: bool = Field(default=False)
     PAYMENT_METHODS_ORDER: Optional[str] = Field(
         default=None,
         description="Comma-separated list of payment methods to show (e.g., severpay,wata,freekassa,yookassa,platega,stars,cryptopay)",  # noqa: E501
@@ -612,13 +613,14 @@ class Settings(BaseSettings):
     @property
     def stars_subscription_options(self) -> Dict[int, int]:
         options: Dict[int, int] = {}
-        if self.STARS_ENABLED and self.MONTH_1_ENABLED and self.STARS_PRICE_1_MONTH is not None:
+        stars_enabled = self.STARS_ENABLED or self.STARS_ADMIN_ONLY_ENABLED
+        if stars_enabled and self.MONTH_1_ENABLED and self.STARS_PRICE_1_MONTH is not None:
             options[1] = self.STARS_PRICE_1_MONTH
-        if self.STARS_ENABLED and self.MONTH_3_ENABLED and self.STARS_PRICE_3_MONTHS is not None:
+        if stars_enabled and self.MONTH_3_ENABLED and self.STARS_PRICE_3_MONTHS is not None:
             options[3] = self.STARS_PRICE_3_MONTHS
-        if self.STARS_ENABLED and self.MONTH_6_ENABLED and self.STARS_PRICE_6_MONTHS is not None:
+        if stars_enabled and self.MONTH_6_ENABLED and self.STARS_PRICE_6_MONTHS is not None:
             options[6] = self.STARS_PRICE_6_MONTHS
-        if self.STARS_ENABLED and self.MONTH_12_ENABLED and self.STARS_PRICE_12_MONTHS is not None:
+        if stars_enabled and self.MONTH_12_ENABLED and self.STARS_PRICE_12_MONTHS is not None:
             options[12] = self.STARS_PRICE_12_MONTHS
         return options
 

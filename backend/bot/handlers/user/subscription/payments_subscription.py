@@ -62,7 +62,12 @@ async def select_subscription_period_callback_handler(
             from bot.payment_providers import iter_provider_specs
 
             currency_methods_enabled = any(
-                spec.price_source != "stars" and spec.is_enabled(settings)
+                spec.price_source != "stars"
+                and spec.is_available_to_user(
+                    settings,
+                    user_id=callback.from_user.id,
+                    require_configured=False,
+                )
                 for spec in iter_provider_specs()
             )
             if currency_methods_enabled:
@@ -104,6 +109,7 @@ async def select_subscription_period_callback_handler(
             "traffic" if traffic_mode else "subscription", callback_context
         ),
         back_callback=subscription_options_callback(callback_context),
+        user_id=callback.from_user.id,
     )
 
     try:

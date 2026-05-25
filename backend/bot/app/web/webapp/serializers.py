@@ -118,7 +118,12 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             traffic_packages=cached["traffic_packages"],
             stars_traffic_packages=cached["stars_traffic_packages"],
         ),
-        "payment_methods": _serialize_payment_methods(settings, request.app, lang),
+        "payment_methods": _serialize_payment_methods(
+            settings,
+            request.app,
+            lang,
+            is_admin=is_admin,
+        ),
         "themes_catalog": public_themes_catalog_payload(
             settings.webapp_themes_catalog,
             settings.WEBAPP_PRIMARY_COLOR or "#00fe7a",
@@ -645,6 +650,8 @@ def _serialize_payment_methods(
     settings: Settings,
     app: web.Application,
     lang: str = "ru",
+    *,
+    is_admin: bool = False,
 ) -> List[Dict[str, Any]]:
     from bot.payment_providers import get_provider_spec, resolve_provider_presentation
 
@@ -652,7 +659,7 @@ def _serialize_payment_methods(
     for method in settings.payment_methods_order:
         method = method.lower()
         spec = get_provider_spec(method)
-        if spec and spec.is_visible(settings, app):
+        if spec and spec.is_visible_for_user(settings, app, is_admin=is_admin):
             presentation = resolve_provider_presentation(spec, settings, language=lang)
             methods.append(
                 {

@@ -42,8 +42,16 @@
   let copiedWebhookKey = "";
   let copiedWebhookTimer = null;
 
-  const PLATEGA_SBP_KEYS = new Set(["PLATEGA_SBP_ENABLED", "PLATEGA_SBP_METHOD"]);
-  const PLATEGA_CRYPTO_KEYS = new Set(["PLATEGA_CRYPTO_ENABLED", "PLATEGA_CRYPTO_METHOD"]);
+  const PLATEGA_SBP_KEYS = new Set([
+    "PLATEGA_SBP_ENABLED",
+    "PLATEGA_SBP_ADMIN_ONLY_ENABLED",
+    "PLATEGA_SBP_METHOD",
+  ]);
+  const PLATEGA_CRYPTO_KEYS = new Set([
+    "PLATEGA_CRYPTO_ENABLED",
+    "PLATEGA_CRYPTO_ADMIN_ONLY_ENABLED",
+    "PLATEGA_CRYPTO_METHOD",
+  ]);
   const PLATEGA_LEGACY_KEYS = new Set(["PLATEGA_PAYMENT_METHOD"]);
   const SEMANTIC_FIELD_GROUP_ORDER = {
     platega_common: 1,
@@ -389,6 +397,13 @@
         : choice.label,
     }));
   }
+
+  function setBoolField(field, checked) {
+    settingsStore.markDirty(field.key, checked);
+    if (checked && field.mutually_exclusive_key) {
+      settingsStore.markDirty(field.mutually_exclusive_key, false);
+    }
+  }
 </script>
 
 {#snippet renderWebhookHint(webhook)}
@@ -484,7 +499,7 @@
         <div class="admin-setting-switch">
           <Switch.Root
             checked={Boolean(valueFor(field))}
-            onCheckedChange={(checked) => settingsStore.markDirty(field.key, checked)}
+            onCheckedChange={(checked) => setBoolField(field, checked)}
             class="admin-switch-root"
           >
             <Switch.Thumb class="admin-switch-thumb" />

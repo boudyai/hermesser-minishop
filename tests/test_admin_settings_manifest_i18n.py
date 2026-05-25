@@ -176,6 +176,20 @@ def test_payment_provider_settings_include_webhook_metadata():
     assert "webhook_path" not in manifest["PAYMENT_STARS_WEBAPP_LABEL_RU"]
 
 
+def test_payment_provider_admin_only_toggles_are_mutually_exclusive():
+    manifest = _manifest_by_key()
+
+    assert manifest["WATA_ADMIN_ONLY_ENABLED"]["mutually_exclusive_key"] == "WATA_ENABLED"
+    assert manifest["WATA_ENABLED"]["mutually_exclusive_key"] == "WATA_ADMIN_ONLY_ENABLED"
+    assert (
+        manifest["PLATEGA_CRYPTO_ADMIN_ONLY_ENABLED"]["mutually_exclusive_key"]
+        == "PLATEGA_CRYPTO_ENABLED"
+    )
+    assert (
+        manifest["STARS_ADMIN_ONLY_ENABLED"]["mutually_exclusive_key"] == "STARS_ENABLED"
+    )
+
+
 def test_legacy_tariff_settings_are_separated_from_payment_settings():
     manifest = _manifest_by_key()
     payment_method_fields = [

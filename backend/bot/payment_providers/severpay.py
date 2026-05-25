@@ -25,6 +25,7 @@ from .base import (
     ServiceFactoryContext,
     WebAppPaymentContext,
     provider_env_file,
+    provider_runtime_enabled,
 )
 from .shared import (
     HttpClientMixin,
@@ -135,7 +136,7 @@ class SeverPayService(HttpClientMixin):
 
     @property
     def configured(self) -> bool:
-        return bool(self.config.ENABLED and self.mid and self.token)
+        return bool(provider_runtime_enabled(self.config) and self.mid and self.token)
 
     @property
     def base_url(self) -> str:
@@ -393,6 +394,14 @@ async def pay_severpay_callback_handler(
 
     if not i18n or not callback.message:
         await notify_callback_parse_error(callback, translator)
+        return
+
+    if not SPEC.is_available_to_user(
+        settings,
+        user_id=callback.from_user.id,
+        require_configured=False,
+    ):
+        await notify_service_unavailable(callback, translator)
         return
 
     if not severpay_service or not severpay_service.configured:

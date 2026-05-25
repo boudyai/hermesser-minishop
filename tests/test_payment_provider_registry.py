@@ -4,10 +4,12 @@ from types import SimpleNamespace
 
 from bot.keyboards.inline.user_keyboards import get_payment_method_keyboard
 from bot.payment_providers import (
+    build_provider_configs,
     get_provider_spec,
     iter_provider_specs,
     iter_service_keys,
     pending_statuses,
+    provider_admin_only_pairs,
     provider_emoji_map,
     provider_label_map,
     provider_telegram_button_text,
@@ -193,8 +195,6 @@ def test_provider_presentation_ignores_cross_language_override():
 
 
 def test_payment_method_keyboard_uses_custom_telegram_text_without_changing_callback(monkeypatch):
-    from bot.payment_providers import build_provider_configs
-
     monkeypatch.setenv("WATA_ENABLED", "True")
     monkeypatch.setenv("PAYMENT_WATA_TELEGRAM_LABEL_EN", "Wata custom")
     monkeypatch.setenv("PAYMENT_WATA_TELEGRAM_EMOJI", "💸")
@@ -223,6 +223,84 @@ def test_payment_method_keyboard_uses_custom_telegram_text_without_changing_call
     button = markup.inline_keyboard[0][0]
     assert button.text == "💸 Wata custom"
     assert button.callback_data == "pay_wata:1:150:subscription"
+
+
+def test_admin_only_provider_is_visible_only_to_admins(monkeypatch):
+    from bot.app.web.webapp.serializers import _serialize_payment_methods
+
+    monkeypatch.setenv("WATA_ENABLED", "False")
+    monkeypatch.setenv("WATA_ADMIN_ONLY_ENABLED", "True")
+    build_provider_configs(force=True)
+
+    settings = Settings(
+        _env_file=None,
+        BOT_TOKEN="token",
+        POSTGRES_USER="app_user",
+        POSTGRES_PASSWORD="app_password",
+        TARIFFS_CONFIG_PATH="missing-tariffs.json",
+        PAYMENT_METHODS_ORDER="wata",
+        ADMIN_IDS="42",
+        STARS_ENABLED=False,
+    )
+    i18n = SimpleNamespace(gettext=lambda _lang, key, **_kwargs: key)
+    app = {"wata_service": SimpleNamespace(configured=True)}
+    spec = get_provider_spec("wata")
+
+    regular_markup = get_payment_method_keyboard(
+        months=1,
+        price=150,
+        stars_price=None,
+        currency_symbol_val="RUB",
+        lang="en",
+        i18n_instance=i18n,
+        settings=settings,
+        user_id=7,
+    )
+    admin_markup = get_payment_method_keyboard(
+        months=1,
+        price=150,
+        stars_price=None,
+        currency_symbol_val="RUB",
+        lang="en",
+        i18n_instance=i18n,
+        settings=settings,
+        user_id=42,
+    )
+
+    assert spec is not None
+    assert not spec.is_visible(settings, app)
+    assert not spec.is_visible_for_user(settings, app, is_admin=False)
+    assert spec.is_visible_for_user(settings, app, is_admin=True)
+    assert all(
+        not button.callback_data.startswith("pay_wata:")
+        for row in regular_markup.inline_keyboard
+        for button in row
+    )
+    assert admin_markup.inline_keyboard[0][0].callback_data == "pay_wata:1:150:subscription"
+    assert _serialize_payment_methods(settings, app, "en", is_admin=False) == []
+    assert _serialize_payment_methods(settings, app, "en", is_admin=True)[0]["id"] == "wata"
+
+
+def test_admin_only_provider_toggle_pairs_are_declared():
+    pairs = set(provider_admin_only_pairs())
+
+    assert ("WATA_ENABLED", "WATA_ADMIN_ONLY_ENABLED") in pairs
+    assert ("PLATEGA_SBP_ENABLED", "PLATEGA_SBP_ADMIN_ONLY_ENABLED") in pairs
+    assert ("PLATEGA_CRYPTO_ENABLED", "PLATEGA_CRYPTO_ADMIN_ONLY_ENABLED") in pairs
+    assert ("STARS_ENABLED", "STARS_ADMIN_ONLY_ENABLED") in pairs
+
+
+def test_admin_only_provider_toggle_normalization_disables_public_pair():
+    from bot.services.settings_override_service import _normalize_exclusive_provider_toggles
+
+    updates, deletes = _normalize_exclusive_provider_toggles(
+        {"WATA_ADMIN_ONLY_ENABLED": True},
+        ["WATA_ENABLED"],
+    )
+
+    assert updates["WATA_ADMIN_ONLY_ENABLED"] is True
+    assert updates["WATA_ENABLED"] is False
+    assert deletes == []
 
 
 def test_provider_callbacks_are_built_from_specs():
@@ -260,7 +338,11 @@ def test_provider_callbacks_are_built_from_specs():
     )
 
 
-def test_provider_visibility_uses_service_configuration():
+def test_provider_visibility_uses_service_configuration(monkeypatch):
+    monkeypatch.setenv("WATA_ENABLED", "True")
+    monkeypatch.delenv("WATA_ADMIN_ONLY_ENABLED", raising=False)
+    build_provider_configs(force=True)
+
     spec = get_provider_spec("wata")
     assert spec is not None
 

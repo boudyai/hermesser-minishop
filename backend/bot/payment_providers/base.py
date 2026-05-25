@@ -28,12 +28,23 @@ class ProviderEnvConfig(BaseSettings):
     env vars it consumes — no edits in the global ``Settings`` required.
     """
 
+    ADMIN_ONLY_ENABLED: bool = False
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,
     )
+
+
+def provider_runtime_enabled(config: Any, *admin_only_attrs: str) -> bool:
+    """Return True when a provider should run for public or admin-only payments."""
+
+    if bool(getattr(config, "ENABLED", False)):
+        return True
+    attrs = admin_only_attrs or ("ADMIN_ONLY_ENABLED",)
+    return any(bool(getattr(config, attr, False)) for attr in attrs)
 
 
 @dataclass(frozen=True)
@@ -68,6 +79,9 @@ class ProviderManifestField:
     attr: Optional[str] = (
         None  # attribute name on the target model; defaults to key without env_prefix
     )
+    i18n_label_key: Optional[str] = None
+    i18n_description_key: Optional[str] = None
+    i18n_subsection_key: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -135,10 +149,22 @@ class PaymentProviderSpec:
     config_class: Optional[Type[ProviderEnvConfig]] = None
     presentation_class: Optional[Type[ProviderEnvConfig]] = None
     manifest_fields: Sequence[ProviderManifestField] = ()
+    enabled_manifest_key: Optional[str] = None
+    admin_only_manifest_key: Optional[str] = None
+    admin_only_config_attr: str = "ADMIN_ONLY_ENABLED"
+    admin_only_enabled: Optional[EnabledPredicate] = None
 
     @property
     def settings_key(self) -> str:
         return self.id.upper()
+
+    @property
+    def enabled_field_key(self) -> str:
+        return self.enabled_manifest_key or f"{self.settings_key}_ENABLED"
+
+    @property
+    def admin_only_field_key(self) -> str:
+        return self.admin_only_manifest_key or f"{self.settings_key}_ADMIN_ONLY_ENABLED"
 
     @property
     def default_telegram_emoji(self) -> str:
@@ -148,7 +174,7 @@ class PaymentProviderSpec:
     def method_ids(self) -> tuple[str, ...]:
         return (self.id, *tuple(self.aliases))
 
-    def is_enabled(self, source: Any) -> bool:
+    def _predicate_value(self, predicate: EnabledPredicate, source: Any) -> bool:
         # If this spec carries a provider-local config_class, prefer the live
         # config bundle so callers can pass plain Settings without having to
         # know about provider-local env layouts.
@@ -157,8 +183,46 @@ class PaymentProviderSpec:
 
             bundle = get_provider_bundle(self.service_key)
             if bundle and bundle.config is not None:
-                return bool(self.enabled(bundle.config))
-        return bool(self.enabled(source))
+                return bool(predicate(bundle.config))
+        return bool(predicate(source))
+
+    def is_enabled(self, source: Any) -> bool:
+        return self._predicate_value(self.enabled, source)
+
+    def is_admin_only_enabled(self, source: Any) -> bool:
+        if self.admin_only_enabled is not None:
+            return self._predicate_value(self.admin_only_enabled, source)
+        if self.config_class is not None and self.service_key:
+            from .registry import get_provider_bundle
+
+            bundle = get_provider_bundle(self.service_key)
+            if bundle and bundle.config is not None:
+                return bool(getattr(bundle.config, self.admin_only_config_attr, False))
+        return bool(getattr(source, self.admin_only_field_key, False))
+
+    def is_effectively_enabled(self, source: Any) -> bool:
+        return self.is_enabled(source) or self.is_admin_only_enabled(source)
+
+    def _is_admin_user(
+        self,
+        source: Any,
+        *,
+        user_id: Optional[int] = None,
+        is_admin: Optional[bool] = None,
+    ) -> bool:
+        if is_admin is not None:
+            return bool(is_admin)
+        if user_id is None:
+            return False
+        try:
+            normalized_user_id = int(user_id)
+        except (TypeError, ValueError):
+            return False
+        try:
+            admin_ids = {int(item) for item in (getattr(source, "ADMIN_IDS", None) or [])}
+        except (TypeError, ValueError):
+            return False
+        return normalized_user_id in admin_ids
 
     def is_service_configured(self, app: Any) -> bool:
         if not self.requires_configured_service:
@@ -170,6 +234,43 @@ class PaymentProviderSpec:
 
     def is_visible(self, source: Any, app: Any) -> bool:
         return self.is_enabled(source) and self.is_service_configured(app)
+
+    def is_available_to_user(
+        self,
+        source: Any,
+        app: Any = None,
+        *,
+        user_id: Optional[int] = None,
+        is_admin: Optional[bool] = None,
+        require_configured: bool = True,
+    ) -> bool:
+        public_enabled = self.is_enabled(source)
+        admin_only_visible = self.is_admin_only_enabled(source) and self._is_admin_user(
+            source,
+            user_id=user_id,
+            is_admin=is_admin,
+        )
+        if not (public_enabled or admin_only_visible):
+            return False
+        if require_configured and app is not None and not self.is_service_configured(app):
+            return False
+        return True
+
+    def is_visible_for_user(
+        self,
+        source: Any,
+        app: Any,
+        *,
+        user_id: Optional[int] = None,
+        is_admin: Optional[bool] = None,
+    ) -> bool:
+        return self.is_available_to_user(
+            source,
+            app,
+            user_id=user_id,
+            is_admin=is_admin,
+            require_configured=True,
+        )
 
     def load_router(self) -> Any:
         return self.router

@@ -49,6 +49,7 @@ from .base import (
     ServiceFactoryContext,
     WebAppPaymentContext,
     provider_env_file,
+    provider_runtime_enabled,
 )
 from .shared import (
     SuccessMessage,
@@ -151,7 +152,7 @@ class YooKassaService:
         )
 
         if not self.configured:
-            if not self.config.ENABLED:
+            if not provider_runtime_enabled(self.config):
                 logging.warning(
                     "YooKassa is disabled via YOOKASSA_ENABLED flag. Payment functionality will be DISABLED."  # noqa: E501
                 )
@@ -164,7 +165,11 @@ class YooKassaService:
 
     @property
     def configured(self) -> bool:
-        if not (self.config.ENABLED and self.config.SHOP_ID and self.config.SECRET_KEY):
+        if not (
+            provider_runtime_enabled(self.config)
+            and self.config.SHOP_ID
+            and self.config.SECRET_KEY
+        ):
             return False
         self._ensure_sdk_configured()
         return self._sdk_configured_for is not None
@@ -1554,6 +1559,29 @@ async def _initiate_yk_payment(
     return False
 
 
+async def _yookassa_available_to_callback_user(
+    callback: types.CallbackQuery,
+    settings: Settings,
+    get_text,
+) -> bool:
+    if SPEC.is_available_to_user(
+        settings,
+        user_id=callback.from_user.id,
+        require_configured=False,
+    ):
+        return True
+    try:
+        await callback.answer(get_text("payment_service_unavailable_alert"), show_alert=True)
+    except Exception:
+        pass
+    if callback.message:
+        try:
+            await callback.message.edit_text(get_text("payment_service_unavailable"))
+        except Exception:
+            pass
+    return False
+
+
 @router.callback_query(F.data.startswith("pay_yk:"))
 async def pay_yk_callback_handler(
     callback: types.CallbackQuery,
@@ -1571,6 +1599,9 @@ async def pay_yk_callback_handler(
             await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
         except Exception:
             pass
+        return
+
+    if not await _yookassa_available_to_callback_user(callback, settings, get_text):
         return
 
     if not yookassa_service or not yookassa_service.configured:
@@ -1705,6 +1736,9 @@ async def pay_yk_new_card_handler(
             pass
         return
 
+    if not await _yookassa_available_to_callback_user(callback, settings, get_text):
+        return
+
     if not yookassa_service or not yookassa_service.configured:
         logging.error("YooKassa service unavailable for pay_yk_new.")
         try:
@@ -1787,6 +1821,9 @@ async def pay_yk_saved_list_handler(
             await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
         except Exception:
             pass
+        return
+
+    if not await _yookassa_available_to_callback_user(callback, settings, get_text):
         return
 
     try:
@@ -1947,6 +1984,9 @@ async def pay_yk_use_saved_handler(
             await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
         except Exception:
             pass
+        return
+
+    if not await _yookassa_available_to_callback_user(callback, settings, get_text):
         return
 
     if not yookassa_service or not yookassa_service.configured:

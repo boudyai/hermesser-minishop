@@ -127,6 +127,33 @@ def apply_overrides(settings: Settings, overrides: Dict[str, Any]) -> int:
     return applied
 
 
+def _normalize_exclusive_provider_toggles(
+    updates: Dict[str, Any],
+    deletes: list,
+) -> tuple[Dict[str, Any], list]:
+    """When a provider is enabled for admins only, turn off its public toggle."""
+
+    from bot.payment_providers import provider_admin_only_pairs
+
+    exclusive_map = {
+        key: opposite
+        for public_key, admin_key in provider_admin_only_pairs()
+        for key, opposite in ((public_key, admin_key), (admin_key, public_key))
+    }
+    if not exclusive_map:
+        return updates, deletes
+
+    normalized = dict(updates)
+    normalized_deletes = list(deletes)
+    for key, value in updates.items():
+        if value is not True or key not in exclusive_map:
+            continue
+        opposite = exclusive_map[key]
+        normalized[opposite] = False
+        normalized_deletes = [item for item in normalized_deletes if item != opposite]
+    return normalized, normalized_deletes
+
+
 def _appearance_snapshot(settings: Settings) -> Dict[str, Any]:
     snapshot: Dict[str, Any] = {}
     logo_url = getattr(settings, "WEBAPP_LOGO_URL", None)
@@ -269,6 +296,11 @@ async def update_overrides(
 
     if errors:
         return {"ok": False, "errors": errors}
+
+    coerced_updates, valid_deletes = _normalize_exclusive_provider_toggles(
+        coerced_updates,
+        valid_deletes,
+    )
 
     async with async_session_factory() as session:  # type: AsyncSession
         async with session.begin():
