@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: deploy/docker/Dockerfile
       target: frontend
-    image: ghcr.io/3252a8/remnawave-minishop-frontend:${IMAGE_TAG:-latest}
+    image: 3252a8/remnawave-minishop-frontend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       IMAGE_TAG: ${IMAGE_TAG:-latest}
@@ -30,7 +30,7 @@ services:
       context: .
       dockerfile: deploy/docker/Dockerfile
       target: backend
-    image: ghcr.io/3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
+    image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     env_file:
       - ${APP_ENV_FILE:-.env}
@@ -65,7 +65,7 @@ services:
       context: .
       dockerfile: deploy/docker/Dockerfile
       target: worker
-    image: ghcr.io/3252a8/remnawave-minishop-worker:${IMAGE_TAG:-latest}
+    image: 3252a8/remnawave-minishop-worker:${IMAGE_TAG:-latest}
     restart: unless-stopped
     env_file:
       - ${APP_ENV_FILE:-.env}
@@ -87,7 +87,7 @@ services:
 
   migrate:
     container_name: remnawave-minishop-migrate
-    image: ghcr.io/3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
+    image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile

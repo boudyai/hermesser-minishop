@@ -41,7 +41,7 @@ services:
       retries: 20
 
   migrate:
-    image: ghcr.io/3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
+    image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
     restart: "no"
     command: ["python", "backend/main_migrate.py"]
     env_file: *app_env_file
@@ -58,7 +58,7 @@ services:
         condition: service_healthy
 
   backend:
-    image: ghcr.io/3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
+    image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     env_file: *app_env_file
     environment:
@@ -84,7 +84,7 @@ services:
       start_period: 30s
 
   worker:
-    image: ghcr.io/3252a8/remnawave-minishop-worker:${IMAGE_TAG:-latest}
+    image: 3252a8/remnawave-minishop-worker:${IMAGE_TAG:-latest}
     restart: unless-stopped
     env_file: *app_env_file
     environment:
@@ -102,7 +102,7 @@ services:
         condition: service_completed_successfully
 
   frontend:
-    image: ghcr.io/3252a8/remnawave-minishop-frontend:${IMAGE_TAG:-latest}
+    image: 3252a8/remnawave-minishop-frontend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       IMAGE_TAG: ${IMAGE_TAG:-latest}
