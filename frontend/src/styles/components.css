@@ -1151,6 +1151,8 @@
 
 .ticket-message-list,
 .support-admin-messages {
+  align-content: start;
+  grid-auto-rows: max-content;
   gap: 16px;
 }
 
@@ -1541,6 +1543,7 @@
 
   .support-ticket-screen .ticket-message-list {
     min-height: 100%;
+    align-content: end;
   }
 
   .support-ticket-screen .support-messages-empty {
