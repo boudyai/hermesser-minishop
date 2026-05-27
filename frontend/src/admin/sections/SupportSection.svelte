@@ -93,7 +93,8 @@
   });
 
   async function send(body) {
-    await supportStore.sendReply(body);
+    const sent = await supportStore.sendReply(body);
+    if (!sent) return;
     reply = "";
   }
 

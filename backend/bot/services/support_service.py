@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -134,6 +135,16 @@ class SupportService:
             email_auth_service=self.email_auth_service,
         )
 
+    @staticmethod
+    def _schedule_notification(coro, error_message: str, *error_args: Any) -> None:
+        async def _runner():
+            try:
+                await coro
+            except Exception:
+                logger.exception(error_message, *error_args)
+
+        asyncio.create_task(_runner(), name="support-notification")
+
     async def _ensure_user_allowed(self, session, user_id: int) -> User:
         user = await user_dal.get_user_by_id(session, user_id)
         if not user or user.is_banned or not self.settings.SUPPORT_TICKETS_ENABLED:
@@ -218,8 +229,8 @@ class SupportService:
             await session.commit()
 
         if notification_decision.send_telegram or notification_decision.send_email:
-            try:
-                await self.notification_service.notify_support_user_reply(
+            self._schedule_notification(
+                self.notification_service.notify_support_user_reply(
                     ticket,
                     message,
                     user,
@@ -227,9 +238,10 @@ class SupportService:
                     unread_count=int(ticket.unread_admin_count or 0),
                     send_telegram=notification_decision.send_telegram,
                     send_email=notification_decision.send_email,
-                )
-            except Exception:
-                logger.exception("Failed to notify about support user reply %s", ticket_id)
+                ),
+                "Failed to notify about support user reply %s",
+                ticket_id,
+            )
         return ticket, message
 
     async def reply_as_admin(
@@ -275,10 +287,11 @@ class SupportService:
             await session.commit()
 
         if user and not is_internal_note:
-            try:
-                await self.notification_service.notify_support_admin_reply(ticket, message, user)
-            except Exception:
-                logger.exception("Failed to notify user about support admin reply %s", ticket_id)
+            self._schedule_notification(
+                self.notification_service.notify_support_admin_reply(ticket, message, user),
+                "Failed to notify user about support admin reply %s",
+                ticket_id,
+            )
         return ticket, message
 
     async def change_status(self, admin_id: int, ticket_id: int, status: str) -> SupportTicket:

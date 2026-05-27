@@ -193,17 +193,26 @@ export function createAdminSupportStore({ api, onToast, at }) {
         body: JSON.stringify({ body, is_internal_note: internal }),
       });
       if (!res?.ok) throw res;
-      state.update((s) => ({
-        ...s,
-        openedTicket: res.ticket
-          ? { ...s.openedTicket, ...res.ticket, user: res.ticket.user || s.openedTicket?.user }
-          : s.openedTicket,
-        messages: [...s.messages, res.message],
-      }));
-      await loadList();
-      await loadStats();
+      state.update((s) =>
+        s.openedTicketId === current
+          ? {
+              ...s,
+              openedTicket: res.ticket
+                ? {
+                    ...s.openedTicket,
+                    ...res.ticket,
+                    user: res.ticket.user || s.openedTicket?.user,
+                  }
+                : s.openedTicket,
+              messages: res.message ? [...s.messages, res.message] : s.messages,
+            }
+          : s
+      );
+      void Promise.allSettled([loadList({ silent: true }), loadStats()]);
+      return true;
     } catch (error) {
       onToast(error?.message || at("support_send_failed", {}, "Send failed"));
+      return false;
     } finally {
       state.update((s) => ({ ...s, sending: false }));
     }

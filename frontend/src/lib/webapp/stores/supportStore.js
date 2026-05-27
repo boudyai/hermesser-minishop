@@ -258,13 +258,19 @@ export function createSupportStore({ api, t, showToast }) {
         body: JSON.stringify({ body }),
       });
       if (!res?.ok) throw res;
-      state.update((s) => ({
-        ...s,
-        openedTicket: res.ticket || s.openedTicket,
-        messages: [...s.messages, res.message],
-      }));
-      await refreshUnread();
-      await loadList({ silent: true, force: true });
+      state.update((s) =>
+        s.openedTicketId === ticketId
+          ? {
+              ...s,
+              openedTicket: res.ticket || s.openedTicket,
+              messages: res.message ? [...s.messages, res.message] : s.messages,
+            }
+          : s
+      );
+      void Promise.allSettled([
+        refreshUnread({ silent: true }),
+        loadList({ silent: true, force: true }),
+      ]);
       return true;
     } catch (error) {
       showToast(error?.message || t("wa_support_send_failed"));
