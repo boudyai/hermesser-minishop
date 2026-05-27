@@ -46,6 +46,7 @@ def _payment(**overrides):
         "amount": 100.0,
         "provider_payment_id": "link-id",
         "purchased_gb": None,
+        "purchased_hwid_devices": None,
         "subscription_duration_months": 1,
         "sale_mode": "subscription",
         "user": None,
@@ -272,6 +273,64 @@ def test_wata_refresh_finds_paid_transaction_by_order_id_and_finalizes(monkeypat
     assert updates == [(465, "tx-paid", "succeeded")]
     assert finalized == [(465, "wata", "wata")]
     assert session.commits == 1
+
+
+def test_wata_hwid_payment_finalizes_purchased_device_count(monkeypatch):
+    session = _FakeSession()
+    payment = _payment(
+        provider="wata",
+        provider_payment_id="link-id",
+        sale_mode="hwid_devices@standard",
+        subscription_duration_months=None,
+        purchased_hwid_devices=3,
+    )
+    finalized = []
+    service = _service(session)
+
+    async def search_transactions(*, order_id=None, payment_link_id=None, status=None, limit=5):
+        return True, {
+            "items": [
+                {
+                    "id": "tx-paid",
+                    "status": "Paid",
+                    "orderId": "465",
+                    "amount": 100,
+                    "currency": "RUB",
+                    "paymentLinkId": "link-id",
+                }
+            ]
+        }
+
+    async def get_payment_by_db_id(_session, payment_id):
+        assert payment_id == 465
+        return payment
+
+    async def update_provider_payment_and_status(
+        _session,
+        payment_id,
+        provider_payment_id,
+        status,
+    ):
+        payment.provider_payment_id = provider_payment_id
+        payment.status = status
+
+    async def finalize_successful_payment(request):
+        finalized.append((request.months, request.traffic_amount, request.sale_mode))
+        return SimpleNamespace()
+
+    service.search_transactions = search_transactions
+    monkeypatch.setattr(wata.payment_dal, "get_payment_by_db_id", get_payment_by_db_id)
+    monkeypatch.setattr(
+        wata.payment_dal,
+        "update_provider_payment_and_status",
+        update_provider_payment_and_status,
+    )
+    monkeypatch.setattr(wata, "finalize_successful_payment", finalize_successful_payment)
+
+    result = asyncio.run(service.refresh_payment_status(session, payment))
+
+    assert result is payment
+    assert finalized == [(3, 3.0, "hwid_devices@standard")]
 
 
 def test_try_reuse_pending_link_returns_url_for_opened_link():

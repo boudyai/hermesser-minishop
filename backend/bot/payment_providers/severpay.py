@@ -46,6 +46,7 @@ from .shared import (
     parse_payment_callback,
     payment_failed,
     payment_unavailable,
+    payment_units_for_activation,
     post_json_request,
     quote_hwid_callback_parts,
     render_link_or_fail,
@@ -270,12 +271,19 @@ class SeverPayService(HttpClientMixin):
                 return web.json_response({"status": False, "msg": "payment_not_found"}, status=404)
 
             resolved_provider_id = provider_payment_id or str(payment.payment_id)
-            payment_months = payment.purchased_gb or payment.subscription_duration_months or 1
             sale_mode = payment.sale_mode or (
                 "traffic" if self.settings.traffic_sale_mode else "subscription"
             )
+            payment_months = payment_units_for_activation(payment, sale_mode)
 
             if status == "success":
+                if payment.status == "succeeded":
+                    logging.info(
+                        "SeverPay webhook: payment %s already succeeded.",
+                        payment.payment_id,
+                    )
+                    return web.json_response({"status": True})
+
                 try:
                     await payment_dal.update_provider_payment_and_status(
                         session,

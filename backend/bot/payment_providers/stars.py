@@ -143,6 +143,14 @@ class StarsService:
         i18n_data: dict,
         sale_mode: str = "subscription",
     ) -> None:
+        payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)
+        if not payment:
+            logging.error("Stars: payment %s not found.", payment_db_id)
+            return
+        if payment.status == "succeeded":
+            logging.info("Stars: payment %s already succeeded.", payment_db_id)
+            return
+
         try:
             payment_record = await payment_dal.update_provider_payment_and_status(
                 session,
@@ -162,9 +170,6 @@ class StarsService:
             else int(message.from_user.id)
         )
         payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)
-        if not payment:
-            logging.error("Stars: payment %s vanished after status update.", payment_db_id)
-            return
 
         await finalize_successful_payment(
             PaymentSuccessRequest(

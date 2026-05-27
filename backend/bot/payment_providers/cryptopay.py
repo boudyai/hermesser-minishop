@@ -270,6 +270,14 @@ class CryptoPayService:
         referral_service: ReferralService = app["referral_service"]
 
         async with async_session_factory() as session:
+            payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)
+            if not payment:
+                logging.error("CryptoPay webhook: payment %s not found.", payment_db_id)
+                return
+            if payment.status == "succeeded":
+                logging.info("CryptoPay webhook: payment %s already succeeded.", payment_db_id)
+                return
+
             try:
                 await payment_dal.update_provider_payment_and_status(
                     session,

@@ -63,6 +63,7 @@ from .shared import (
     make_translator,
     mark_payment_failed_creation,
     notify_admins_payment_received,
+    parse_positive_int_units,
     payment_failed,
     payment_link_response,
     payment_record_amounts,
@@ -444,11 +445,17 @@ def _resolve_yookassa_activation_amounts(
     traffic_amount_gb = (
         float(traffic_gb_raw) if _metadata_value_present(traffic_gb_raw) else subscription_months
     )
-    hwid_devices_count = (
-        int(float(hwid_devices_raw))
-        if _metadata_value_present(hwid_devices_raw)
-        else (int(subscription_months) if _is_hwid_device_sale_base(sale_mode_base) else 0)
-    )
+    hwid_devices_count = 0
+    if _metadata_value_present(hwid_devices_raw):
+        parsed_hwid_devices = parse_positive_int_units(hwid_devices_raw)
+        if parsed_hwid_devices is None:
+            raise ValueError("Invalid HWID device count")
+        hwid_devices_count = parsed_hwid_devices
+    elif _is_hwid_device_sale_base(sale_mode_base):
+        parsed_hwid_devices = parse_positive_int_units(subscription_months_raw)
+        if parsed_hwid_devices is None:
+            raise ValueError("Invalid HWID device count")
+        hwid_devices_count = parsed_hwid_devices
 
     if sale_mode_base == "subscription":
         months_for_activation = int(subscription_months)

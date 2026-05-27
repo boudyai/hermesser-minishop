@@ -49,6 +49,7 @@ from .shared import (
     parse_payment_callback,
     payment_failed,
     payment_unavailable,
+    payment_units_for_activation,
     post_json_request,
     quote_hwid_callback_parts,
     render_link_or_fail,
@@ -382,10 +383,10 @@ class FreeKassaService(HttpClientMixin):
                 )
                 return web.Response(status=500, text="processing_error")
 
-            months = payment.purchased_gb or payment.subscription_duration_months or 1
             sale_mode = payment.sale_mode or (
                 "traffic" if self.settings.traffic_sale_mode else "subscription"
             )
+            months = payment_units_for_activation(payment, sale_mode)
 
             success_prefix: Optional[str] = None
             if provider_payment_id:

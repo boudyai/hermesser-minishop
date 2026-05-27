@@ -196,3 +196,61 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
         self.assertEqual(payload["price"], 25)
         subscription_service.quote_hwid_device_topup.assert_awaited_once()
         create_payment.assert_awaited_once()
+
+    async def test_create_payment_route_rejects_fractional_hwid_device_count(self):
+        tariff = SimpleNamespace(
+            key="standard",
+            billing_model="period",
+            enabled_periods=[1],
+            hwid_device_packages=SimpleNamespace(
+                rub=[SimpleNamespace(count=1)],
+                stars=[],
+            ),
+        )
+        settings = SimpleNamespace(
+            traffic_sale_mode=False,
+            tariffs_config=SimpleNamespace(require=lambda key: tariff),
+            DEFAULT_LANGUAGE="en",
+            DEFAULT_CURRENCY_SYMBOL="RUB",
+        )
+        subscription_service = SimpleNamespace(quote_hwid_device_topup=AsyncMock())
+        request = SimpleNamespace(
+            app={
+                "settings": settings,
+                "async_session_factory": _SessionFactory(),
+                "subscription_service": subscription_service,
+            }
+        )
+
+        with (
+            patch.object(billing_module, "_require_user_id", return_value=42),
+            patch.object(
+                billing_module,
+                "_enforce_webapp_rate_limit",
+                AsyncMock(return_value=None),
+            ),
+            patch.object(
+                billing_module,
+                "_read_json",
+                AsyncMock(
+                    return_value={
+                        "method": "yookassa",
+                        "months": 1.9,
+                        "device_count": 1.9,
+                        "tariff_key": "standard",
+                        "sale_mode": "hwid_devices",
+                    }
+                ),
+            ),
+            patch.object(
+                billing_module,
+                "_get_cached_webapp_settings",
+                return_value={"subscription_options": {}, "stars_subscription_options": {}},
+            ),
+        ):
+            response = await billing_module.create_payment_route(request)
+
+        self.assertEqual(response.status, 400)
+        payload = json.loads(response.text)
+        self.assertEqual(payload["error"], "invalid_plan")
+        subscription_service.quote_hwid_device_topup.assert_not_awaited()

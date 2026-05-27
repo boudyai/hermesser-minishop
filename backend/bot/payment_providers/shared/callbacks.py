@@ -20,6 +20,7 @@ from .common import (
     build_payment_description,
     format_human_units,
     mark_payment_failed_creation,
+    parse_positive_int_units,
     sale_mode_base,
     sale_mode_is_hwid_devices,
     sale_mode_tariff_key,
@@ -124,10 +125,13 @@ async def quote_hwid_callback_parts(
 ) -> tuple[Optional[PaymentCallbackParts], Optional[dict]]:
     if not sale_mode_is_hwid_devices(parts.sale_mode):
         return parts, None
+    device_count = parse_positive_int_units(parts.months)
+    if device_count is None:
+        return None, None
     quote = await subscription_service.quote_hwid_device_topup(
         session,
         user_id=user_id,
-        device_count=int(parts.months),
+        device_count=device_count,
         tariff_key=sale_mode_tariff_key(parts.sale_mode),
         renewal=sale_mode_base(parts.sale_mode) == "hwid_devices_renewal",
         currency=currency,
@@ -135,7 +139,7 @@ async def quote_hwid_callback_parts(
     if not quote:
         return None, None
     quoted_parts = PaymentCallbackParts(
-        months=parts.months,
+        months=device_count,
         price=float(quote.get("price") or 0),
         sale_mode=parts.sale_mode,
     )

@@ -52,6 +52,7 @@ from .shared import (
     payment_link_response,
     payment_record_amounts,
     payment_unavailable,
+    payment_units_for_activation,
     post_json_request,
     quote_hwid_callback_parts,
     render_link_or_fail,
@@ -531,10 +532,10 @@ class WataService(HttpClientMixin):
             )
             return None
 
-        payment_units = payment.purchased_gb or payment.subscription_duration_months or 1
         sale_mode = payment.sale_mode or (
             "traffic" if self.settings.traffic_sale_mode else "subscription"
         )
+        payment_units = payment_units_for_activation(payment, sale_mode)
         outcome = await finalize_successful_payment(
             PaymentSuccessRequest(
                 bot=self.bot,

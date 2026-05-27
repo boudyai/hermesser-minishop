@@ -1,6 +1,10 @@
+import asyncio
 import importlib
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
+import pytest
 
 from bot.keyboards.inline.user_keyboards import get_payment_method_keyboard
 from bot.payment_providers import (
@@ -16,8 +20,11 @@ from bot.payment_providers import (
     resolve_provider_presentation,
 )
 from bot.payment_providers.shared import (
+    PaymentCallbackParts,
     format_number_for_payload,
     payment_record_amounts,
+    payment_units_for_activation,
+    quote_hwid_callback_parts,
     sale_mode_base,
     sale_mode_is_hwid_devices,
     sale_mode_is_traffic,
@@ -375,6 +382,13 @@ def test_common_sale_mode_helpers_cover_provider_payment_records():
     assert hwid.tariff_key == "vip"
     assert hwid.hwid_devices_sale
 
+    payment = SimpleNamespace(
+        purchased_gb=None,
+        purchased_hwid_devices=3,
+        subscription_duration_months=None,
+    )
+    assert payment_units_for_activation(payment, "hwid_devices@vip") == 3
+
 
 def test_yookassa_hwid_webapp_metadata_uses_device_count_for_activation():
     (
@@ -395,3 +409,34 @@ def test_yookassa_hwid_webapp_metadata_uses_device_count_for_activation():
     assert hwid_devices_count == 3
     assert months_for_activation == 3
     assert traffic_gb_for_activation is None
+
+
+def test_hwid_callback_quote_rejects_fractional_device_count():
+    subscription_service = SimpleNamespace(quote_hwid_device_topup=AsyncMock())
+
+    quoted_parts, quote = asyncio.run(
+        quote_hwid_callback_parts(
+            session=AsyncMock(),
+            user_id=42,
+            parts=PaymentCallbackParts(
+                months=1.9,
+                price=50,
+                sale_mode="hwid_devices@vip",
+            ),
+            subscription_service=subscription_service,
+        )
+    )
+
+    assert quoted_parts is None
+    assert quote is None
+    subscription_service.quote_hwid_device_topup.assert_not_awaited()
+
+
+def test_yookassa_hwid_metadata_rejects_fractional_device_count():
+    with pytest.raises(ValueError):
+        _resolve_yookassa_activation_amounts(
+            sale_mode_base="hwid_devices",
+            subscription_months_raw="0",
+            traffic_gb_raw=None,
+            hwid_devices_raw="1.9",
+        )

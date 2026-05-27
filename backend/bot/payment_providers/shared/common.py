@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any, Callable, Optional
 
 from aiohttp import web
@@ -34,6 +34,20 @@ def format_decimal_amount(amount: Any, places: int = 2) -> Decimal:
 def decimal_amounts_equal(left: Any, right: Any, places: int = 2) -> bool:
     """True when both values round to the same fixed-point representation."""
     return format_decimal_amount(left, places) == format_decimal_amount(right, places)
+
+
+def parse_positive_int_units(value: Any) -> Optional[int]:
+    """Return a positive integer only when the input represents whole units exactly."""
+    if isinstance(value, bool):
+        return None
+    try:
+        decimal_value = Decimal(str(value).strip())
+    except (InvalidOperation, ValueError):
+        return None
+    if not decimal_value.is_finite() or decimal_value != decimal_value.to_integral_value():
+        return None
+    integer_value = int(decimal_value)
+    return integer_value if integer_value > 0 else None
 
 
 def format_human_units(value: Any) -> str:
@@ -162,6 +176,20 @@ def payment_record_amounts(
         traffic_sale=traffic_sale,
         hwid_devices_sale=hwid_devices_sale,
     )
+
+
+def payment_units_for_activation(payment: Any, sale_mode: str) -> Any:
+    """Resolve purchased units from a payment record for webhook activation."""
+    base = sale_mode_base(sale_mode)
+    if sale_mode_is_traffic(base):
+        return getattr(payment, "purchased_gb", None) or getattr(
+            payment, "subscription_duration_months", None
+        ) or 1
+    if sale_mode_is_hwid_devices(base):
+        return getattr(payment, "purchased_hwid_devices", None) or getattr(
+            payment, "subscription_duration_months", None
+        ) or 1
+    return getattr(payment, "subscription_duration_months", None) or 1
 
 
 def json_error(status: int, code: str, message: str) -> web.Response:

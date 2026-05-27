@@ -27,6 +27,19 @@ def _billing_datetime_text(value: Optional[Any]) -> Optional[str]:
         return text
 
 
+def _parse_positive_int_units(value: Any) -> Optional[int]:
+    if isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not number.is_integer():
+        return None
+    integer = int(number)
+    return integer if integer > 0 else None
+
+
 async def apply_promo_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     payload = await _read_json(request)
@@ -110,15 +123,12 @@ async def create_payment_route(request: web.Request) -> web.Response:
             return _json_error(400, "invalid_plan", "Tariff is not available")
         if tariff.billing_model != "period":
             return _json_error(400, "invalid_plan", "Device top-up is not available")
-        try:
-            device_count = int(
-                float(
-                    payment_payload.device_count
-                    if payment_payload.device_count is not None
-                    else payment_payload.months
-                )
-            )
-        except (TypeError, ValueError):
+        device_count = _parse_positive_int_units(
+            payment_payload.device_count
+            if payment_payload.device_count is not None
+            else payment_payload.months
+        )
+        if device_count is None:
             return _json_error(400, "invalid_plan", "Invalid device package")
         if not tariff.hwid_device_packages:
             return _json_error(400, "invalid_plan", "Device package is not available")
