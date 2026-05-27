@@ -21,7 +21,6 @@ from bot.services.backup_archive import (
     BACKUP_MANIFEST_NAME,
     attach_archive_integrity,
     build_file_records,
-    verify_manifest_signature,
     write_manifest,
     write_zip_from_directory,
 )
@@ -153,16 +152,6 @@ class BackupRestoreService:
         with zipfile.ZipFile(archive_path) as archive:
             self._validate_zip_members(archive.infolist())
             manifest = self._read_manifest(archive)
-            signature_valid = self._archive_signature_valid(manifest)
-            signature_required = getattr(
-                self.settings,
-                "BACKUP_ARCHIVE_SIGNATURE_REQUIRED",
-                True,
-            )
-            if signature_required and not signature_valid:
-                raise BackupArchiveError("Archive manifest signature is not valid")
-            if not signature_valid:
-                warnings.append("manifest signature is not valid")
             has_database = self._find_database_dump_member(archive) is not None
             compose_members = self._compose_file_members(archive)
 
@@ -401,7 +390,6 @@ class BackupRestoreService:
             attach_archive_integrity(
                 manifest,
                 file_records=build_file_records(staging_dir),
-                settings=self.settings,
             )
             write_manifest(staging_dir, manifest)
             tmp_archive = archive_path.with_name(f"{archive_path.name}.tmp")
@@ -551,18 +539,12 @@ class BackupRestoreService:
             raise BackupArchiveError("Archive manifest format is not supported")
         return manifest
 
-    def _archive_signature_valid(self, manifest: dict[str, Any]) -> bool:
-        return verify_manifest_signature(manifest, self.settings)
-
     def _validate_archive_for_restore(self, archive_path: Path) -> None:
         if not zipfile.is_zipfile(archive_path):
             raise BackupArchiveError("Archive is not a valid ZIP file")
         with zipfile.ZipFile(archive_path) as archive:
             self._validate_zip_members(archive.infolist())
             manifest = self._read_manifest(archive)
-            if getattr(self.settings, "BACKUP_ARCHIVE_SIGNATURE_REQUIRED", True):
-                if not self._archive_signature_valid(manifest):
-                    raise BackupArchiveError("Archive manifest signature is not valid")
             self._validate_archive_integrity(archive, manifest)
 
     def _validate_archive_integrity(

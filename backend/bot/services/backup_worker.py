@@ -179,7 +179,6 @@ class BackupWorker:
             attach_archive_integrity(
                 manifest,
                 file_records=build_file_records(staging_dir),
-                settings=self.settings,
             )
             write_manifest(staging_dir, manifest)
 

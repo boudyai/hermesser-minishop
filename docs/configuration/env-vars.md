@@ -84,8 +84,6 @@
 | `BACKUP_PG_DUMP_TIMEOUT_SECONDS` | Таймаут выполнения `pg_dump`. |
 | `BACKUP_PG_RESTORE_PATH` | Путь к `pg_restore` внутри backend-контейнера для восстановления из админки. |
 | `BACKUP_PG_RESTORE_TIMEOUT_SECONDS` | Таймаут выполнения `pg_restore`. |
-| `BACKUP_ARCHIVE_SIGNATURE_REQUIRED` | Требовать валидную HMAC-подпись `manifest.json` при upload/restore. По умолчанию `True`. |
-| `BACKUP_ARCHIVE_SIGNATURE_SECRET` | Отдельный секрет подписи backup-архивов. Если пусто, используется `BOT_TOKEN`. |
 | `BACKUP_COMPOSE_ENABLED` | Добавлять snapshot compose-каталога в архив. Если mount отсутствует, бэкап БД не падает. |
 | `BACKUP_COMPOSE_SOURCE_DIR` | Путь внутри контейнера к compose-каталогу. В стандартном compose это `/app/compose-source`. |
 | `BACKUP_COMPOSE_RESTORE_DIR` | Куда восстанавливать compose-файлы. Если пусто, используется `BACKUP_COMPOSE_SOURCE_DIR`. |

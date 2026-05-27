@@ -34,7 +34,6 @@ def _settings(tmp_path: Path, compose_dir: Path, **overrides) -> Settings:
 
 
 def _write_backup_archive(
-    settings: Settings,
     path: Path,
     *,
     include_db=True,
@@ -65,7 +64,6 @@ def _write_backup_archive(
         attach_archive_integrity(
             manifest,
             file_records=build_file_records(staging_dir),
-            settings=settings,
         )
         write_manifest(staging_dir, manifest)
         write_zip_from_directory(staging_dir, path)
@@ -80,7 +78,7 @@ def test_backup_restore_service_lists_archives_with_contents(tmp_path):
     compose_dir.mkdir()
     settings = _settings(tmp_path, compose_dir)
     archive_path = Path(settings.BACKUP_DIR) / f"{BACKUP_FILENAME_PREFIX}20260527-120000+0300.zip"
-    _write_backup_archive(settings, archive_path)
+    _write_backup_archive(archive_path)
 
     archives = BackupRestoreService(settings).list_archives()
 
@@ -106,7 +104,7 @@ def test_backup_restore_service_restores_compose_and_snapshots_current(tmp_path)
 
     settings = _settings(tmp_path, compose_dir)
     archive_path = Path(settings.BACKUP_DIR) / f"{BACKUP_FILENAME_PREFIX}20260527-120000+0300.zip"
-    _write_backup_archive(settings, archive_path, include_db=False)
+    _write_backup_archive(archive_path, include_db=False)
 
     service = BackupRestoreService(settings)
     result = service.restore_archive_sync(
@@ -131,7 +129,7 @@ def test_backup_restore_service_prevents_zip_slip_in_compose_restore(tmp_path):
     compose_dir.mkdir()
     settings = _settings(tmp_path, compose_dir)
     archive_path = Path(settings.BACKUP_DIR) / f"{BACKUP_FILENAME_PREFIX}20260527-120000+0300.zip"
-    _write_backup_archive(settings, archive_path, include_db=False, unsafe=True)
+    _write_backup_archive(archive_path, include_db=False, unsafe=True)
 
     with pytest.raises(BackupArchiveError):
         BackupRestoreService(settings).restore_archive_sync(
@@ -148,7 +146,7 @@ def test_backup_restore_service_runs_pg_restore_for_dump(tmp_path):
     compose_dir.mkdir()
     settings = _settings(tmp_path, compose_dir)
     archive_path = Path(settings.BACKUP_DIR) / f"{BACKUP_FILENAME_PREFIX}20260527-120000+0300.zip"
-    _write_backup_archive(settings, archive_path, include_compose=False)
+    _write_backup_archive(archive_path, include_compose=False)
     service = BackupRestoreService(settings)
     restored_payloads = []
 
@@ -163,6 +161,33 @@ def test_backup_restore_service_runs_pg_restore_for_dump(tmp_path):
             restore_database=True,
             restore_compose=False,
         )
+    )
+
+    assert result.database_restored is True
+    assert restored_payloads == [b"fake dump"]
+
+
+def test_backup_restore_service_accepts_archive_from_another_instance(tmp_path):
+    compose_dir = tmp_path / "compose"
+    compose_dir.mkdir()
+    target_settings = _settings(tmp_path, compose_dir, BOT_TOKEN="target-token")
+    archive_path = Path(target_settings.BACKUP_DIR) / (
+        f"{BACKUP_FILENAME_PREFIX}20260527-120000+0300.zip"
+    )
+    _write_backup_archive(archive_path, include_compose=False)
+
+    service = BackupRestoreService(target_settings)
+    restored_payloads = []
+
+    def fake_pg_restore(dump_path: Path) -> None:
+        restored_payloads.append(dump_path.read_bytes())
+
+    service._run_pg_restore = fake_pg_restore
+
+    result = service.restore_archive_sync(
+        archive_path.name,
+        restore_database=True,
+        restore_compose=False,
     )
 
     assert result.database_restored is True
@@ -185,7 +210,7 @@ def test_backup_restore_service_rejects_tampered_archive(tmp_path):
     compose_dir.mkdir()
     settings = _settings(tmp_path, compose_dir)
     archive_path = Path(settings.BACKUP_DIR) / f"{BACKUP_FILENAME_PREFIX}20260527-120000+0300.zip"
-    _write_backup_archive(settings, archive_path, include_compose=False)
+    _write_backup_archive(archive_path, include_compose=False)
 
     tampered_path = archive_path.with_name("tampered.zip")
     with zipfile.ZipFile(archive_path) as source, zipfile.ZipFile(tampered_path, "w") as target:

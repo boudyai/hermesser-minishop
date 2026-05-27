@@ -209,8 +209,6 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.BACKUP_COMPOSE_SOURCE_DIR, "/app/compose-source")
         self.assertIsNone(settings.BACKUP_COMPOSE_RESTORE_DIR)
         self.assertEqual(settings.BACKUP_PG_RESTORE_PATH, "pg_restore")
-        self.assertTrue(settings.BACKUP_ARCHIVE_SIGNATURE_REQUIRED)
-        self.assertIsNone(settings.BACKUP_ARCHIVE_SIGNATURE_SECRET)
 
     def test_subscription_purchase_description_is_localized_and_toggleable(self):
         settings = Settings(

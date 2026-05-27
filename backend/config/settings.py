@@ -135,8 +135,6 @@ class Settings(BaseSettings):
     BACKUP_PG_DUMP_TIMEOUT_SECONDS: int = Field(default=30 * 60)
     BACKUP_PG_RESTORE_PATH: str = Field(default="pg_restore")
     BACKUP_PG_RESTORE_TIMEOUT_SECONDS: int = Field(default=30 * 60)
-    BACKUP_ARCHIVE_SIGNATURE_REQUIRED: bool = Field(default=True)
-    BACKUP_ARCHIVE_SIGNATURE_SECRET: Optional[str] = Field(default=None)
     BACKUP_COMPOSE_ENABLED: bool = Field(default=True)
     BACKUP_COMPOSE_SOURCE_DIR: Optional[str] = Field(default="/app/compose-source")
     BACKUP_COMPOSE_RESTORE_DIR: Optional[str] = Field(default=None)
@@ -1005,7 +1003,6 @@ class Settings(BaseSettings):
         "SMTP_FROM_EMAIL",
         "SMTP_FROM_NAME",
         "SMTP_FALLBACK_PORTS",
-        "BACKUP_ARCHIVE_SIGNATURE_SECRET",
         "BACKUP_COMPOSE_SOURCE_DIR",
         "BACKUP_COMPOSE_RESTORE_DIR",
         mode="before",
