@@ -361,7 +361,7 @@ export function createAccountStore({
       if (typeof updateLocalData === "function") {
         updateLocalData(normalize(response.language || language));
       }
-      await loadData();
+      await loadData({ fresh: true });
     } catch {
       showToast(t("wa_settings_language_update_failed"));
     } finally {
