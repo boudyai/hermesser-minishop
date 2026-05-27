@@ -10,7 +10,17 @@ const templateDir = path.resolve(__dirname, "../backend/bot/app/web/templates");
 
 export default defineConfig(({ mode }) => {
   const isAdminBuild = mode === "admin";
-  const outputBase = isAdminBuild ? "subscription_webapp_admin" : "subscription_webapp";
+  const isDocsDemoBuild = mode === "docs-demo";
+  const outputBase = isAdminBuild
+    ? "subscription_webapp_admin"
+    : isDocsDemoBuild
+      ? "subscription_webapp_docs_demo"
+      : "subscription_webapp";
+  const entry = isAdminBuild
+    ? "src/adminEntry.js"
+    : isDocsDemoBuild
+      ? "src/docsDemoEntry.js"
+      : "src/main.js";
 
   return {
     resolve: {
@@ -32,7 +42,7 @@ export default defineConfig(({ mode }) => {
       sourcemap: false,
       cssCodeSplit: false,
       lib: {
-        entry: path.resolve(__dirname, isAdminBuild ? "src/adminEntry.js" : "src/main.js"),
+        entry: path.resolve(__dirname, entry),
         name: isAdminBuild ? "SubscriptionWebAppAdmin" : "SubscriptionWebApp",
         formats: ["iife"],
         fileName: () => `${outputBase}.js`,

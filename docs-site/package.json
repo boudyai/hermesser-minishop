@@ -3,8 +3,9 @@
   "type": "module",
   "scripts": {
     "sync:docs": "node ./scripts/sync-docs.mjs",
-    "dev": "npm run sync:docs && astro dev",
-    "build": "npm run sync:docs && astro build",
+    "build:demo": "node ./scripts/build-demo-runtime.mjs",
+    "dev": "npm run sync:docs && npm run build:demo && astro dev",
+    "build": "npm run sync:docs && npm run build:demo && astro build",
     "preview": "astro preview"
   },
   "dependencies": {
