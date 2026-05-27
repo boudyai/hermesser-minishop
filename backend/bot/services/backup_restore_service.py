@@ -20,6 +20,7 @@ from bot.services.backup_archive import (
     BACKUP_FORMAT_VERSION,
     BACKUP_MANIFEST_NAME,
     attach_archive_integrity,
+    backup_filename_timestamp,
     build_file_records,
     write_manifest,
     write_zip_from_directory,
@@ -39,7 +40,7 @@ BACKUP_MAX_COMPOSE_BYTES = 1024 * 1024 * 1024
 BACKUP_MAX_COMPOSE_MEMBER_BYTES = 256 * 1024 * 1024
 BACKUP_MAX_COMPRESSION_RATIO = 200
 BACKUP_ZIP_BOMB_MIN_BYTES = 100 * 1024 * 1024
-COMPOSE_PRE_RESTORE_PREFIX = "remnawave-minishop-compose-pre-restore-"
+COMPOSE_PRE_RESTORE_PREFIX = "minishop-pre-restore-"
 SAFE_ARCHIVE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.@+-]{0,220}\.zip$")
 
 
@@ -183,9 +184,8 @@ class BackupRestoreService:
     ) -> BackupArchiveInfo:
         self._validate_archive_for_restore(temp_path)
         digest = self._file_digest(temp_path)
-        stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S%z")
-        safe_original = self._safe_original_stem(original_filename)
-        archive_name = f"{BACKUP_FILENAME_PREFIX}uploaded-{stamp}-{digest}-{safe_original}.zip"
+        stamp = backup_filename_timestamp()
+        archive_name = f"{BACKUP_FILENAME_PREFIX}uploaded-{stamp}-{digest}.zip"
         target_path = self._unique_archive_path(archive_name)
         temp_path.replace(target_path)
         return self.inspect_archive(target_path)
@@ -346,12 +346,12 @@ class BackupRestoreService:
             ) from exc
 
     def _snapshot_current_compose(self, target_dir: Path) -> Optional[Path]:
-        stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S%z")
-        archive_path = self.backup_dir() / f"{COMPOSE_PRE_RESTORE_PREFIX}{stamp}.zip"
+        stamp = backup_filename_timestamp()
+        archive_path = self._unique_archive_path(f"{COMPOSE_PRE_RESTORE_PREFIX}{stamp}.zip")
         excluded_dirs = self._compose_excluded_dirs()
         files_count = 0
         with tempfile.TemporaryDirectory(
-            prefix=f"{COMPOSE_PRE_RESTORE_PREFIX}{stamp}-",
+            prefix=f"{archive_path.stem}-",
             dir=self.backup_dir(),
         ) as tmp:
             staging_dir = Path(tmp)

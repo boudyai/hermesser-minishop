@@ -270,9 +270,17 @@ export async function mockApi(path, options = {}, context = {}) {
     }
     return out;
   })();
+  const compactBackupStamp = (date) => {
+    const pad = (value) => String(value).padStart(2, "0");
+    return [
+      `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}`,
+      pad(date.getHours()),
+      pad(date.getMinutes()),
+    ].join("-");
+  };
   const mockBackups = [
     {
-      name: "remnawave-minishop-backup-20260527-120000+0300.zip",
+      name: "minishop-20260527-12-00.zip",
       size_bytes: 184320,
       modified_at: "2026-05-27T09:00:00Z",
       created_at: "2026-05-27T09:00:00Z",
@@ -285,7 +293,7 @@ export async function mockApi(path, options = {}, context = {}) {
       manifest: {},
     },
     {
-      name: "remnawave-minishop-backup-20260527-110000+0300.zip",
+      name: "minishop-20260527-11-00.zip",
       size_bytes: 153600,
       modified_at: "2026-05-27T08:00:00Z",
       created_at: "2026-05-27T08:00:00Z",
@@ -477,14 +485,9 @@ export async function mockApi(path, options = {}, context = {}) {
   }
   if (path === "/admin/backups/create") {
     const createdAt = new Date();
-    const stamp = createdAt
-      .toISOString()
-      .replace(/[-:]/g, "")
-      .replace("T", "-")
-      .replace(/\.\d{3}Z$/, "+0000");
     const archive = {
       ...mockBackups[0],
-      name: `remnawave-minishop-backup-${stamp}.zip`,
+      name: `minishop-${compactBackupStamp(createdAt)}.zip`,
       modified_at: createdAt.toISOString(),
       created_at: createdAt.toISOString(),
       created_at_local: createdAt.toISOString(),
@@ -505,14 +508,15 @@ export async function mockApi(path, options = {}, context = {}) {
     };
   }
   if (path === "/admin/backups/upload") {
+    const uploadedAt = new Date();
     return {
       ok: true,
       archive: {
         ...mockBackups[0],
-        name: `remnawave-minishop-backup-uploaded-${Date.now()}.zip`,
-        modified_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        created_at_local: new Date().toISOString(),
+        name: `minishop-uploaded-${compactBackupStamp(uploadedAt)}-0000000000000000.zip`,
+        modified_at: uploadedAt.toISOString(),
+        created_at: uploadedAt.toISOString(),
+        created_at_local: uploadedAt.toISOString(),
       },
     };
   }
@@ -526,8 +530,7 @@ export async function mockApi(path, options = {}, context = {}) {
         database_restored: true,
         compose_files_restored: 6,
         compose_target_dir: "/app/compose-source",
-        compose_pre_restore_archive:
-          "data/backups/remnawave-minishop-compose-pre-restore-20260527-121500+0300.zip",
+        compose_pre_restore_archive: "data/backups/minishop-pre-restore-20260527-12-15.zip",
         warnings: [],
       },
     };

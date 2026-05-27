@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import re
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -76,6 +77,7 @@ def test_backup_worker_creates_archive_with_db_dump_and_compose_snapshot(tmp_pat
     assert result.archive_path.is_file()
     assert result.db_dump_included is True
     assert result.compose_files_count == 3
+    assert re.fullmatch(r"minishop-\d{8}-\d{2}-\d{2}\.zip", result.archive_path.name)
     assert not old_archive.exists()
     bot.send_document.assert_awaited_once()
     send_kwargs = bot.send_document.await_args.kwargs
@@ -146,12 +148,12 @@ def test_backup_worker_can_create_manual_backup(tmp_path):
 def test_backup_worker_allocates_unique_archive_path(tmp_path):
     settings = _settings(tmp_path, tmp_path / "compose")
     worker = _FakePgDumpBackupWorker(settings, _FakeBot())
-    archive_path = tmp_path / "remnawave-minishop-backup-20260527-120000+0300.zip"
+    archive_path = tmp_path / "minishop-20260527-12-00.zip"
     archive_path.write_text("existing", encoding="utf-8")
 
     unique_path = worker._unique_archive_path(archive_path)
 
-    assert unique_path.name == "remnawave-minishop-backup-20260527-120000+0300-2.zip"
+    assert unique_path.name == "minishop-20260527-12-00-2.zip"
 
 
 def test_backup_worker_does_not_fail_when_compose_source_is_not_mounted(tmp_path):

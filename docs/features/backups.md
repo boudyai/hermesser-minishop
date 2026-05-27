@@ -9,7 +9,7 @@ Minishop умеет автоматически собирать ZIP-бэкапы
 Типовой файл называется так:
 
 ```text
-remnawave-minishop-backup-20260527-120000+0300.zip
+minishop-20260527-12-00.zip
 ```
 
 Внутри:
@@ -86,7 +86,7 @@ COMPOSE_RESTORE_MODE=ro
 Compose-файлы восстанавливаются поверх текущей папки. Перед заменой backend создает pre-restore snapshot текущего compose-каталога рядом с остальными архивами:
 
 ```text
-remnawave-minishop-compose-pre-restore-YYYYMMDD-HHMMSS+ZZZZ.zip
+minishop-pre-restore-YYYYMMDD-HH-MM.zip
 ```
 
 После восстановления compose-папки перезапустите нужные сервисы, чтобы изменения `docker-compose.yml`, `.env`, Caddyfile/Nginx-конфигов и других файлов реально применились:
@@ -131,7 +131,7 @@ Backend валидирует архив до восстановления:
 Если админка недоступна, можно восстановить дамп вручную:
 
 ```bash
-unzip remnawave-minishop-backup-YYYYMMDD-HHMMSS+ZZZZ.zip -d restore
+unzip minishop-YYYYMMDD-HH-MM.zip -d restore
 docker compose cp restore/database/remnawave_minishop.dump postgres:/tmp/remnawave_minishop.dump
 docker compose stop backend worker
 docker compose exec postgres sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --no-owner --no-privileges /tmp/remnawave_minishop.dump'

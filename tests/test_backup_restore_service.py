@@ -1,4 +1,5 @@
 import asyncio
+import re
 import tempfile
 import zipfile
 from pathlib import Path
@@ -12,6 +13,7 @@ from bot.services.backup_archive import (
     write_zip_from_directory,
 )
 from bot.services.backup_restore_service import (
+    COMPOSE_PRE_RESTORE_PREFIX,
     BackupArchiveError,
     BackupRestoreService,
 )
@@ -77,7 +79,7 @@ def test_backup_restore_service_lists_archives_with_contents(tmp_path):
     compose_dir = tmp_path / "compose"
     compose_dir.mkdir()
     settings = _settings(tmp_path, compose_dir)
-    archive_path = Path(settings.BACKUP_DIR) / f"{BACKUP_FILENAME_PREFIX}20260527-120000+0300.zip"
+    archive_path = Path(settings.BACKUP_DIR) / f"{BACKUP_FILENAME_PREFIX}20260527-12-00.zip"
     _write_backup_archive(archive_path)
 
     archives = BackupRestoreService(settings).list_archives()
@@ -97,13 +99,22 @@ def test_backup_restore_service_rejects_path_traversal_archive_name(tmp_path):
         service.archive_path_for_name("../backup.zip")
 
 
-def test_backup_restore_service_restores_compose_and_snapshots_current(tmp_path):
+def test_backup_restore_service_restores_compose_and_snapshots_current(tmp_path, monkeypatch):
     compose_dir = tmp_path / "compose"
     compose_dir.mkdir()
     (compose_dir / "docker-compose.yml").write_text("old: true\n", encoding="utf-8")
 
     settings = _settings(tmp_path, compose_dir)
-    archive_path = Path(settings.BACKUP_DIR) / f"{BACKUP_FILENAME_PREFIX}20260527-120000+0300.zip"
+    monkeypatch.setattr(
+        "bot.services.backup_restore_service.backup_filename_timestamp",
+        lambda: "20260527-12-15",
+    )
+    existing_snapshot = (
+        Path(settings.BACKUP_DIR) / f"{COMPOSE_PRE_RESTORE_PREFIX}20260527-12-15.zip"
+    )
+    existing_snapshot.parent.mkdir(parents=True, exist_ok=True)
+    existing_snapshot.write_text("existing", encoding="utf-8")
+    archive_path = Path(settings.BACKUP_DIR) / f"{BACKUP_FILENAME_PREFIX}20260527-12-00.zip"
     _write_backup_archive(archive_path, include_db=False)
 
     service = BackupRestoreService(settings)
@@ -118,7 +129,10 @@ def test_backup_restore_service_restores_compose_and_snapshots_current(tmp_path)
     assert (compose_dir / "docker-compose.yml").read_text(encoding="utf-8") == "services: {}\n"
     assert (compose_dir / ".env").read_text(encoding="utf-8") == "POSTGRES_PASSWORD=secret\n"
     assert result.compose_pre_restore_archive
-    assert Path(result.compose_pre_restore_archive).is_file()
+    snapshot_path = Path(result.compose_pre_restore_archive)
+    assert snapshot_path.is_file()
+    assert snapshot_path.name == f"{COMPOSE_PRE_RESTORE_PREFIX}20260527-12-15-2.zip"
+    assert existing_snapshot.read_text(encoding="utf-8") == "existing"
     snapshot = service.inspect_archive(Path(result.compose_pre_restore_archive))
     assert snapshot.has_compose is True
     assert snapshot.compose_files_count == 1
@@ -128,7 +142,7 @@ def test_backup_restore_service_prevents_zip_slip_in_compose_restore(tmp_path):
     compose_dir = tmp_path / "compose"
     compose_dir.mkdir()
     settings = _settings(tmp_path, compose_dir)
-    archive_path = Path(settings.BACKUP_DIR) / f"{BACKUP_FILENAME_PREFIX}20260527-120000+0300.zip"
+    archive_path = Path(settings.BACKUP_DIR) / f"{BACKUP_FILENAME_PREFIX}20260527-12-00.zip"
     _write_backup_archive(archive_path, include_db=False, unsafe=True)
 
     with pytest.raises(BackupArchiveError):
@@ -145,7 +159,7 @@ def test_backup_restore_service_runs_pg_restore_for_dump(tmp_path):
     compose_dir = tmp_path / "compose"
     compose_dir.mkdir()
     settings = _settings(tmp_path, compose_dir)
-    archive_path = Path(settings.BACKUP_DIR) / f"{BACKUP_FILENAME_PREFIX}20260527-120000+0300.zip"
+    archive_path = Path(settings.BACKUP_DIR) / f"{BACKUP_FILENAME_PREFIX}20260527-12-00.zip"
     _write_backup_archive(archive_path, include_compose=False)
     service = BackupRestoreService(settings)
     restored_payloads = []
@@ -172,7 +186,7 @@ def test_backup_restore_service_accepts_archive_from_another_instance(tmp_path):
     compose_dir.mkdir()
     target_settings = _settings(tmp_path, compose_dir, BOT_TOKEN="target-token")
     archive_path = Path(target_settings.BACKUP_DIR) / (
-        f"{BACKUP_FILENAME_PREFIX}20260527-120000+0300.zip"
+        f"{BACKUP_FILENAME_PREFIX}20260527-12-00.zip"
     )
     _write_backup_archive(archive_path, include_compose=False)
 
@@ -205,11 +219,29 @@ def test_backup_restore_service_validates_uploaded_zip(tmp_path):
         BackupRestoreService(settings).import_uploaded_archive(temp_path, "backup.zip")
 
 
+def test_backup_restore_service_imports_uploaded_archive_with_compact_name(tmp_path):
+    compose_dir = tmp_path / "compose"
+    compose_dir.mkdir()
+    settings = _settings(tmp_path, compose_dir)
+    temp_path = tmp_path / "source.zip"
+    _write_backup_archive(temp_path)
+
+    archive = BackupRestoreService(settings).import_uploaded_archive(
+        temp_path,
+        "very-long-original-backup-name.zip",
+    )
+
+    assert re.fullmatch(
+        r"minishop-uploaded-\d{8}-\d{2}-\d{2}-[a-f0-9]{16}\.zip",
+        archive.name,
+    )
+
+
 def test_backup_restore_service_rejects_tampered_archive(tmp_path):
     compose_dir = tmp_path / "compose"
     compose_dir.mkdir()
     settings = _settings(tmp_path, compose_dir)
-    archive_path = Path(settings.BACKUP_DIR) / f"{BACKUP_FILENAME_PREFIX}20260527-120000+0300.zip"
+    archive_path = Path(settings.BACKUP_DIR) / f"{BACKUP_FILENAME_PREFIX}20260527-12-00.zip"
     _write_backup_archive(archive_path, include_compose=False)
 
     tampered_path = archive_path.with_name("tampered.zip")

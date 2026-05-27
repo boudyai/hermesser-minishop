@@ -1,13 +1,18 @@
 import hashlib
 import json
 import zipfile
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 BACKUP_APP_ID = "remnawave-minishop"
-BACKUP_FILENAME_PREFIX = "remnawave-minishop-backup-"
+BACKUP_FILENAME_PREFIX = "minishop-"
 BACKUP_FORMAT_VERSION = 1
 BACKUP_MANIFEST_NAME = "manifest.json"
+
+
+def backup_filename_timestamp() -> str:
+    return datetime.now().astimezone().strftime("%Y%m%d-%H-%M")
 
 
 def file_sha256(path: Path) -> str:

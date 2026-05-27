@@ -19,6 +19,7 @@ from bot.services.backup_archive import (
     BACKUP_FILENAME_PREFIX,
     BACKUP_FORMAT_VERSION,
     attach_archive_integrity,
+    backup_filename_timestamp,
     build_file_records,
     write_manifest,
     write_zip_from_directory,
@@ -145,7 +146,7 @@ class BackupWorker:
 
     async def create_backup(self, *, backup_type: str = "scheduled") -> BackupResult:
         started_at = datetime.now(timezone.utc)
-        stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S%z")
+        stamp = backup_filename_timestamp()
         archive_name = f"{BACKUP_FILENAME_PREFIX}{stamp}.zip"
         backup_dir = Path(self.settings.BACKUP_DIR).expanduser()
         backup_dir.mkdir(parents=True, exist_ok=True)
