@@ -64,10 +64,7 @@ function navIcon(href: string) {
     <SiteTitle />
   </div>
   <nav
-    class:list={[
-      'flex flex-1 flex-row gap-4 overflow-x-auto py-3 pr-4 pl-4 text-sm font-medium xl:gap-6 xl:pl-6',
-      hasSidebar && 'max-md:**:hidden',
-    ]}
+    class="hidden flex-1 flex-row gap-4 overflow-x-auto py-3 pr-4 pl-4 text-sm font-medium md:flex xl:gap-6 xl:pl-6"
   >
     {
       nav.map((item) => {
@@ -90,9 +87,38 @@ function navIcon(href: string) {
       })
     }
   </nav>
-  <div class="flex md:max-w-60 md:flex-1 print:hidden">
+  <div class="minishop-header-search flex md:max-w-60 md:flex-1 print:hidden">
     <Search />
   </div>
+  {
+    !hasSidebar && nav.length > 0 && (
+      <details class="minishop-mobile-nav md:hidden print:hidden">
+        <summary aria-label="Menu">
+          <span aria-hidden="true" />
+        </summary>
+        <div class="minishop-mobile-nav-panel">
+          {nav.map((item) => {
+            const href = getI18nText(item.href, route)
+            const label = getI18nText(item.label, route)
+            const icon = navIcon(href)
+
+            return (
+              <a
+                class:list={[
+                  'minishop-mobile-nav-link',
+                  icon && 'minishop-header-link inline-flex items-center',
+                ]}
+                href={href}
+              >
+                {icon && <Icon name={icon} size="1rem" color="currentColor" />}
+                <span>{label}</span>
+              </a>
+            )
+          })}
+        </div>
+      </details>
+    )
+  }
   <div class="hidden items-center gap-2 md:flex print:hidden">
     <SocialIcons />
     <LanguageSelect />
