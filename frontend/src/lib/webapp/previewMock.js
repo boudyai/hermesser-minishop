@@ -1,4 +1,5 @@
 import { DEMO_DATASET } from "./demoDataset.js";
+import { withDemoAvatar } from "./demoAvatars.js";
 
 const DEMO_LANGUAGE_STORAGE_KEY = "rw_minishop_demo_language";
 
@@ -441,11 +442,14 @@ export const DEV_MOCK = {
 
 function applyDemoDataset() {
   const storedLanguage = readStoredDemoLanguage();
-  const demoUser = {
-    ...(DEMO_DATASET.currentUser || {}),
-    id: DEMO_DATASET.currentUser?.id ?? DEMO_DATASET.currentUser?.user_id,
-    language_code: storedLanguage || DEMO_DATASET.currentUser?.language_code || "ru",
-  };
+  const demoUser = withDemoAvatar(
+    {
+      ...(DEMO_DATASET.currentUser || {}),
+      id: DEMO_DATASET.currentUser?.id ?? DEMO_DATASET.currentUser?.user_id,
+      language_code: storedLanguage || DEMO_DATASET.currentUser?.language_code || "ru",
+    },
+    160
+  );
 
   Object.assign(DEV_MOCK.config, DEMO_DATASET.config || {});
   DEV_MOCK.config.language = demoUser.language_code || "ru";
@@ -486,6 +490,37 @@ function applyDemoTariffScenario(subscriptionPatch = {}) {
   DEV_MOCK.data.topup_options = DEMO_DATASET.topup_options || DEV_MOCK.data.topup_options;
   DEV_MOCK.data.device_topup_options =
     DEMO_DATASET.device_topup_options || DEV_MOCK.data.device_topup_options;
+}
+
+function applyInactiveSubscriptionScenario({ trialAvailable = false } = {}) {
+  DEV_MOCK.data.settings.traffic_mode = false;
+  DEV_MOCK.data.settings.trial_enabled = true;
+  DEV_MOCK.data.settings.trial_available = Boolean(trialAvailable);
+  DEV_MOCK.data.settings.trial_duration_days = 5;
+  DEV_MOCK.data.settings.trial_traffic_limit_gb = 10;
+  DEV_MOCK.data.subscription = {
+    ...DEV_MOCK.data.subscription,
+    active: false,
+    status: "INACTIVE",
+    remaining_text: "Подписка не активна",
+    end_date_text: "",
+    days_left: 0,
+    config_link: null,
+    connect_url: null,
+    panel_short_uuid: "",
+    install_share_token: "",
+    install_share_url: "",
+    traffic_used: "0 B",
+    traffic_limit: "0 GB",
+    traffic_used_bytes: 0,
+    traffic_limit_bytes: 0,
+    premium_used_bytes: 0,
+    premium_limit_bytes: 0,
+    premium_is_limited: false,
+  };
+  DEV_MOCK.data.plans = DEMO_DATASET.plans || DEV_MOCK.data.plans;
+  DEV_MOCK.data.tariff_change_options =
+    DEMO_DATASET.tariff_change_options || DEV_MOCK.data.tariff_change_options;
 }
 
 export function applyPreviewMock(kind) {
@@ -745,6 +780,26 @@ export function applyPreviewMock(kind) {
       return;
     }
     return;
+  } else if (mode === "no-subscription" || mode === "inactive") {
+    applyInactiveSubscriptionScenario();
+  } else if (mode === "expiring" || mode === "ending-soon") {
+    DEV_MOCK.data.settings.traffic_mode = false;
+    DEV_MOCK.data.settings.trial_available = false;
+    if (DEMO_DATASET.plans?.length) {
+      applyDemoTariffScenario({
+        remaining_text: "2 д.",
+        end_date_text: "30.05.2026",
+        days_left: 2,
+      });
+      return;
+    }
+    DEV_MOCK.data.subscription = {
+      ...DEV_MOCK.data.subscription,
+      active: true,
+      remaining_text: "2 д.",
+      end_date_text: "30.05.2026",
+      days_left: 2,
+    };
   } else if (mode === "devices") {
     DEV_MOCK.data.settings.my_devices_enabled = true;
     DEV_MOCK.data.subscription = {
@@ -755,23 +810,6 @@ export function applyPreviewMock(kind) {
       extra_hwid_devices_valid_until_text: "01.06.2026 12:00",
     };
   } else if (mode === "trial") {
-    DEV_MOCK.data.settings.traffic_mode = false;
-    DEV_MOCK.data.settings.trial_enabled = true;
-    DEV_MOCK.data.settings.trial_available = true;
-    DEV_MOCK.data.settings.trial_duration_days = 5;
-    DEV_MOCK.data.settings.trial_traffic_limit_gb = 10;
-    DEV_MOCK.data.subscription = {
-      active: false,
-      status: "INACTIVE",
-      remaining_text: "Подписка не активна",
-      end_date_text: "",
-      days_left: 0,
-      config_link: null,
-      connect_url: null,
-      traffic_used: "0 B",
-      traffic_limit: "10 GB",
-      traffic_used_bytes: 0,
-      traffic_limit_bytes: 10737418240,
-    };
+    applyInactiveSubscriptionScenario({ trialAvailable: true });
   }
 }

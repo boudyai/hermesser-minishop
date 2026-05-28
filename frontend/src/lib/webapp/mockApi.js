@@ -1,5 +1,6 @@
 import { DEV_MOCK } from "./previewMock.js";
 import { DEMO_DATASET } from "./demoDataset.js";
+import { withDemoAvatar, withDemoAvatarDetail, withDemoAvatarTicket } from "./demoAvatars.js";
 
 const DEMO_LANGUAGE_STORAGE_KEY = "rw_minishop_demo_language";
 
@@ -106,6 +107,14 @@ function userName(user) {
     user?.email ||
     String(user?.user_id || "")
   );
+}
+
+function withDemoAvatars(users, size = 96) {
+  return (users || []).map((user) => withDemoAvatar(user, size));
+}
+
+function withDemoAvatarTickets(tickets, size = 96) {
+  return (tickets || []).map((ticket) => withDemoAvatarTicket(ticket, size));
 }
 
 function filterDemoUsers(params) {
@@ -298,7 +307,7 @@ function demoApiResponse(path, cleanPath, options, context) {
     const page = paged(filtered, params, 25);
     return {
       ok: true,
-      users: clone(page.items),
+      users: clone(withDemoAvatars(page.items)),
       total: page.total,
       page: page.page,
       page_size: page.pageSize,
@@ -309,6 +318,7 @@ function demoApiResponse(path, cleanPath, options, context) {
     const id = Number(parts[3]);
     const detail = DEMO_DATASET.adminUserDetails?.[String(id)];
     if (!detail) return { ok: false, error: "not_found" };
+    const decoratedDetail = withDemoAvatarDetail(detail);
     if (parts[4]) {
       if (parts[4] === "telegram-profile-link") {
         return { ok: true, url: `https://t.me/${detail.user?.username || "demo_user"}` };
@@ -316,9 +326,9 @@ function demoApiResponse(path, cleanPath, options, context) {
       if (parts[4] === "message" && parts[5] === "preview") {
         return { ok: true, text: "Demo broadcast preview for the selected account." };
       }
-      return { ok: true, user: clone(detail.user), detail: clone(detail) };
+      return { ok: true, user: clone(decoratedDetail.user), detail: clone(decoratedDetail) };
     }
-    return clone(detail);
+    return clone(decoratedDetail);
   }
 
   if (cleanPath === "/admin/logs") {
@@ -486,7 +496,7 @@ function demoApiResponse(path, cleanPath, options, context) {
   if (cleanPath === "/admin/support/tickets") {
     const tickets = filterDemoSupportTickets(demoSupportTickets(), params);
     const page = paged(tickets, params, 50);
-    return { ok: true, tickets: clone(page.items), total: page.total };
+    return { ok: true, tickets: clone(withDemoAvatarTickets(page.items)), total: page.total };
   }
   if (cleanPath.startsWith("/admin/support/tickets/")) {
     const parts = cleanPath.split("/");
@@ -515,17 +525,17 @@ function demoApiResponse(path, cleanPath, options, context) {
       ticket.last_message_at = message.created_at;
       ticket.last_message_role = "admin";
       ticket.status = "awaiting_user";
-      return { ok: true, ticket: clone(ticket), message: clone(message) };
+      return { ok: true, ticket: clone(withDemoAvatarTicket(ticket)), message: clone(message) };
     }
     if (method === "PATCH") {
       Object.assign(ticket, jsonBody(options));
-      return { ok: true, ticket: clone(ticket) };
+      return { ok: true, ticket: clone(withDemoAvatarTicket(ticket)) };
     }
     return {
       ok: true,
-      ticket: clone(ticket),
+      ticket: clone(withDemoAvatarTicket(ticket)),
       messages: clone(messages),
-      user_snapshot: userSnapshotForTicket(ticket),
+      user_snapshot: userSnapshotForTicket(withDemoAvatarTicket(ticket)),
     };
   }
 
@@ -564,7 +574,7 @@ function demoApiResponse(path, cleanPath, options, context) {
     const page = paged(tickets, params, 50);
     return {
       ok: true,
-      tickets: clone(page.items),
+      tickets: clone(withDemoAvatarTickets(page.items)),
       total: page.total,
       counts: demoSupportCounts(demoSupportTickets()),
     };
@@ -596,9 +606,9 @@ function demoApiResponse(path, cleanPath, options, context) {
       ticket.last_message_at = message.created_at;
       ticket.last_message_role = "user";
       ticket.status = "awaiting_admin";
-      return { ok: true, ticket: clone(ticket), message: clone(message) };
+      return { ok: true, ticket: clone(withDemoAvatarTicket(ticket)), message: clone(message) };
     }
-    return { ok: true, ticket: clone(ticket), messages: clone(messages) };
+    return { ok: true, ticket: clone(withDemoAvatarTicket(ticket)), messages: clone(messages) };
   }
   if (cleanPath === "/support/unread") {
     return {
@@ -635,7 +645,7 @@ export async function mockApi(path, options = {}, context = {}) {
     normalizeLangCode,
   });
   if (demoResponse !== undefined) return demoResponse;
-  const adminUsers = [
+  const adminUsers = withDemoAvatars([
     {
       user_id: 100200300,
       telegram_id: 100200300,
@@ -684,7 +694,7 @@ export async function mockApi(path, options = {}, context = {}) {
       is_banned: true,
       premium_traffic: { state: "none" },
     },
-  ];
+  ]);
   const supportTickets = [
     {
       ticket_id: 42,
