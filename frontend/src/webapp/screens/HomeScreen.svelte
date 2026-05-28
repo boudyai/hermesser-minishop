@@ -67,6 +67,9 @@
   function regularTrafficMetaLabel(sub = subscription) {
     return regularTrafficDepleted(sub) ? t("wa_traffic_depleted") : trafficResetLabel(sub);
   }
+  function premiumTrafficAvailable(sub = subscription) {
+    return !regularTrafficDepleted(sub);
+  }
   function premiumTrafficPercent(sub) {
     return premiumTrafficPercentFn(sub);
   }
@@ -182,7 +185,7 @@
           <span class="traffic-percent">{trafficPercent(subscription)}%</span>
         </div>
       </Card>
-      {#if subscription?.premium_unlimited_override}
+      {#if premiumTrafficAvailable(subscription) && subscription?.premium_unlimited_override}
         <Card class="premium-traffic-card">
           <div class="traffic-top">
             <span>{premiumTitle(subscription)}</span>
@@ -208,7 +211,7 @@
             {/if}
           </div>
         </Card>
-      {:else if Number(subscription?.premium_limit_bytes || 0) > 0}
+      {:else if premiumTrafficAvailable(subscription) && Number(subscription?.premium_limit_bytes || 0) > 0}
         <Card
           class={`${premiumTrafficTopupBarClickable ? "traffic-card-clickable " : ""}premium-traffic-card${subscription?.premium_is_limited ? " premium-traffic-card-limited" : ""}`}
         >
@@ -317,7 +320,7 @@
           {t("wa_add_traffic")}
         </Button>
       {/if}
-      {#if premiumTrafficTopupUnlocked}
+      {#if premiumTrafficTopupUnlocked && premiumTrafficAvailable(subscription)}
         <Button class="wide" variant="secondary" onclick={openPremiumTopupModal}>
           <Database size={18} />
           {t("wa_add_traffic_premium", { target: premiumTitle(subscription) })}
