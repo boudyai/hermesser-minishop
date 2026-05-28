@@ -64,7 +64,10 @@ function navIcon(href: string) {
     <SiteTitle />
   </div>
   <nav
-    class="flex flex-1 flex-row gap-4 overflow-x-auto py-3 pr-4 pl-4 text-sm font-medium max-md:**:hidden xl:gap-6 xl:pl-6"
+    class:list={[
+      'flex flex-1 flex-row gap-4 overflow-x-auto py-3 pr-4 pl-4 text-sm font-medium xl:gap-6 xl:pl-6',
+      hasSidebar && 'max-md:**:hidden',
+    ]}
   >
     {
       nav.map((item) => {
