@@ -55,28 +55,29 @@ const docsHref = '/getting-started/demo/';
         backdrop-filter: blur(16px);
       }
 
+      .demo-topbar__toggle,
+      .demo-topbar__hide {
+        display: none;
+      }
+
+      .demo-topbar__panel {
+        display: flex;
+        flex: 1 1 auto;
+        gap: 1rem;
+        align-items: center;
+        justify-content: space-between;
+        min-width: 0;
+      }
+
       .demo-topbar__title {
         min-width: 0;
       }
 
-      .demo-topbar__title strong,
-      .demo-topbar__title span {
-        display: block;
-      }
-
       .demo-topbar__title strong {
+        display: block;
         color: #00fe7a;
         font-size: 0.95rem;
         line-height: 1.2;
-      }
-
-      .demo-topbar__title span {
-        overflow: hidden;
-        color: #cbd5e1;
-        font-size: 0.82rem;
-        line-height: 1.35;
-        text-overflow: ellipsis;
-        white-space: nowrap;
       }
 
       .demo-topbar__back {
@@ -96,6 +97,13 @@ const docsHref = '/getting-started/demo/';
         color: #00fe7a;
       }
 
+      .demo-topbar__actions {
+        display: flex;
+        flex: 0 0 auto;
+        gap: 0.5rem;
+        align-items: center;
+      }
+
       .demo-frame {
         display: block;
         width: 100%;
@@ -105,24 +113,129 @@ const docsHref = '/getting-started/demo/';
       }
 
       @media (max-width: 42rem) {
-        .demo-topbar {
-          align-items: flex-start;
-          gap: 0.75rem;
+        body {
+          display: block;
         }
 
-        .demo-topbar__title span {
-          white-space: normal;
+        .demo-topbar {
+          position: fixed;
+          z-index: 2;
+          top: max(0.55rem, env(safe-area-inset-top));
+          right: max(0.55rem, env(safe-area-inset-right));
+          display: block;
+          min-height: 0;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          backdrop-filter: none;
+          pointer-events: none;
+        }
+
+        .demo-topbar__toggle {
+          display: inline-grid;
+          min-width: 2.75rem;
+          height: 2.25rem;
+          place-items: center;
+          pointer-events: auto;
+          border: 1px solid rgb(0 254 122 / 35%);
+          border-radius: 999px;
+          padding: 0 0.7rem;
+          background: rgb(5 8 15 / 86%);
+          box-shadow: 0 12px 34px rgb(0 0 0 / 28%);
+          color: #f8fafc;
+          backdrop-filter: blur(12px);
+          cursor: pointer;
+          font: inherit;
+          font-size: 0.78rem;
+          font-weight: 700;
+          line-height: 1;
+        }
+
+        .demo-topbar:not([data-collapsed]) .demo-topbar__toggle,
+        .demo-topbar[data-collapsed] .demo-topbar__panel {
+          display: none;
+        }
+
+        .demo-topbar__panel {
+          display: flex;
+          gap: 0.55rem;
+          align-items: center;
+          width: min(20rem, calc(100vw - 1.1rem));
+          padding: 0.38rem;
+          pointer-events: auto;
+          border: 1px solid rgb(148 163 184 / 22%);
+          border-radius: 10px;
+          background: rgb(5 8 15 / 90%);
+          box-shadow: 0 16px 44px rgb(0 0 0 / 34%);
+          backdrop-filter: blur(14px);
+        }
+
+        .demo-topbar__title {
+          flex: 1 1 auto;
+          overflow: hidden;
+        }
+
+        .demo-topbar__title strong {
+          overflow: hidden;
+          font-size: 0.78rem;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .demo-topbar__actions {
+          gap: 0.35rem;
+        }
+
+        .demo-topbar__back {
+          display: inline-flex;
+          border-color: rgb(0 254 122 / 35%);
+          padding: 0.42rem 0.55rem;
+          font-size: 0.78rem;
+        }
+
+        .demo-topbar__hide {
+          display: inline-grid;
+          width: 1.95rem;
+          height: 1.95rem;
+          place-items: center;
+          border: 1px solid rgb(148 163 184 / 26%);
+          border-radius: 7px;
+          padding: 0;
+          background: transparent;
+          color: #cbd5e1;
+          cursor: pointer;
+          font: inherit;
+          font-size: 1rem;
+          line-height: 1;
+        }
+
+        .demo-frame {
+          height: 100dvh;
         }
       }
     </style>
   </head>
   <body>
-    <header class="demo-topbar">
-      <div class="demo-topbar__title">
-        <strong>Remnawave Minishop demo</strong>
-        <span>Демо-режим: статическая сборка с моковыми данными, без backend</span>
+    <header class="demo-topbar" data-collapsed>
+      <button
+        class="demo-topbar__toggle"
+        type="button"
+        aria-controls="demo-topbar-panel"
+        aria-expanded="false"
+      >
+        Демо
+      </button>
+      <div class="demo-topbar__panel" id="demo-topbar-panel">
+        <div class="demo-topbar__title">
+          <strong>Remnawave Minishop demo</strong>
+        </div>
+        <div class="demo-topbar__actions">
+          <a class="demo-topbar__back" href={docsHref}>К документации</a>
+          <button class="demo-topbar__hide" type="button" aria-label="Скрыть панель">
+            ×
+          </button>
+        </div>
       </div>
-      <a class="demo-topbar__back" href={docsHref}>Вернуться к документации</a>
     </header>
     <iframe
       id="demo-frame"
@@ -137,6 +250,18 @@ const docsHref = '/getting-started/demo/';
       if (!params.has('screen')) params.set('screen', 'home');
       if (!params.has('mock')) params.set('mock', 'tariffs');
       frame.src = `/demo/runtime/app.html?${params.toString()}${window.location.hash || ''}`;
+
+      const topbar = document.querySelector('.demo-topbar');
+      const toggle = document.querySelector('.demo-topbar__toggle');
+      const hide = document.querySelector('.demo-topbar__hide');
+
+      const setCollapsed = (collapsed) => {
+        topbar.toggleAttribute('data-collapsed', collapsed);
+        toggle.setAttribute('aria-expanded', String(!collapsed));
+      };
+
+      toggle.addEventListener('click', () => setCollapsed(false));
+      hide.addEventListener('click', () => setCollapsed(true));
     </script>
   </body>
 </html>
