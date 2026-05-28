@@ -283,12 +283,20 @@ SETTINGS_MANIFEST: List[SettingField] = [
         subsection="common",
     ),
     # ─── Trial ─────────────────────────────────────────────────────
-    SettingField("TRIAL_ENABLED", "bool", "pricing", "Триал включён", subsection="trial"),
+    SettingField(
+        "TRIAL_ENABLED",
+        "bool",
+        "pricing",
+        "Триал включён",
+        optional=False,
+        subsection="trial",
+    ),
     SettingField(
         "TRIAL_DURATION_DAYS",
         "int",
         "pricing",
         "Длительность триала (дней)",
+        optional=False,
         min=0,
         subsection="trial",
     ),
@@ -297,6 +305,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "float",
         "pricing",
         "Лимит трафика триала (ГБ)",
+        optional=False,
         min=0,
         subsection="trial",
     ),
@@ -305,6 +314,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "string",
         "pricing",
         "Стратегия сброса трафика триала",
+        optional=False,
         subsection="trial",
     ),
     SettingField(

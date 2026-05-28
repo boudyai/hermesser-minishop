@@ -120,10 +120,15 @@
   }
 
   function boolValue(key, dirty = settingsDirty, fieldMap = settingsFieldMap) {
-    return Boolean(valueForKey(key, dirty, fieldMap));
+    const value = valueForKey(key, dirty, fieldMap);
+    if (typeof value === "string") {
+      return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
+    }
+    return Boolean(value);
   }
 
   function setSetting(key, value) {
+    if (!settingsFieldMap.has(key)) return;
     settingsStore.markDirty(key, value);
   }
 

@@ -207,6 +207,17 @@ def test_backup_required_numeric_settings_reject_empty_values():
         coerce_value(get_field_by_key("BACKUP_INTERVAL_SECONDS"), "")
 
 
+def test_trial_required_settings_reject_empty_values():
+    for key in (
+        "TRIAL_ENABLED",
+        "TRIAL_DURATION_DAYS",
+        "TRIAL_TRAFFIC_LIMIT_GB",
+        "TRIAL_TRAFFIC_STRATEGY",
+    ):
+        with pytest.raises(ValueError):
+            coerce_value(get_field_by_key(key), "")
+
+
 def test_payment_provider_settings_include_webhook_metadata():
     manifest = _manifest_by_key()
 
