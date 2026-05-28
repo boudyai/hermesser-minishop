@@ -103,7 +103,7 @@
       {#if subscription.active}
         <div class="sub-status">
           <CheckCircle2 size={23} />
-          <div>
+          <div class="sub-status-main">
             <h2>
               {trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active")} | {activeSubscriptionTermLabel(
                 subscription
@@ -119,17 +119,17 @@
                 ? t("wa_until_date", { date: subscription.end_date_text })
                 : subscription.remaining_text}
             </p>
-            {#if canChangeTariff}
-              <Button
-                class="wide status-tariff-action"
-                variant="secondary"
-                onclick={openTariffChangeModal}
-              >
-                <Repeat2 size={17} />
-                {t("wa_change_tariff")}
-              </Button>
-            {/if}
           </div>
+          {#if canChangeTariff}
+            <Button
+              class="status-tariff-action"
+              variant="secondary"
+              onclick={openTariffChangeModal}
+            >
+              <Repeat2 size={17} />
+              {t("wa_change_tariff")}
+            </Button>
+          {/if}
         </div>
       {:else}
         <div class="sub-status sub-status-inactive">

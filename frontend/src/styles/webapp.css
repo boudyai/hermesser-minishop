@@ -245,6 +245,11 @@ a {
   color: var(--accent);
 }
 
+.sub-status-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .sub-status h2 {
   margin: 0;
   font-size: 15px;
@@ -264,9 +269,11 @@ a {
 }
 
 .status-tariff-action {
-  margin-top: 10px;
-  min-height: 38px;
+  min-height: 34px;
+  margin-left: auto;
   padding: 0 12px;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .traffic-top,
