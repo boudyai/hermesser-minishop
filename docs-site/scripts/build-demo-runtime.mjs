@@ -13,6 +13,7 @@ const localesDir = path.join(repoRoot, 'locales');
 const runtimeBase = '/demo/runtime';
 const installGuidesConfigUrl =
   'https://raw.githubusercontent.com/legiz-ru/my-remnawave/main/sub-page/subpage-config/multiapp.json';
+const installGuidesConfigRetries = 3;
 const isWindows = process.platform === 'win32';
 const npmExecPath = process.env.npm_execpath || '';
 
@@ -92,6 +93,10 @@ async function copyRuntimeAsset(name) {
   await copyFile(path.join(templatesDir, name), path.join(runtimeDir, name));
 }
 
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function jsonScriptPayload(value) {
   return JSON.stringify(value).replace(/</g, '\\u003c');
 }
@@ -105,16 +110,28 @@ async function demoI18nPayload() {
 }
 
 async function installGuidesConfigPayload() {
-  const response = await fetch(installGuidesConfigUrl, {
-    headers: { accept: 'application/json' },
-  });
-  if (!response.ok) {
-    throw new Error(
-      `Unable to download demo install guides config (${response.status} ${response.statusText})`,
-    );
+  let lastError;
+
+  for (let attempt = 1; attempt <= installGuidesConfigRetries; attempt += 1) {
+    try {
+      const response = await fetch(installGuidesConfigUrl, {
+        headers: { accept: 'application/json' },
+      });
+      if (!response.ok) {
+        throw new Error(
+          `Unable to download demo install guides config (${response.status} ${response.statusText})`,
+        );
+      }
+      const config = await response.json();
+      return `${JSON.stringify(config, null, 2)}\n`;
+    } catch (error) {
+      lastError = error;
+      if (attempt === installGuidesConfigRetries) break;
+      await wait(500 * attempt);
+    }
   }
-  const config = await response.json();
-  return `${JSON.stringify(config, null, 2)}\n`;
+
+  throw lastError;
 }
 
 async function appHtml() {
