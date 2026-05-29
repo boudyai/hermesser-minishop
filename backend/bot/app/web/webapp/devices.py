@@ -22,7 +22,13 @@ async def devices_route(request: web.Request) -> web.Response:
             "devices",
             user_id,
             int(getattr(settings, "WEBAPP_DEVICES_CACHE_TTL_SECONDS", 5) or 0),
-            lambda: _load_devices_payload(subscription_service, session, user_id),
+            lambda: _load_devices_payload(
+                subscription_service,
+                session,
+                user_id,
+                fallback_panel_user_uuid=str(getattr(db_user, "panel_user_uuid", "") or "").strip()
+                or None,
+            ),
         )
     if isinstance(result, dict) and result.get("ok") is True:
         return web.json_response({"ok": True, **(result.get("payload") or {})})
@@ -45,16 +51,12 @@ async def _load_devices_payload(
     subscription_service: SubscriptionService,
     session: AsyncSession,
     user_id: int,
+    fallback_panel_user_uuid: Optional[str] = None,
 ) -> Dict[str, Any]:
     active = await subscription_service.get_active_subscription_details(session, user_id)
-    panel_user_uuid = active.get("user_id") if active else None
+    panel_user_uuid = str((active or {}).get("user_id") or fallback_panel_user_uuid or "").strip()
     if not panel_user_uuid:
-        return {
-            "ok": False,
-            "status": 400,
-            "error": "subscription_not_active",
-            "message": "Subscription is not active",
-        }
+        return _empty_inactive_devices_payload()
 
     panel_service = getattr(subscription_service, "panel_service", None)
     if not panel_service:
@@ -82,6 +84,7 @@ async def _load_devices_payload(
         "ok": True,
         "payload": {
             "enabled": True,
+            "subscription_active": _devices_subscription_is_active(active),
             "current_devices": len(devices),
             "max_devices": max_devices,
             "max_devices_label": _format_devices_limit(max_devices),
@@ -90,6 +93,31 @@ async def _load_devices_payload(
             ],
         },
     }
+
+
+def _empty_inactive_devices_payload() -> Dict[str, Any]:
+    return {
+        "ok": True,
+        "payload": {
+            "enabled": True,
+            "subscription_active": False,
+            "current_devices": 0,
+            "max_devices": None,
+            "max_devices_label": _format_devices_limit(None),
+            "devices": [],
+        },
+    }
+
+
+def _devices_subscription_is_active(active: Optional[Dict[str, Any]]) -> bool:
+    if not active:
+        return False
+    end_date = active.get("end_date")
+    if not isinstance(end_date, datetime):
+        return False
+    if end_date.tzinfo is None:
+        end_date = end_date.replace(tzinfo=timezone.utc)
+    return end_date > datetime.now(timezone.utc)
 
 
 async def disconnect_device_route(request: web.Request) -> web.Response:

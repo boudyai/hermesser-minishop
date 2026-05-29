@@ -913,6 +913,14 @@ a {
   color: var(--accent);
 }
 
+.devices-inactive-card {
+  border-color: color-mix(in srgb, var(--danger) 58%, var(--border));
+}
+
+.devices-inactive-card svg {
+  color: var(--danger);
+}
+
 .action-stack {
   display: grid;
   gap: 8px;

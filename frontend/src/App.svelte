@@ -323,6 +323,7 @@
     devicesBusy,
     devicesStatus,
     devicesIsError,
+    devicesErrorCode,
     deviceConfirmOpen,
     deviceToDisconnect,
     deviceDisconnectBusy,
@@ -2185,6 +2186,7 @@
                 {devicesData}
                 {devicesIsError}
                 {devicesLoaded}
+                {devicesErrorCode}
                 {devicesStatus}
                 {subscription}
                 {loadDevices}

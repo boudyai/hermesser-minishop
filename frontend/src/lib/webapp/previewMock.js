@@ -528,6 +528,15 @@ function applyInactiveSubscriptionScenario({ trialAvailable = false } = {}) {
     premium_limit_bytes: 0,
     premium_is_limited: false,
   };
+  DEV_MOCK.data.settings.my_devices_enabled = true;
+  DEV_MOCK.data.devices = {
+    ok: true,
+    enabled: true,
+    current_devices: 0,
+    max_devices: 0,
+    max_devices_label: "∞",
+    devices: [],
+  };
   DEV_MOCK.data.plans = DEMO_DATASET.plans || DEV_MOCK.data.plans;
   DEV_MOCK.data.tariff_change_options =
     DEMO_DATASET.tariff_change_options || DEV_MOCK.data.tariff_change_options;

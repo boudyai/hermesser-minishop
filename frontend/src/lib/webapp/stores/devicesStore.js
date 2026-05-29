@@ -7,6 +7,7 @@ export function createDevicesStore({ api, t, showToast }) {
     devicesBusy: false,
     devicesStatus: "",
     devicesIsError: false,
+    devicesErrorCode: "",
     deviceConfirmOpen: false,
     deviceToDisconnect: null,
     deviceDisconnectBusy: false,
@@ -15,16 +16,28 @@ export function createDevicesStore({ api, t, showToast }) {
   async function loadDevices(devicesEnabled, force = false) {
     const s = get(state);
     if (!devicesEnabled || s.devicesBusy || (s.devicesLoaded && !force)) return;
-    state.update((s) => ({ ...s, devicesBusy: true, devicesStatus: "", devicesIsError: false }));
+    state.update((s) => ({
+      ...s,
+      devicesBusy: true,
+      devicesStatus: "",
+      devicesIsError: false,
+      devicesErrorCode: "",
+    }));
     try {
       const response = await api("/devices");
       if (!response?.ok) throw response;
-      state.update((s) => ({ ...s, devicesData: response, devicesLoaded: true }));
+      state.update((s) => ({
+        ...s,
+        devicesData: response,
+        devicesLoaded: true,
+        devicesErrorCode: "",
+      }));
     } catch (error) {
       state.update((s) => ({
         ...s,
         devicesStatus: error?.message || t("wa_devices_load_failed"),
         devicesIsError: true,
+        devicesErrorCode: String(error?.error || ""),
         devicesLoaded: true,
       }));
     } finally {
