@@ -12,6 +12,7 @@
 - [Админка: бэкапы](/demo/admin/backups)
 - [Пробный период](/demo/home?mock=trial)
 - [Докупка устройств](/demo/devices?mock=devices)
+- [Запуск бота для Telegram-уведомлений](/demo/home?mock=notifications)
 - [Вход и регистрация](/demo/login?mock=auth)
 
 ## Как собирается

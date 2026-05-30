@@ -84,6 +84,10 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/account/password/request", account_password_request_route)
     app.router.add_post("/api/account/password/confirm", account_password_confirm_route)
     app.router.add_post("/api/account/telegram/link", account_telegram_link_route)
+    app.router.add_post(
+        "/api/account/telegram/notifications/probe",
+        account_telegram_notifications_probe_route,
+    )
     app.router.add_post("/api/promo/apply", apply_promo_route)
     app.router.add_post("/api/trial/activate", activate_trial_route)
     app.router.add_get("/api/devices", devices_route)

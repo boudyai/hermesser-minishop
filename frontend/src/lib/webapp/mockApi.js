@@ -103,6 +103,10 @@ function applyDemoEmailAuthUser() {
       user_id: DEMO_DATASET.currentUser?.user_id || DEMO_DATASET.currentUser?.id || 910001,
       telegram_id: null,
       telegram_linked: false,
+      telegram_notifications_status: "unknown",
+      telegram_notifications_enabled: false,
+      telegram_notifications_need_prompt: false,
+      telegram_notifications_start_link: "https://t.me/preview_bot?start=notifications",
       telegram_photo_url: "",
       avatar_url: "",
       username: DEMO_DATASET.currentUser?.username || "u3252a8",
@@ -181,6 +185,10 @@ function applyDemoTelegramAuthUser(authData = {}) {
       user_id: adminUser.user_id || adminUser.id || 910001,
       telegram_id: telegramId,
       telegram_linked: true,
+      telegram_notifications_status: "needs_start",
+      telegram_notifications_enabled: false,
+      telegram_notifications_need_prompt: true,
+      telegram_notifications_start_link: "https://t.me/preview_bot?start=notifications",
       username,
       first_name: firstName,
       last_name: lastName,
@@ -258,6 +266,10 @@ function applyDemoTelegramLink(authData = {}) {
       user_id: DEV_MOCK.data.user?.user_id || DEV_MOCK.data.user?.id || 910001,
       telegram_id: telegramId,
       telegram_linked: true,
+      telegram_notifications_status: "needs_start",
+      telegram_notifications_enabled: false,
+      telegram_notifications_need_prompt: true,
+      telegram_notifications_start_link: "https://t.me/preview_bot?start=notifications",
       username:
         authData.username ||
         authDemo.telegram_username ||
@@ -1990,6 +2002,27 @@ export async function mockApi(path, options = {}, context = {}) {
     const body = jsonBody(options);
     applyDemoTelegramLink(body.auth_data || {});
     return { ok: true, csrf_token: "local-preview-csrf" };
+  }
+  if (
+    path === "/account/telegram/notifications/probe" &&
+    String(options.method || "").toUpperCase() === "POST"
+  ) {
+    DEV_MOCK.data.user = {
+      ...(DEV_MOCK.data.user || {}),
+      telegram_notifications_status: "enabled",
+      telegram_notifications_enabled: true,
+      telegram_notifications_need_prompt: false,
+      telegram_notifications_start_link: "https://t.me/preview_bot?start=notifications",
+    };
+    return {
+      ok: true,
+      telegram_notifications: {
+        ok: true,
+        status: "enabled",
+        enabled: true,
+        start_link: "https://t.me/preview_bot?start=notifications",
+      },
+    };
   }
   if (path === "/payments" && String(options.method || "").toUpperCase() === "POST") {
     const body = jsonBody(options);

@@ -13,6 +13,7 @@
   import Card from "$components/ui/card.svelte";
   import { AttentionDot } from "$components/ui/index.js";
   import { LanguageSelect } from "$components/patterns/webapp/index.js";
+  import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
 
   export let currentLang = "ru";
   export let currentLanguageOption = null;
@@ -30,6 +31,9 @@
   export let profileEmail = "";
   export let profileTelegramId = "";
   export let supportUrl = "";
+  export let telegramNotificationsNeedPrompt = false;
+  export let telegramNotificationsStartLink = "";
+  export let telegramNotificationsStatus = "unknown";
   export let telegramProfileName = "";
   export let user = {};
   export let userAgreementUrl = "";
@@ -37,6 +41,7 @@
   export let showLogout = true;
 
   export let linkTelegramAccount = () => {};
+  export let openTelegramNotificationsBot = () => {};
   export let logout = () => {};
   export let openAdminPanel = () => {};
   export let openExternalLink = () => {};
@@ -67,6 +72,14 @@
       <small>{profileTelegramId}</small>
     </div>
   </Card>
+  {#if telegramNotificationsNeedPrompt}
+    <TelegramNotificationsBanner
+      startLink={telegramNotificationsStartLink}
+      status={telegramNotificationsStatus}
+      onOpenBot={openTelegramNotificationsBot}
+      {t}
+    />
+  {/if}
   {#if isAdmin}
     <div class="settings-admin-block">
       <div class="settings-divider" aria-hidden="true"></div>

@@ -22,6 +22,7 @@ from bot.services.panel_api_service import PanelApiService
 from bot.services.promo_code_service import PromoCodeService
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service import SubscriptionService
+from bot.services.telegram_notifications import TELEGRAM_NOTIFICATIONS_ENABLED
 from bot.utils.callback_answer import safe_answer_callback
 from bot.utils.install_links import (
     append_install_share_link_text,
@@ -392,11 +393,12 @@ async def ensure_required_channel_subscription(
 @router.message(CommandStart(magic=F.args.regexp(r"^promo_(\w+)$").as_("promo_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^admin_user_(\d+)$").as_("admin_user_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^ticket_(\d+)$").as_("ticket_match")))
+@router.message(CommandStart(magic=F.args.regexp(r"^notifications$").as_("notifications_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^page_ref$").as_("page_ref_match")))
 @router.message(
     CommandStart(
         magic=F.args.regexp(
-            r"^(?!ref_|promo_|admin_user_|ticket_|page_ref$|webapp_auth_)([A-Za-z0-9_\-]{2,64})$"
+            r"^(?!ref_|promo_|admin_user_|ticket_|notifications$|page_ref$|webapp_auth_)([A-Za-z0-9_\-]{2,64})$"
         ).as_("ad_param_match")
     )
 )
@@ -414,6 +416,7 @@ async def start_command_handler(
     ad_param_match: Optional[re.Match] = None,
     admin_user_match: Optional[re.Match] = None,
     ticket_match: Optional[re.Match] = None,
+    notifications_match: Optional[re.Match] = None,
 ):
     await state.clear()
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -500,6 +503,7 @@ async def start_command_handler(
     promo_code_to_apply: Optional[str] = None
     should_open_referral_from_start = False
     ad_start_param: Optional[str] = None
+    notifications_start_requested = bool(notifications_match)
 
     if ref_match:
         raw_ref_value = ref_match.group(1)
@@ -522,6 +526,8 @@ async def start_command_handler(
     elif promo_match:
         promo_code_to_apply = promo_match.group(1)
         logging.info(f"User {user_id} started with promo code: {promo_code_to_apply}")
+    elif notifications_start_requested:
+        logging.info("User %s started bot from notifications deep-link.", user_id)
     elif page_ref_match:
         should_open_referral_from_start = True
         logging.info(f"User {user_id} started with page_ref deep-link.")
@@ -532,18 +538,24 @@ async def start_command_handler(
     sanitized_username = sanitize_username(user.username)
     sanitized_first_name = sanitize_display_name(user.first_name)
     sanitized_last_name = sanitize_display_name(user.last_name)
+    notification_status_now = datetime.now(timezone.utc)
 
     db_user = await user_dal.get_user_by_id(session, user_id)
     is_existing_user = db_user is not None
     if not db_user:
         user_data_to_create = {
             "user_id": user_id,
+            "telegram_id": user_id,
             "username": sanitized_username,
             "first_name": sanitized_first_name,
             "last_name": sanitized_last_name,
             "language_code": current_lang,
             "referred_by_id": referred_by_user_id,
             "registration_date": datetime.now(timezone.utc),
+            "telegram_notifications_status": TELEGRAM_NOTIFICATIONS_ENABLED,
+            "telegram_notifications_checked_at": notification_status_now,
+            "telegram_notifications_enabled_at": notification_status_now,
+            "telegram_notifications_blocked_at": None,
         }
         try:
             db_user, created = await user_dal.create_user(session, user_data_to_create)
@@ -631,6 +643,13 @@ async def start_command_handler(
         update_payload = {}
         if db_user.language_code != current_lang:
             update_payload["language_code"] = current_lang
+        if db_user.telegram_id != user_id:
+            update_payload["telegram_id"] = user_id
+        if db_user.telegram_notifications_status != TELEGRAM_NOTIFICATIONS_ENABLED:
+            update_payload["telegram_notifications_status"] = TELEGRAM_NOTIFICATIONS_ENABLED
+            update_payload["telegram_notifications_checked_at"] = notification_status_now
+            update_payload["telegram_notifications_enabled_at"] = notification_status_now
+            update_payload["telegram_notifications_blocked_at"] = None
         # Set referral only if not already set AND user is not currently active.
         # This allows previously subscribed but currently inactive users to be attributed.
         if referred_by_user_id and db_user.referred_by_id is None:
@@ -684,8 +703,15 @@ async def start_command_handler(
     open_referral_page_for_existing_user = should_open_referral_from_start and is_existing_user
 
     # Send welcome message if not disabled
-    if not settings.DISABLE_WELCOME_MESSAGE and not open_referral_page_for_existing_user:
+    if (
+        not settings.DISABLE_WELCOME_MESSAGE
+        and not open_referral_page_for_existing_user
+        and not notifications_start_requested
+    ):
         await message.answer(_(key="welcome", user_name=hd.quote(user.full_name)))
+
+    if notifications_start_requested:
+        await message.answer(_("telegram_notifications_started"), parse_mode="HTML")
 
     # Auto-apply promo code if provided via start parameter
     if promo_code_to_apply:

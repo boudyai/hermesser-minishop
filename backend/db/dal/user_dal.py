@@ -408,6 +408,27 @@ async def merge_users(
         target.channel_subscription_checked_at = source.channel_subscription_checked_at
     if not target.channel_subscription_verified_for and source.channel_subscription_verified_for:
         target.channel_subscription_verified_for = source.channel_subscription_verified_for
+    source_tg_status = str(getattr(source, "telegram_notifications_status", None) or "unknown")
+    target_tg_status = str(getattr(target, "telegram_notifications_status", None) or "unknown")
+    if source_tg_status == "enabled" and target_tg_status != "enabled":
+        target.telegram_notifications_status = source_tg_status
+    elif target_tg_status == "unknown" and source_tg_status != "unknown":
+        target.telegram_notifications_status = source_tg_status
+    if getattr(source, "telegram_notifications_checked_at", None) and (
+        not getattr(target, "telegram_notifications_checked_at", None)
+        or source.telegram_notifications_checked_at > target.telegram_notifications_checked_at
+    ):
+        target.telegram_notifications_checked_at = source.telegram_notifications_checked_at
+    if getattr(source, "telegram_notifications_enabled_at", None) and (
+        not getattr(target, "telegram_notifications_enabled_at", None)
+        or source.telegram_notifications_enabled_at > target.telegram_notifications_enabled_at
+    ):
+        target.telegram_notifications_enabled_at = source.telegram_notifications_enabled_at
+    if getattr(source, "telegram_notifications_blocked_at", None) and (
+        not getattr(target, "telegram_notifications_blocked_at", None)
+        or source.telegram_notifications_blocked_at > target.telegram_notifications_blocked_at
+    ):
+        target.telegram_notifications_blocked_at = source.telegram_notifications_blocked_at
     if source.lifetime_used_traffic_bytes is not None:
         target.lifetime_used_traffic_bytes = (
             target.lifetime_used_traffic_bytes or 0

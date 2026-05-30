@@ -438,6 +438,11 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
                 "bot.services.notification_service.NotificationService",
                 return_value=notification_service,
             ),
+            patch.object(
+                account_routes,
+                "_probe_telegram_notifications_for_user_id",
+                AsyncMock(),
+            ) as probe_telegram_notifications,
         ):
             response = await account_routes.account_telegram_link_route(request)
 
@@ -453,6 +458,7 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
             source_user_id=-100,
             target_user_id=42,
         )
+        probe_telegram_notifications.assert_awaited_once_with(request, 42)
         self.assertEqual(panel_calls, ["delete", "update"])
         panel_service.delete_user_from_panel.assert_awaited_once_with(
             "panel-email",

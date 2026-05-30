@@ -3,6 +3,12 @@ from ._runtime import *  # noqa: F403,F405
 
 from config.subscription_guides_config import subscription_guides_available
 from config.webapp_themes_config import public_themes_catalog_payload
+from bot.services.telegram_notifications import (
+    TELEGRAM_NOTIFICATIONS_ENABLED,
+    normalize_telegram_notification_status,
+    telegram_notifications_need_prompt,
+    telegram_notifications_start_link,
+)
 
 
 async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, Any]:
@@ -72,6 +78,12 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
     lang = _normalize_language(db_user.language_code or settings.DEFAULT_LANGUAGE)
     admin_ids = {int(x) for x in (settings.ADMIN_IDS or [])}
     is_admin = bool(db_user.telegram_id and int(db_user.telegram_id) in admin_ids)
+    telegram_notifications_status = normalize_telegram_notification_status(
+        getattr(db_user, "telegram_notifications_status", None)
+    )
+    telegram_notifications_link = telegram_notifications_start_link(
+        request.app.get("bot_username") or ""
+    )
     return {
         "user": {
             "id": user_id,
@@ -83,6 +95,12 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             ),
             "telegram_id": db_user.telegram_id,
             "telegram_linked": bool(_telegram_id_for_user(db_user)),
+            "telegram_notifications_status": telegram_notifications_status,
+            "telegram_notifications_enabled": (
+                telegram_notifications_status == TELEGRAM_NOTIFICATIONS_ENABLED
+            ),
+            "telegram_notifications_need_prompt": telegram_notifications_need_prompt(db_user),
+            "telegram_notifications_start_link": telegram_notifications_link,
             "telegram_photo_url": _telegram_avatar_url(avatar),
             "first_name": db_user.first_name,
             "language_code": lang,

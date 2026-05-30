@@ -9,6 +9,7 @@ const stateMocks = new Set([
   "no-subscription",
   "trial",
   "devices",
+  "notifications",
   "auth",
 ]);
 const routeMocks = new Set([...stateMocks, "guides", "install"]);

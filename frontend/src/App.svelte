@@ -73,6 +73,7 @@
   const ACTIVATION_PENDING_WATCH_INTERVAL_MS = 2000;
   const ACTIVATION_PENDING_WATCH_MAX_ATTEMPTS = 45;
   const ACTIVATION_RESUME_CHECK_COOLDOWN_MS = 1500;
+  const TELEGRAM_NOTIFICATIONS_RESUME_REFRESH_COOLDOWN_MS = 1500;
   import {
     activationPaymentFailed,
     createActivationHandoff,
@@ -167,6 +168,9 @@
   let activationPendingWatchBusy = false;
   let activationResumeRefreshBusy = false;
   let activationResumeLastCheckAt = 0;
+  let telegramNotificationsBotOpenedAt = 0;
+  let telegramNotificationsResumeRefreshBusy = false;
+  let telegramNotificationsResumeLastCheckAt = 0;
   let promoCode = "";
   let promoBusy = false;
   let promoStatus = "";
@@ -475,7 +479,13 @@
     languageOptions.find((option) => option.value === currentLang) || languageOptions[0];
   $: userLanguage = languageName(currentLang);
   $: emailLinkStatus = user?.email ? t("wa_settings_linked") : t("wa_settings_email_not_linked");
-  $: hasUnlinkedIdentity = !user?.telegram_linked || !user?.email;
+  $: telegramNotificationsStatus = String(user?.telegram_notifications_status || "unknown");
+  $: telegramNotificationsNeedPrompt = Boolean(
+    user?.telegram_linked && user?.telegram_notifications_need_prompt
+  );
+  $: telegramNotificationsStartLink = String(user?.telegram_notifications_start_link || "");
+  $: hasUnlinkedIdentity =
+    !user?.telegram_linked || !user?.email || telegramNotificationsNeedPrompt;
   $: referralBonusDetails = Array.isArray(referral?.bonus_details) ? referral.bonus_details : [];
   $: referralWelcomeBonusDays = Math.max(0, Number(referral?.welcome_bonus_days || 0));
   $: referralOneBonusPerReferee = Boolean(referral?.one_bonus_per_referee);
@@ -749,6 +759,34 @@
     }
   }
 
+  async function refreshTelegramNotificationsOnResume() {
+    if (
+      mode !== "app" ||
+      !telegramNotificationsNeedPrompt ||
+      !telegramNotificationsBotOpenedAt ||
+      telegramNotificationsResumeRefreshBusy
+    ) {
+      return;
+    }
+    const now = Date.now();
+    if (
+      now - telegramNotificationsResumeLastCheckAt <
+      TELEGRAM_NOTIFICATIONS_RESUME_REFRESH_COOLDOWN_MS
+    ) {
+      return;
+    }
+    telegramNotificationsResumeLastCheckAt = now;
+    telegramNotificationsResumeRefreshBusy = true;
+    try {
+      await loadData({ fresh: true, preserveView: true });
+      if (!telegramNotificationsNeedPrompt) telegramNotificationsBotOpenedAt = 0;
+    } catch (_error) {
+      void _error;
+    } finally {
+      telegramNotificationsResumeRefreshBusy = false;
+    }
+  }
+
   function refreshAppLaunchTarget() {
     appLaunchTarget = readExternalAppLaunchTarget();
     return appLaunchTarget;
@@ -771,6 +809,7 @@
     const onActivationResume = () => {
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       void refreshPendingActivationOnResume();
+      void refreshTelegramNotificationsOnResume();
     };
     const onVisibilityChange = () => {
       if (document.visibilityState !== "hidden") onActivationResume();
@@ -1137,6 +1176,26 @@
     } finally {
       accountStore.update((s) => ({ ...s, linkTelegramBusy: false }));
     }
+  }
+
+  function openTelegramNotificationsBot() {
+    const link = telegramNotificationsStartLink;
+    telegramNotificationsBotOpenedAt = Date.now();
+    if (!link) {
+      showToast(t("wa_telegram_notifications_link_unavailable"));
+      return;
+    }
+    const currentTg = tg || telegramSdk.refresh();
+    if (currentTg?.openTelegramLink && /^https:\/\/t\.me\//i.test(link)) {
+      try {
+        tg = currentTg;
+        currentTg.openTelegramLink(link);
+        return;
+      } catch {
+        // Fall back to generic external opening below.
+      }
+    }
+    openExternalLink(link);
   }
 
   function currentSearchParams() {
@@ -2207,10 +2266,14 @@
                 {regularTrafficTopupBarClickable}
                 {regularTrafficTopupUnlocked}
                 {subscription}
+                {telegramNotificationsNeedPrompt}
+                {telegramNotificationsStartLink}
+                {telegramNotificationsStatus}
                 {termUnitLabel}
                 {trafficMode}
                 {trialBusy}
                 {activateTrial}
+                {openTelegramNotificationsBot}
                 openConnectLink={openInstallOrConnect}
                 {openPaymentModal}
                 {openRegularTopupModal}
@@ -2314,12 +2377,16 @@
                 {profileEmail}
                 {profileTelegramId}
                 {supportUrl}
+                {telegramNotificationsNeedPrompt}
+                {telegramNotificationsStartLink}
+                {telegramNotificationsStatus}
                 {telegramProfileName}
                 {user}
                 {userAgreementUrl}
                 {userLanguage}
                 showLogout={!telegramMiniAppContext}
                 linkTelegramAccount={linkTelegramFromSettings}
+                {openTelegramNotificationsBot}
                 logout={accountStore.logout}
                 {openAdminPanel}
                 {openExternalLink}

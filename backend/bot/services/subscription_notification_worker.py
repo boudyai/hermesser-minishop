@@ -19,6 +19,14 @@ from bot.services.subscription_lifecycle_notifications import (
     SubscriptionNotificationStage,
 )
 from bot.services.subscription_service import SubscriptionService
+from bot.services.telegram_notifications import (
+    TELEGRAM_NOTIFICATIONS_BLOCKED,
+    TELEGRAM_NOTIFICATIONS_ENABLED,
+    TELEGRAM_NOTIFICATIONS_NEEDS_START,
+    mark_telegram_notifications_status,
+    normalize_telegram_notification_status,
+    telegram_notification_status_from_error,
+)
 from bot.services.user_email_notifications import send_user_notification_email
 from config.settings import Settings
 from db.advisory_locks import acquire_subscription_background_sync_lock
@@ -245,6 +253,7 @@ class SubscriptionNotificationWorker:
             if limit <= 0 or used < limit:
                 continue
             delivery = await self._send_trial_traffic_depleted(
+                session,
                 sub,
                 used=used,
                 limit=limit,
@@ -284,6 +293,7 @@ class SubscriptionNotificationWorker:
 
     async def _send_trial_traffic_depleted(
         self,
+        session: AsyncSession,
         sub: Subscription,
         *,
         used: int,
@@ -304,20 +314,39 @@ class SubscriptionNotificationWorker:
         )
         telegram_sent = False
         email_sent = False
-        if send_telegram and user_id > 0:
+        telegram_chat_id = int(getattr(user, "telegram_id", 0) or user_id or 0)
+        telegram_status = normalize_telegram_notification_status(
+            getattr(user, "telegram_notifications_status", None)
+        )
+        can_try_telegram = telegram_status not in {
+            TELEGRAM_NOTIFICATIONS_NEEDS_START,
+            TELEGRAM_NOTIFICATIONS_BLOCKED,
+        }
+        if send_telegram and telegram_chat_id > 0 and can_try_telegram:
             try:
                 await self.bot.send_message(
-                    user_id,
+                    telegram_chat_id,
                     message_text,
                     reply_markup=get_subscribe_only_markup(lang, self.i18n),
                     parse_mode="HTML",
                 )
                 telegram_sent = True
-            except Exception:
+            except Exception as exc:
+                status = telegram_notification_status_from_error(exc)
+                if status and user and user_id:
+                    await mark_telegram_notifications_status(session, user_id, status)
                 logging.exception(
                     "Failed to send trial traffic depleted warning to user %s",
-                    user_id,
+                    telegram_chat_id,
                 )
+            else:
+                if user and telegram_status != TELEGRAM_NOTIFICATIONS_ENABLED and user_id:
+                    await mark_telegram_notifications_status(
+                        session,
+                        user_id,
+                        TELEGRAM_NOTIFICATIONS_ENABLED,
+                        telegram_id=telegram_chat_id,
+                    )
         if send_email and user:
             email_sent = await send_user_notification_email(
                 settings=self.settings,

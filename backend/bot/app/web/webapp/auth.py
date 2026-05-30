@@ -1,6 +1,7 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
 from .common import _invalidate_webapp_user_caches
+from .telegram_notifications import _probe_telegram_notifications_for_user_id
 
 
 def _resolve_telegram_bot_id(bot_token: str) -> Optional[int]:
@@ -436,6 +437,9 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
             first_name=linked_user_for_panel.first_name,
         )
 
+    if final_user_id:
+        await _probe_telegram_notifications_for_user_id(request, int(final_user_id))
+
     token = create_webapp_session_token(settings, int(final_user_id))
     response = web.HTTPFound(_telegram_oauth_redirect_url(redirect_path, status="success"))
     _clear_telegram_oauth_state_cookie(response)
@@ -531,6 +535,7 @@ async def auth_token_route(request: web.Request) -> web.Response:
             return _json_error(500, "auth_failed", "Auth failed")
 
     await _invalidate_webapp_user_caches(settings, authenticated_user_id, include_devices=True)
+    await _probe_telegram_notifications_for_user_id(request, int(authenticated_user_id))
     token = create_webapp_session_token(settings, int(authenticated_user_id))
     return _build_webapp_auth_response(settings, {"ok": True}, token=token)
 

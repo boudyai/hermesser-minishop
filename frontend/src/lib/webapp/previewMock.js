@@ -288,6 +288,10 @@ export const DEV_MOCK = {
       password_auth_enabled: false,
       telegram_id: 100200300,
       telegram_linked: true,
+      telegram_notifications_status: "enabled",
+      telegram_notifications_enabled: true,
+      telegram_notifications_need_prompt: false,
+      telegram_notifications_start_link: "https://t.me/preview_bot?start=notifications",
       telegram_photo_url: "",
       first_name: "Preview",
       language_code: "ru",
@@ -457,6 +461,15 @@ function applyDemoDataset() {
       ...(DEMO_DATASET.currentUser || {}),
       id: DEMO_DATASET.currentUser?.id ?? DEMO_DATASET.currentUser?.user_id,
       language_code: storedLanguage || DEMO_DATASET.currentUser?.language_code || "ru",
+      telegram_notifications_status:
+        DEMO_DATASET.currentUser?.telegram_notifications_status || "enabled",
+      telegram_notifications_enabled:
+        DEMO_DATASET.currentUser?.telegram_notifications_enabled ?? true,
+      telegram_notifications_need_prompt:
+        DEMO_DATASET.currentUser?.telegram_notifications_need_prompt ?? false,
+      telegram_notifications_start_link:
+        DEMO_DATASET.currentUser?.telegram_notifications_start_link ||
+        "https://t.me/preview_bot?start=notifications",
     },
     160
   );
@@ -585,6 +598,30 @@ export function applyPreviewMock(kind) {
     DEV_MOCK.data.settings.email_auth_enabled = true;
     DEV_MOCK.data.settings.trial_enabled = true;
     DEV_MOCK.data.settings.trial_available = true;
+    return;
+  }
+
+  if (mode === "notifications" || mode === "telegram-notifications" || mode === "needs-bot") {
+    DEV_MOCK.data.user = {
+      ...(DEV_MOCK.data.user || {}),
+      telegram_linked: true,
+      telegram_notifications_status: "needs_start",
+      telegram_notifications_enabled: false,
+      telegram_notifications_need_prompt: true,
+      telegram_notifications_start_link: "https://t.me/preview_bot?start=notifications",
+    };
+    return;
+  }
+
+  if (mode === "notifications-blocked") {
+    DEV_MOCK.data.user = {
+      ...(DEV_MOCK.data.user || {}),
+      telegram_linked: true,
+      telegram_notifications_status: "blocked",
+      telegram_notifications_enabled: false,
+      telegram_notifications_need_prompt: true,
+      telegram_notifications_start_link: "https://t.me/preview_bot?start=notifications",
+    };
     return;
   }
 

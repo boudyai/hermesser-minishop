@@ -16,6 +16,7 @@ from bot.app.web.webapp import (
     routes as _routes,
     serializers as _serializers,
     support as _support,
+    telegram_notifications as _telegram_notifications,
 )
 
 _MODULES = (
@@ -25,6 +26,7 @@ _MODULES = (
     _assets,
     _auth,
     _account,
+    _telegram_notifications,
     _serializers,
     _billing,
     _devices,

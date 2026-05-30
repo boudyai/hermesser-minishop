@@ -108,6 +108,7 @@ def _user(**overrides):
 
 def test_send_stage_records_telegram_and_email_channel_keys(monkeypatch):
     recorded = []
+    status_changes = []
 
     async def fake_has(session, subscription_id, notification_key):
         return notification_key in recorded
@@ -115,8 +116,19 @@ def test_send_stage_records_telegram_and_email_channel_keys(monkeypatch):
     async def fake_record(session, subscription_id, notification_key, *, sent_at=None):
         recorded.append(notification_key)
 
+    async def fake_mark_status(session, user_id, status, *, telegram_id=None, checked_at=None):
+        status_changes.append(
+            {
+                "user_id": user_id,
+                "status": status,
+                "telegram_id": telegram_id,
+                "checked_at": checked_at,
+            }
+        )
+
     monkeypatch.setattr(lifecycle.subscription_dal, "has_subscription_notification", fake_has)
     monkeypatch.setattr(lifecycle.subscription_dal, "record_subscription_notification", fake_record)
+    monkeypatch.setattr(lifecycle, "mark_telegram_notifications_status", fake_mark_status)
 
     bot = FakeBot()
     email_service = FakeEmailService()
@@ -154,6 +166,15 @@ def test_send_stage_records_telegram_and_email_channel_keys(monkeypatch):
     assert email_service.messages[0]["email"] == "user@example.test"
     assert "Mirrored Telegram notice" in email_service.messages[0]["content"].html
     assert recorded == ["before_3d:telegram", "before_3d:email"]
+    assert status_changes == [
+        {
+            "user_id": 123,
+            "status": lifecycle.TELEGRAM_NOTIFICATIONS_ENABLED,
+            "telegram_id": 555,
+            "checked_at": status_changes[0]["checked_at"],
+        }
+    ]
+    assert status_changes[0]["checked_at"] is not None
 
 
 def test_legacy_stage_key_suppresses_only_telegram(monkeypatch):
@@ -199,8 +220,9 @@ def test_legacy_stage_key_suppresses_only_telegram(monkeypatch):
     assert recorded == ["before_3d", "before_3d:email"]
 
 
-def test_terminal_telegram_failure_is_recorded_to_avoid_retry_spam(monkeypatch):
+def test_unstarted_telegram_failure_marks_status_without_recording_delivery(monkeypatch):
     recorded = []
+    status_changes = []
 
     async def fake_has(session, subscription_id, notification_key):
         return notification_key in recorded
@@ -208,8 +230,19 @@ def test_terminal_telegram_failure_is_recorded_to_avoid_retry_spam(monkeypatch):
     async def fake_record(session, subscription_id, notification_key, *, sent_at=None):
         recorded.append(notification_key)
 
+    async def fake_mark_status(session, user_id, status, *, telegram_id=None, checked_at=None):
+        status_changes.append(
+            {
+                "user_id": user_id,
+                "status": status,
+                "telegram_id": telegram_id,
+                "checked_at": checked_at,
+            }
+        )
+
     monkeypatch.setattr(lifecycle.subscription_dal, "has_subscription_notification", fake_has)
     monkeypatch.setattr(lifecycle.subscription_dal, "record_subscription_notification", fake_record)
+    monkeypatch.setattr(lifecycle, "mark_telegram_notifications_status", fake_mark_status)
 
     bot = ChatNotFoundBot()
     settings = _settings()
@@ -241,7 +274,15 @@ def test_terminal_telegram_failure_is_recorded_to_avoid_retry_spam(monkeypatch):
     assert delivery.telegram_sent is False
     assert delivery.email_sent is False
     assert bot.calls[0][0] == 777
-    assert recorded == ["before_3d:telegram"]
+    assert recorded == []
+    assert status_changes == [
+        {
+            "user_id": 123,
+            "status": lifecycle.TELEGRAM_NOTIFICATIONS_NEEDS_START,
+            "telegram_id": None,
+            "checked_at": None,
+        }
+    ]
 
 
 def test_email_only_user_gets_email_name_direct_copy_and_renewal_login_link(monkeypatch):

@@ -1047,6 +1047,20 @@ def _migration_0031_add_subscription_notifications(connection: Connection) -> No
     )
 
 
+def _migration_0032_add_telegram_notification_status(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns: Set[str] = {col["name"] for col in inspector.get_columns("users")}
+    additions = {
+        "telegram_notifications_status": "VARCHAR(32) NOT NULL DEFAULT 'unknown'",
+        "telegram_notifications_checked_at": "TIMESTAMPTZ",
+        "telegram_notifications_enabled_at": "TIMESTAMPTZ",
+        "telegram_notifications_blocked_at": "TIMESTAMPTZ",
+    }
+    for column, ddl_type in additions.items():
+        if column not in columns:
+            connection.execute(text(f"ALTER TABLE users ADD COLUMN {column} {ddl_type}"))
+
+
 MIGRATIONS: List[Migration] = [
     Migration(
         id="0001_add_channel_subscription_fields",
@@ -1213,6 +1227,11 @@ MIGRATIONS: List[Migration] = [
         id="0031_add_subscription_notifications",
         description="Track sent subscription notification stages",
         upgrade=_migration_0031_add_subscription_notifications,
+    ),
+    Migration(
+        id="0032_add_telegram_notification_status",
+        description="Track whether the bot can message Telegram-linked users",
+        upgrade=_migration_0032_add_telegram_notification_status,
     ),
 ]
 

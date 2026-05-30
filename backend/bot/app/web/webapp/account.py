@@ -8,6 +8,7 @@ from .auth import (
     _sync_merged_panel_identity_for_user,
 )
 from .common import _invalidate_webapp_user_caches
+from .telegram_notifications import _probe_telegram_notifications_for_user_id
 
 
 async def account_email_request_route(request: web.Request) -> web.Response:
@@ -415,6 +416,8 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
             )
         except Exception:
             logger.exception("Failed to send account Telegram linked notification")
+
+    await _probe_telegram_notifications_for_user_id(request, int(final_user_id))
 
     token = create_webapp_session_token(settings, int(final_user_id))
     response_payload: Dict[str, Any] = {

@@ -13,6 +13,7 @@
   import BrandMark from "$lib/webapp/BrandMark.svelte";
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
+  import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
   import { LinearProgress } from "$components/patterns/webapp/index.js";
   import { formatTrafficGb } from "../../lib/webapp/formatters.js";
   import {
@@ -38,6 +39,9 @@
   export let hasActiveTariffSubscription = false;
   export let hasMultipleTariffs = false;
   export let subscription = {};
+  export let telegramNotificationsNeedPrompt = false;
+  export let telegramNotificationsStartLink = "";
+  export let telegramNotificationsStatus = "unknown";
   export let trafficMode = false;
   export let trialBusy = false;
   export let termUnitLabel = () => ""; // We need this passed from App or context. Actually, App.svelte doesn't pass it yet. We'll pass it.
@@ -110,6 +114,7 @@
   export let activateTrial = () => {};
   export let openConnectLink = () => {};
   export let openPaymentModal = () => {};
+  export let openTelegramNotificationsBot = () => {};
   export let openRegularTopupModal = () => {};
   export let openPremiumTopupModal = () => {};
   export let openTariffChangeModal = () => {};
@@ -122,6 +127,15 @@
     <BrandMark {brand} size="xl" />
     <h1>{brandTitle}</h1>
   </div>
+
+  {#if telegramNotificationsNeedPrompt}
+    <TelegramNotificationsBanner
+      startLink={telegramNotificationsStartLink}
+      status={telegramNotificationsStatus}
+      onOpenBot={openTelegramNotificationsBot}
+      {t}
+    />
+  {/if}
 
   <div class="home-bottom">
     <Card class={`status-card${subscription.active ? "" : " status-card-inactive"}`}>

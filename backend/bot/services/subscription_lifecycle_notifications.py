@@ -13,6 +13,14 @@ from bot.keyboards.inline.user_keyboards import get_subscribe_only_markup
 from bot.middlewares.i18n import JsonI18n
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.email_templates import render_subscription_lifecycle_notification
+from bot.services.telegram_notifications import (
+    TELEGRAM_NOTIFICATIONS_BLOCKED,
+    TELEGRAM_NOTIFICATIONS_ENABLED,
+    TELEGRAM_NOTIFICATIONS_NEEDS_START,
+    mark_telegram_notifications_status,
+    normalize_telegram_notification_status,
+    telegram_notification_status_from_error,
+)
 from config.settings import Settings
 from db.dal import subscription_dal
 from db.models import Subscription, User
@@ -135,32 +143,31 @@ class SubscriptionLifecycleNotificationService:
         chat_id = self._telegram_chat_id(user, getattr(sub, "user_id", None))
         if chat_id is None:
             return False
+        if user:
+            status = normalize_telegram_notification_status(
+                getattr(user, "telegram_notifications_status", None)
+            )
+            if status in {TELEGRAM_NOTIFICATIONS_NEEDS_START, TELEGRAM_NOTIFICATIONS_BLOCKED}:
+                return False
         if await self._already_sent(session, sub.subscription_id, stage.key, "telegram"):
             return False
         try:
             await self.bot.send_message(chat_id, message_text, reply_markup=markup)
         except (TelegramBadRequest, TelegramForbiddenError) as exc:
-            if self._is_terminal_telegram_delivery_error(exc):
+            delivery_status = telegram_notification_status_from_error(exc)
+            if user and delivery_status:
+                await mark_telegram_notifications_status(
+                    session,
+                    int(user.user_id),
+                    delivery_status,
+                )
+            if delivery_status:
                 logging.warning(
                     "Skipping subscription notification %s for unreachable Telegram user %s: %s",
                     stage.key,
                     chat_id,
                     exc,
                 )
-                try:
-                    await subscription_dal.record_subscription_notification(
-                        session,
-                        sub.subscription_id,
-                        self._channel_key(stage.key, "telegram"),
-                        sent_at=sent_at,
-                    )
-                except Exception:
-                    logging.exception(
-                        "Failed to record skipped subscription notification %s "
-                        "for Telegram user %s",
-                        stage.key,
-                        chat_id,
-                    )
                 return False
             logging.exception(
                 "Failed to send subscription notification %s to Telegram user %s",
@@ -181,6 +188,18 @@ class SubscriptionLifecycleNotificationService:
             self._channel_key(stage.key, "telegram"),
             sent_at=sent_at,
         )
+        if user:
+            status = normalize_telegram_notification_status(
+                getattr(user, "telegram_notifications_status", None)
+            )
+            if status != TELEGRAM_NOTIFICATIONS_ENABLED:
+                await mark_telegram_notifications_status(
+                    session,
+                    int(user.user_id),
+                    TELEGRAM_NOTIFICATIONS_ENABLED,
+                    telegram_id=chat_id,
+                    checked_at=sent_at,
+                )
         return True
 
     async def _send_email(
@@ -332,23 +351,6 @@ class SubscriptionLifecycleNotificationService:
             if chat_id > 0:
                 return chat_id
         return None
-
-    @staticmethod
-    def _is_terminal_telegram_delivery_error(
-        exc: TelegramBadRequest | TelegramForbiddenError,
-    ) -> bool:
-        if isinstance(exc, TelegramForbiddenError):
-            return True
-        message = str(exc).lower()
-        return any(
-            token in message
-            for token in (
-                "chat not found",
-                "bot was blocked",
-                "bot can't initiate conversation",
-                "user is deactivated",
-            )
-        )
 
     @staticmethod
     def _as_utc(value: Optional[datetime]) -> Optional[datetime]:
