@@ -96,9 +96,11 @@ class AdminDbStatsCacheTests(unittest.IsolatedAsyncioTestCase):
                 "total_users": 10,
                 "banned_users": 1,
                 "active_today": 2,
+                "active_subscriptions": 8,
                 "paid_subscriptions": 7,
                 "trial_users": 1,
-                "inactive_users": 1,
+                "free_subscription_users": 0,
+                "inactive_users": 2,
                 "referral_users": 3,
             }
         )

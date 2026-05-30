@@ -27,6 +27,49 @@ class FakeResult:
             return self._scalar_value
         return [self._scalar_value]
 
+    def one(self):
+        return self._scalar_value
+
+
+class UserDalStatisticsTests(unittest.IsolatedAsyncioTestCase):
+    async def test_get_enhanced_user_statistics_splits_paid_trial_and_free_users(self):
+        session = SimpleNamespace(
+            execute=AsyncMock(
+                side_effect=[
+                    FakeResult((10, 1, 2, 3)),
+                    FakeResult((8, 4, 2, 2)),
+                ]
+            )
+        )
+
+        stats = await user_dal.get_enhanced_user_statistics(session)
+
+        self.assertEqual(
+            stats,
+            {
+                "total_users": 10,
+                "banned_users": 1,
+                "active_today": 2,
+                "active_subscriptions": 8,
+                "paid_subscriptions": 4,
+                "trial_users": 2,
+                "free_subscription_users": 2,
+                "inactive_users": 2,
+                "referral_users": 3,
+            },
+        )
+
+        stmt = session.execute.await_args_list[1].args[0]
+        sql = str(
+            stmt.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        ).upper()
+        self.assertIn("GROUP BY SUBSCRIPTIONS.USER_ID", sql)
+        self.assertIn("SUBSCRIPTIONS.PROVIDER", sql)
+        self.assertIn("TRIAL", sql)
+
 
 class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
     async def test_get_panel_user_uuids_for_user_includes_subscription_fallbacks_once(self):

@@ -492,7 +492,7 @@
   <AdminDashboardStack>
     <AdminSectionHeader title={at("stats_section_audience", {}, "")} />
     <AdminDashboardGrid columns={3}>
-      {#each Array(3) as _, i (i)}
+      {#each Array(6) as _, i (i)}
         <Card.Root class="admin-cn-card-skeleton">
           <Card.Header>
             <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span>
@@ -692,17 +692,91 @@
 
       <Card.Root>
         <Card.Header>
+          <Card.Description>{at("stats_label_active_subs", {}, "")}</Card.Description>
+          <Card.Title>{users.active_subscriptions ?? 0}</Card.Title>
+          <Card.Action>
+            <Badge variant="outline"
+              >{users.total_users
+                ? Math.round(((users.active_subscriptions ?? 0) / (users.total_users || 1)) * 100)
+                : 0}%</Badge
+            >
+          </Card.Action>
+        </Card.Header>
+        <Card.Footer class="admin-cn-card-footer--stack">
+          <div class="admin-cn-card-footer-primary">
+            {at("stats_trend_paid", { count: users.paid_subscriptions ?? 0 }, "")}
+          </div>
+          <div class="admin-cn-card-footer-muted">
+            {at("stats_card_active_subs_caption", {}, "")}
+          </div>
+        </Card.Footer>
+      </Card.Root>
+
+      <Card.Root>
+        <Card.Header>
           <Card.Description>{at("stats_label_paid_subs", {}, "")}</Card.Description>
           <Card.Title>{users.paid_subscriptions ?? 0}</Card.Title>
           <Card.Action>
-            <Badge variant="outline">{users.trial_users ?? 0}</Badge>
+            <Badge variant="outline"
+              >{users.active_subscriptions
+                ? Math.round(
+                    ((users.paid_subscriptions ?? 0) / (users.active_subscriptions || 1)) * 100
+                  )
+                : 0}%</Badge
+            >
           </Card.Action>
         </Card.Header>
         <Card.Footer class="admin-cn-card-footer--stack">
           <div class="admin-cn-card-footer-primary">
             {at("stats_trend_trials", { count: users.trial_users ?? 0 }, "")}
           </div>
+          <div class="admin-cn-card-footer-muted">
+            {at("stats_trend_free", { count: users.free_subscription_users ?? 0 }, "")}
+          </div>
+        </Card.Footer>
+      </Card.Root>
+
+      <Card.Root>
+        <Card.Header>
+          <Card.Description>{at("stats_label_trial_users", {}, "")}</Card.Description>
+          <Card.Title>{users.trial_users ?? 0}</Card.Title>
+          <Card.Action>
+            <Badge variant="outline"
+              >{users.active_subscriptions
+                ? Math.round(((users.trial_users ?? 0) / (users.active_subscriptions || 1)) * 100)
+                : 0}%</Badge
+            >
+          </Card.Action>
+        </Card.Header>
+        <Card.Footer class="admin-cn-card-footer--stack">
+          <div class="admin-cn-card-footer-primary">
+            {at("stats_card_trial_caption", {}, "")}
+          </div>
           <div class="admin-cn-card-footer-muted">{at("stats_card_paid_caption", {}, "")}</div>
+        </Card.Footer>
+      </Card.Root>
+
+      <Card.Root>
+        <Card.Header>
+          <Card.Description>{at("stats_label_free_users", {}, "")}</Card.Description>
+          <Card.Title>{users.free_subscription_users ?? 0}</Card.Title>
+          <Card.Action>
+            <Badge variant="outline"
+              >{users.active_subscriptions
+                ? Math.round(
+                    ((users.free_subscription_users ?? 0) / (users.active_subscriptions || 1)) * 100
+                  )
+                : 0}%</Badge
+            >
+          </Card.Action>
+        </Card.Header>
+        <Card.Footer class="admin-cn-card-footer--stack">
+          <div class="admin-cn-card-footer-primary">
+            {at("stats_card_free_caption", {}, "")}
+          </div>
+          <div class="admin-cn-card-footer-muted">
+            {at("stats_trend_trials", { count: users.trial_users ?? 0 }, "")}
+          </div>
         </Card.Footer>
       </Card.Root>
 

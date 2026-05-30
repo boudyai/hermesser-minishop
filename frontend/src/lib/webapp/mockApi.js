@@ -1231,7 +1231,17 @@ export async function mockApi(path, options = {}, context = {}) {
     return {
       ok: true,
       currency_symbol: "RUB",
-      users: { total_users: 248, active_subscriptions: 172, banned_users: 3 },
+      users: {
+        total_users: 248,
+        active_today: 9,
+        active_subscriptions: 172,
+        paid_subscriptions: 141,
+        trial_users: 8,
+        free_subscription_users: 23,
+        inactive_users: 76,
+        banned_users: 3,
+        referral_users: 34,
+      },
       financial: {
         today_revenue: 1240,
         week_revenue: 15800,
