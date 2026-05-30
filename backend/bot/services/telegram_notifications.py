@@ -4,7 +4,6 @@ from typing import Any, Optional
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.middlewares.i18n import JsonI18n
@@ -128,37 +127,6 @@ async def mark_telegram_notifications_enabled_for_telegram_user(
     )
 
 
-def _translate(
-    i18n: Optional[JsonI18n],
-    language: str,
-    key: str,
-    fallback: str,
-    **kwargs: Any,
-) -> str:
-    if not i18n:
-        return fallback.format(**kwargs) if kwargs else fallback
-    return i18n.gettext(language, key, **kwargs) or fallback
-
-
-def _probe_keyboard(
-    settings: Settings,
-    i18n: Optional[JsonI18n],
-    language: str,
-) -> Optional[InlineKeyboardMarkup]:
-    app_url = str(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", "") or "").strip()
-    if not app_url:
-        return None
-    text = _translate(
-        i18n,
-        language,
-        "telegram_notifications_open_app_button",
-        "Open app",
-    )
-    return InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text=text, web_app=WebAppInfo(url=app_url))]]
-    )
-
-
 async def probe_telegram_notifications(
     *,
     session: AsyncSession,
@@ -187,20 +155,8 @@ async def probe_telegram_notifications(
             "start_link": telegram_notifications_start_link(bot_username),
         }
 
-    language = str(getattr(user, "language_code", "") or settings.DEFAULT_LANGUAGE)
-    text = _translate(
-        i18n,
-        language,
-        "telegram_notifications_enabled_message",
-        "Telegram notifications are enabled.",
-    )
     try:
-        await bot.send_message(
-            int(telegram_id),
-            text,
-            reply_markup=_probe_keyboard(settings, i18n, language),
-            disable_web_page_preview=True,
-        )
+        await bot.get_chat(int(telegram_id))
     except Exception as exc:
         status = telegram_notification_status_from_error(exc)
         if status:
@@ -211,7 +167,7 @@ async def probe_telegram_notifications(
                 "start_link": telegram_notifications_start_link(bot_username),
             }
         logger.warning(
-            "Telegram notification probe failed for user %s / telegram %s: %s",
+            "Telegram notification chat probe failed for user %s / telegram %s: %s",
             user.user_id,
             telegram_id,
             exc,

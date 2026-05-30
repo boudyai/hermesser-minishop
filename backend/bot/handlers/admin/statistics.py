@@ -72,10 +72,16 @@ async def show_statistics_handler(
     )
     # Removed: Active today moved to panel stats
     stats_text_parts.append(
+        f"📡 {_('admin_user_stats_active_subscription_label')}: <b>{user_stats['active_subscriptions']}</b>"  # noqa: E501
+    )
+    stats_text_parts.append(
         f"💳 {_('admin_user_stats_paid_subs_label')}: <b>{user_stats['paid_subscriptions']}</b>"
     )
     stats_text_parts.append(
-        f"🆓 {_('admin_user_stats_trial_label')}: <b>{user_stats['trial_users']}</b>"
+        f"🧪 {_('admin_user_stats_trial_label')}: <b>{user_stats['trial_users']}</b>"
+    )
+    stats_text_parts.append(
+        f"🎁 {_('admin_user_stats_free_subscription_label')}: <b>{user_stats['free_subscription_users']}</b>"  # noqa: E501
     )
     stats_text_parts.append(
         f"😴 {_('admin_user_stats_inactive_label')}: <b>{user_stats['inactive_users']}</b>"

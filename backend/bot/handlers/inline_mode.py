@@ -166,8 +166,10 @@ async def create_user_stats_result(
             "inline_user_stats_message",
             total=user_stats["total_users"],
             active_today=user_stats["active_today"],
+            active=user_stats["active_subscriptions"],
             paid=user_stats["paid_subscriptions"],
             trial=user_stats["trial_users"],
+            free=user_stats["free_subscription_users"],
             inactive=user_stats["inactive_users"],
             banned=user_stats["banned_users"],
             referral=user_stats["referral_users"],
@@ -179,7 +181,7 @@ async def create_user_stats_result(
             description=_(
                 "inline_user_stats_description",
                 total=user_stats["total_users"],
-                active=user_stats["paid_subscriptions"],
+                active=user_stats["active_subscriptions"],
             ),
             input_message_content=InputTextMessageContent(
                 message_text=stats_text, parse_mode="HTML"

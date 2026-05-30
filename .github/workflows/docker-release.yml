@@ -1,0 +1,28 @@
+name: Release images
+
+# Build all three images and push them to ghcr.io and Docker Hub tagged
+# `latest` and the release version (the pushed tag with its leading `v`
+# stripped, e.g. v3.4.5 -> 3.4.5). Triggered only when a new v* tag is pushed,
+# so images are built once per release rather than on every commit to main.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+concurrency:
+  group: docker-release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-push:
+    uses: ./.github/workflows/_docker-build-push.yml
+    with:
+      push: true
+      tag_mode: release
+    secrets: inherit

@@ -666,17 +666,33 @@ async def get_enhanced_user_statistics(session: AsyncSession) -> Dict[str, Any]:
     active_today = int(user_counts[2] or 0)
     referral_users = int(user_counts[3] or 0)
 
-    subscription_counts_stmt = (
+    provider_value = func.lower(func.coalesce(Subscription.provider, ""))
+    panel_status_value = func.upper(func.coalesce(Subscription.status_from_panel, ""))
+    trial_subscription_condition = or_(
+        provider_value == "trial",
+        panel_status_value == "TRIAL",
+    )
+    paid_subscription_condition = and_(
+        provider_value != "",
+        provider_value != "trial",
+        panel_status_value != "TRIAL",
+    )
+    free_subscription_condition = and_(
+        provider_value == "",
+        panel_status_value != "TRIAL",
+    )
+
+    active_subscription_flags_sq = (
         select(
-            func.count(
-                func.distinct(
-                    case((Subscription.provider.is_not(None), Subscription.user_id), else_=None)
-                )
+            Subscription.user_id.label("user_id"),
+            func.max(case((paid_subscription_condition, 1), else_=0)).label(
+                "has_paid_subscription"
             ),
-            func.count(
-                func.distinct(
-                    case((Subscription.provider.is_(None), Subscription.user_id), else_=None)
-                )
+            func.max(case((trial_subscription_condition, 1), else_=0)).label(
+                "has_trial_subscription"
+            ),
+            func.max(case((free_subscription_condition, 1), else_=0)).label(
+                "has_free_subscription"
             ),
         )
         .join(User, Subscription.user_id == User.user_id)
@@ -686,27 +702,64 @@ async def get_enhanced_user_statistics(session: AsyncSession) -> Dict[str, Any]:
                 Subscription.end_date > now,
             )
         )
+        .group_by(Subscription.user_id)
+        .subquery()
+    )
+
+    subscription_counts_stmt = select(
+        func.count(active_subscription_flags_sq.c.user_id),
+        func.coalesce(func.sum(active_subscription_flags_sq.c.has_paid_subscription), 0),
+        func.coalesce(
+            func.sum(
+                case(
+                    (
+                        active_subscription_flags_sq.c.has_paid_subscription == 0,
+                        active_subscription_flags_sq.c.has_trial_subscription,
+                    ),
+                    else_=0,
+                )
+            ),
+            0,
+        ),
+        func.coalesce(
+            func.sum(
+                case(
+                    (
+                        and_(
+                            active_subscription_flags_sq.c.has_paid_subscription == 0,
+                            active_subscription_flags_sq.c.has_trial_subscription == 0,
+                        ),
+                        active_subscription_flags_sq.c.has_free_subscription,
+                    ),
+                    else_=0,
+                )
+            ),
+            0,
+        ),
     )
     subscription_counts = (await session.execute(subscription_counts_stmt)).one()
-    paid_subs_users = int(subscription_counts[0] or 0)
-    trial_users = int(subscription_counts[1] or 0)
+    active_subscription_users = int(subscription_counts[0] or 0)
+    paid_subs_users = int(subscription_counts[1] or 0)
+    trial_users = int(subscription_counts[2] or 0)
+    free_subscription_users = int(subscription_counts[3] or 0)
 
-    # Inactive users (no active subscription)
-    inactive_users = total_users - paid_subs_users - trial_users - banned_users
+    inactive_users = total_users - active_subscription_users
 
     return {
         "total_users": total_users,
         "banned_users": banned_users,
         "active_today": active_today,
+        "active_subscriptions": active_subscription_users,
         "paid_subscriptions": paid_subs_users,
         "trial_users": trial_users,
+        "free_subscription_users": free_subscription_users,
         "inactive_users": max(0, inactive_users),
         "referral_users": referral_users,
     }
 
 
 async def get_user_ids_with_active_subscription(session: AsyncSession) -> List[int]:
-    """Return non-banned user IDs who have an active subscription (paid or trial)."""
+    """Return non-banned user IDs who have any active subscription."""
     from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc)

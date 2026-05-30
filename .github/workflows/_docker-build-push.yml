@@ -1,0 +1,117 @@
+name: Docker build & push (reusable)
+
+# Reusable workflow that builds the three image targets defined in
+# deploy/docker/Dockerfile (backend, worker, frontend) and optionally pushes
+# them to both ghcr.io and Docker Hub under the 3252a8/ namespace.
+#
+# Called by:
+#   - docker-dev.yml      (tag_mode: dev,     push: true)  on pushes to dev
+#   - docker-release.yml  (tag_mode: release, push: true)  on pushes to main
+#   - ci.yml              (tag_mode: dev,     push: false) on pull requests
+
+on:
+  workflow_call:
+    inputs:
+      push:
+        description: "Push the built images to the registries"
+        type: boolean
+        default: true
+      tag_mode:
+        description: "Tagging strategy: 'dev' or 'release'"
+        type: string
+        required: true
+
+# No permissions block here on purpose: a reusable workflow cannot request more
+# than its caller grants, so the token scope is set by each caller
+# (docker-dev.yml / docker-release.yml grant packages: write to push; ci.yml
+# only needs contents: read for a no-push build).
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: backend
+            image: remnawave-minishop-backend
+          - target: worker
+            image: remnawave-minishop-worker
+          - target: frontend
+            image: remnawave-minishop-frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history + tags: the Dockerfile's version-builder stage runs
+          # `git describe --tags` against the copied .git tree.
+          fetch-depth: 0
+
+      - name: Resolve release version
+        id: version
+        if: inputs.tag_mode == 'release'
+        run: |
+          # On a tag push github.ref_name is the tag (e.g. v3.4.5); for a
+          # manual workflow_dispatch on a branch, fall back to the latest tag.
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            raw="${{ github.ref_name }}"
+          else
+            raw="$(git describe --tags --abbrev=0 2>/dev/null)"
+          fi
+          version="${raw#v}"
+          if [ -z "$version" ]; then
+            echo "::error::No git tag found to derive the release version from"
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Release version: ${version}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        if: inputs.push
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        if: inputs.push
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            3252a8/${{ matrix.image }}
+            ghcr.io/3252a8/${{ matrix.image }}
+          tags: |
+            type=raw,value=dev,enable=${{ inputs.tag_mode == 'dev' }}
+            type=sha,prefix=dev-,format=short,enable=${{ inputs.tag_mode == 'dev' }}
+            type=raw,value=latest,enable=${{ inputs.tag_mode == 'release' }}
+            type=raw,value=${{ steps.version.outputs.version }},enable=${{ inputs.tag_mode == 'release' }}
+
+      - name: Build${{ inputs.push && ' & push' || '' }} ${{ matrix.image }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          target: ${{ matrix.target }}
+          platforms: linux/amd64
+          push: ${{ inputs.push }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # The Dockerfile's version-builder appends a "-<branch>" suffix to the
+          # internal version string for non-main builds. Force "main" on release
+          # (the ref is the tag, not a branch) so release images stay un-suffixed.
+          build-args: |
+            GITHUB_REF_NAME=${{ inputs.tag_mode == 'release' && 'main' || github.ref_name }}
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+          provenance: false

@@ -692,17 +692,25 @@
 
       <Card.Root>
         <Card.Header>
-          <Card.Description>{at("stats_label_paid_subs", {}, "")}</Card.Description>
-          <Card.Title>{users.paid_subscriptions ?? 0}</Card.Title>
+          <Card.Description>{at("stats_label_active_subs", {}, "")}</Card.Description>
+          <Card.Title>{users.active_subscriptions ?? 0}</Card.Title>
           <Card.Action>
-            <Badge variant="outline">{users.trial_users ?? 0}</Badge>
+            <Badge variant="outline"
+              >{users.total_users
+                ? Math.round(((users.active_subscriptions ?? 0) / (users.total_users || 1)) * 100)
+                : 0}%</Badge
+            >
           </Card.Action>
         </Card.Header>
         <Card.Footer class="admin-cn-card-footer--stack">
           <div class="admin-cn-card-footer-primary">
-            {at("stats_trend_trials", { count: users.trial_users ?? 0 }, "")}
+            {at("stats_trend_paid", { count: users.paid_subscriptions ?? 0 }, "")}
+            · {at("stats_trend_free", { count: users.free_subscription_users ?? 0 }, "")}
+            · {at("stats_trend_trials", { count: users.trial_users ?? 0 }, "")}
           </div>
-          <div class="admin-cn-card-footer-muted">{at("stats_card_paid_caption", {}, "")}</div>
+          <div class="admin-cn-card-footer-muted">
+            {at("stats_card_active_subs_caption", {}, "")}
+          </div>
         </Card.Footer>
       </Card.Root>
 

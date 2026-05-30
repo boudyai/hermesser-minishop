@@ -1,0 +1,25 @@
+name: Dev images
+
+# On every push to the dev branch, build all three images and push them to
+# ghcr.io and Docker Hub tagged `dev` and `dev-<short-sha>`.
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+concurrency:
+  group: docker-dev-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-push:
+    uses: ./.github/workflows/_docker-build-push.yml
+    with:
+      push: true
+      tag_mode: dev
+    secrets: inherit
