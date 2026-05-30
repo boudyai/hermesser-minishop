@@ -592,6 +592,78 @@ class SubscriptionServiceActiveDetailsTests(unittest.IsolatedAsyncioTestCase):
         deactivate_all.assert_awaited_once_with(session, 42)
         update_user.assert_awaited_once_with(session, 42, {"panel_user_uuid": None})
 
+    async def test_get_active_subscription_details_includes_device_topup_renewal_fields(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(), tmpdir)
+            service = _make_service(settings)
+            active_until = datetime(2099, 1, 2, 3, 4, tzinfo=timezone.utc)
+            service.panel_service.get_user_by_uuid_lookup = AsyncMock(
+                return_value={
+                    "ok": True,
+                    "user": {
+                        "uuid": "panel-user",
+                        "shortUuid": "short-uuid",
+                        "status": "ACTIVE",
+                        "expireAt": "2099-02-01T00:00:00Z",
+                        "subscriptionUrl": "https://panel.example.test/sub/short-uuid",
+                        "trafficLimitBytes": 1000,
+                        "trafficLimitStrategy": "MONTH",
+                        "userTraffic": {
+                            "usedTrafficBytes": 100,
+                            "lifetimeUsedTrafficBytes": 100,
+                        },
+                    },
+                }
+            )
+            service.premium_access_for_tariff = AsyncMock(
+                return_value={"squad_uuids": [], "squad_labels": [], "node_labels": []}
+            )
+            session = AsyncMock()
+            db_user = SimpleNamespace(
+                user_id=42,
+                panel_user_uuid="panel-user",
+                username="alice",
+                language_code="en",
+                lifetime_used_traffic_bytes=100,
+            )
+            local_sub = self._local_active_sub()
+            local_sub.tariff_key = "standard"
+            local_sub.extra_hwid_devices = 0
+            local_sub.hwid_device_limit = 3
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.user_dal.get_user_by_id",
+                    AsyncMock(return_value=db_user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=local_sub),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.update_subscription",
+                    AsyncMock(),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.tariff_dal.get_hwid_device_entitlement_summary",
+                    AsyncMock(
+                        return_value={
+                            "active_devices": 1,
+                            "active_until": active_until,
+                            "next_valid_from": None,
+                        }
+                    ),
+                ),
+            ):
+                result = await service.get_active_subscription_details(session, user_id=42)
+
+        self.assertTrue(result["device_topup_renewal_available"])
+        self.assertEqual(result["extra_hwid_devices"], 1)
+        self.assertEqual(result["extra_hwid_devices_valid_until"], active_until)
+        self.assertEqual(result["extra_hwid_devices_valid_until_text"], "02.01.2099 03:04")
+
 
 class SubscriptionDalPayloadTests(unittest.TestCase):
     def test_subscription_model_payload_drops_panel_only_keys(self):

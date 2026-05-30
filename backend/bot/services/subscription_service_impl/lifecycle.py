@@ -54,6 +54,37 @@ class SubscriptionLifecycleMixin:
             reason = f"{reason} message={message}"
         return reason
 
+    @staticmethod
+    def _display_datetime_text(value: Optional[Any]) -> Optional[str]:
+        if not value:
+            return None
+        if isinstance(value, datetime):
+            normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+            return normalized.strftime("%d.%m.%Y %H:%M")
+        return str(value)
+
+    @staticmethod
+    def _device_topup_renewal_available(
+        extra_hwid_devices: int,
+        extra_hwid_valid_until: Optional[Any],
+        subscription_end_date: Optional[Any],
+    ) -> bool:
+        if not isinstance(extra_hwid_valid_until, datetime) or not isinstance(
+            subscription_end_date, datetime
+        ):
+            return False
+        valid_until = (
+            extra_hwid_valid_until
+            if extra_hwid_valid_until.tzinfo
+            else extra_hwid_valid_until.replace(tzinfo=timezone.utc)
+        )
+        end_date = (
+            subscription_end_date
+            if subscription_end_date.tzinfo
+            else subscription_end_date.replace(tzinfo=timezone.utc)
+        )
+        return bool(int(extra_hwid_devices or 0) > 0 and valid_until < end_date)
+
     async def _local_active_subscription_details_fallback(
         self,
         db_user: User,
@@ -130,7 +161,9 @@ class SubscriptionLifecycleMixin:
             "base_hwid_device_limit": local_active_sub.hwid_device_limit,
             "extra_hwid_devices": int(local_active_sub.extra_hwid_devices or 0),
             "extra_hwid_devices_valid_until": None,
+            "extra_hwid_devices_valid_until_text": None,
             "extra_hwid_devices_next_valid_from": None,
+            "device_topup_renewal_available": False,
             "user_bot_username": db_user.username,
             "is_panel_data": False,
             "max_devices": self._effective_hwid_limit(
@@ -1011,6 +1044,14 @@ class SubscriptionLifecycleMixin:
             if expected_hwid_limit is not None:
                 hwid_limit = expected_hwid_limit
 
+        extra_hwid_valid_until = hwid_entitlement_summary.get("active_until")
+        extra_hwid_next_valid_from = hwid_entitlement_summary.get("next_valid_from")
+        device_topup_renewal_available = self._device_topup_renewal_available(
+            active_extra_hwid_devices,
+            extra_hwid_valid_until,
+            panel_end_date,
+        )
+
         return {
             "user_id": panel_user_data.get("uuid"),
             "panel_subscription_uuid": panel_user_data.get("subscriptionUuid")
@@ -1071,8 +1112,12 @@ class SubscriptionLifecycleMixin:
             if local_active_sub
             else None,
             "extra_hwid_devices": active_extra_hwid_devices,
-            "extra_hwid_devices_valid_until": hwid_entitlement_summary.get("active_until"),
-            "extra_hwid_devices_next_valid_from": hwid_entitlement_summary.get("next_valid_from"),
+            "extra_hwid_devices_valid_until": extra_hwid_valid_until,
+            "extra_hwid_devices_valid_until_text": self._display_datetime_text(
+                extra_hwid_valid_until
+            ),
+            "extra_hwid_devices_next_valid_from": extra_hwid_next_valid_from,
+            "device_topup_renewal_available": device_topup_renewal_available,
             "user_bot_username": db_user.username,
             "is_panel_data": True,
             "max_devices": hwid_limit,

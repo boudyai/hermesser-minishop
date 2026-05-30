@@ -114,6 +114,20 @@ def _with_subscription_purchase_description(
     return f"{description}\n\n{text}"
 
 
+def _format_premium_bytes(value: object) -> str:
+    try:
+        bytes_value = max(0, int(value or 0))
+    except (TypeError, ValueError):
+        bytes_value = 0
+    return f"{bytes_value / 2**30:.2f} GB"
+
+
+def _format_premium_usage_limit(active: dict[str, object]) -> str:
+    used = _format_premium_bytes(active.get("premium_used_bytes"))
+    limit = _format_premium_bytes(active.get("premium_limit_bytes"))
+    return f"{used} из {limit}"
+
+
 async def display_subscription_options(
     event: Union[types.Message, types.CallbackQuery],
     i18n_data: dict,
@@ -456,7 +470,7 @@ async def tariff_topup_list_callback(
             if len(labels) > len(visible):
                 premium_lines.append(f"• ... еще {len(labels) - len(visible)}")
         premium_lines.append(
-            f"Premium использовано: {active.get('premium_used')} из {active.get('premium_limit')}. Осталось: {premium_left / 2**30:.2f} GB."  # noqa: E501
+            f"Premium использовано: {_format_premium_usage_limit(active)}. Осталось: {premium_left / 2**30:.2f} GB."  # noqa: E501
         )
     text = get_text("choose_payment_method_traffic")
     if carryover_lines:
@@ -1065,7 +1079,7 @@ async def my_subscription_command_handler(
         text += (
             "\n\n🚀 <b>Premium-серверы</b>\n"
             f"Статус: <b>{premium_status}</b>\n"
-            f"Лимит: <b>{active.get('premium_used')} из {active.get('premium_limit')}</b>\n"
+            f"Лимит: <b>{_format_premium_usage_limit(active)}</b>\n"
             f"Осталось: <b>{premium_left / 2**30:.2f} GB</b>\n"
             f"Докупленный остаток: <b>{premium_balance / 2**30:.2f} GB</b>\n"
             "Отдельный лимит действует на:\n"

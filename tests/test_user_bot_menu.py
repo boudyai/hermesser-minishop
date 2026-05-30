@@ -5,7 +5,10 @@ from types import SimpleNamespace
 
 from bot.app.web import subscription_webapp
 from bot.handlers.user import referral
-from bot.handlers.user.subscription.core import _with_subscription_purchase_description
+from bot.handlers.user.subscription.core import (
+    _format_premium_usage_limit,
+    _with_subscription_purchase_description,
+)
 from bot.keyboards.inline.user_keyboards import (
     get_bot_interface_inline_keyboard,
     get_connect_and_main_keyboard,
@@ -206,6 +209,20 @@ class UserBotMenuTests(unittest.TestCase):
             ),
             "Choose traffic",
         )
+
+    def test_premium_usage_limit_uses_byte_fields_when_display_fields_missing(self):
+        gib = 1024**3
+        active = {
+            "premium_used": None,
+            "premium_limit": None,
+            "premium_used_bytes": int(1.25 * gib),
+            "premium_limit_bytes": 26 * gib,
+        }
+
+        text = _format_premium_usage_limit(active)
+
+        self.assertEqual(text, "1.25 GB из 26.00 GB")
+        self.assertNotIn("None", text)
 
     def test_payment_navigation_context_keeps_bot_menu_source(self):
         settings = SimpleNamespace(
