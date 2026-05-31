@@ -112,15 +112,14 @@ class TariffMixin:
         regular_unlimited_override: bool,
         traffic_used_bytes: int,
     ) -> int:
-        """Numeric cap sent to the panel; ``regular_unlimited_override`` uses a large practical ceiling."""  # noqa: E501
+        """Numeric cap sent to the panel; Remnawave treats ``0`` as unlimited."""
         floor = (
             int(tier_baseline_bytes or 0)
             + max(0, int(topup_balance_bytes or 0))
             + max(0, int(regular_bonus_bytes or 0))
         )
         if regular_unlimited_override:
-            used = max(0, int(traffic_used_bytes or 0))
-            return max(floor, used + 512 * (1024**3), 1024**5)
+            return 0
         return floor
 
     async def premium_access_for_tariff(self, tariff: Optional[Tariff]) -> Dict[str, Any]:

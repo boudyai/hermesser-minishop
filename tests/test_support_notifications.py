@@ -41,7 +41,7 @@ def test_support_ticket_closed_email_uses_user_language():
     assert '<html lang="ru"' in content.html
     assert "Ticket #7 was closed" not in content.text
     assert "Тема: Проблема с подключением" in content.text
-    assert "Открыть в Mini App" in content.html
+    assert "Открыть обращение" in content.html
 
 
 def test_support_admin_email_localizes_snapshot_rows_for_recipient():

@@ -1031,7 +1031,7 @@ async def admin_user_premium_override_route(request: web.Request) -> web.Respons
 
 
 async def admin_user_regular_traffic_override_route(request: web.Request) -> web.Response:
-    """Main (regular) traffic: unlimited-style ceiling + admin bonus GB."""
+    """Main (regular) traffic: native unlimited panel limit + admin bonus GB."""
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
     settings: Settings = request.app["settings"]

@@ -96,7 +96,7 @@ class SubscriptionServiceCalculationTests(unittest.TestCase):
                 ["fallback-a", "fallback-b"],
             )
 
-    def test_main_traffic_limit_includes_topup_bonus_and_unlimited_floor(self):
+    def test_main_traffic_limit_includes_topup_bonus_and_unlimited_zero(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(), tmpdir)
             service = _make_service(settings)
@@ -117,7 +117,7 @@ class SubscriptionServiceCalculationTests(unittest.TestCase):
                 regular_unlimited_override=True,
                 traffic_used_bytes=2 * (1024**5),
             )
-            self.assertEqual(unlimited_limit, 2 * (1024**5) + 512 * GIB)
+            self.assertEqual(unlimited_limit, 0)
 
     def test_premium_effective_limit_ignores_negative_balances(self):
         self.assertEqual(
