@@ -3605,6 +3605,15 @@
     transform: translateX(0);
   }
 
+  .admin-screen-wrap.is-admin-language-open .admin-sidebar {
+    z-index: 120;
+    pointer-events: none;
+  }
+
+  .admin-screen-wrap.is-admin-language-open .admin-language-switch {
+    pointer-events: auto;
+  }
+
   .admin-sidebar-backdrop {
     position: fixed;
     inset: 0;
