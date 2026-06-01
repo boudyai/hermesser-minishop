@@ -211,9 +211,24 @@
   }
 
   $: catalogCurrencyKey = normalizeCurrencyKey(tariffsCatalog.default_currency || "rub");
-  $: defaultCurrencyDraft = catalogCurrencyKey.toUpperCase();
+  $: catalogCurrencyCode = catalogCurrencyKey.toUpperCase();
+  $: defaultCurrencyDraft = catalogCurrencyCode;
   $: defaultCurrencyDraftKey = normalizeCurrencyKey(defaultCurrencyDraft || "rub");
   $: defaultCurrencyDirty = defaultCurrencyDraftKey !== catalogCurrencyKey;
+  $: providerSupportSummary = (providerCurrencySupport || []).reduce(
+    (summary, provider) => {
+      const enabled = Boolean(provider.enabled);
+      const configured = Boolean(provider.configured);
+      const supportsDefault = Boolean(provider.supports_default_currency);
+      summary.total += 1;
+      if (enabled) summary.enabled += 1;
+      if (enabled && configured) summary.configured += 1;
+      if (enabled && configured && supportsDefault) summary.available += 1;
+      if (enabled && configured && !supportsDefault) summary.blocked += 1;
+      return summary;
+    },
+    { total: 0, enabled: 0, configured: 0, available: 0, blocked: 0 }
+  );
 
   async function saveDefaultCurrency() {
     await tariffsStore.setDefaultCurrency(defaultCurrencyDraft);
@@ -222,13 +237,21 @@
   function providerCurrencyLabel(provider) {
     if (provider.accepts_any_currency) return at("tariff_provider_any_currency", {}, "Любая");
     return (
-      (provider.currencies || []).join(", ") || at("tariff_provider_not_declared", {}, "Не задано")
+      (provider.currencies || []).map((currency) => String(currency).toUpperCase()).join(", ") ||
+      at("tariff_provider_not_declared", {}, "Не задано")
     );
   }
 
   function providerCurrencyVariant(provider) {
     if (!provider.enabled || !provider.configured) return "muted";
     return provider.supports_default_currency ? "success" : "warning";
+  }
+
+  function providerCurrencyStatus(provider) {
+    if (!provider.enabled) return at("disabled", {}, "Отключен");
+    if (!provider.configured) return at("status_not_configured", {}, "Не настроен");
+    if (provider.supports_default_currency) return at("tariff_currency_supported", {}, "Доступен");
+    return at("tariff_currency_unsupported", {}, "Заблокирован");
   }
 
   function removeTrialSquad(uuid) {
@@ -654,185 +677,258 @@
     </div>
   </article>
 
-  <article class="admin-card">
-    <header class="admin-card-head">
-      <div>
-        <h3>{at("tariffs_title", {}, "Каталог тарифов")}</h3>
-        <small>{tariffsPath || "data/tariffs.json"}</small>
-      </div>
-      <div class="admin-editor-section-actions">
-        <AdminButton
-          size="sm"
-          onclick={tariffsStore.loadTariffs}
-          disabled={tariffsLoading || tariffsSaving}
-        >
-          <RefreshCw size={13} />
-          {at("btn_refresh", {}, "Обновить")}
-        </AdminButton>
-        <AdminButton
-          size="sm"
-          variant="primary"
-          onclick={tariffsStore.openCreateTariff}
-          disabled={tariffsLoading || tariffsSaving}
-        >
-          <Plus size={13} />
-          {at("btn_create_tariff", {}, "Создать тариф")}
-        </AdminButton>
-      </div>
-    </header>
-    <div class="admin-card-body">
-      <div class="admin-tariff-catalog-bar">
-        <label class="admin-field-label-compact">
-          <span>{at("tariff_default_currency", {}, "Валюта оплаты")}</span>
-          <Input
-            class="input admin-currency-input"
-            type="text"
-            maxlength="12"
-            value={defaultCurrencyDraft}
-            oninput={(event) => (defaultCurrencyDraft = event.currentTarget.value.toUpperCase())}
-            onkeydown={(event) => {
-              if (event.key === "Enter" && defaultCurrencyDirty) saveDefaultCurrency();
-            }}
-          />
-        </label>
-        <AdminBadge variant="muted">{catalogCurrencyKey.toUpperCase()}</AdminBadge>
-        {#if defaultCurrencyDirty}
+  <div class="admin-tariff-management">
+    <div class="admin-tariff-overview-grid">
+      <article class="admin-card admin-tariff-currency-card">
+        <header class="admin-card-head admin-tariff-panel-head">
+          <div>
+            <h3>{at("tariffs_currency_title", {}, "Валюта каталога")}</h3>
+            <small>
+              {at(
+                "tariffs_currency_subtitle",
+                {},
+                "Цены тарифов и платёжные провайдеры проверяются по этой валюте."
+              )}
+            </small>
+          </div>
+          <AdminBadge variant="muted">{catalogCurrencyCode}</AdminBadge>
+        </header>
+        <div class="admin-card-body admin-tariff-currency-body">
+          <div class="admin-tariff-currency-current">
+            <span>{at("tariffs_currency_current", {}, "Текущая валюта")}</span>
+            <strong>{catalogCurrencyCode}</strong>
+          </div>
+          <div class="admin-tariff-catalog-bar">
+            <label class="admin-field-label-compact admin-tariff-currency-field">
+              <span>{at("tariff_default_currency", {}, "Валюта оплаты")}</span>
+              <Input
+                class="input admin-currency-input"
+                type="text"
+                maxlength="12"
+                value={defaultCurrencyDraft}
+                oninput={(event) =>
+                  (defaultCurrencyDraft = event.currentTarget.value.toUpperCase())}
+                onkeydown={(event) => {
+                  if (event.key === "Enter" && defaultCurrencyDirty) saveDefaultCurrency();
+                }}
+              />
+            </label>
+            {#if defaultCurrencyDirty}
+              <AdminButton
+                size="sm"
+                variant="primary"
+                onclick={saveDefaultCurrency}
+                disabled={tariffsSaving}
+              >
+                <Save size={13} />
+                {tariffsSaving
+                  ? at("btn_saving", {}, "Сохранение...")
+                  : at("btn_save", {}, "Сохранить")}
+              </AdminButton>
+            {/if}
+          </div>
+        </div>
+      </article>
+
+      <article class="admin-card admin-tariff-providers-card">
+        <header class="admin-card-head admin-tariff-panel-head">
+          <div>
+            <h3>{at("tariffs_provider_title", {}, "Платёжные провайдеры")}</h3>
+            <small>
+              {at(
+                "tariffs_provider_subtitle",
+                {},
+                "Здесь видно, какие провайдеры смогут принять текущую валюту каталога."
+              )}
+            </small>
+          </div>
+          <div class="admin-provider-summary">
+            <AdminBadge variant="success">
+              {at(
+                "tariffs_provider_available_count",
+                { count: providerSupportSummary.available },
+                "Доступно: {count}"
+              )}
+            </AdminBadge>
+            <AdminBadge variant="muted">
+              {at(
+                "tariffs_provider_enabled_count",
+                { count: providerSupportSummary.enabled },
+                "Включено: {count}"
+              )}
+            </AdminBadge>
+            {#if providerSupportSummary.blocked}
+              <AdminBadge variant="warning">
+                {at(
+                  "tariffs_provider_blocked_count",
+                  { count: providerSupportSummary.blocked },
+                  "Не подходят: {count}"
+                )}
+              </AdminBadge>
+            {/if}
+          </div>
+        </header>
+        <div class="admin-card-body">
+          {#if providerCurrencySupport?.length}
+            <div class="admin-provider-currency-grid">
+              {#each providerCurrencySupport as provider}
+                <div
+                  class="admin-provider-currency"
+                  class:is-supported={provider.supports_default_currency &&
+                    provider.enabled &&
+                    provider.configured}
+                  class:is-unavailable={!provider.supports_default_currency ||
+                    !provider.enabled ||
+                    !provider.configured}
+                >
+                  <div class="admin-provider-currency-main">
+                    <strong>{provider.label}</strong>
+                    <small>{providerCurrencyLabel(provider)}</small>
+                  </div>
+                  <AdminBadge variant={providerCurrencyVariant(provider)}>
+                    {providerCurrencyStatus(provider)}
+                  </AdminBadge>
+                </div>
+              {/each}
+            </div>
+          {:else}
+            <AdminEmptyState>
+              {at("tariffs_provider_empty", {}, "Данные по провайдерам пока не загружены.")}
+            </AdminEmptyState>
+          {/if}
+        </div>
+      </article>
+    </div>
+
+    <article class="admin-card admin-tariff-list-card">
+      <header class="admin-card-head admin-tariff-list-head">
+        <div>
+          <h3>{at("tariffs_title", {}, "Каталог тарифов")}</h3>
+          <small>
+            {at("tariffs_catalog_subtitle", {}, "Периоды, цены, трафик и доступы пользователей.")}
+          </small>
+          <code class="admin-tariff-path">{tariffsPath || "data/tariffs.json"}</code>
+        </div>
+        <div class="admin-editor-section-actions">
+          <AdminButton
+            size="sm"
+            onclick={tariffsStore.loadTariffs}
+            disabled={tariffsLoading || tariffsSaving}
+          >
+            <RefreshCw size={13} />
+            {at("btn_refresh", {}, "Обновить")}
+          </AdminButton>
           <AdminButton
             size="sm"
             variant="primary"
-            onclick={saveDefaultCurrency}
-            disabled={tariffsSaving}
+            onclick={tariffsStore.openCreateTariff}
+            disabled={tariffsLoading || tariffsSaving}
           >
-            <Save size={13} />
-            {tariffsSaving
-              ? at("btn_saving", {}, "Сохранение...")
-              : at("btn_save", {}, "Сохранить")}
+            <Plus size={13} />
+            {at("btn_create_tariff", {}, "Создать тариф")}
           </AdminButton>
+        </div>
+      </header>
+      <div class="admin-card-body">
+        {#if !tariffsCatalog.tariffs.length}
+          <AdminEmptyState>
+            {at(
+              "tariffs_catalog_empty",
+              {},
+              "Каталог пуст. Добавьте первый тариф, после сохранения будет создан JSON-файл каталога."
+            )}
+          </AdminEmptyState>
+        {:else}
+          <div class="admin-tariff-grid">
+            {#each tariffsCatalog.tariffs as tariff}
+              <article class="admin-tariff-card" class:is-disabled={tariff.enabled === false}>
+                <div class="admin-tariff-top">
+                  <div>
+                    <div class="admin-tariff-title">
+                      <strong>{tariffName(tariff)}</strong>
+                      {#if tariff.key === tariffsCatalog.default_tariff}
+                        <AdminBadge variant="success"
+                          >{at("status_default", {}, "Default")}</AdminBadge
+                        >
+                      {/if}
+                    </div>
+                    <code>{tariff.key}</code>
+                  </div>
+                  {#if tariff.enabled === false}
+                    <AdminBadge variant="muted">{at("status_disabled", {}, "Выключен")}</AdminBadge>
+                  {:else}
+                    <AdminBadge variant="success">{at("status_active", {}, "Активен")}</AdminBadge>
+                  {/if}
+                </div>
+                <p>
+                  {tariff.descriptions?.ru ||
+                    tariff.descriptions?.en ||
+                    at("no_description", {}, "Без описания")}
+                </p>
+                <div class="admin-tariff-facts">
+                  <span
+                    >{tariff.billing_model === "traffic"
+                      ? at("tariff_model_traffic", {}, "Трафик")
+                      : at("tariff_model_periods", {}, "Периоды")}</span
+                  >
+                  <span>{tariffPriceSummary(tariff)}</span>
+                  <span
+                    >{at("tariff_squads", {}, "Squads")}: {(tariff.squad_uuids || []).length}</span
+                  >
+                  <span
+                    >{at("tariff_premium", {}, "Premium")}: {(tariff.premium_squad_uuids || [])
+                      .length
+                      ? `${tariff.premium_monthly_gb || 0} GB`
+                      : "—"}</span
+                  >
+                  <span
+                    >{at("tariff_devices", {}, "Устройства")}: {tariff.hwid_device_limit ??
+                      "env"}</span
+                  >
+                </div>
+                <div class="admin-tariff-actions">
+                  <AdminButton size="sm" onclick={() => tariffsStore.openEditTariff(tariff)}>
+                    {at("btn_configure", {}, "Настроить")}
+                  </AdminButton>
+                  <AdminButton
+                    size="sm"
+                    onclick={() => tariffsStore.toggleTariffEnabled(tariff)}
+                    disabled={tariffsSaving}
+                  >
+                    {tariff.enabled === false
+                      ? at("btn_enable", {}, "Включить")
+                      : at("btn_disable", {}, "Выключить")}
+                  </AdminButton>
+                  <AdminButton
+                    size="sm"
+                    onclick={() => tariffsStore.setDefaultTariff(tariff.key)}
+                    disabled={tariffsSaving ||
+                      tariff.enabled === false ||
+                      tariff.key === tariffsCatalog.default_tariff}
+                  >
+                    {at("btn_set_default", {}, "По умолчанию")}
+                  </AdminButton>
+                  <AdminButton
+                    size="sm"
+                    variant="danger"
+                    onclick={() =>
+                      tariffsStore.updateState({
+                        tariffDeleteTarget: tariff,
+                        tariffDeleteOpen: true,
+                      })}
+                    disabled={tariffsSaving}
+                    aria-label={at("btn_delete_tariff", {}, "Удалить тариф")}
+                  >
+                    <Trash2 size={13} />
+                  </AdminButton>
+                </div>
+              </article>
+            {/each}
+          </div>
         {/if}
       </div>
-      {#if providerCurrencySupport?.length}
-        <div class="admin-provider-currency-grid">
-          {#each providerCurrencySupport as provider}
-            <div
-              class="admin-provider-currency"
-              class:is-supported={provider.supports_default_currency && provider.enabled}
-              class:is-unavailable={!provider.supports_default_currency || !provider.enabled}
-            >
-              <div>
-                <strong>{provider.label}</strong>
-                <small>{providerCurrencyLabel(provider)}</small>
-              </div>
-              <AdminBadge variant={providerCurrencyVariant(provider)}>
-                {#if !provider.enabled}
-                  {at("disabled", {}, "Отключен")}
-                {:else if !provider.configured}
-                  {at("status_not_configured", {}, "Не настроен")}
-                {:else if provider.supports_default_currency}
-                  {at("tariff_currency_supported", {}, "Доступен")}
-                {:else}
-                  {at("tariff_currency_unsupported", {}, "Заблокирован")}
-                {/if}
-              </AdminBadge>
-            </div>
-          {/each}
-        </div>
-      {/if}
-      {#if !tariffsCatalog.tariffs.length}
-        <AdminEmptyState>
-          {at(
-            "tariffs_catalog_empty",
-            {},
-            "Каталог пуст. Добавьте первый тариф, после сохранения будет создан JSON-файл каталога."
-          )}
-        </AdminEmptyState>
-      {:else}
-        <div class="admin-tariff-grid">
-          {#each tariffsCatalog.tariffs as tariff}
-            <article class="admin-tariff-card" class:is-disabled={tariff.enabled === false}>
-              <div class="admin-tariff-top">
-                <div>
-                  <div class="admin-tariff-title">
-                    <strong>{tariffName(tariff)}</strong>
-                    {#if tariff.key === tariffsCatalog.default_tariff}
-                      <AdminBadge variant="success"
-                        >{at("status_default", {}, "Default")}</AdminBadge
-                      >
-                    {/if}
-                  </div>
-                  <code>{tariff.key}</code>
-                </div>
-                {#if tariff.enabled === false}
-                  <AdminBadge variant="muted">{at("status_disabled", {}, "Выключен")}</AdminBadge>
-                {:else}
-                  <AdminBadge variant="success">{at("status_active", {}, "Активен")}</AdminBadge>
-                {/if}
-              </div>
-              <p>
-                {tariff.descriptions?.ru ||
-                  tariff.descriptions?.en ||
-                  at("no_description", {}, "Без описания")}
-              </p>
-              <div class="admin-tariff-facts">
-                <span
-                  >{tariff.billing_model === "traffic"
-                    ? at("tariff_model_traffic", {}, "Трафик")
-                    : at("tariff_model_periods", {}, "Периоды")}</span
-                >
-                <span>{tariffPriceSummary(tariff)}</span>
-                <span>{at("tariff_squads", {}, "Squads")}: {(tariff.squad_uuids || []).length}</span
-                >
-                <span
-                  >{at("tariff_premium", {}, "Premium")}: {(tariff.premium_squad_uuids || []).length
-                    ? `${tariff.premium_monthly_gb || 0} GB`
-                    : "—"}</span
-                >
-                <span
-                  >{at("tariff_devices", {}, "Устройства")}: {tariff.hwid_device_limit ??
-                    "env"}</span
-                >
-              </div>
-              <div class="admin-tariff-actions">
-                <AdminButton size="sm" onclick={() => tariffsStore.openEditTariff(tariff)}>
-                  {at("btn_configure", {}, "Настроить")}
-                </AdminButton>
-                <AdminButton
-                  size="sm"
-                  onclick={() => tariffsStore.toggleTariffEnabled(tariff)}
-                  disabled={tariffsSaving}
-                >
-                  {tariff.enabled === false
-                    ? at("btn_enable", {}, "Включить")
-                    : at("btn_disable", {}, "Выключить")}
-                </AdminButton>
-                <AdminButton
-                  size="sm"
-                  onclick={() => tariffsStore.setDefaultTariff(tariff.key)}
-                  disabled={tariffsSaving ||
-                    tariff.enabled === false ||
-                    tariff.key === tariffsCatalog.default_tariff}
-                >
-                  {at("btn_set_default", {}, "По умолчанию")}
-                </AdminButton>
-                <AdminButton
-                  size="sm"
-                  variant="danger"
-                  onclick={() =>
-                    tariffsStore.updateState({
-                      tariffDeleteTarget: tariff,
-                      tariffDeleteOpen: true,
-                    })}
-                  disabled={tariffsSaving}
-                  aria-label={at("btn_delete_tariff", {}, "Удалить тариф")}
-                >
-                  <Trash2 size={13} />
-                </AdminButton>
-              </div>
-            </article>
-          {/each}
-        </div>
-      {/if}
-    </div>
-  </article>
+    </article>
+  </div>
 
   <Accordion.Root
     type="multiple"
