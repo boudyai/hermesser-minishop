@@ -4045,6 +4045,7 @@
 .admin-select-content {
   z-index: 90;
   min-width: var(--bits-select-anchor-width);
+  max-width: calc(100vw - 24px);
   max-height: var(--bits-select-content-available-height, 320px);
   overflow: hidden;
   border: 1px solid var(--admin-border);
@@ -4096,6 +4097,13 @@
   cursor: pointer;
   outline: none;
   user-select: none;
+}
+
+.admin-select-item span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-select-item[data-highlighted],
