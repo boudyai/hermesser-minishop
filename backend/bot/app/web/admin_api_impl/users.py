@@ -128,9 +128,7 @@ async def _load_admin_users_list_payload_uncached(
         active_subs = await _bulk_active_subscriptions_for_users(
             session, [u.user_id for u in users]
         )
-        payment_summaries = await _bulk_user_payment_summaries(
-            session, [u.user_id for u in users]
-        )
+        payment_summaries = await _bulk_user_payment_summaries(session, [u.user_id for u in users])
         referral_counts = await _bulk_user_referral_counts(session, [u.user_id for u in users])
 
     serialized = []
