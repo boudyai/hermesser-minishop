@@ -1243,3 +1243,51 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 .theme-key-ascii table tbody tr:hover td {
   color: #ffffff;
 }
+
+/* ============================================================
+ * Newer webapp surfaces: telegram banner, traffic/referral
+ * dropdowns, login language picker. Flatten the accent pills,
+ * rounded badges and colored gradients these ship with so they
+ * read as plain console boxes.
+ * ============================================================ */
+
+/* Telegram notifications banner: the .card chrome is already
+ * flattened above; only the rounded, color-tinted icon badge needs
+ * squaring off (the Send glyph itself is whitened by the global rule). */
+.theme-key-ascii .telegram-notifications-icon {
+  border: 1px solid #ffffff;
+  border-radius: 0;
+  background: #000000;
+  color: #ffffff;
+}
+
+/* Premium-server / referral-tariff dropdown help glyph: drop the
+ * pill background in every state (the accent maps to white here,
+ * which would otherwise paint a white blob behind the icon). */
+.theme-key-ascii .premium-server-help-icon,
+.theme-key-ascii .premium-server-dropdown summary:hover .premium-server-help-icon,
+.theme-key-ascii .premium-server-dropdown[open] .premium-server-help-icon,
+.theme-key-ascii .referral-tariff-dropdown summary:hover .premium-server-help-icon,
+.theme-key-ascii .referral-tariff-dropdown[open] .premium-server-help-icon {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #ffffff;
+}
+
+/* The check on the selected language sits on a solid white row, so a
+ * white glyph would vanish — invert it to black to keep it readable. */
+.theme-key-ascii .language-select-item[data-selected] .language-select-item-check {
+  color: #000000 !important;
+  stroke: #000000 !important;
+}
+
+/* Login-screen language trigger: square the rounded chip. */
+.theme-key-ascii .auth-language-trigger {
+  border-radius: 0;
+}
+
+/* Render flag emoji as monochrome glyphs to stay in the console palette. */
+.theme-key-ascii .emoji-flag {
+  filter: grayscale(1) contrast(1.05);
+}

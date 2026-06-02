@@ -1352,3 +1352,64 @@ body:has(.theme-key-windows95) .install-platform-item[data-selected] {
 .theme-key-windows95 a:not(.btn):not(.bottom-nav button):not([class*="-trigger"]):visited {
   color: #800080;
 }
+
+/* ---------- Newer webapp surfaces: telegram banner, traffic /
+ * referral dropdowns, login language picker ---------- */
+
+/* Telegram notifications banner: the Card chrome is already beveled by
+ * the shared .card rule; give the icon badge a raised chip look instead
+ * of the rounded, color-tinted default (the Send glyph maps to send.png). */
+.theme-key-windows95 .telegram-notifications-icon {
+  border-width: 2px;
+  border-style: solid;
+  border-color: #ffffff #404040 #404040 #ffffff;
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #808080;
+}
+
+/* Standalone referral-tariff dropdown and bonus rows: bevel them like the
+ * rest of the surfaces so they don't read as flat 1px boxes. */
+.theme-key-windows95 .referral-tariff-dropdown,
+.theme-key-windows95 .referral-bonus-row {
+  border-width: 2px;
+  border-style: solid;
+  border-color: #ffffff #404040 #404040 #ffffff;
+  border-radius: 0;
+  background: var(--panel);
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #808080;
+}
+
+.theme-key-windows95 .referral-bonus-row-nested {
+  background: #dfdfdf;
+}
+
+/* Premium-server / referral help glyph: drop the rounded accent pill so it
+ * sits inline as a plain stroked question mark. */
+.theme-key-windows95 .premium-server-help-icon,
+.theme-key-windows95 .premium-server-dropdown summary:hover .premium-server-help-icon,
+.theme-key-windows95 .premium-server-dropdown[open] .premium-server-help-icon,
+.theme-key-windows95 .referral-tariff-dropdown summary:hover .premium-server-help-icon,
+.theme-key-windows95 .referral-tariff-dropdown[open] .premium-server-help-icon {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+}
+
+/* The selected language row turns navy; its check maps to a dark bitmap,
+ * so invert it to white to keep it visible. */
+.theme-key-windows95 .language-select-item[data-highlighted] .language-select-item-check,
+.theme-key-windows95 .language-select-item[data-selected] .language-select-item-check {
+  filter: brightness(0) invert(1);
+}
+
+/* Login-screen language trigger: square the rounded chip. */
+.theme-key-windows95 .auth-language-trigger {
+  border-radius: 0;
+}

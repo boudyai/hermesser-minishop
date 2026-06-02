@@ -204,3 +204,9 @@ body:has(.theme-key-light) .install-platform-item[data-selected] {
 .theme-key-light .install-loading .ui-spinner {
   color: color-mix(in srgb, var(--accent) 55%, #000000);
 }
+
+/* Telegram notifications banner: keep the warm warning tint but swap the
+ * dark-theme inset bevel for the soft drop shadow the other light cards use. */
+.theme-key-light .telegram-notifications-card {
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.07);
+}
