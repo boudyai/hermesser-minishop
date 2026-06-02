@@ -33,14 +33,30 @@ message logs как заметки, чтобы администратор мог
 - `REMNAWAVE_TOKEN` -> `PANEL_API_KEY`;
 - `REMNAWAVE_WEBHOOK_SECRET` -> `PANEL_WEBHOOK_SECRET`;
 - `BOT_SUPPORT_USERNAME` -> `SUPPORT_LINK`;
-- `APP_DEFAULT_LOCALE` -> `DEFAULT_LANGUAGE`;
-- `BOT_MINI_APP` -> `SUBSCRIPTION_MINI_APP_URL`, если там уже HTTPS URL.
+- `APP_DEFAULT_LOCALE` -> `DEFAULT_LANGUAGE`.
+
+`BOT_MINI_APP` из Remnashop не переносится автоматически. В Remnashop эта
+переменная управляет кнопкой подключения к subscription page или внешнему Mini
+App, а не веб-кабинетом Remnashop. В Minishop `SUBSCRIPTION_MINI_APP_URL`
+должен указывать на текущий frontend/Mini App этого стека; wizard настраивает
+его из `WEBHOOK_HOST`/`MINIAPP_HOST` или `MINIAPP_PUBLIC_URL`.
+
+Значения-заглушки вроде `change_me` importer пропускает, чтобы случайно не
+записать шаблонные секреты в рабочую конфигурацию.
 
 Платежные провайдеры берутся из таблицы Remnashop `payment_gateways`.
 Поддерживаются и автоматически маппятся: Telegram Stars, YooKassa, WATA,
 CryptoPay, Heleket, FreeKassa и Platega. Для них importer переносит флаги
-включения, API-ключи/merchant IDs и доступные provider-specific параметры в
-раздел настроек админки.
+включения, API-ключи/merchant IDs и прямые технические параметры, без которых
+провайдер не сможет работать: YooKassa receipt email/VAT, FreeKassa second
+secret/payment method/server IP и Platega payment method.
+
+Provider currency и supported-currency ограничения не переносятся автоматически:
+в Minishop валюта платежа управляется тарифами и `DEFAULT_CURRENCY_SYMBOL`.
+Если старый gateway Remnashop был настроен на нестандартную валюту, importer
+оставит предупреждение в JSON-сводке; проверьте `CRYPTOPAY_ASSET`,
+`HELEKET_CURRENCY`, `HELEKET_SUPPORTED_CURRENCIES` или
+`PLATEGA_SUPPORTED_CURRENCIES` вручную.
 
 Провайдеры YooMoney, Cryptomus, MulenPay, PayMaster, RoboKassa и UrlPay сейчас
 не имеют прямого аналога в Minishop. Если они были в Remnashop, importer
@@ -72,7 +88,7 @@ Remnashop может хранить секреты в формате `enc_...`. 
    `raw.githubusercontent.com`, без клонирования репозитория.
 2. Вы указываете source PostgreSQL DSN Remnashop и schema, обычно `public`.
 3. Опционально указываете путь к старому Remnashop `.env` для `APP_CRYPT_KEY`,
-   Remnawave API settings и переносимых payment/provider settings.
+   Remnawave API settings и переносимых settings.
 4. Вы выбираете целевую БД: текущую compose-БД или ручной target DSN.
 5. При необходимости указываете JSON map тарифов Remnashop в локальные
    `tariff_key`, например `{"basic": "standard_month"}`.

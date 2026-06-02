@@ -61,6 +61,7 @@ except Exception:  # pragma: no cover - defensive fallback for minimal tooling.
 
 SOURCE = "remnashop"
 REMNASHOP_ENCRYPTED_PREFIX = "enc_"
+PLACEHOLDER_SETTING_VALUES = {"change_me", "changeme"}
 GIB = 1024**3
 UUID_RE = re.compile(
     r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
@@ -230,7 +231,13 @@ def read_remnashop_env_file(path: Optional[str]) -> dict[str, str]:
     return parse_remnashop_env_text(Path(path).read_text(encoding="utf-8"))
 
 
+def _is_placeholder_setting_value(value: Any) -> bool:
+    return isinstance(value, str) and value.strip().lower() in PLACEHOLDER_SETTING_VALUES
+
+
 def _clean_url(value: Any) -> Optional[str]:
+    if _is_placeholder_setting_value(value):
+        return None
     text_value = str(value or "").strip().rstrip("/")
     return text_value or None
 
@@ -259,26 +266,23 @@ def _source_public_base_from_env(env: dict[str, str]) -> Optional[str]:
 
 
 def _support_link_from_username(value: Any) -> Optional[str]:
+    if _is_placeholder_setting_value(value):
+        return None
     username = str(value or "").strip().lstrip("@")
     if not username:
         return None
     return f"https://t.me/{username}"
 
 
-def _mini_app_url_from_env(value: Any) -> Optional[str]:
-    raw = str(value or "").strip()
-    if not raw:
-        return None
-    if raw.lower() in {"true", "false", "0", "1"}:
-        return None
-    return raw if raw.startswith("https://") else None
-
-
 def _add_override(overrides: dict[str, Any], key: str, value: Any) -> None:
     if value is None:
         return
-    if isinstance(value, str) and not value.strip():
-        return
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return
+        if value.lower() in PLACEHOLDER_SETTING_VALUES:
+            return
     overrides[key] = value
 
 
@@ -293,11 +297,6 @@ def remnashop_env_overrides(env: dict[str, str]) -> dict[str, Any]:
         _support_link_from_username(env.get("BOT_SUPPORT_USERNAME")),
     )
     _add_override(overrides, "DEFAULT_LANGUAGE", env.get("APP_DEFAULT_LOCALE"))
-    _add_override(
-        overrides,
-        "SUBSCRIPTION_MINI_APP_URL",
-        _mini_app_url_from_env(env.get("BOT_MINI_APP")),
-    )
     return overrides
 
 
@@ -458,17 +457,24 @@ def remnashop_payment_gateway_overrides(
     if gateway_type == "CRYPTOPAY":
         _add_override(overrides, "CRYPTOPAY_ENABLED", active)
         _add_override(overrides, "CRYPTOPAY_TOKEN", settings.get("api_key"))
-        if currency:
-            _add_override(overrides, "CRYPTOPAY_ASSET", currency)
+        if currency and currency != "RUB":
+            warnings.append(
+                f"CryptoPay source currency was {currency}; Minishop keeps payment currency "
+                "controlled by tariffs/default currency. Configure CRYPTOPAY_ASSET manually "
+                "if this instance needs a different default."
+            )
         return _provider_mapping_result(gateway_type, ["cryptopay"], overrides, warnings)
 
     if gateway_type == "HELEKET":
         _add_override(overrides, "HELEKET_ENABLED", active)
         _add_override(overrides, "HELEKET_MERCHANT_ID", settings.get("merchant_id"))
         _add_override(overrides, "HELEKET_API_KEY", settings.get("api_key"))
-        if currency:
-            _add_override(overrides, "HELEKET_CURRENCY", currency)
-            _add_override(overrides, "HELEKET_SUPPORTED_CURRENCIES", currency)
+        if currency and currency != "RUB":
+            warnings.append(
+                f"Heleket source currency was {currency}; Minishop keeps payment currency "
+                "controlled by tariffs/default currency. Configure HELEKET_CURRENCY manually "
+                "if this instance needs a different default."
+            )
         return _provider_mapping_result(gateway_type, ["heleket"], overrides, warnings)
 
     if gateway_type == "FREEKASSA":
@@ -492,8 +498,12 @@ def remnashop_payment_gateway_overrides(
         _add_override(overrides, "PLATEGA_SECRET", settings.get("api_key"))
         _add_override(overrides, "PLATEGA_PAYMENT_METHOD", settings.get("payment_method"))
         _add_override(overrides, "PLATEGA_SBP_METHOD", settings.get("payment_method"))
-        if currency:
-            _add_override(overrides, "PLATEGA_SUPPORTED_CURRENCIES", currency)
+        if currency and currency != "RUB":
+            warnings.append(
+                f"Platega source currency was {currency}; Minishop keeps payment currency "
+                "controlled by tariffs/default currency. Configure PLATEGA_SUPPORTED_CURRENCIES "
+                "manually if this instance needs a different currency."
+            )
         return _provider_mapping_result(gateway_type, ["platega_sbp"], overrides, warnings)
 
     return _provider_mapping_result(gateway_type, [], overrides, warnings)
@@ -972,12 +982,15 @@ class RemnashopImporter:
                         "REMNAWAVE_WEBHOOK_SECRET",
                         "BOT_SUPPORT_USERNAME",
                         "APP_DEFAULT_LOCALE",
-                        "BOT_MINI_APP",
                     )
                     if self.source_env.get(key)
+                    and not _is_placeholder_setting_value(self.source_env.get(key))
                 ),
                 "has_app_crypt_key": bool(self.source_env.get("APP_CRYPT_KEY")),
                 "source_urls": remnashop_source_urls_from_env(self.source_env),
+                "ignored_keys_present": sorted(
+                    key for key in ("BOT_MINI_APP",) if self.source_env.get(key)
+                ),
             },
         )
         return written
@@ -1595,13 +1608,16 @@ class RemnashopImporter:
                         "REMNAWAVE_WEBHOOK_SECRET",
                         "BOT_SUPPORT_USERNAME",
                         "APP_DEFAULT_LOCALE",
-                        "BOT_MINI_APP",
                         "APP_DOMAIN",
                         "APP_CRYPT_KEY",
                     )
                     if self.source_env.get(key)
+                    and not _is_placeholder_setting_value(self.source_env.get(key))
                 ),
                 "source_urls": remnashop_source_urls_from_env(self.source_env),
+                "ignored_keys_present": sorted(
+                    key for key in ("BOT_MINI_APP",) if self.source_env.get(key)
+                ),
             },
         }
         env_override_keys = await self.import_env_settings()

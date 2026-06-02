@@ -73,8 +73,22 @@ def test_remnashop_env_parser_and_overrides_map_safe_values():
         "PANEL_WEBHOOK_SECRET": "panel secret",
         "SUPPORT_LINK": "https://t.me/support_bot",
         "DEFAULT_LANGUAGE": "en",
-        "SUBSCRIPTION_MINI_APP_URL": "https://app.example.com/",
     }
+
+
+def test_remnashop_env_overrides_skip_placeholders_and_mini_app():
+    overrides = remnashop_env_overrides(
+        {
+            "REMNAWAVE_HOST": "change_me",
+            "REMNAWAVE_TOKEN": "change_me",
+            "REMNAWAVE_WEBHOOK_SECRET": "change_me",
+            "BOT_SUPPORT_USERNAME": "change_me",
+            "APP_DEFAULT_LOCALE": "change_me",
+            "BOT_MINI_APP": "https://old-mini-app.example.com/",
+        }
+    )
+
+    assert overrides == {}
 
 
 def test_remnashop_yookassa_gateway_maps_to_current_provider_settings():
@@ -138,6 +152,38 @@ def test_remnashop_free_kassa_and_platega_gateways_map_available_settings():
     assert platega["provider_ids"] == ["platega_sbp"]
     assert platega["overrides"]["PLATEGA_SBP_ENABLED"] is True
     assert platega["overrides"]["PLATEGA_SBP_METHOD"] == 2
+    assert "PLATEGA_SUPPORTED_CURRENCIES" not in platega["overrides"]
+
+
+def test_remnashop_crypto_provider_currency_is_not_imported_as_setting_override():
+    cryptopay = remnashop_payment_gateway_overrides(
+        {
+            "type": "CRYPTOPAY",
+            "currency": "USD",
+            "is_active": True,
+            "settings": {"api_key": "crypto-token"},
+        }
+    )
+    assert cryptopay["overrides"] == {
+        "CRYPTOPAY_ENABLED": True,
+        "CRYPTOPAY_TOKEN": "crypto-token",
+    }
+    assert any("source currency was USD" in warning for warning in cryptopay["warnings"])
+
+    heleket = remnashop_payment_gateway_overrides(
+        {
+            "type": "HELEKET",
+            "currency": "USD",
+            "is_active": True,
+            "settings": {"merchant_id": "merchant", "api_key": "secret"},
+        }
+    )
+    assert heleket["overrides"] == {
+        "HELEKET_ENABLED": True,
+        "HELEKET_MERCHANT_ID": "merchant",
+        "HELEKET_API_KEY": "secret",
+    }
+    assert "HELEKET_CURRENCY" not in heleket["overrides"]
 
 
 def test_remnashop_unsupported_gateway_is_reported_without_overrides():
