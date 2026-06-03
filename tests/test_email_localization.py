@@ -35,7 +35,6 @@ def _settings(default_language: str = "ru"):
         DEFAULT_LANGUAGE=default_language,
         EMAIL_CODE_TTL_SECONDS=600,
         WEBAPP_LOGO_URL="",
-        WEBAPP_LOGO_USE_EMOJI=False,
         WEBAPP_PRIMARY_COLOR="#00fe7a",
         WEBAPP_TITLE="Mini Shop",
     )

@@ -64,7 +64,6 @@ def settings():
         DEFAULT_LANGUAGE=LANGUAGE,
         EMAIL_CODE_TTL_SECONDS=600,
         WEBAPP_LOGO_URL="",
-        WEBAPP_LOGO_USE_EMOJI=False,
         WEBAPP_PRIMARY_COLOR="#00fe7a",
         WEBAPP_TITLE="remnawave-minishop",
     )

@@ -276,25 +276,6 @@
         "updated_at": null
       },
       {
-        "key": "WEBAPP_LOGO_USE_EMOJI",
-        "type": "bool",
-        "section": "appearance",
-        "section_order": 2,
-        "subsection": null,
-        "label": "Использовать эмоджи-логотип",
-        "description": "",
-        "i18n_label_key": "admin_settings_field_webapp_logo_use_emoji_label",
-        "i18n_description_key": null,
-        "i18n_subsection_key": null,
-        "i18n_placeholder_key": null,
-        "placeholder": "",
-        "optional": true,
-        "secret": false,
-        "value": "",
-        "overridden": false,
-        "updated_at": null
-      },
-      {
         "key": "WEBAPP_LOGO_URL",
         "type": "url",
         "section": "appearance",
@@ -309,91 +290,6 @@
         "placeholder": "",
         "optional": true,
         "secret": false,
-        "value": "",
-        "overridden": false,
-        "updated_at": null
-      },
-      {
-        "key": "WEBAPP_LOGO_EMOJI",
-        "type": "string",
-        "section": "appearance",
-        "section_order": 2,
-        "subsection": null,
-        "label": "Эмоджи-логотип",
-        "description": "",
-        "i18n_label_key": "admin_settings_field_webapp_logo_emoji_label",
-        "i18n_description_key": null,
-        "i18n_subsection_key": null,
-        "i18n_placeholder_key": "admin_settings_field_webapp_logo_emoji_placeholder",
-        "placeholder": "🫥",
-        "optional": true,
-        "secret": false,
-        "value": "",
-        "overridden": false,
-        "updated_at": null
-      },
-      {
-        "key": "WEBAPP_LOGO_EMOJI_FONT",
-        "type": "string",
-        "section": "appearance",
-        "section_order": 2,
-        "subsection": null,
-        "label": "Шрифт эмоджи-логотипа",
-        "description": "Выберите шрифт для отображения эмодзи-логотипа",
-        "i18n_label_key": "admin_settings_field_webapp_logo_emoji_font_label",
-        "i18n_description_key": "admin_settings_field_webapp_logo_emoji_font_description",
-        "i18n_subsection_key": null,
-        "i18n_placeholder_key": null,
-        "placeholder": "",
-        "optional": true,
-        "secret": false,
-        "choices": [
-          {
-            "value": "system",
-            "label": "Системный (по умолчанию)",
-            "i18n_label_key": "admin_settings_field_webapp_logo_emoji_font_choice_system"
-          },
-          {
-            "value": "noto-color",
-            "label": "Noto Color Emoji",
-            "i18n_label_key": "admin_settings_field_webapp_logo_emoji_font_choice_noto_color"
-          },
-          {
-            "value": "noto-color-animated",
-            "label": "Noto Color Emoji Animated",
-            "i18n_label_key": "admin_settings_field_webapp_logo_emoji_font_choice_noto_color_animated"
-          },
-          {
-            "value": "noto-emoji",
-            "label": "Noto Emoji",
-            "i18n_label_key": "admin_settings_field_webapp_logo_emoji_font_choice_noto_emoji"
-          },
-          {
-            "value": "twemoji",
-            "label": "Twitter Emoji",
-            "i18n_label_key": "admin_settings_field_webapp_logo_emoji_font_choice_twemoji"
-          },
-          {
-            "value": "openmoji",
-            "label": "OpenMoji",
-            "i18n_label_key": "admin_settings_field_webapp_logo_emoji_font_choice_openmoji"
-          },
-          {
-            "value": "apple",
-            "label": "Apple Color Emoji (local)",
-            "i18n_label_key": "admin_settings_field_webapp_logo_emoji_font_choice_apple"
-          },
-          {
-            "value": "segoe",
-            "label": "Segoe UI Emoji (local)",
-            "i18n_label_key": "admin_settings_field_webapp_logo_emoji_font_choice_segoe"
-          },
-          {
-            "value": "noto-local",
-            "label": "Noto Emoji (local)",
-            "i18n_label_key": "admin_settings_field_webapp_logo_emoji_font_choice_noto_local"
-          }
-        ],
         "value": "",
         "overridden": false,
         "updated_at": null

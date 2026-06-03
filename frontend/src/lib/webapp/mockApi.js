@@ -652,9 +652,6 @@ function demoSettingsSections(clone) {
 function applyDemoSettingToMock(key, value) {
   if (key === "WEBAPP_TITLE") DEV_MOCK.config.title = value || "";
   if (key === "WEBAPP_LOGO_URL") DEV_MOCK.config.logoUrl = value || "";
-  if (key === "WEBAPP_LOGO_USE_EMOJI") DEV_MOCK.config.logoUseEmoji = Boolean(value);
-  if (key === "WEBAPP_LOGO_EMOJI") DEV_MOCK.config.logoEmoji = value || "";
-  if (key === "WEBAPP_LOGO_EMOJI_FONT") DEV_MOCK.config.logoEmojiFont = value || "system";
   if (key === "WEBAPP_FAVICON_URL" || key === "WEBAPP_LOGO_FAVICON_URL") {
     DEV_MOCK.config.faviconUrl = value || DEV_MOCK.config.faviconUrl || "";
   }
@@ -1609,13 +1606,6 @@ export async function mockApi(path, options = {}, context = {}) {
       if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_LOGO_URL")) {
         DEV_MOCK.config.logoUrl = updates.WEBAPP_LOGO_URL || "";
       }
-      if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_LOGO_USE_EMOJI")) {
-        DEV_MOCK.config.logoUseEmoji = Boolean(updates.WEBAPP_LOGO_USE_EMOJI);
-      }
-      if (updates.WEBAPP_LOGO_EMOJI) DEV_MOCK.config.logoEmoji = updates.WEBAPP_LOGO_EMOJI;
-      if (updates.WEBAPP_LOGO_EMOJI_FONT) {
-        DEV_MOCK.config.logoEmojiFont = updates.WEBAPP_LOGO_EMOJI_FONT;
-      }
       if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_FAVICON_URL")) {
         DEV_MOCK.config.faviconUrl = updates.WEBAPP_FAVICON_URL || "";
       }
@@ -1743,37 +1733,11 @@ export async function mockApi(path, options = {}, context = {}) {
           order: 2,
           fields: [
             {
-              key: "WEBAPP_LOGO_USE_EMOJI",
-              type: "bool",
-              section: "appearance",
-              label: "Emoji logo",
-              value: Boolean(DEV_MOCK.config.logoUseEmoji),
-            },
-            {
               key: "WEBAPP_LOGO_URL",
               type: "url",
               section: "appearance",
               label: "URL логотипа",
               value: DEV_MOCK.config.logoUrl || "",
-            },
-            {
-              key: "WEBAPP_LOGO_EMOJI",
-              type: "string",
-              section: "appearance",
-              label: "Emoji",
-              value: DEV_MOCK.config.logoEmoji || "🫥",
-            },
-            {
-              key: "WEBAPP_LOGO_EMOJI_FONT",
-              type: "string",
-              section: "appearance",
-              label: "Emoji font",
-              value: DEV_MOCK.config.logoEmojiFont || "system",
-              choices: [
-                { value: "system", label: "Системный" },
-                { value: "noto-color", label: "Noto Color Emoji" },
-                { value: "noto-color-animated", label: "Noto Color Emoji Animated" },
-              ],
             },
             {
               key: "WEBAPP_FAVICON_USE_CUSTOM",

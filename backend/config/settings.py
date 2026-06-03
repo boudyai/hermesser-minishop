@@ -59,9 +59,6 @@ class WebAppSettings(BaseModel):
     title: str
     primary_color: str
     logo_url: Optional[str]
-    logo_use_emoji: bool
-    logo_emoji: str
-    logo_emoji_font: str
     favicon_use_custom: bool
     favicon_url: Optional[str]
     logo_favicon_url: Optional[str]
@@ -395,15 +392,6 @@ class Settings(BaseSettings):
         ),
     )
     WEBAPP_LOGO_URL: Optional[str] = Field(default=None)
-    WEBAPP_LOGO_USE_EMOJI: bool = Field(default=False)
-    WEBAPP_LOGO_EMOJI: str = Field(default="🫥")
-    WEBAPP_LOGO_EMOJI_FONT: str = Field(
-        default="system",
-        description=(
-            "Emoji font for logo fallback: system, noto-color, noto-color-animated, "
-            "noto-emoji, twemoji, openmoji, apple, segoe, noto-local"
-        ),
-    )
     WEBAPP_FAVICON_USE_CUSTOM: bool = Field(default=False)
     WEBAPP_FAVICON_URL: Optional[str] = Field(default=None)
     WEBAPP_LOGO_FAVICON_URL: Optional[str] = Field(default=None)
@@ -566,9 +554,6 @@ class Settings(BaseSettings):
             title=self.WEBAPP_TITLE,
             primary_color=self.WEBAPP_PRIMARY_COLOR,
             logo_url=self.WEBAPP_LOGO_URL,
-            logo_use_emoji=self.WEBAPP_LOGO_USE_EMOJI,
-            logo_emoji=self.WEBAPP_LOGO_EMOJI,
-            logo_emoji_font=self.WEBAPP_LOGO_EMOJI_FONT,
             favicon_use_custom=self.WEBAPP_FAVICON_USE_CUSTOM,
             favicon_url=self.WEBAPP_FAVICON_URL,
             logo_favicon_url=self.WEBAPP_LOGO_FAVICON_URL,
@@ -809,21 +794,6 @@ class Settings(BaseSettings):
     @classmethod
     def ignore_deprecated_webapp_logo_url_env(cls, _value):
         return None
-
-    @field_validator("WEBAPP_LOGO_USE_EMOJI", mode="before")
-    @classmethod
-    def ignore_deprecated_webapp_logo_use_emoji_env(cls, _value):
-        return False
-
-    @field_validator("WEBAPP_LOGO_EMOJI", mode="before")
-    @classmethod
-    def ignore_deprecated_webapp_logo_emoji_env(cls, _value):
-        return "🫥"
-
-    @field_validator("WEBAPP_LOGO_EMOJI_FONT", mode="before")
-    @classmethod
-    def ignore_deprecated_webapp_logo_emoji_font_env(cls, _value):
-        return "system"
 
     @field_validator("WEBAPP_FAVICON_USE_CUSTOM", mode="before")
     @classmethod

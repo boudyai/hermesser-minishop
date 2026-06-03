@@ -161,9 +161,6 @@
 | `TELEGRAM_OAUTH_REQUEST_ACCESS` | `.env` | Дополнительные разрешения, например `write`. |
 | `WEBAPP_PRIMARY_COLOR` | Админка | Устаревшее env-поле, игнорируется. |
 | `WEBAPP_LOGO_URL` | Админка | Устаревшее env-поле, игнорируется. |
-| `WEBAPP_LOGO_USE_EMOJI` | Админка | Устаревшее env-поле, игнорируется. |
-| `WEBAPP_LOGO_EMOJI` | Админка | Устаревшее env-поле, игнорируется. |
-| `WEBAPP_LOGO_EMOJI_FONT` | Админка | Устаревшее env-поле, игнорируется. |
 | `WEBAPP_FAVICON_USE_CUSTOM` | Админка | Устаревшее env-поле, игнорируется. |
 | `WEBAPP_FAVICON_URL` | Админка | Устаревшее env-поле, игнорируется. |
 | `WEBAPP_LOGO_FAVICON_URL` | Админка | Устаревшее env-поле, игнорируется. |

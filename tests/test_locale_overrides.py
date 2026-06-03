@@ -206,7 +206,6 @@ def test_email_templates_use_override_only_language_without_base_locale_file(tmp
         DEFAULT_LANGUAGE="ru",
         EMAIL_CODE_TTL_SECONDS=600,
         WEBAPP_LOGO_URL="",
-        WEBAPP_LOGO_USE_EMOJI=False,
         WEBAPP_PRIMARY_COLOR="#00fe7a",
         WEBAPP_TITLE="Remnawave",
     )

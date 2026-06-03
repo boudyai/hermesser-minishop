@@ -90,7 +90,6 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("GET", "/robots.txt"): "robots_txt_route",
             ("GET", "/webapp-logo"): "webapp_logo_route",
             ("GET", "/webapp-uploaded-logo/{filename}"): "webapp_uploaded_logo_route",
-            ("GET", "/webapp-emoji/{codepoints}/512.{ext}"): "webapp_animated_emoji_route",
             ("GET", "/subscription_webapp.css"): "css_asset_route",
             ("GET", "/subscription_webapp_admin.css"): "admin_css_asset_route",
             ("GET", "/webapp-theme-css/{path}"): "theme_css_asset_route",

@@ -351,7 +351,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         )
 
     def test_default_webapp_logo_is_used_without_admin_upload(self):
-        settings = SimpleNamespace(WEBAPP_LOGO_USE_EMOJI=False, WEBAPP_LOGO_URL="")
+        settings = SimpleNamespace(WEBAPP_LOGO_URL="")
 
         self.assertEqual(
             subscription_webapp._resolve_webapp_logo_url(settings),
@@ -360,7 +360,6 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_webapp_logo_route_serves_configured_uploaded_logo(self):
         settings = SimpleNamespace(
-            WEBAPP_LOGO_USE_EMOJI=False,
             WEBAPP_LOGO_URL="/webapp-uploaded-logo/logo-1111111111111111.png",
         )
         request = SimpleNamespace(app={"settings": settings})
@@ -374,14 +373,6 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 200)
         self.assertEqual(response.content_type, "image/png")
         self.assertEqual(response.body, b"logo")
-
-    def test_webapp_logo_is_hidden_when_emoji_logo_is_enabled(self):
-        settings = SimpleNamespace(
-            WEBAPP_LOGO_USE_EMOJI=True,
-            WEBAPP_LOGO_URL="/webapp-uploaded-logo/logo-abcdef1234567890.png",
-        )
-
-        self.assertEqual(subscription_webapp._resolve_webapp_logo_url(settings), "")
 
     def test_custom_webapp_favicon_takes_precedence(self):
         settings = SimpleNamespace(
@@ -470,7 +461,6 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             settings = SimpleNamespace(
                 WEBAPP_ENABLED=True,
                 WEBAPP_LOGO_URL="",
-                WEBAPP_LOGO_USE_EMOJI=False,
                 WEBAPP_FAVICON_USE_CUSTOM=True,
                 WEBAPP_FAVICON_URL=f"/webapp-favicon/{digest}/icon-180.png",
                 WEBAPP_LOGO_FAVICON_URL="",
@@ -491,7 +481,6 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         settings = SimpleNamespace(
             WEBAPP_ENABLED=True,
             WEBAPP_LOGO_URL="",
-            WEBAPP_LOGO_USE_EMOJI=False,
             WEBAPP_FAVICON_USE_CUSTOM=False,
             WEBAPP_FAVICON_URL="",
             WEBAPP_LOGO_FAVICON_URL="",
@@ -592,16 +581,14 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             (favicons / "aaaaaaaaaaaaaaaa" / "icon-180.png").write_bytes(b"keep")
             (favicons / "bbbbbbbbbbbbbbbb" / "icon-180.png").write_bytes(b"keep")
             (favicons / "cccccccccccccccc" / "icon-180.png").write_bytes(b"remove")
-            (emoji / "1f929.512.gif").write_bytes(b"keep")
-            (emoji / "1f929.512.webp").write_bytes(b"keep")
+            # Emoji logos were removed; any leftover emoji cache files are purged.
+            (emoji / "1f929.512.gif").write_bytes(b"remove")
+            (emoji / "1f929.512.webp").write_bytes(b"remove")
             (emoji / "1f525.512.gif").write_bytes(b"remove")
             settings = SimpleNamespace(
                 WEBAPP_LOGO_URL="/webapp-uploaded-logo/logo-1111111111111111.png",
                 WEBAPP_FAVICON_URL="/webapp-favicon/aaaaaaaaaaaaaaaa/icon-180.png",
                 WEBAPP_LOGO_FAVICON_URL="/webapp-favicon/bbbbbbbbbbbbbbbb/icon-180.png",
-                WEBAPP_LOGO_USE_EMOJI=True,
-                WEBAPP_LOGO_EMOJI="🤩",
-                WEBAPP_LOGO_EMOJI_FONT="noto-color-animated",
             )
 
             with (
@@ -616,8 +603,8 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue((favicons / "aaaaaaaaaaaaaaaa").exists())
             self.assertTrue((favicons / "bbbbbbbbbbbbbbbb").exists())
             self.assertFalse((favicons / "cccccccccccccccc").exists())
-            self.assertTrue((emoji / "1f929.512.gif").exists())
-            self.assertTrue((emoji / "1f929.512.webp").exists())
+            self.assertFalse((emoji / "1f929.512.gif").exists())
+            self.assertFalse((emoji / "1f929.512.webp").exists())
             self.assertFalse((emoji / "1f525.512.gif").exists())
 
     async def test_persist_appearance_upload_writes_overrides_and_clears_caches(self):
@@ -632,7 +619,6 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         )
         updates = {
             "WEBAPP_LOGO_URL": "/webapp-uploaded-logo/logo-1111111111111111.png",
-            "WEBAPP_LOGO_USE_EMOJI": False,
         }
 
         with (
@@ -708,12 +694,6 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         bumped = admin_themes._bump_theme_asset_versions(updated, previous)
 
         self.assertEqual(bumped.theme_by_key("custom").assets_version, 4)
-
-    def test_animated_emoji_asset_path_uses_same_origin_route(self):
-        self.assertEqual(
-            subscription_webapp._webapp_animated_emoji_asset_path("🤩"),
-            "/webapp-emoji/1f929/512.gif",
-        )
 
     def test_telegram_avatar_url_uses_same_origin_account_route(self):
         avatar = SimpleNamespace(
@@ -1323,7 +1303,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             logo_url = "https://cdn.example.com/logo.png"
             logo = (b"cached-logo", "image/png")
             app = {
-                "settings": SimpleNamespace(WEBAPP_LOGO_URL=logo_url, WEBAPP_LOGO_USE_EMOJI=False),
+                "settings": SimpleNamespace(WEBAPP_LOGO_URL=logo_url),
                 "webapp_logo_cache": None,
                 "webapp_logo_cache_lock": asyncio.Lock(),
             }
@@ -1343,44 +1323,3 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
             fetch_logo.assert_not_called()
             self.assertEqual(app["webapp_logo_cache"], (logo_url, logo[0], logo[1]))
-
-    def test_webapp_animated_emoji_disk_cache_roundtrip(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.object(webapp_assets, "WEBAPP_EMOJI_CACHE_DIR", Path(tmpdir)):
-                subscription_webapp._write_webapp_animated_emoji_to_disk(
-                    "1f929",
-                    "gif",
-                    (b"gif-bytes", "image/gif"),
-                )
-
-                self.assertEqual(
-                    subscription_webapp._read_webapp_animated_emoji_from_disk("1f929", "gif"),
-                    (b"gif-bytes", "image/gif"),
-                )
-
-    async def test_warm_webapp_animated_emoji_cache_uses_disk_cache(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            app = {
-                "settings": SimpleNamespace(
-                    WEBAPP_LOGO_USE_EMOJI=True,
-                    WEBAPP_LOGO_EMOJI="🤩",
-                    WEBAPP_LOGO_EMOJI_FONT="noto-color-animated",
-                ),
-                "webapp_emoji_cache": {},
-                "webapp_emoji_cache_lock": asyncio.Lock(),
-            }
-
-            with (
-                patch.object(webapp_assets, "WEBAPP_EMOJI_CACHE_DIR", Path(tmpdir)),
-                patch.object(webapp_assets, "_fetch_webapp_animated_emoji") as fetch_emoji,
-            ):
-                subscription_webapp._write_webapp_animated_emoji_to_disk(
-                    "1f929",
-                    "gif",
-                    (b"cached-gif", "image/gif"),
-                )
-
-                await subscription_webapp._warm_webapp_animated_emoji_cache(app)
-
-            fetch_emoji.assert_not_called()
-            self.assertEqual(app["webapp_emoji_cache"]["1f929:gif"], (b"cached-gif", "image/gif"))

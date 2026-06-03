@@ -358,13 +358,9 @@
   } = $accountStore);
 
   $: brandTitle = CFG.title || "/minishop";
-  $: brandEmoji = CFG.logoEmoji || "🫥";
-  $: brandEmojiFont = CFG.logoEmojiFont || "system";
   $: brand = normalizeBrand({
     title: brandTitle,
-    logoUrl: CFG.logoUseEmoji ? "" : CFG.logoUrl,
-    emoji: brandEmoji,
-    emojiFont: brandEmojiFont,
+    logoUrl: CFG.logoUrl,
   });
   $: faviconBrand = normalizeBrand({
     ...brand,
@@ -2077,9 +2073,6 @@
     ]);
     return [
       "WEBAPP_LOGO_URL",
-      "WEBAPP_LOGO_USE_EMOJI",
-      "WEBAPP_LOGO_EMOJI",
-      "WEBAPP_LOGO_EMOJI_FONT",
       "WEBAPP_FAVICON_URL",
       "WEBAPP_FAVICON_USE_CUSTOM",
       "WEBAPP_LOGO_FAVICON_URL",

@@ -48,8 +48,6 @@ def _safe_color(value: Optional[str]) -> str:
 def _public_logo_url(settings: Settings) -> Optional[str]:
     """Email recipients can't reach the in-app /webapp-logo proxy, so only a
     stored public https URL can be used directly. Anything else is dropped."""
-    if getattr(settings, "WEBAPP_LOGO_USE_EMOJI", False):
-        return None
     raw = (settings.WEBAPP_LOGO_URL or "").strip()
     if not raw:
         return None

@@ -181,27 +181,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
     SettingField(
         "WEBAPP_PRIMARY_COLOR", "color", "appearance", "Основной цвет", placeholder="#00fe7a"
     ),
-    SettingField("WEBAPP_LOGO_USE_EMOJI", "bool", "appearance", "Использовать эмоджи-логотип"),
     SettingField("WEBAPP_LOGO_URL", "url", "appearance", "URL логотипа"),
-    SettingField("WEBAPP_LOGO_EMOJI", "string", "appearance", "Эмоджи-логотип", placeholder="🫥"),
-    SettingField(
-        "WEBAPP_LOGO_EMOJI_FONT",
-        "string",
-        "appearance",
-        "Шрифт эмоджи-логотипа",
-        "Выберите шрифт для отображения эмодзи-логотипа",
-        choices=(
-            ("system", "Системный (по умолчанию)"),
-            ("noto-color", "Noto Color Emoji"),
-            ("noto-color-animated", "Noto Color Emoji Animated"),
-            ("noto-emoji", "Noto Emoji"),
-            ("twemoji", "Twitter Emoji"),
-            ("openmoji", "OpenMoji"),
-            ("apple", "Apple Color Emoji (local)"),
-            ("segoe", "Segoe UI Emoji (local)"),
-            ("noto-local", "Noto Emoji (local)"),
-        ),
-    ),
     SettingField(
         "WEBAPP_FAVICON_USE_CUSTOM",
         "bool",
