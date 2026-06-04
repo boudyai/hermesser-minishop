@@ -1052,6 +1052,22 @@ async def _create_subscription_payment(
                 "unsupported_currency",
                 "Payment method does not support this currency",
             )
+        if not provider_spec.is_usable_for_payment_amount(
+            settings,
+            payment_currency,
+            price,
+        ):
+            logger.warning(
+                "WebApp payment method does not support amount: method=%s amount=%s currency=%s",
+                method,
+                price,
+                payment_currency,
+            )
+            return _json_error(
+                400,
+                "payment_amount_below_minimum",
+                "Payment amount is below the provider minimum",
+            )
         return await provider_spec.create_webapp_payment(
             WebAppPaymentContext(
                 request=request,

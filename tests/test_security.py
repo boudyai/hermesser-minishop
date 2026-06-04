@@ -353,6 +353,28 @@ class PaykillaServiceTests(unittest.TestCase):
         self.assertEqual(error["currency"], "USD")
         self.assertEqual(error["minimum"], "10.00")
 
+    def test_configured_minimum_detects_converted_rub_payment_below_usd_minimum(self):
+        service = self._make_service()
+        service.config.MIN_PAYMENT_AMOUNT = Decimal("10")
+        service.config.MIN_PAYMENT_CURRENCY = "USD"
+
+        with patch.object(
+            service,
+            "_exchange_rate",
+            AsyncMock(return_value=Decimal("0.013586")),
+        ):
+            error = asyncio_run(
+                service._configured_minimum_error(
+                    amount=190,
+                    payment_currency="RUB",
+                )
+            )
+
+        self.assertEqual(error["message"], "payment_amount_below_minimum")
+        self.assertEqual(error["minimum"], "10.00")
+        self.assertEqual(error["minimum_currency"], "USD")
+        self.assertEqual(error["converted_amount"], "2.58")
+
     def test_invoice_body_omits_redirect_urls(self):
         service = self._make_service()
 

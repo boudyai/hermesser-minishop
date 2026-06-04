@@ -1,5 +1,6 @@
 import asyncio
 import importlib
+from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -315,6 +316,67 @@ def test_payment_method_keyboard_filters_providers_by_payment_currency(monkeypat
     assert all(not callback.startswith("pay_yk:") for callback in callbacks)
 
 
+def test_payment_method_keyboard_filters_paykilla_by_converted_minimum(monkeypatch):
+    from bot.payment_providers import paykilla
+
+    monkeypatch.setenv("PAYKILLA_ENABLED", "True")
+    monkeypatch.setenv("PAYKILLA_API_KEY", "paykilla-public")
+    monkeypatch.setenv("PAYKILLA_SECRET_KEY", "paykilla-secret")
+    monkeypatch.setenv("PAYKILLA_MIN_PAYMENT_AMOUNT", "10")
+    monkeypatch.setenv("PAYKILLA_MIN_PAYMENT_CURRENCY", "USD")
+    build_provider_configs(force=True)
+    monkeypatch.setattr(
+        paykilla,
+        "_exchange_rate_sync",
+        lambda _config, _source, _target: Decimal("0.013586"),
+    )
+
+    settings = Settings(
+        _env_file=None,
+        BOT_TOKEN="token",
+        POSTGRES_USER="app_user",
+        POSTGRES_PASSWORD="app_password",
+        TARIFFS_CONFIG_PATH="missing-tariffs.json",
+        PAYMENT_METHODS_ORDER="paykilla",
+        STARS_ENABLED=False,
+    )
+    i18n = SimpleNamespace(gettext=lambda _lang, key, **_kwargs: key)
+
+    below_minimum = get_payment_method_keyboard(
+        months=1,
+        price=190,
+        stars_price=None,
+        currency_symbol_val="RUB",
+        lang="en",
+        i18n_instance=i18n,
+        settings=settings,
+    )
+    above_minimum = get_payment_method_keyboard(
+        months=1,
+        price=1000,
+        stars_price=None,
+        currency_symbol_val="RUB",
+        lang="en",
+        i18n_instance=i18n,
+        settings=settings,
+    )
+
+    below_callbacks = [
+        button.callback_data
+        for row in below_minimum.inline_keyboard
+        for button in row
+        if button.callback_data
+    ]
+    above_callbacks = [
+        button.callback_data
+        for row in above_minimum.inline_keyboard
+        for button in row
+        if button.callback_data
+    ]
+    assert all(not callback.startswith("pay_paykilla:") for callback in below_callbacks)
+    assert "pay_paykilla:1:1000:subscription" in above_callbacks
+
+
 def test_admin_only_provider_is_visible_only_to_admins(monkeypatch):
     from bot.app.web.webapp.serializers import _serialize_payment_methods
 
@@ -396,6 +458,49 @@ def test_webapp_payment_methods_filter_by_default_currency(monkeypatch):
     methods = _serialize_payment_methods(settings, app, "en", is_admin=False)
 
     assert [method["id"] for method in methods] == ["wata"]
+
+
+def test_webapp_payment_methods_include_paykilla_minimum_metadata(monkeypatch):
+    from bot.app.web.webapp.serializers import _serialize_payment_methods
+    from bot.payment_providers import paykilla
+
+    monkeypatch.setenv("PAYKILLA_ENABLED", "True")
+    monkeypatch.setenv("PAYKILLA_API_KEY", "paykilla-public")
+    monkeypatch.setenv("PAYKILLA_SECRET_KEY", "paykilla-secret")
+    monkeypatch.setenv("PAYKILLA_MIN_PAYMENT_AMOUNT", "10")
+    monkeypatch.setenv("PAYKILLA_MIN_PAYMENT_CURRENCY", "USD")
+    build_provider_configs(force=True)
+    monkeypatch.setattr(
+        paykilla,
+        "_exchange_rate_sync",
+        lambda _config, _source, _target: Decimal("0.013586"),
+    )
+
+    settings = Settings(
+        _env_file=None,
+        BOT_TOKEN="token",
+        POSTGRES_USER="app_user",
+        POSTGRES_PASSWORD="app_password",
+        TARIFFS_CONFIG_PATH="missing-tariffs.json",
+        PAYMENT_METHODS_ORDER="paykilla",
+        DEFAULT_CURRENCY_SYMBOL="RUB",
+        STARS_ENABLED=False,
+    )
+    app = {"paykilla_service": SimpleNamespace(configured=True)}
+
+    methods = _serialize_payment_methods(settings, app, "en", is_admin=False)
+
+    assert methods == [
+        {
+            "id": "paykilla",
+            "name": "PayKilla",
+            "icon": "Bitcoin",
+            "min_amount": "736.06",
+            "min_currency": "RUB",
+            "configured_min_amount": "10.00",
+            "configured_min_currency": "USD",
+        }
+    ]
 
 
 def test_admin_only_provider_toggle_pairs_are_declared():

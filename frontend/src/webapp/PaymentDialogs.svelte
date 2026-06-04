@@ -26,6 +26,9 @@
     planUnitHint as planUnitHintFn,
     tariffLimitLabel as tariffLimitLabelFn,
     priceLabel as priceLabelFn,
+    firstAvailableMethod,
+    methodSelectable,
+    methodsForPlan,
   } from "../lib/webapp/tariffs.js";
 
   export let createPayment = () => {};
@@ -106,6 +109,15 @@
   }
   function paymentPriceLabel(plan) {
     return priceLabelFn(planWithSelectedHwidRenewal(plan), selectedMethod);
+  }
+  $: selectedPlanForPayment = planWithSelectedHwidRenewal(selectedPlan);
+  $: paymentMethods = methodsForPlan(methods, selectedPlanForPayment);
+  $: paymentMethodSelected = methodSelectable(paymentMethods, selectedMethod);
+  $: if (paymentModalOpen && paymentStep === "checkout" && selectedPlan) {
+    const firstMethod = firstAvailableMethod(paymentMethods);
+    if (firstMethod && !methodSelectable(paymentMethods, selectedMethod)) {
+      selectedMethod = firstMethod;
+    }
   }
   function hwidRenewalPriceLabel(plan = selectedPlan) {
     const renewal = hwidRenewalFor(plan);
@@ -330,7 +342,7 @@
         <div class="payment-divider" aria-hidden="true"></div>
         {#if methods.length}
           <PaymentMethodGrid
-            {methods}
+            methods={paymentMethods}
             {selectedMethod}
             {t}
             onSelect={(id) => (selectedMethod = id)}
@@ -341,7 +353,7 @@
         <Button
           class="wide bottom-action payment-submit-button"
           onclick={createPayment}
-          disabled={!selectedPlan || !methods.length || payBusy}
+          disabled={!selectedPlan || !paymentMethodSelected || payBusy}
         >
           {t("wa_pay")}
           {selectedPlan ? paymentPriceLabel(selectedPlan) : ""}
@@ -421,7 +433,7 @@
       <div class="payment-divider" aria-hidden="true"></div>
       {#if methods.length}
         <PaymentMethodGrid
-          {methods}
+          methods={paymentMethods}
           {selectedMethod}
           {t}
           onSelect={(id) => (selectedMethod = id)}
@@ -432,7 +444,7 @@
       <Button
         class="wide bottom-action payment-submit-button"
         onclick={createPayment}
-        disabled={!selectedPlan || !methods.length || payBusy}
+        disabled={!selectedPlan || !paymentMethodSelected || payBusy}
       >
         {t("wa_pay")}
         {selectedPlan ? paymentPriceLabel(selectedPlan) : ""}

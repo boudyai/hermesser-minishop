@@ -943,13 +943,15 @@ def _serialize_payment_methods(
             and spec.is_usable_for_payment_currency(settings, payment_currency)
         ):
             presentation = resolve_provider_presentation(spec, settings, language=lang)
-            methods.append(
-                {
-                    "id": method,
-                    "name": presentation.webapp_label,
-                    "icon": presentation.webapp_icon,
-                }
-            )
+            payload = {
+                "id": method,
+                "name": presentation.webapp_label,
+                "icon": presentation.webapp_icon,
+            }
+            minimum = spec.payment_minimum(settings, payment_currency)
+            if minimum:
+                payload.update(minimum)
+            methods.append(payload)
     return methods
 
 

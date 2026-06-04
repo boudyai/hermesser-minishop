@@ -387,6 +387,8 @@ Webhook настраивается в PayKilla Dashboard: **Settings -> Webhooks
 | `PAYKILLA_USER_PAYS_NETWORK_FEE` | `true`, если пользователь оплачивает network fee. |
 | `PAYKILLA_EXCHANGE_RATE_URL` | Бесплатный no-key endpoint курса для конвертации валюты тарифа в валюту инвойса. По умолчанию `https://open.er-api.com/v6/latest/{source}`. Поддерживает placeholders `{source}` и `{target}`. |
 | `PAYKILLA_EXCHANGE_RATE_CACHE_SECONDS` | Кэш курса и PayKilla currency limits в секундах. По умолчанию `3600`. |
+| `PAYKILLA_MIN_PAYMENT_AMOUNT` | Минимальная сумма платежа через PayKilla. По умолчанию `10`. |
+| `PAYKILLA_MIN_PAYMENT_CURRENCY` | Валюта для `PAYKILLA_MIN_PAYMENT_AMOUNT`. По умолчанию `USD`; для рублевых тарифов порог конвертируется по `PAYKILLA_EXCHANGE_RATE_URL`. |
 | `PAYKILLA_VERIFY_WEBHOOK_SIGNATURE` | Проверять `X-API-SIGN` по raw body webhook. |
 | `PAYKILLA_WEBHOOK_URL` | Точный публичный webhook URL для проверки подписи, если он отличается от `WEBHOOK_BASE_URL` + `/webhook/paykilla`. |
 | `PAYKILLA_TRUSTED_IPS` | Необязательный список доверенных IP webhook-источников. |

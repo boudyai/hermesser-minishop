@@ -560,7 +560,7 @@ def get_payment_method_keyboard(
         if (
             not spec
             or not spec.callback_prefix
-            or not spec.is_usable_for_payment_currency(settings, currency_symbol_val)
+            or not spec.is_usable_for_payment(settings, currency_symbol_val, price)
             or not spec.is_available_to_user(
                 settings,
                 user_id=user_id,
