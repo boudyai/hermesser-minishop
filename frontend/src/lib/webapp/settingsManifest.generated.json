@@ -3975,7 +3975,7 @@
         "section_order": 4,
         "subsection": "PayKilla",
         "label": "Invoice currency",
-        "description": "PayKilla invoice currency. Amount is sent unchanged, so keep tariffs priced in this currency or use a PayKilla-enabled fiat such as USD.",
+        "description": "Fallback invoice currency when the payment flow does not provide one. Usually matches the tariff/default currency, e.g. RUB.",
         "i18n_label_key": "admin_settings_field_paykilla_currency_label",
         "i18n_description_key": "admin_settings_field_paykilla_currency_description",
         "i18n_subsection_key": "admin_settings_subsection_paykilla",

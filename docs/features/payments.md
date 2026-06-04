@@ -160,6 +160,8 @@ PayKilla используется для крипто-инвойсов V2 чер
 
 PayKilla строго валидирует текстовые поля invoice. Поэтому Minishop отправляет в `purpose` и `description` простой английский текст `<WEBAPP_TITLE> payment <id>`, а локализованное описание платежа оставляет только внутри Minishop. Дополнительно эти поля проходят ASCII-safe sanitizer: допускаются ASCII-буквы, цифры, пробелы, `_`, `.`, `,`.
 
+Для `FIAT_BASED` инвойса Minishop отправляет сумму и валюту тарифа как есть, например `190.00 RUB`. PayKilla рассчитывает сумму к оплате в выбранной криптовалюте из `paymentCurrencies`.
+
 Какие полномочия нужны API key:
 
 1. В PayKilla Dashboard откройте **Settings -> API keys**.
@@ -181,7 +183,7 @@ PayKilla строго валидирует текстовые поля invoice. 
 
 1. Включите `PAYKILLA_ENABLED`.
 2. Укажите `PAYKILLA_API_KEY` и `PAYKILLA_SECRET_KEY`.
-3. Проверьте `PAYKILLA_CURRENCY` и `PAYKILLA_PAYMENT_CURRENCIES`, например `USD` и `USDTTRC,BTC,ETH`. `PAYKILLA_CURRENCY` теперь напрямую задаёт валюту invoice; Minishop не конвертирует сумму между RUB/USD/EUR.
+3. Проверьте валюту тарифов/`DEFAULT_CURRENCY_SYMBOL` и `PAYKILLA_CURRENCY`, например `RUB`; в `PAYKILLA_PAYMENT_CURRENCIES` укажите crypto tickers, например `USDTTRC,BTC,ETH`.
 4. Убедитесь, что webhook `/webhook/paykilla` настроен в PayKilla: Minishop не отправляет redirect URLs в PayKilla и полагается на webhook для активации платежа.
 5. Добавьте `paykilla` в `PAYMENT_METHODS_ORDER`, если хотите задать явный порядок кнопок.
 

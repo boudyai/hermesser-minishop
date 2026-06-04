@@ -416,7 +416,7 @@ class PaykillaService(HttpClientMixin):
         currency: Optional[str],
         description: str,
     ) -> Dict[str, Any]:
-        currency_code = self.currency
+        currency_code = normalize_payment_currency_code(currency or self.currency)
         invoice_text = _invoice_text(getattr(self.settings, "WEBAPP_TITLE", None), payment_db_id)
         body: Dict[str, Any] = {
             "type": _invoice_type_for(self.config, currency_code),
@@ -449,8 +449,7 @@ class PaykillaService(HttpClientMixin):
             logging.error("PaykillaService is not configured. Cannot create payment link.")
             return False, {"message": "service_not_configured"}
 
-        payment_currency = normalize_payment_currency_code(currency or self.currency)
-        currency_code = self.currency
+        currency_code = normalize_payment_currency_code(currency or self.currency)
         supported = parse_supported_currency_codes(self.config.SUPPORTED_CURRENCIES)
         if supported and currency_code not in supported:
             return False, {
@@ -458,13 +457,6 @@ class PaykillaService(HttpClientMixin):
                 "currency": currency_code,
                 "supported_currencies": list(supported),
             }
-        if payment_currency and payment_currency != currency_code:
-            logging.info(
-                "Paykilla create_payment_link: using configured invoice currency %s "
-                "instead of payment record currency %s; amount is sent unchanged.",
-                currency_code,
-                payment_currency,
-            )
 
         body = self._invoice_body(
             payment_db_id=payment_db_id,
@@ -994,8 +986,8 @@ _CONFIG_MANIFEST = (
         "string",
         "Invoice currency",
         description=(
-            "PayKilla invoice currency. Amount is sent unchanged, so keep tariffs "
-            "priced in this currency or use a PayKilla-enabled fiat such as USD."
+            "Fallback invoice currency when the payment flow does not provide one. "
+            "Usually matches the tariff/default currency, e.g. RUB."
         ),
         placeholder="RUB",
         subsection="PayKilla",
