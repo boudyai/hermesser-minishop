@@ -10,6 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+from aiohttp import web
 from PIL import Image, ImageOps
 
 from bot.app.web import subscription_webapp
@@ -476,6 +477,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 200)
         self.assertEqual(response.content_type, "image/png")
         self.assertEqual(response.body, b"touch-icon")
+        self.assertEqual(response.headers["Cache-Control"], "no-cache")
 
     async def test_current_favicon_alias_serves_default_icon_when_unconfigured(self):
         settings = SimpleNamespace(
@@ -492,6 +494,23 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 200)
         self.assertEqual(response.content_type, "image/png")
         self.assertGreater(len(response.body), 0)
+        self.assertEqual(response.headers["Cache-Control"], "no-cache")
+
+    async def test_current_favicon_alias_redirect_is_not_cached(self):
+        settings = SimpleNamespace(
+            WEBAPP_ENABLED=True,
+            WEBAPP_LOGO_URL="",
+            WEBAPP_FAVICON_USE_CUSTOM=True,
+            WEBAPP_FAVICON_URL="/uploaded-icon.png",
+            WEBAPP_LOGO_FAVICON_URL="",
+        )
+        request = SimpleNamespace(app={"settings": settings}, path="/icon-192.png")
+
+        with self.assertRaises(web.HTTPFound) as exc:
+            await webapp_assets.webapp_current_favicon_route(request)
+
+        self.assertEqual(exc.exception.location, "/uploaded-icon.png")
+        self.assertEqual(exc.exception.headers["Cache-Control"], "no-cache")
 
     async def test_default_logo_route_serves_bundled_logo(self):
         settings = SimpleNamespace(WEBAPP_ENABLED=True)

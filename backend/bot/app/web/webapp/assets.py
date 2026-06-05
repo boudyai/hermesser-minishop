@@ -382,11 +382,15 @@ async def webapp_current_favicon_route(request: web.Request) -> web.Response:
     favicon_url = _resolve_webapp_favicon_url(settings, _resolve_webapp_logo_url(settings))
     digest = _webapp_generated_favicon_digest(favicon_url)
     if digest:
-        return _webapp_favicon_file_response(digest, target_filename)
+        response = _webapp_favicon_file_response(digest, target_filename)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
     redirect_url = _webapp_redirectable_favicon_url(favicon_url, target_filename)
     if redirect_url:
-        raise web.HTTPFound(location=redirect_url)
+        redirect = web.HTTPFound(location=redirect_url)
+        redirect.headers["Cache-Control"] = "no-cache"
+        raise redirect
 
     raise web.HTTPNotFound(text="webapp_favicon_not_found")
 
