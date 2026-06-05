@@ -803,7 +803,7 @@
         "i18n_description_key": null,
         "i18n_subsection_key": "admin_settings_subsection_freekassa",
         "i18n_placeholder_key": "admin_settings_field_freekassa_payment_url_placeholder",
-        "placeholder": "https://pay.freekassa.ru/",
+        "placeholder": "https://pay.freekassa.net/",
         "optional": true,
         "secret": false,
         "provider_id": "freekassa",
