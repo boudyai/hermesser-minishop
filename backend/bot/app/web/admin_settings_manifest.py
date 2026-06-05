@@ -693,6 +693,120 @@ SETTINGS_MANIFEST: List[SettingField] = [
     SettingField("USER_TRAFFIC_STRATEGY", "string", "devices", "Стратегия сброса трафика"),
     # ─── System ────────────────────────────────────────────────────
     SettingField(
+        "TELEGRAM_DROP_NON_PRIVATE_UPDATES",
+        "bool",
+        "system",
+        "Drop non-private Telegram updates",
+        "Drops group/channel messages and callbacks before DB-backed middleware runs.",
+        subsection="telegram_antiflood",
+    ),
+    SettingField(
+        "TELEGRAM_ANTIFLOOD_ENABLED",
+        "bool",
+        "system",
+        "Telegram anti-flood enabled",
+        "Enables soft per-user limits for extreme Telegram update floods.",
+        subsection="telegram_antiflood",
+    ),
+    SettingField(
+        "TELEGRAM_ANTIFLOOD_WINDOW_SECONDS",
+        "int",
+        "system",
+        "Anti-flood window",
+        "Rolling window, in seconds, used by all Telegram anti-flood buckets.",
+        min=1,
+        subsection="telegram_antiflood",
+    ),
+    SettingField(
+        "TELEGRAM_ANTIFLOOD_MAX_UPDATES_PER_WINDOW",
+        "int",
+        "system",
+        "All updates limit",
+        "Maximum total Telegram updates from one actor during the window. 0 disables this bucket.",
+        min=0,
+        subsection="telegram_antiflood",
+    ),
+    SettingField(
+        "TELEGRAM_ANTIFLOOD_MESSAGE_MAX_PER_WINDOW",
+        "int",
+        "system",
+        "Messages limit",
+        "Maximum message updates from one actor during the window. 0 disables this bucket.",
+        min=0,
+        subsection="telegram_antiflood",
+    ),
+    SettingField(
+        "TELEGRAM_ANTIFLOOD_CALLBACK_MAX_PER_WINDOW",
+        "int",
+        "system",
+        "Button callbacks limit",
+        "Maximum callback-query updates from one actor during the window. 0 disables this bucket.",
+        min=0,
+        subsection="telegram_antiflood",
+    ),
+    SettingField(
+        "TELEGRAM_ANTIFLOOD_INLINE_MAX_PER_WINDOW",
+        "int",
+        "system",
+        "Inline queries limit",
+        "Maximum inline-query updates from one actor during the window. 0 disables this bucket.",
+        min=0,
+        subsection="telegram_antiflood",
+    ),
+    SettingField(
+        "TELEGRAM_ANTIFLOOD_START_MAX_PER_WINDOW",
+        "int",
+        "system",
+        "/start limit",
+        "Maximum /start messages from one actor during the window. 0 disables this bucket.",
+        min=0,
+        subsection="telegram_antiflood",
+    ),
+    SettingField(
+        "TELEGRAM_ANTIFLOOD_EXPENSIVE_CALLBACK_MAX_PER_WINDOW",
+        "int",
+        "system",
+        "Expensive callbacks limit",
+        (
+            "Maximum payment, trial, promo and account-changing callbacks from one actor "
+            "during the window. 0 disables this bucket."
+        ),
+        min=0,
+        subsection="telegram_antiflood",
+    ),
+    SettingField(
+        "TELEGRAM_ACTION_COOLDOWN_ENABLED",
+        "bool",
+        "system",
+        "Action cooldowns enabled",
+        "Deduplicates repeated payment and trial button presses from the same user.",
+        subsection="telegram_antiflood",
+    ),
+    SettingField(
+        "TELEGRAM_PAYMENT_CALLBACK_COOLDOWN_SECONDS",
+        "int",
+        "system",
+        "Payment callback cooldown",
+        (
+            "Seconds to suppress an exact repeated payment callback from the same user. "
+            "0 disables this cooldown."
+        ),
+        min=0,
+        subsection="telegram_antiflood",
+    ),
+    SettingField(
+        "TELEGRAM_TRIAL_CALLBACK_COOLDOWN_SECONDS",
+        "int",
+        "system",
+        "Trial callback cooldown",
+        (
+            "Seconds to suppress an exact repeated trial activation callback from the same user. "
+            "0 disables this cooldown."
+        ),
+        min=0,
+        subsection="telegram_antiflood",
+    ),
+    SettingField(
         "TELEMETRY_ENABLED",
         "bool",
         "system",

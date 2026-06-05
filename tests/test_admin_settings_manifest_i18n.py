@@ -44,6 +44,21 @@ BACKUP_SETTINGS = (
     "BACKUP_COMPOSE_ENABLED",
 )
 
+TELEGRAM_ANTIFLOOD_SETTINGS = (
+    "TELEGRAM_DROP_NON_PRIVATE_UPDATES",
+    "TELEGRAM_ANTIFLOOD_ENABLED",
+    "TELEGRAM_ANTIFLOOD_WINDOW_SECONDS",
+    "TELEGRAM_ANTIFLOOD_MAX_UPDATES_PER_WINDOW",
+    "TELEGRAM_ANTIFLOOD_MESSAGE_MAX_PER_WINDOW",
+    "TELEGRAM_ANTIFLOOD_CALLBACK_MAX_PER_WINDOW",
+    "TELEGRAM_ANTIFLOOD_INLINE_MAX_PER_WINDOW",
+    "TELEGRAM_ANTIFLOOD_START_MAX_PER_WINDOW",
+    "TELEGRAM_ANTIFLOOD_EXPENSIVE_CALLBACK_MAX_PER_WINDOW",
+    "TELEGRAM_ACTION_COOLDOWN_ENABLED",
+    "TELEGRAM_PAYMENT_CALLBACK_COOLDOWN_SECONDS",
+    "TELEGRAM_TRIAL_CALLBACK_COOLDOWN_SECONDS",
+)
+
 REMNASHOP_MIGRATION_SETTINGS = (
     "MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED",
     "MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED",
@@ -219,6 +234,40 @@ def test_backup_settings_i18n_keys_exist():
 
         assert "admin_settings_section_backups" in messages
         for setting_key in BACKUP_SETTINGS:
+            field = manifest[setting_key]
+            assert field["i18n_label_key"] in messages
+            assert field["i18n_description_key"] in messages
+
+
+def test_telegram_antiflood_settings_i18n_keys_exist():
+    manifest = _manifest_by_key()
+
+    for setting_key in TELEGRAM_ANTIFLOOD_SETTINGS:
+        field = manifest[setting_key]
+        assert field["section"] == "system"
+        assert field["section_order"] == 12
+        assert field["subsection"] == "telegram_antiflood"
+        assert field["i18n_subsection_key"] == "admin_settings_subsection_telegram_antiflood"
+
+    assert manifest["TELEGRAM_ANTIFLOOD_WINDOW_SECONDS"]["min"] == 1
+    for setting_key in (
+        "TELEGRAM_ANTIFLOOD_MAX_UPDATES_PER_WINDOW",
+        "TELEGRAM_ANTIFLOOD_MESSAGE_MAX_PER_WINDOW",
+        "TELEGRAM_ANTIFLOOD_CALLBACK_MAX_PER_WINDOW",
+        "TELEGRAM_ANTIFLOOD_INLINE_MAX_PER_WINDOW",
+        "TELEGRAM_ANTIFLOOD_START_MAX_PER_WINDOW",
+        "TELEGRAM_ANTIFLOOD_EXPENSIVE_CALLBACK_MAX_PER_WINDOW",
+        "TELEGRAM_PAYMENT_CALLBACK_COOLDOWN_SECONDS",
+        "TELEGRAM_TRIAL_CALLBACK_COOLDOWN_SECONDS",
+    ):
+        assert manifest[setting_key]["min"] == 0
+
+    for language in ("ru", "en"):
+        messages = _locale(language)
+
+        assert "admin_settings_section_system" in messages
+        assert "admin_settings_subsection_telegram_antiflood" in messages
+        for setting_key in TELEGRAM_ANTIFLOOD_SETTINGS:
             field = manifest[setting_key]
             assert field["i18n_label_key"] in messages
             assert field["i18n_description_key"] in messages

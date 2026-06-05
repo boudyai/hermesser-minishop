@@ -71,6 +71,18 @@
 | `PANEL_SYNC_LIFETIME_TRAFFIC_MIN_DELTA_BYTES` | Дельта lifetime-трафика для более ранней записи. |
 | `WEBAPP_RATE_LIMIT_TTL_SECONDS` | Окно Web App rate limit. |
 | `WEBAPP_RATE_LIMIT_MAX_REQUESTS` | Количество запросов в окне rate limit. |
+| `TELEGRAM_DROP_NON_PRIVATE_UPDATES` | Отбрасывать group/channel Telegram-апдейты до DB-backed middleware. По умолчанию `True`. |
+| `TELEGRAM_ANTIFLOOD_ENABLED` | Включает мягкие per-user/per-chat лимиты для экстремального Telegram-флуда. По умолчанию `True`. |
+| `TELEGRAM_ANTIFLOOD_WINDOW_SECONDS` | Окно лимитов Telegram антифлуда. По умолчанию `60`. |
+| `TELEGRAM_ANTIFLOOD_MAX_UPDATES_PER_WINDOW` | Глобальный лимит Telegram-апдейтов на источник за окно. По умолчанию `180`; `0` отключает лимит. |
+| `TELEGRAM_ANTIFLOOD_MESSAGE_MAX_PER_WINDOW` | Лимит Telegram messages на источник за окно. По умолчанию `120`; `0` отключает лимит. |
+| `TELEGRAM_ANTIFLOOD_CALLBACK_MAX_PER_WINDOW` | Лимит callback query на источник за окно. По умолчанию `240`; `0` отключает лимит. |
+| `TELEGRAM_ANTIFLOOD_INLINE_MAX_PER_WINDOW` | Лимит inline query на источник за окно. По умолчанию `60`; `0` отключает лимит. |
+| `TELEGRAM_ANTIFLOOD_START_MAX_PER_WINDOW` | Лимит `/start` на источник за окно. По умолчанию `30`; `0` отключает лимит. |
+| `TELEGRAM_ANTIFLOOD_EXPENSIVE_CALLBACK_MAX_PER_WINDOW` | Лимит платежных, trial, promo и account-changing callback за окно. По умолчанию `60`; `0` отключает лимит. |
+| `TELEGRAM_ACTION_COOLDOWN_ENABLED` | Дедуплицирует точные повторы платежных и trial callback от того же пользователя. По умолчанию `True`. |
+| `TELEGRAM_PAYMENT_CALLBACK_COOLDOWN_SECONDS` | Cooldown точного повтора платежного callback. По умолчанию `20`; `0` отключает cooldown. |
+| `TELEGRAM_TRIAL_CALLBACK_COOLDOWN_SECONDS` | Cooldown точного повтора trial callback. По умолчанию `30`; `0` отключает cooldown. |
 | `WEBHOOK_QUEUE_NAME` | Redis queue для тяжелой обработки webhook. |
 | `WEBHOOK_QUEUE_CONCURRENCY` | Количество worker consumers для webhook queue. |
 | `WORKER_PANEL_SYNC_INTERVAL_SECONDS` | Интервал фоновой синхронизации с панелью. |
