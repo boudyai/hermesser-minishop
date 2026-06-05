@@ -11,6 +11,7 @@ from aiohttp import web
 
 from bot.app.web import admin_api, subscription_webapp
 from bot.app.web.admin_api_impl import settings as admin_settings_routes
+from bot.app.web.web_server import TrustedProxyAccessLogger
 from bot.app.web.webapp import account as account_routes
 from bot.app.web.webapp_auth import (
     create_telegram_oauth_nonce,
@@ -45,6 +46,27 @@ class RequestSecurityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             request_client_ip(request, trusted_proxies=["127.0.0.1"]),
             "198.51.100.7",
+        )
+
+    async def test_access_logger_uses_forwarded_ip_only_for_trusted_proxy(self):
+        trusted_request = SimpleNamespace(
+            remote="172.19.0.7",
+            headers={"X-Forwarded-For": "203.0.113.10"},
+            app={"settings": SimpleNamespace(trusted_proxies=["172.19.0.0/16"])},
+        )
+        untrusted_request = SimpleNamespace(
+            remote="172.19.0.7",
+            headers={"X-Forwarded-For": "203.0.113.10"},
+            app={"settings": SimpleNamespace(trusted_proxies=["127.0.0.1"])},
+        )
+
+        self.assertEqual(
+            TrustedProxyAccessLogger._format_a(trusted_request, object(), 0),
+            "203.0.113.10",
+        )
+        self.assertEqual(
+            TrustedProxyAccessLogger._format_a(untrusted_request, object(), 0),
+            "172.19.0.7",
         )
 
     async def test_yookassa_webhook_rejects_untrusted_ip_before_reading_body(self):

@@ -1,13 +1,16 @@
 import asyncio
+import functools
 import hmac
 import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiohttp import web
+from aiohttp.web_log import AccessLogger, KeyMethod
 from sqlalchemy.orm import sessionmaker
 
 from bot.payment_providers import iter_provider_specs, iter_service_keys
+from bot.utils.request_security import request_client_ip
 from config.settings import Settings
 
 
@@ -16,6 +19,39 @@ class SecureSimpleRequestHandler(SimpleRequestHandler):
         if not self.secret_token:
             return False
         return hmac.compare_digest(telegram_secret_token, self.secret_token)
+
+
+class TrustedProxyAccessLogger(AccessLogger):
+    """Aiohttp access logger that respects trusted X-Forwarded-For headers."""
+
+    def compile_format(self, log_format):
+        methods = []
+        for atom in self.FORMAT_RE.findall(log_format):
+            if atom[1] == "":
+                format_key = self.LOG_FORMAT_MAP[atom[0]]
+                method = getattr(type(self), f"_format_{atom[0]}", None)
+                if method is None:
+                    method = getattr(AccessLogger, f"_format_{atom[0]}")
+                methods.append(KeyMethod(format_key, method))
+            else:
+                format_key = (self.LOG_FORMAT_MAP[atom[2]], atom[1])
+                method = getattr(type(self), f"_format_{atom[2]}", None)
+                if method is None:
+                    method = getattr(AccessLogger, f"_format_{atom[2]}")
+                methods.append(KeyMethod(format_key, functools.partial(method, atom[1])))
+
+        compiled = self.FORMAT_RE.sub(r"%s", log_format)
+        compiled = self.CLEANUP_RE.sub(r"%\1", compiled)
+        return compiled, methods
+
+    @staticmethod
+    def _format_a(request, response, time):
+        if request is None:
+            return "-"
+        settings = request.app.get("settings") if hasattr(request, "app") else None
+        trusted_proxies = getattr(settings, "trusted_proxies", None)
+        client_ip = request_client_ip(request, trusted_proxies=trusted_proxies)
+        return client_ip or "-"
 
 
 def _inject_shared_instances(
@@ -110,7 +146,7 @@ async def build_and_start_web_app(
 
     runners = []
 
-    webhooks_runner = web.AppRunner(app)
+    webhooks_runner = web.AppRunner(app, access_log_class=TrustedProxyAccessLogger)
     await webhooks_runner.setup()
     runners.append(webhooks_runner)
     site = web.TCPSite(
@@ -133,7 +169,10 @@ async def build_and_start_web_app(
             settings,
             async_session_factory,
         )
-        subscription_runner = web.AppRunner(subscription_app)
+        subscription_runner = web.AppRunner(
+            subscription_app,
+            access_log_class=TrustedProxyAccessLogger,
+        )
         await subscription_runner.setup()
         runners.append(subscription_runner)
         subscription_site = web.TCPSite(
