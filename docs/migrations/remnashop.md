@@ -8,6 +8,13 @@ curl -fsSL https://raw.githubusercontent.com/3252a8/remnawave-minishop/main/scri
 sh install.sh
 ```
 
+Та же ссылка на install-скрипт в GitLab:
+
+```bash
+curl -fsSL https://gitlab.com/3252a8/remnawave-minishop/-/raw/main/scripts/install.sh -o install.sh
+sh install.sh
+```
+
 В меню выберите `Install new stack and run migration` для нового сервера
 или `Run migration only`, если compose-папка и `.env` уже готовы.
 

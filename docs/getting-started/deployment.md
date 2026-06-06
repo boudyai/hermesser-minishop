@@ -22,6 +22,13 @@ curl -fsSL https://raw.githubusercontent.com/3252a8/remnawave-minishop/main/scri
 sh install.sh
 ```
 
+Та же ссылка на install-скрипт в GitLab:
+
+```bash
+curl -fsSL https://gitlab.com/3252a8/remnawave-minishop/-/raw/main/scripts/install.sh -o install.sh
+sh install.sh
+```
+
 Wizard работает через меню с цифрами и подтверждениями `y/n`. Он умеет:
 
 - скачать выбранный compose-профиль (`Caddy`, `Nginx`, `Pangolin/Newt` или `no-proxy`);
@@ -196,7 +203,7 @@ curl http://127.0.0.1:8082/health
 docker compose logs -f backend worker frontend
 ```
 
-Корневой `docker-compose.yml` оставлен для локальной сборки из исходников. Примеры в `deploy/examples` используют готовые GHCR-образы и не требуют указывать `-f`.
+Корневой `docker-compose.yml` оставлен для локальной сборки из исходников. Примеры в `deploy/examples` используют готовые Docker Hub-образы и не требуют указывать `-f`.
 
 ## Миграции
 
@@ -310,7 +317,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\docker-build-push-images.ps1
 Если нужен только один registry или другой namespace, переопределите переменные:
 
 ```bash
-IMAGE_REGISTRIES=ghcr.io IMAGE_TAG=v3.4.3 bash scripts/docker-build-push-images.sh
+IMAGE_REGISTRIES=docker.io IMAGE_TAG=v3.4.3 bash scripts/docker-build-push-images.sh
 IMAGE_REGISTRIES="ghcr.io docker.io" IMAGE_NAMESPACE=other IMAGE_TAG=v3.4.3 bash scripts/docker-build-push-images.sh
 ```
 
