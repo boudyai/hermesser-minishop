@@ -66,6 +66,7 @@
 | `ADMIN_PANEL_STATS_CACHE_TTL_SECONDS` | TTL статистики Remnawave в админке. |
 | `ADMIN_DB_STATS_CACHE_TTL_SECONDS` | TTL дорогих DB-агрегатов админки. |
 | `ADMIN_USERS_LIST_CACHE_TTL_SECONDS` | TTL списка пользователей админки. |
+| `ADMIN_BROADCAST_AUDIENCE_COUNTS_CACHE_TTL_SECONDS` | TTL счетчиков целевых групп рассылки в админке. |
 | `PROFILE_SYNC_CACHE_TTL_SECONDS` | Минимальная пауза между sync Telegram-профиля пользователя. |
 | `PANEL_SYNC_LIFETIME_TRAFFIC_MIN_INTERVAL_SECONDS` | Минимальная пауза записи lifetime-трафика. |
 | `PANEL_SYNC_LIFETIME_TRAFFIC_MIN_DELTA_BYTES` | Дельта lifetime-трафика для более ранней записи. |

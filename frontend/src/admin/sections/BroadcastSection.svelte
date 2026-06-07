@@ -8,15 +8,23 @@
   export let at;
   const broadcastStore = getContext("broadcastStore");
 
-  $: ({ broadcastTarget, broadcastText, broadcastBusy, broadcastResult, broadcastCounts } =
-    $broadcastStore);
+  $: ({
+    broadcastTarget,
+    broadcastText,
+    broadcastBusy,
+    broadcastResult,
+    broadcastCounts,
+    broadcastCountsLoading,
+  } = $broadcastStore);
 
   const BROADCAST_TARGET_OPTIONS = broadcastStore.BROADCAST_TARGET_OPTIONS;
 
   // Append the resolved audience size to each option once counts are loaded.
   $: targetOptions = BROADCAST_TARGET_OPTIONS.map((option) => {
     const count = broadcastCounts?.[option.value];
-    return count == null ? option : { ...option, label: `${option.label} (${count})` };
+    if (count != null) return { ...option, label: `${option.label} (${count})` };
+    if (broadcastCountsLoading) return { ...option, label: `${option.label} (...)` };
+    return option;
   });
 
   onMount(() => {

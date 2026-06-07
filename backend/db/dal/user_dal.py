@@ -715,6 +715,12 @@ async def get_all_active_user_ids_for_broadcast(session: AsyncSession) -> List[i
     return result.scalars().all()
 
 
+async def count_all_active_users_for_broadcast(session: AsyncSession) -> int:
+    stmt = select(func.count(User.user_id)).where(User.is_banned == False)
+    result = await session.execute(stmt)
+    return int(result.scalar_one() or 0)
+
+
 async def get_all_users_with_panel_uuid(session: AsyncSession) -> List[User]:
     stmt = select(User).where(User.panel_user_uuid.is_not(None))
     result = await session.execute(stmt)
@@ -890,6 +896,27 @@ async def get_user_ids_with_active_subscription(session: AsyncSession) -> List[i
     return result.scalars().all()
 
 
+async def count_users_with_active_subscription_for_broadcast(session: AsyncSession) -> int:
+    """Count non-banned users who have any active subscription."""
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+
+    stmt = (
+        select(func.count(func.distinct(Subscription.user_id)))
+        .join(User, Subscription.user_id == User.user_id)
+        .where(
+            and_(
+                User.is_banned == False,
+                Subscription.is_active == True,
+                Subscription.end_date > now,
+            )
+        )
+    )
+    result = await session.execute(stmt)
+    return int(result.scalar_one() or 0)
+
+
 async def get_user_ids_without_active_subscription(session: AsyncSession) -> List[int]:
     """Return non-banned user IDs who do NOT have any active subscription."""
     from datetime import datetime, timezone
@@ -919,6 +946,20 @@ async def get_user_ids_without_active_subscription(session: AsyncSession) -> Lis
     return result.scalars().all()
 
 
+async def count_users_without_active_subscription_for_broadcast(session: AsyncSession) -> int:
+    """Count non-banned users who do NOT have any active subscription."""
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+
+    stmt = select(func.count(User.user_id)).where(
+        User.is_banned == False,
+        ~_active_subscription_exists_for_user(now),
+    )
+    result = await session.execute(stmt)
+    return int(result.scalar_one() or 0)
+
+
 async def get_user_ids_without_any_subscription(session: AsyncSession) -> List[int]:
     """Return non-banned user IDs who never had any subscription or trial.
 
@@ -940,6 +981,24 @@ async def get_user_ids_without_any_subscription(session: AsyncSession) -> List[i
     )
     result = await session.execute(stmt)
     return result.scalars().all()
+
+
+async def count_users_without_any_subscription_for_broadcast(session: AsyncSession) -> int:
+    """Count non-banned users who never had any subscription or trial."""
+    any_sub = aliased(Subscription)
+
+    stmt = (
+        select(func.count(User.user_id))
+        .outerjoin(any_sub, any_sub.user_id == User.user_id)
+        .where(
+            and_(
+                User.is_banned == False,
+                any_sub.user_id.is_(None),
+            )
+        )
+    )
+    result = await session.execute(stmt)
+    return int(result.scalar_one() or 0)
 
 
 def _expired_subscription_exists_for_user(now: datetime):
@@ -981,6 +1040,20 @@ async def count_users_with_expired_subscription(session: AsyncSession) -> int:
 
     now = datetime.now(timezone.utc)
     stmt = select(func.count(User.user_id)).where(
+        _expired_subscription_exists_for_user(now),
+        ~_active_subscription_exists_for_user(now),
+    )
+    result = await session.execute(stmt)
+    return int(result.scalar_one() or 0)
+
+
+async def count_users_with_expired_subscription_for_broadcast(session: AsyncSession) -> int:
+    """Count non-banned users with an expired subscription and no active one."""
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    stmt = select(func.count(User.user_id)).where(
+        User.is_banned == False,
         _expired_subscription_exists_for_user(now),
         ~_active_subscription_exists_for_user(now),
     )

@@ -518,6 +518,7 @@
     if (typeof window !== "undefined") {
       window.addEventListener("popstate", onPopState);
     }
+    void broadcastStore.loadCounts();
     return () => {
       if (motionMql) motionMql.removeEventListener("change", onMotionChange);
       if (compactMql) {
