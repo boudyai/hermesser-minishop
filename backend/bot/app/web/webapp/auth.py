@@ -1497,6 +1497,10 @@ async def _grant_referral_welcome_bonus_if_eligible(
         return None
 
     subscription_service: SubscriptionService = request.app["subscription_service"]
+    default_tariff_key = None
+    tariffs_config = getattr(settings, "tariffs_config", None)
+    if tariffs_config:
+        default_tariff_key = getattr(tariffs_config, "default_tariff", None)
     try:
         if await subscription_service.has_active_subscription(session, int(user.user_id)):
             return None
@@ -1508,6 +1512,7 @@ async def _grant_referral_welcome_bonus_if_eligible(
         int(user.user_id),
         referral_welcome_days,
         reason="referral_welcome_bonus",
+        tariff_key=default_tariff_key,
     )
 
 

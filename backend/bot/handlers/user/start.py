@@ -658,12 +658,17 @@ async def start_command_handler(
                 )
                 if referred_by_user_id and referral_welcome_days > 0:
                     try:
+                        default_tariff_key = None
+                        tariffs_config = getattr(settings, "tariffs_config", None)
+                        if tariffs_config:
+                            default_tariff_key = getattr(tariffs_config, "default_tariff", None)
                         referral_bonus_end_date = (
                             await subscription_service.extend_active_subscription_days(
                                 session,
                                 user_id,
                                 referral_welcome_days,
                                 reason="referral_welcome_bonus",
+                                tariff_key=default_tariff_key,
                             )
                         )
                         if referral_bonus_end_date:

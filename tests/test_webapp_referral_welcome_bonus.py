@@ -45,6 +45,7 @@ class WebAppReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
             REFERRAL_WELCOME_BONUS_DAYS=3,
             REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED=True,
             DISPOSABLE_EMAIL_DOMAINS="mailinator.com",
+            tariffs_config=SimpleNamespace(default_tariff="standard"),
         )
         user = SimpleNamespace(
             user_id=42,
@@ -75,4 +76,5 @@ class WebAppReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
             42,
             3,
             reason="referral_welcome_bonus",
+            tariff_key="standard",
         )
