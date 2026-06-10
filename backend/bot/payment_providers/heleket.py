@@ -246,7 +246,7 @@ class HeleketService(HttpClientMixin):
         self.referral_service = referral_service
         self._default_return_url = default_return_url
 
-        self._init_http_client(total_timeout=self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
+        self._init_http_client(total_timeout=lambda: self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
         if not self.configured:
             logging.warning(
                 "HeleketService initialized but not fully configured. Payments disabled."
@@ -418,8 +418,10 @@ class HeleketService(HttpClientMixin):
             return None
 
         success, data = await self.get_payment_info(payment_uuid)
+        if not success or not isinstance(data, dict):
+            return None
         status = str(data.get("payment_status") or data.get("status") or "").lower()
-        if not success or status != "check" or bool(data.get("is_final")):
+        if status != "check" or bool(data.get("is_final")):
             return None
         if str(data.get("uuid") or "") != payment_uuid:
             return None

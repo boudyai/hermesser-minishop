@@ -204,7 +204,7 @@ class WataService(HttpClientMixin):
         self._default_return_url = default_return_url
         self._cached_public_key_pem = None  # populated by webhook on first verify
 
-        self._init_http_client(total_timeout=self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
+        self._init_http_client(total_timeout=lambda: self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
         if not self.configured:
             logging.warning("WataService initialized but not fully configured. Payments disabled.")
 

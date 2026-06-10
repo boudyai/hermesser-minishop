@@ -546,7 +546,7 @@ class PaykillaService(HttpClientMixin):
         self._exchange_rate_cache: Dict[tuple[str, str], tuple[float, Decimal]] = {}
         self._currency_cache: tuple[float, List[Dict[str, Any]]] = (0, [])
 
-        self._init_http_client(total_timeout=self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
+        self._init_http_client(total_timeout=lambda: self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
         if not self.configured:
             logging.warning(
                 "PaykillaService initialized but not fully configured. Payments disabled."

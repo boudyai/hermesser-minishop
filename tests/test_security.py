@@ -181,6 +181,7 @@ class FreeKassaServiceTests(unittest.TestCase):
 
         settings = SimpleNamespace(
             DEFAULT_CURRENCY_SYMBOL="RUB",
+            PAYMENT_REQUEST_TIMEOUT_SECONDS=15,
             trusted_proxies=["127.0.0.1"],
         )
         config = FreeKassaConfig(

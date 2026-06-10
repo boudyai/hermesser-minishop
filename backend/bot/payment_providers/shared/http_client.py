@@ -3,12 +3,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, Callable, Dict, Mapping, Optional, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple, Union
 
 from aiohttp import ClientError, ClientSession, ClientTimeout, TraceConfig
 
 SuccessCheck = Callable[[int, Any], bool]
+TimeoutSource = Union[float, Callable[[], float]]
 _TRANSPORT_ATTEMPTS = 2
+_DEFAULT_TIMEOUT_SECONDS = 20.0
 
 
 def http_ok(status: int, _body: Any) -> bool:
@@ -115,25 +117,68 @@ class HttpClientMixin:
     ``__init__`` and inherits ``_get_session`` / ``close``. The session is
     created on first use and recreated transparently if it was closed.
 
+    ``total_timeout`` may be a callable so the timeout follows runtime
+    settings changes (admin overrides apply in-process without a restart).
+    When the value changes, the next request gets a fresh session; the old
+    session stays open until its own in-flight requests cannot outlive it.
+
     Provider API calls are traced so callers can retry transport failures only
     when aiohttp has not sent request headers yet.
     """
 
-    _timeout: ClientTimeout
+    _timeout_source: TimeoutSource
     _session: Optional[ClientSession]
+    _stale_sessions: List[ClientSession]
+    _session_cleanup_tasks: Set["asyncio.Task[None]"]
 
-    def _init_http_client(self, *, total_timeout: float = 20.0) -> None:
-        self._timeout = ClientTimeout(total=total_timeout)
+    def _init_http_client(self, *, total_timeout: TimeoutSource = _DEFAULT_TIMEOUT_SECONDS) -> None:
+        self._timeout_source = total_timeout
         self._session = None
+        self._stale_sessions = []
+        self._session_cleanup_tasks = set()
+
+    def _current_timeout_seconds(self) -> float:
+        source = self._timeout_source
+        try:
+            seconds = float(source() if callable(source) else source)
+        except Exception:
+            return _DEFAULT_TIMEOUT_SECONDS
+        return seconds if seconds > 0 else _DEFAULT_TIMEOUT_SECONDS
 
     async def _get_session(self) -> ClientSession:
-        if self._session is None or self._session.closed:
-            self._session = ClientSession(
-                timeout=self._timeout,
+        timeout_seconds = self._current_timeout_seconds()
+        session = self._session
+        if session is not None and not session.closed and session.timeout.total != timeout_seconds:
+            self._session = None
+            self._stale_sessions.append(session)
+            task = asyncio.create_task(self._close_stale_session(session))
+            self._session_cleanup_tasks.add(task)
+            task.add_done_callback(self._session_cleanup_tasks.discard)
+            session = None
+        if session is None or session.closed:
+            session = ClientSession(
+                timeout=ClientTimeout(total=timeout_seconds),
                 trace_configs=[_payment_trace_config()],
             )
-        return self._session
+            self._session = session
+        return session
+
+    async def _close_stale_session(self, session: ClientSession) -> None:
+        # Any request started on this session is bound by its total timeout,
+        # so after that long it is safe to close without cutting one off.
+        await asyncio.sleep((session.timeout.total or _DEFAULT_TIMEOUT_SECONDS) + 1.0)
+        if session in self._stale_sessions:
+            self._stale_sessions.remove(session)
+        if not session.closed:
+            await session.close()
 
     async def close(self) -> None:
-        if self._session and not self._session.closed:
-            await self._session.close()
+        for task in list(self._session_cleanup_tasks):
+            task.cancel()
+        self._session_cleanup_tasks.clear()
+        sessions = [self._session, *self._stale_sessions]
+        self._session = None
+        self._stale_sessions = []
+        for session in sessions:
+            if session and not session.closed:
+                await session.close()

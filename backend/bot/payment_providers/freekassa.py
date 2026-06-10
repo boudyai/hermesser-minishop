@@ -156,7 +156,7 @@ class FreeKassaService(HttpClientMixin):
         self.default_currency: str = default_payment_currency_code_for_settings(settings).upper()
 
         self.api_base_url: str = "https://api.fk.life/v1"
-        self._init_http_client(total_timeout=self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
+        self._init_http_client(total_timeout=lambda: self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
         self._nonce_lock = asyncio.Lock()
         self._last_nonce = int(time.time() * 1000)
 
