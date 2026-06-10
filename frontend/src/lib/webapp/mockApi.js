@@ -762,6 +762,29 @@ function demoApiResponse(path, cleanPath, options, context) {
   }
   if (cleanPath === "/admin/sync") return { ok: true, status: "queued" };
 
+  if (cleanPath === "/admin/health") {
+    return {
+      ok: true,
+      alerts: [
+        {
+          id: "provider_not_configured:wata",
+          severity: "error",
+          sections: ["settings"],
+          message_key: "provider_not_configured",
+          params: { provider: "Wata" },
+        },
+        {
+          id: "mini_app_url_missing",
+          severity: "warning",
+          sections: ["settings"],
+          message_key: "mini_app_url_missing",
+          params: {},
+        },
+      ],
+      checked_at: new Date().toISOString(),
+    };
+  }
+
   if (cleanPath === "/admin/payments") {
     const page = paged(DEMO_DATASET.adminPayments || [], params, 25);
     return {

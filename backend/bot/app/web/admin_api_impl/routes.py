@@ -6,6 +6,7 @@ def setup_admin_routes(app: web.Application) -> None:
     router = app.router
     router.add_get("/api/admin/me", admin_me_route)
     router.add_get("/api/admin/stats", admin_stats_route)
+    router.add_get("/api/admin/health", admin_health_route)
 
     router.add_get("/api/admin/users", admin_users_list_route)
     router.add_get("/api/admin/users/{user_id:-?\\d+}", admin_user_detail_route)

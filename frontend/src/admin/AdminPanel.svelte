@@ -45,9 +45,11 @@
   import AppearanceSection from "./sections/AppearanceSection.svelte";
   import UserDetailModal from "./sections/UserDetailModal.svelte";
   import UsersSection from "./sections/UsersSection.svelte";
+  import ConfigAlertsBanner from "./ConfigAlertsBanner.svelte";
   import { createAdsStore } from "../lib/admin/stores/adsStore.js";
   import { createBackupsStore } from "../lib/admin/stores/backupsStore.js";
   import { createBroadcastStore } from "../lib/admin/stores/broadcastStore.js";
+  import { createHealthStore } from "../lib/admin/stores/healthStore.js";
   import { createLogsStore } from "../lib/admin/stores/logsStore.js";
   import { createPaymentsStore } from "../lib/admin/stores/paymentsStore.js";
   import { createPromosStore } from "../lib/admin/stores/promosStore.js";
@@ -247,6 +249,7 @@
   const adsStore = createAdsStore({ api, onToast: flash, at });
   const backupsStore = createBackupsStore({ api, onToast: flash, at });
   const broadcastStore = createBroadcastStore({ api, onToast: flash, at });
+  const healthStore = createHealthStore({ api });
   const logsStore = createLogsStore({ api, at });
   const paymentsStore = createPaymentsStore({ api, onToast: flash, at, routePrefix });
   const promosStore = createPromosStore({ api, onToast: flash, at });
@@ -260,6 +263,7 @@
 
   setContext("promosStore", promosStore);
   setContext("adsStore", adsStore);
+  setContext("healthStore", healthStore);
   setContext("backupsStore", backupsStore);
   setContext("broadcastStore", broadcastStore);
   setContext("logsStore", logsStore);
@@ -531,6 +535,11 @@
       window.addEventListener("popstate", onPopState);
     }
     void broadcastStore.loadCounts();
+    void healthStore.loadHealth();
+    const healthTimer =
+      typeof window !== "undefined"
+        ? window.setInterval(() => void healthStore.loadHealth(), 5 * 60 * 1000)
+        : null;
     return () => {
       if (motionMql) motionMql.removeEventListener("change", onMotionChange);
       if (compactMql) {
@@ -539,6 +548,7 @@
         else if (compactMql.removeListener) compactMql.removeListener(onCompactChange);
       }
       if (typeof window !== "undefined") window.removeEventListener("popstate", onPopState);
+      if (healthTimer !== null) window.clearInterval(healthTimer);
       clearAdminLanguageClickGuard();
     };
   });
@@ -802,6 +812,7 @@
     </header>
 
     <main class="admin-main">
+      <ConfigAlertsBanner {at} section={active} onNavigate={setActive} />
       {#key active}
         <div class="admin-section-stage" in:fade={sectionFade} out:fade={sectionFade}>
           {#if active === "stats"}
