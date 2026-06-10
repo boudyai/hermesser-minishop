@@ -1014,12 +1014,11 @@ class PaykillaService(HttpClientMixin):
         if trusted and not ip_in_allowlist(client_ip, trusted):
             logging.warning(
                 "Paykilla webhook denied from unauthorized IP source "
-                "(client_ip=%s remote=%s x_forwarded_for=%s trusted_ips=%s trusted_proxies=%s).",
+                "(client_ip=%s remote=%s x_forwarded_for=%s trusted_ip_count=%d).",
                 client_ip,
                 request.remote,
                 request.headers.get("X-Forwarded-For"),
-                trusted,
-                self.settings.trusted_proxies,
+                len(trusted),
             )
             return web.Response(status=403, text="forbidden")
 

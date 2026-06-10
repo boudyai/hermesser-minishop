@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import aiohttp
 
-from bot.services.panel_api_service import PanelApiService
+from bot.services.panel_api_service import PanelApiService, _endpoint_log_label
 
 
 class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
@@ -37,6 +37,37 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(timeout.connect, 10)
         self.assertEqual(timeout.sock_connect, 9)
         self.assertEqual(timeout.sock_read, 20)
+
+    def test_endpoint_log_label_strips_user_identifiers(self):
+        self.assertEqual(
+            _endpoint_log_label("/users/by-email/user@example.com"),
+            "/users/by-email",
+        )
+        self.assertEqual(_endpoint_log_label("/users/by-telegram-id/42"), "/users/by-telegram-id")
+        self.assertEqual(_endpoint_log_label("/users/some-uuid/actions/enable"), "/users")
+        self.assertEqual(
+            _endpoint_log_label("/internal-squads/squad-uuid/bulk-actions/add-users"),
+            "/internal-squads",
+        )
+        self.assertEqual(_endpoint_log_label("/system/stats"), "/system/stats")
+        self.assertEqual(_endpoint_log_label("/unknown/path"), "/other")
+
+    async def test_request_failure_logs_omit_user_identifiers(self):
+        service = self._make_service()
+
+        def fake_request(*_args, **_kwargs):
+            raise asyncio.TimeoutError()
+
+        service._get_session = AsyncMock(return_value=SimpleNamespace(request=fake_request))
+
+        with patch("bot.services.panel_api_service.asyncio.sleep", new=AsyncMock()):
+            with self.assertLogs(level="INFO") as captured:
+                result = await service._request("GET", "/users/by-email/user@example.com")
+
+        self.assertTrue(result["error"])
+        joined = "\n".join(captured.output)
+        self.assertNotIn("user@example.com", joined)
+        self.assertIn("endpoint=/users/by-email", joined)
 
     async def test_get_request_retries_connection_timeout(self):
         service = self._make_service()

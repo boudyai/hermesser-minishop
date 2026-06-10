@@ -15,6 +15,40 @@ from config.settings import Settings
 from db.dal import panel_sync_dal
 from db.models import PanelSyncStatus
 
+# Static endpoint prefixes used as log/metric labels instead of the raw request
+# path. Endpoints embed user identifiers (telegram id, username, email, uuids),
+# so logging the path verbatim would leak private data into log files; the
+# label keeps only the constant prefix. Longest prefixes first so e.g.
+# "/users/by-email/..." does not collapse into "/users".
+_ENDPOINT_LOG_LABELS = (
+    "/users/by-telegram-id",
+    "/users/by-username",
+    "/users/by-email",
+    "/users",
+    "/subscriptions/subpage-config",
+    "/subscription-page-configs",
+    "/hwid/devices/delete",
+    "/hwid/devices",
+    "/system/stats/bandwidth",
+    "/system/stats/nodes",
+    "/system/stats",
+    "/system/tools/happ/encrypt",
+    "/bandwidth-stats/users",
+    "/bandwidth-stats/nodes",
+    "/internal-squads",
+    "/hosts",
+    "/nodes",
+)
+
+
+def _endpoint_log_label(endpoint: str) -> str:
+    """Map a request endpoint to a constant, identifier-free label for logs."""
+    path = "/" + endpoint.split("?", 1)[0].strip("/")
+    for label in _ENDPOINT_LOG_LABELS:
+        if path == label or path.startswith(label + "/"):
+            return label
+    return "/other"
+
 
 class PanelApiService:
     # Status codes returned by _request_once for failures we consider transient
@@ -159,7 +193,7 @@ class PanelApiService:
                     "Retrying transient Panel API request method=%s endpoint=%s "
                     "attempt=%s/%s status_code=%s",
                     method.upper(),
-                    endpoint,
+                    _endpoint_log_label(endpoint),
                     attempt + 1,
                     max_attempts,
                     result.get("status_code") if isinstance(result, dict) else None,
@@ -180,6 +214,7 @@ class PanelApiService:
         headers = await self._prepare_headers()
 
         url_for_request = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
+        endpoint_label = _endpoint_log_label(endpoint)
 
         current_params = kwargs.get("params")
         url_with_params_for_log = url_for_request
@@ -212,7 +247,7 @@ class PanelApiService:
                     "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=%s",
                     time.monotonic() - started,
                     method.upper(),
-                    endpoint,
+                    endpoint_label,
                     response_status,
                 )
 
@@ -275,46 +310,63 @@ class PanelApiService:
                 "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=connect_error",
                 time.monotonic() - started,
                 method.upper(),
-                endpoint,
+                endpoint_label,
             )
-            logging.error(f"Panel API ClientConnectorError to {url_for_request}: {e}")
+            logging.error(
+                "Panel API ClientConnectorError method=%s endpoint=%s: %s",
+                method.upper(),
+                endpoint_label,
+                e,
+            )
             return {"error": True, "status_code": -1, "message": f"Connection error: {str(e)}"}
         except aiohttp.ServerTimeoutError as e:
             logging.info(
                 "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=timeout",
                 time.monotonic() - started,
                 method.upper(),
-                endpoint,
+                endpoint_label,
             )
-            logging.warning("Panel API timeout to %s: %s", url_for_request, e)
+            logging.warning(
+                "Panel API timeout method=%s endpoint=%s: %s", method.upper(), endpoint_label, e
+            )
             return {"error": True, "status_code": -3, "message": f"Request timed out: {str(e)}"}
         except aiohttp.ClientError as e:
             logging.info(
                 "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=client_error",
                 time.monotonic() - started,
                 method.upper(),
-                endpoint,
+                endpoint_label,
             )
-            logging.exception("Panel API ClientError to %s.", url_for_request)
+            logging.exception(
+                "Panel API ClientError method=%s endpoint=%s.", method.upper(), endpoint_label
+            )
             return {"error": True, "status_code": -2, "message": f"Client error: {str(e)}"}
         except asyncio.TimeoutError:
             logging.info(
                 "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=timeout",
                 time.monotonic() - started,
                 method.upper(),
-                endpoint,
+                endpoint_label,
             )
-            logging.error(f"Panel API request to {url_for_request} timed out.")
+            logging.error(
+                "Panel API request timed out method=%s endpoint=%s.",
+                method.upper(),
+                endpoint_label,
+            )
             return {"error": True, "status_code": -3, "message": "Request timed out"}
         except Exception as e:
             logging.info(
                 "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=unexpected_error",
                 time.monotonic() - started,
                 method.upper(),
-                endpoint,
+                endpoint_label,
             )
             logging.error(
-                f"Unexpected Panel API request error to {url_for_request}: {e}", exc_info=True
+                "Unexpected Panel API request error method=%s endpoint=%s: %s",
+                method.upper(),
+                endpoint_label,
+                e,
+                exc_info=True,
             )
             return {"error": True, "status_code": -4, "message": f"Unexpected error: {str(e)}"}
 
