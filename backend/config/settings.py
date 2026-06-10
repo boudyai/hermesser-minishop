@@ -1256,9 +1256,10 @@ class Settings(BaseSettings):
     TELEMETRY_ENABLED: bool = Field(
         default=True,
         description=(
-            "Send an anonymous daily install heartbeat (version, OS, locale, "
-            "user-count range). No personal data. Opt out here, via the web "
-            "admin, or by clearing TELEMETRY_ENDPOINT/TELEMETRY_API_KEY."
+            "Send an anonymous daily install heartbeat (version, official/custom "
+            "image provenance, OS, locale, user-count range). No personal data. "
+            "Opt out here, via the web admin, or by clearing "
+            "TELEMETRY_ENDPOINT/TELEMETRY_API_KEY."
         ),
     )
     TELEMETRY_ENDPOINT: str = Field(

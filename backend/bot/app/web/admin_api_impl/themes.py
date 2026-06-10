@@ -170,6 +170,7 @@ def prune_unused_appearance_assets(settings: Settings) -> None:
             except OSError:
                 logger.warning("Failed to remove unused webapp favicon set %s", path, exc_info=True)
 
+
 async def _persist_appearance_upload(
     request: web.Request,
     updates: Dict[str, Any],

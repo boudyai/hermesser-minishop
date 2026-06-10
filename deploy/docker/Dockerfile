@@ -1,11 +1,12 @@
 # Resolve the application version from .git at build time and emit a tiny
 # .build-version file. The .git tree is consumed in this throwaway stage and
-# never copied into the runtime image; only the tag + commit version string
-# ships. Non-main builds include the branch name so they are visibly distinct
-# from release builds. This matches the runtime fallback chain in _resolve_app_version
-# (REMNAWAVE_MINISHOP_VERSION env > .build-version file > live git >
-# "dev+unknown") so the admin sidebar always shows a tag / sha even though the
-# runtime images have no git tooling and no .git tree.
+# never copied into the runtime image; only the tag + commit version string and
+# a low-cardinality build provenance marker ship. Non-main builds include the
+# branch name so they are visibly distinct from release builds. This matches the
+# runtime fallback chain in _resolve_app_version (REMNAWAVE_MINISHOP_VERSION env
+# > .build-version file > live git > "dev+unknown") so the admin sidebar always
+# shows a tag / sha even though the runtime images have no git tooling and no
+# .git tree.
 FROM alpine:3.20 AS version-builder
 RUN apk add --no-cache git
 WORKDIR /repo
@@ -14,6 +15,7 @@ ARG GIT_BRANCH=""
 ARG BRANCH_NAME=""
 ARG GITHUB_REF_NAME=""
 ARG CI_COMMIT_REF_NAME=""
+ARG REMNAWAVE_MINISHOP_BUILD_PROVENANCE="custom"
 COPY .git ./.git
 RUN set -eu; \
     git config --global --add safe.directory /repo; \
@@ -40,9 +42,17 @@ RUN set -eu; \
     else \
         version="dev${branch_suffix}+unknown"; \
     fi; \
+    provenance=$(printf '%s' "$REMNAWAVE_MINISHOP_BUILD_PROVENANCE" | tr '[:upper:]' '[:lower:]'); \
+    case "$provenance" in \
+        official|custom|unknown) ;; \
+        true|1|yes|upstream|release) provenance="official" ;; \
+        false|0|no|fork|modified|local|"") provenance="custom" ;; \
+        *) provenance="custom" ;; \
+    esac; \
     printf '%s' "$version" > /build-version; \
     printf '%s' "${tag:-unknown}" > /build-tag; \
-    printf '%s' "${sha:-unknown}" > /build-commit
+    printf '%s' "${sha:-unknown}" > /build-commit; \
+    printf '%s' "$provenance" > /build-provenance
 
 
 FROM python:3.12-slim AS python-base
@@ -82,6 +92,7 @@ RUN mkdir -p /app/logs /app/data \
 COPY --from=version-builder /build-version /app/.build-version
 COPY --from=version-builder /build-tag /app/.build-tag
 COPY --from=version-builder /build-commit /app/.build-commit
+COPY --from=version-builder /build-provenance /app/.build-provenance
 
 USER appuser
 

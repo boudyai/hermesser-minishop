@@ -43,12 +43,22 @@ docker-dev:
         exit 0
       fi
     - |
+      provenance="${REMNAWAVE_MINISHOP_BUILD_PROVENANCE:-}"
+      if [ -z "$provenance" ]; then
+        dockerhub_owner="$(printf '%s' "${DOCKERHUB_USERNAME:-}" | tr '[:upper:]' '[:lower:]')"
+        if [ "${CI_PROJECT_PATH:-}" = "3252a8/remnawave-minishop" ] || [ "$dockerhub_owner" = "3252a8" ]; then
+          provenance="official"
+        else
+          provenance="custom"
+        fi
+      fi
       docker buildx build \
         --load \
         --platform linux/amd64 \
         --file deploy/docker/Dockerfile \
         --target "$TARGET" \
         --build-arg "CI_COMMIT_REF_NAME=$CI_COMMIT_REF_NAME" \
+        --build-arg "REMNAWAVE_MINISHOP_BUILD_PROVENANCE=$provenance" \
         --build-arg "BUILDKIT_INLINE_CACHE=1" \
         --cache-from "type=registry,ref=$DOCKERHUB_USERNAME/$IMAGE:dev" \
         --tag "$DOCKERHUB_USERNAME/$IMAGE:dev" \

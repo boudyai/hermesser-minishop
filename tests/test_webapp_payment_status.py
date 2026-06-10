@@ -355,18 +355,23 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
             answer=AsyncMock(),
         )
 
-        with patch(
-            "bot.payment_providers.shared.callbacks.safe_store_provider_payment_id",
-            AsyncMock(return_value=True),
-        ) as store_id, patch(
-            "bot.payment_providers.shared.callbacks.render_payment_link",
-            AsyncMock(),
-        ) as render_link, patch(
-            "bot.payment_providers.shared.callbacks.safe_mark_failed_creation",
-            AsyncMock(),
-        ) as mark_failed, patch(
-            "bot.payment_providers.shared.callbacks.notify_payment_gateway_failure",
-            AsyncMock(),
+        with (
+            patch(
+                "bot.payment_providers.shared.callbacks.safe_store_provider_payment_id",
+                AsyncMock(return_value=True),
+            ) as store_id,
+            patch(
+                "bot.payment_providers.shared.callbacks.render_payment_link",
+                AsyncMock(),
+            ) as render_link,
+            patch(
+                "bot.payment_providers.shared.callbacks.safe_mark_failed_creation",
+                AsyncMock(),
+            ) as mark_failed,
+            patch(
+                "bot.payment_providers.shared.callbacks.notify_payment_gateway_failure",
+                AsyncMock(),
+            ),
         ):
             await render_link_or_fail(
                 callback,

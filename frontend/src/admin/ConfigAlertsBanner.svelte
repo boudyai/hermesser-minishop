@@ -23,8 +23,10 @@
     provider_webhook_needs_base_url:
       "Провайдеру {provider} нужен WEBHOOK_BASE_URL для приёма вебхуков, а он не задан.",
     no_payment_methods: "Не включён ни один способ оплаты.",
-    mini_app_url_missing: "SUBSCRIPTION_MINI_APP_URL не задан — кнопка Mini App в боте не появится.",
-    mini_app_url_not_https: "SUBSCRIPTION_MINI_APP_URL должен начинаться с https:// (сейчас {url}).",
+    mini_app_url_missing:
+      "SUBSCRIPTION_MINI_APP_URL не задан — кнопка Mini App в боте не появится.",
+    mini_app_url_not_https:
+      "SUBSCRIPTION_MINI_APP_URL должен начинаться с https:// (сейчас {url}).",
     redis_not_configured:
       "REDIS_URL не задан — состояния диалогов бота и кэш не переживут перезапуск.",
     smtp_incomplete: "SMTP настроен не полностью — вход по email работать не будет.",
@@ -58,7 +60,10 @@
   }
 
   function alertText(alert) {
-    const fallback = interpolate(MESSAGE_FALLBACKS[alert.message_key] || alert.message_key, alert.params);
+    const fallback = interpolate(
+      MESSAGE_FALLBACKS[alert.message_key] || alert.message_key,
+      alert.params
+    );
     return at(`health_${alert.message_key}`, alert.params || {}, fallback);
   }
 

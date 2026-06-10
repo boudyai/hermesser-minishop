@@ -1178,7 +1178,7 @@
   "admin_settings_section_system": "Система",
   "admin_settings_section_migrations": "Миграции",
   "admin_settings_field_telemetry_enabled_label": "Анонимная статистика установки",
-  "admin_settings_field_telemetry_enabled_description": "Раз в сутки отправляет обезличенный сигнал: версия, ОС, локаль и число пользователей в виде диапазона. Без персональных данных, токенов и доменов. Помогает оценить число активных установок и используемые версии. Отключение применяется без перезапуска.",
+  "admin_settings_field_telemetry_enabled_description": "Раз в сутки отправляет обезличенный сигнал: версия, маркер образа official/custom, ОС, локаль и число пользователей в виде диапазона. Без персональных данных, токенов и доменов. Помогает оценить число активных установок, используемые версии и долю изменённых сборок. Отключение применяется без перезапуска.",
   "admin_settings_subsection_common": "Общие",
   "admin_settings_subsection_checkout": "Оформление оплаты",
   "admin_settings_subsection_trial": "Пробный период",

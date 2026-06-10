@@ -1178,7 +1178,7 @@
   "admin_settings_section_system": "System",
   "admin_settings_section_migrations": "Migrations",
   "admin_settings_field_telemetry_enabled_label": "Anonymous install analytics",
-  "admin_settings_field_telemetry_enabled_description": "Sends one anonymous heartbeat per day (version, OS, locale, user-count range). No personal data, tokens or domains. Helps gauge how many installs are active and which versions are in use. Toggling this off takes effect without a restart.",
+  "admin_settings_field_telemetry_enabled_description": "Sends one anonymous heartbeat per day (version, official/custom image marker, OS, locale, user-count range). No personal data, tokens or domains. Helps gauge active installs, versions in use and the share of modified builds. Toggling this off takes effect without a restart.",
   "admin_settings_subsection_common": "Common",
   "admin_settings_subsection_checkout": "Checkout",
   "admin_settings_subsection_trial": "Trial",

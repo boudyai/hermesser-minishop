@@ -139,9 +139,7 @@ async def find_recent_pending_provider_payment(
     conditions = [
         Payment.user_id == user_id,
         Payment.provider == provider,
-        func.lower(Payment.status).in_(
-            tuple({str(pending_status).lower(), "pending"})
-        ),
+        func.lower(Payment.status).in_(tuple({str(pending_status).lower(), "pending"})),
         or_(
             Payment.provider_payment_id.isnot(None),
             Payment.yookassa_payment_id.isnot(None),

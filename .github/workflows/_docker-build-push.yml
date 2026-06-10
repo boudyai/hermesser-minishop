@@ -132,6 +132,7 @@ jobs:
           # (the ref is the tag, not a branch) so release images stay un-suffixed.
           build-args: |
             GITHUB_REF_NAME=${{ inputs.tag_mode == 'release' && 'main' || github.ref_name }}
+            REMNAWAVE_MINISHOP_BUILD_PROVENANCE=${{ github.repository == '3252a8/remnawave-minishop' && 'official' || 'custom' }}
           cache-from: type=gha,scope=${{ matrix.target }}
           cache-to: type=gha,mode=max,scope=${{ matrix.target }}
           provenance: false
