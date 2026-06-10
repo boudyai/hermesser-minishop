@@ -1267,6 +1267,59 @@ body:has(.theme-key-windows95) .install-platform-item[data-selected] {
     inset -1px -1px 0 #dfdfdf;
 }
 
+/* Admin health config alerts */
+
+.theme-key-windows95 .admin-config-alerts {
+  border: 2px solid;
+  border-color: #ffffff #404040 #404040 #ffffff;
+  background: #ffffcc;
+  color: #000000;
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #808080;
+}
+
+.theme-key-windows95 .admin-config-alerts-error {
+  border-color: #ffffff #404040 #404040 #ffffff;
+  background: #f7d6d6;
+  color: #000000;
+}
+
+.theme-key-windows95 .admin-config-alert-dot {
+  border-radius: 0;
+  background: #808000;
+  box-shadow:
+    1px 1px 0 #ffffff,
+    -1px -1px 0 #404040;
+}
+
+.theme-key-windows95 .admin-config-alert-error .admin-config-alert-dot {
+  background: #800000;
+}
+
+.theme-key-windows95 .admin-config-alert-link {
+  border: 2px solid;
+  border-color: #ffffff #404040 #404040 #ffffff;
+  border-radius: 0;
+  background: #c0c0c0;
+  color: #000000;
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #808080;
+  opacity: 1;
+}
+
+.theme-key-windows95 .admin-config-alert-link:hover {
+  background: #dfdfdf;
+}
+
+.theme-key-windows95 .admin-config-alert-link:active {
+  border-color: #404040 #ffffff #ffffff #404040;
+  box-shadow:
+    inset 1px 1px 0 #808080,
+    inset -1px -1px 0 #dfdfdf;
+}
+
 .theme-key-windows95 input::placeholder,
 .theme-key-windows95 textarea::placeholder,
 .theme-key-windows95 .input::placeholder,

@@ -168,6 +168,7 @@
 .theme-key-ascii .admin-toolbar-card,
 .theme-key-ascii .admin-table-card,
 .theme-key-ascii .admin-panel-dash-card,
+.theme-key-ascii .admin-config-alerts,
 .theme-key-ascii .admin-select-trigger,
 .theme-key-ascii .admin-select-content,
 .theme-key-ascii .admin-cn-card[data-slot="card"],
@@ -199,7 +200,8 @@
 .theme-key-ascii .admin-tabs-trigger,
 .theme-key-ascii .admin-revenue-period-btn,
 .theme-key-ascii .admin-mobile-toggle,
-.theme-key-ascii .admin-nav-item {
+.theme-key-ascii .admin-nav-item,
+.theme-key-ascii .admin-config-alert-link {
   border: 1px solid #ffffff;
   border-radius: 0;
   background: #000000;
@@ -216,7 +218,8 @@
 .theme-key-ascii .admin-nav-item:hover,
 .theme-key-ascii .admin-tabs-trigger:hover,
 .theme-key-ascii .admin-revenue-period-btn:hover,
-.theme-key-ascii .bottom-nav button:hover {
+.theme-key-ascii .bottom-nav button:hover,
+.theme-key-ascii .admin-config-alert-link:hover {
   background: #ffffff;
   color: #000000;
 }
@@ -391,6 +394,58 @@
 .theme-key-ascii .ui-sortable-handle:active {
   background: #ffffff;
   color: #000000;
+}
+
+/* ---------- Admin health config alerts ---------- */
+
+.theme-key-ascii .admin-config-alerts {
+  position: relative;
+  padding-left: 18px;
+  color: #ffffff;
+}
+
+.theme-key-ascii .admin-config-alerts::before {
+  content: "!";
+  position: absolute;
+  top: 11px;
+  left: 7px;
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.theme-key-ascii .admin-config-alerts-error {
+  border-color: #ff5555;
+  color: #ffaaaa;
+}
+
+.theme-key-ascii .admin-config-alerts-error::before {
+  color: #ff5555;
+}
+
+.theme-key-ascii .admin-config-alert-dot {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: transparent;
+  color: currentColor;
+  transform: none;
+}
+
+.theme-key-ascii .admin-config-alert-dot::before {
+  content: ">";
+  font-family: var(--font-mono);
+}
+
+.theme-key-ascii .admin-config-alert-error .admin-config-alert-dot {
+  background: transparent;
+  color: #ff5555;
+}
+
+.theme-key-ascii .admin-config-alert-link {
+  padding: 1px 7px;
+  font-family: var(--font-mono);
+  opacity: 1;
 }
 
 /* ---------- New webapp surfaces: support, purchase info, password login ---------- */

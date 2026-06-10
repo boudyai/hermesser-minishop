@@ -372,6 +372,7 @@ def _builtin_theme_assets_need_refresh(key: str, target_dir: Path) -> bool:
             or ".theme-key-light.app-shell" not in style
             or "Install guide theme surfaces" not in style
             or "Admin controls: range sliders and sortable rows" not in style
+            or "Admin health config alerts" not in style
         )
     if key == "ascii":
         return (
@@ -383,6 +384,7 @@ def _builtin_theme_assets_need_refresh(key: str, target_dir: Path) -> bool:
             or "New webapp surfaces: support, purchase info, password login" not in style
             or "Install guide theme surfaces" not in style
             or "Admin controls: range sliders and sortable rows" not in style
+            or "Admin health config alerts" not in style
         )
     if key != "windows95":
         return False
@@ -407,6 +409,7 @@ def _builtin_theme_assets_need_refresh(key: str, target_dir: Path) -> bool:
         or "New webapp surfaces: support, purchase info, password login" not in style
         or "Install guide theme surfaces" not in style
         or "Admin controls: range sliders and sortable rows" not in style
+        or "Admin health config alerts" not in style
         or any(not (target_dir / "icons" / icon).exists() for icon in required_icons)
     )
 
