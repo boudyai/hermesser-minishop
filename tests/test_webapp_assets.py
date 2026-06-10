@@ -647,10 +647,8 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             root = Path(tmpdir)
             uploads = root / "uploads"
             favicons = root / "favicons"
-            emoji = root / "emoji"
             uploads.mkdir()
             favicons.mkdir()
-            emoji.mkdir()
             (uploads / "logo-1111111111111111.png").write_bytes(b"keep")
             (uploads / "logo-2222222222222222.png").write_bytes(b"remove")
             (favicons / "aaaaaaaaaaaaaaaa").mkdir()
@@ -659,10 +657,6 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             (favicons / "aaaaaaaaaaaaaaaa" / "icon-180.png").write_bytes(b"keep")
             (favicons / "bbbbbbbbbbbbbbbb" / "icon-180.png").write_bytes(b"keep")
             (favicons / "cccccccccccccccc" / "icon-180.png").write_bytes(b"remove")
-            # Emoji logos were removed; any leftover emoji cache files are purged.
-            (emoji / "1f929.512.gif").write_bytes(b"remove")
-            (emoji / "1f929.512.webp").write_bytes(b"remove")
-            (emoji / "1f525.512.gif").write_bytes(b"remove")
             settings = SimpleNamespace(
                 WEBAPP_LOGO_URL="/webapp-uploaded-logo/logo-1111111111111111.png",
                 WEBAPP_FAVICON_URL="/webapp-favicon/aaaaaaaaaaaaaaaa/icon-180.png",
@@ -672,7 +666,6 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             with (
                 patch.object(admin_themes, "WEBAPP_UPLOADED_LOGO_DIR", uploads),
                 patch.object(admin_themes, "WEBAPP_FAVICON_DIR", favicons),
-                patch.object(admin_themes, "WEBAPP_EMOJI_CACHE_DIR", emoji),
             ):
                 admin_themes.prune_unused_appearance_assets(settings)
 
@@ -681,9 +674,6 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue((favicons / "aaaaaaaaaaaaaaaa").exists())
             self.assertTrue((favicons / "bbbbbbbbbbbbbbbb").exists())
             self.assertFalse((favicons / "cccccccccccccccc").exists())
-            self.assertFalse((emoji / "1f929.512.gif").exists())
-            self.assertFalse((emoji / "1f929.512.webp").exists())
-            self.assertFalse((emoji / "1f525.512.gif").exists())
 
     async def test_persist_appearance_upload_writes_overrides_and_clears_caches(self):
         settings = SimpleNamespace()

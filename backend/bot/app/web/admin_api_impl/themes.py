@@ -25,7 +25,6 @@ WEBAPP_UPLOADED_LOGO_DIR = Path(__file__).resolve().parents[5] / "data" / "webap
 WEBAPP_UPLOADED_LOGO_PATH = "/webapp-uploaded-logo"
 WEBAPP_FAVICON_DIR = Path(__file__).resolve().parents[5] / "data" / "webapp-logo" / "favicons"
 WEBAPP_FAVICON_PATH = "/webapp-favicon"
-WEBAPP_EMOJI_CACHE_DIR = Path(__file__).resolve().parents[5] / "data" / "webapp-emoji"
 WEBAPP_FAVICON_SIZES = (16, 32, 48, 180, 192, 512)
 WEBAPP_LOGO_UPLOAD_CONTENT_TYPES = {
     ".gif": "image/gif",
@@ -170,15 +169,6 @@ def prune_unused_appearance_assets(settings: Settings) -> None:
                 shutil.rmtree(path)
             except OSError:
                 logger.warning("Failed to remove unused webapp favicon set %s", path, exc_info=True)
-
-    # Emoji logos were removed; purge any leftover animated-emoji cache files.
-    for path in WEBAPP_EMOJI_CACHE_DIR.glob("*.512.*"):
-        if path.is_file():
-            try:
-                path.unlink()
-            except OSError:
-                logger.warning("Failed to remove unused webapp emoji asset %s", path, exc_info=True)
-
 
 async def _persist_appearance_upload(
     request: web.Request,
