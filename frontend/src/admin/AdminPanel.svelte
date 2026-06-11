@@ -79,12 +79,13 @@
     userTelegramProfileLink,
     userTelegramProfileLinkKind,
   } from "../lib/admin/users.js";
-  import { stripRoutePrefix } from "../lib/webapp/routes.js";
+  import { adminSettingsPathFromPath, stripRoutePrefix } from "../lib/webapp/routes.js";
 
   export let api;
   export let onClose = () => {};
   export let onToast = () => {};
   export let initialSection = "stats";
+  export let initialSettingsPath = [];
   export let initialPaymentId = null;
   export let initialPaymentUserId = null;
   export let initialUserId = null;
@@ -213,14 +214,24 @@
     (group.items || []).map((item) => item.id)
   );
   const normalizeSection = (value) => ((VALID_SECTIONS || []).includes(value) ? value : "stats");
+  const settingsPathKey = (path) => (Array.isArray(path) ? path : []).join("/");
 
   let active = normalizeSection(initialSection);
   let lastInitialSection = active;
+  let settingsPath = Array.isArray(initialSettingsPath) ? initialSettingsPath : [];
+  let lastInitialSettingsPathKey = settingsPathKey(settingsPath);
   $: {
     const nextInitialSection = normalizeSection(initialSection);
     if (nextInitialSection !== lastInitialSection) {
       active = nextInitialSection;
       lastInitialSection = nextInitialSection;
+    }
+  }
+  $: {
+    const nextInitialSettingsPathKey = settingsPathKey(initialSettingsPath);
+    if (nextInitialSettingsPathKey !== lastInitialSettingsPathKey) {
+      settingsPath = Array.isArray(initialSettingsPath) ? initialSettingsPath : [];
+      lastInitialSettingsPathKey = nextInitialSettingsPathKey;
     }
   }
   let sidebarOpen = false;
@@ -295,6 +306,7 @@
     sidebarOpen = false;
     if (active === next) return;
     active = next;
+    settingsPath = [];
     usersStore.closeUser();
     paymentsStore.closePayment();
     supportStore.closeTicketView();
@@ -316,6 +328,11 @@
     if (typeof window === "undefined") return "stats";
     const match = currentRoutePathname().match(/^\/admin\/([a-z0-9_-]+)(?:\/.*)?$/i);
     return normalizeSection(match ? match[1].toLowerCase() : "stats");
+  }
+
+  function readSettingsPathFromPath() {
+    if (typeof window === "undefined") return [];
+    return adminSettingsPathFromPath(currentRoutePathname());
   }
 
   function readUserIdFromPath() {
@@ -344,6 +361,7 @@
 
   function onPopState() {
     active = readSectionFromPath();
+    settingsPath = active === "settings" ? readSettingsPathFromPath() : [];
     sidebarOpen = false;
     const userId = readUserIdFromPath();
     const paymentUserId = active === "payments" ? readPaymentUserIdFromPath() : null;
@@ -884,7 +902,14 @@
           {/if}
 
           {#if active === "settings"}
-            <SettingsSection {at} {onSettingsSaved} {currentLang} />
+            <SettingsSection
+              {at}
+              {onSettingsSaved}
+              {currentLang}
+              {settingsPath}
+              {routePrefix}
+              onSettingsPathChange={(path) => (settingsPath = path)}
+            />
           {/if}
 
           {#if active === "backups"}

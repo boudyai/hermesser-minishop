@@ -77,6 +77,25 @@ export function adminSectionFromPath(pathname, routePrefix = "") {
   return normalizeAdminSection(m ? m[1] : "");
 }
 
+function decodePathSegment(segment) {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
+export function adminSettingsPathFromPath(pathname, routePrefix = "") {
+  const normalized = stripRoutePrefix(pathname, routePrefix).replace(/\/+$/, "");
+  const m = normalized.match(/^\/admin\/settings(?:\/(.*))?$/i);
+  if (!m?.[1]) return [];
+  return m[1]
+    .split("/")
+    .map((segment) => decodePathSegment(segment).trim())
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
 export function adminUserIdFromPath(pathname, routePrefix = "") {
   const normalized = stripRoutePrefix(pathname, routePrefix).toLowerCase().replace(/\/+$/, "");
   const m = normalized.match(/^\/admin\/users\/(-?\d+)$/);
@@ -135,11 +154,15 @@ export function syncSectionPath(
       adm === "payments" && !clearAdminUser
         ? adminPaymentsUserIdFromPath(window.location.pathname, routePrefix)
         : null;
+    const settingsPath =
+      adm === "settings" ? adminSettingsPathFromPath(window.location.pathname, routePrefix) : [];
     if (adm === "users" && uid) targetPath = `/admin/users/${uid}`;
     else if (adm === "support" && supportTicketId) targetPath = `/admin/support/${supportTicketId}`;
     else if (adm === "payments" && paymentUserId)
       targetPath = `/admin/payments/users/${paymentUserId}`;
     else if (adm === "payments" && paymentId) targetPath = `/admin/payments/${paymentId}`;
+    else if (adm === "settings" && settingsPath.length)
+      targetPath = `/admin/settings/${settingsPath.map(encodeURIComponent).join("/")}`;
     else targetPath = `/admin/${adm}`;
   }
   targetPath = withRoutePrefix(targetPath, routePrefix);

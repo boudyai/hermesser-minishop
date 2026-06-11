@@ -19,11 +19,15 @@
     AdminEmptyState,
     AdminSelect,
   } from "$components/patterns/admin/index.js";
-  import { getContext, onDestroy, onMount } from "svelte";
+  import { getContext, onDestroy, onMount, tick } from "svelte";
+  import { withRoutePrefix } from "$lib/webapp/routes.js";
 
   export let at;
   export let onSettingsSaved;
   export let currentLang = "ru";
+  export let settingsPath = [];
+  export let routePrefix = "";
+  export let onSettingsPathChange = () => {};
 
   const settingsStore = getContext("settingsStore");
 
@@ -42,6 +46,9 @@
   let iconPickerSearch = "";
   let copiedWebhookKey = "";
   let copiedWebhookTimer = null;
+  let lastAppliedSettingsPathKey = "";
+  let settingsPathSyncing = false;
+  let settingsFocusedAnchorKey = "";
 
   const PLATEGA_SBP_KEYS = new Set([
     "PLATEGA_SBP_ENABLED",
@@ -70,6 +77,16 @@
   $: filteredIconOptions = iconOptions.filter((name) =>
     name.toLowerCase().includes(iconPickerSearch.trim().toLowerCase())
   );
+  $: currentSettingsPathKey = settingsPathKey(settingsPath);
+  $: if (visibleSettingsSections.length && currentSettingsPathKey) {
+    if (currentSettingsPathKey !== lastAppliedSettingsPathKey) {
+      lastAppliedSettingsPathKey = currentSettingsPathKey;
+      void applySettingsPath(settingsPath);
+    }
+  } else if (!currentSettingsPathKey) {
+    lastAppliedSettingsPathKey = "";
+    settingsFocusedAnchorKey = "";
+  }
 
   onMount(() => {
     settingsStore.loadSettings();
@@ -86,6 +103,231 @@
       settingsOpenSections = [];
     } else {
       settingsOpenSections = visibleSettingsSections.map((s) => s.id);
+    }
+  }
+
+  function normalizeSettingsPath(path) {
+    const parts = Array.isArray(path) ? path : String(path || "").split("/");
+    return parts
+      .map((part) => String(part || "").trim())
+      .filter(Boolean)
+      .slice(0, 3);
+  }
+
+  function settingsPathKey(path) {
+    return normalizeSettingsPath(path)
+      .map((part) => settingsPathToken(part))
+      .join("/");
+  }
+
+  function settingsPathToken(value) {
+    return String(value || "")
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLowerCase()
+      .replace(/&/g, " and ")
+      .replace(/[_\s]+/g, "-")
+      .replace(/[^a-z0-9-]+/g, "")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+  }
+
+  function compactSettingsPathToken(value) {
+    return settingsPathToken(value).replace(/-/g, "");
+  }
+
+  function settingsPathMatches(segment, value) {
+    const segmentToken = settingsPathToken(segment);
+    const valueToken = settingsPathToken(value);
+    if (!segmentToken || !valueToken) return false;
+    return (
+      segmentToken === valueToken ||
+      compactSettingsPathToken(segment) === compactSettingsPathToken(value)
+    );
+  }
+
+  function settingsRouteSegment(value) {
+    return encodeURIComponent(settingsPathToken(value) || String(value || "").trim());
+  }
+
+  function settingsFieldGroupRouteSegment(group, fieldGroup) {
+    const groupToken = settingsPathToken(group?.id);
+    const fieldGroupToken = settingsPathToken(fieldGroup?.id);
+    if (groupToken && fieldGroupToken.startsWith(`${groupToken}-`)) {
+      return fieldGroupToken.slice(groupToken.length + 1);
+    }
+    return fieldGroupToken;
+  }
+
+  function settingsSectionAnchorKey(sectionId) {
+    return `settings-section:${sectionId}`;
+  }
+
+  function settingsSubsectionAnchorKey(sectionId, groupId) {
+    return `settings-subsection:${sectionId}:${groupId}`;
+  }
+
+  function settingsFieldGroupAnchorKey(sectionId, groupId, fieldGroupId) {
+    return `settings-field-group:${sectionId}:${groupId}:${fieldGroupId}`;
+  }
+
+  function settingsSectionRoute(sectionId) {
+    return [settingsRouteSegment(sectionId)].filter(Boolean);
+  }
+
+  function settingsSubsectionRoute(sectionId, groupId) {
+    return [settingsRouteSegment(sectionId), settingsRouteSegment(groupId)].filter(Boolean);
+  }
+
+  function findSettingsSubsection(section, segment) {
+    return groupSectionFields(section).find(
+      (group) => group.label && settingsPathMatches(segment, group.id)
+    );
+  }
+
+  function findSettingsFieldGroup(section, group, segment) {
+    return semanticFieldGroups(section, group).find((fieldGroup) => {
+      if (!fieldGroup.titleKey) return false;
+      return [
+        fieldGroup.id,
+        fieldGroup.titleFallback,
+        settingsFieldGroupRouteSegment(group, fieldGroup),
+      ].some((value) => settingsPathMatches(segment, value));
+    });
+  }
+
+  function resolveSettingsPath(path) {
+    const [sectionSegment, subsectionSegment, fieldGroupSegment] = normalizeSettingsPath(path);
+    if (!sectionSegment) return null;
+    const section = visibleSettingsSections.find((item) =>
+      settingsPathMatches(sectionSegment, item.id)
+    );
+    if (!section) return null;
+
+    let group = null;
+    let fieldGroup = null;
+    let anchorKey = settingsSectionAnchorKey(section.id);
+
+    if (subsectionSegment) {
+      group = findSettingsSubsection(section, subsectionSegment);
+      if (group) {
+        anchorKey = settingsSubsectionAnchorKey(section.id, group.id);
+      }
+    }
+
+    if (group && fieldGroupSegment) {
+      fieldGroup = findSettingsFieldGroup(section, group, fieldGroupSegment);
+      if (fieldGroup) {
+        anchorKey = settingsFieldGroupAnchorKey(section.id, group.id, fieldGroup.id);
+      }
+    }
+
+    return { section, group, fieldGroup, anchorKey };
+  }
+
+  function arrayValue(value) {
+    return Array.isArray(value) ? value : value ? [value] : [];
+  }
+
+  function updateSettingsRoute(segments, replace = false) {
+    if (settingsPathSyncing || typeof window === "undefined") return;
+    if (window.location.protocol === "file:") return;
+    const pathSegments = arrayValue(segments).filter(Boolean);
+    const pathSuffix = pathSegments.length ? `/${pathSegments.join("/")}` : "";
+    const targetPath = withRoutePrefix(`/admin/settings${pathSuffix}`, routePrefix);
+    const nextUrl = `${targetPath}${window.location.search}${window.location.hash}`;
+    if (`${window.location.pathname}${window.location.search}${window.location.hash}` === nextUrl) {
+      return;
+    }
+    window.history[replace ? "replaceState" : "pushState"](null, "", nextUrl);
+    onSettingsPathChange(pathSegments);
+  }
+
+  function handleSettingsSectionsOpenChange(value) {
+    const next = arrayValue(value);
+    const openedSection = next.find((sectionId) => !settingsOpenSections.includes(sectionId));
+    settingsOpenSections = next;
+    if (!openedSection) return;
+    updateSettingsRoute(settingsSectionRoute(openedSection));
+  }
+
+  function handleSettingsSubsectionsOpenChange(sectionId, value) {
+    const previous = settingsOpenSubsections[sectionId] || [];
+    const next = arrayValue(value);
+    const openedGroup = next.find((groupId) => !previous.includes(groupId));
+    settingsOpenSubsections = { ...settingsOpenSubsections, [sectionId]: next };
+    if (!openedGroup) return;
+    updateSettingsRoute(settingsSubsectionRoute(sectionId, openedGroup));
+  }
+
+  function findSettingsAnchor(anchorKey) {
+    if (typeof document === "undefined" || !anchorKey) return null;
+    return Array.from(document.querySelectorAll("[data-settings-anchor]")).find(
+      (element) => element.dataset.settingsAnchor === anchorKey
+    );
+  }
+
+  function prefersReducedMotion() {
+    return (
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    );
+  }
+
+  function scrollSettingsAnchorIntoView(anchorKey, behavior) {
+    const element = findSettingsAnchor(anchorKey);
+    if (!element) return;
+    element.scrollIntoView({ block: "start", behavior });
+    if (typeof element.focus === "function") {
+      try {
+        element.focus({ preventScroll: true });
+      } catch {
+        element.focus();
+      }
+    }
+  }
+
+  function scrollToSettingsAnchor(anchorKey) {
+    if (typeof window === "undefined") return;
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        scrollSettingsAnchorIntoView(anchorKey, prefersReducedMotion() ? "auto" : "smooth");
+        window.setTimeout(() => scrollSettingsAnchorIntoView(anchorKey, "auto"), 220);
+      });
+    });
+  }
+
+  async function applySettingsPath(path) {
+    const target = resolveSettingsPath(path);
+    if (!target) return;
+
+    settingsPathSyncing = true;
+    try {
+      if (!settingsOpenSections.includes(target.section.id)) {
+        settingsOpenSections = [...settingsOpenSections, target.section.id];
+      }
+      if (target.group) {
+        const openSubsections = settingsOpenSubsections[target.section.id] || [];
+        if (!openSubsections.includes(target.group.id)) {
+          settingsOpenSubsections = {
+            ...settingsOpenSubsections,
+            [target.section.id]: [...openSubsections, target.group.id],
+          };
+        }
+      }
+      settingsFocusedAnchorKey = target.anchorKey;
+      await tick();
+      scrollToSettingsAnchor(target.anchorKey);
+    } finally {
+      if (typeof window !== "undefined") {
+        window.setTimeout(() => {
+          settingsPathSyncing = false;
+        }, 0);
+      } else {
+        settingsPathSyncing = false;
+      }
     }
   }
 
@@ -463,7 +705,15 @@
   {:else}
     <div class="admin-settings-field-groups">
       {#each fieldGroups as fieldGroup}
-        <section class="admin-settings-field-group">
+        <section
+          class={settingsFocusedAnchorKey ===
+          settingsFieldGroupAnchorKey(section.id, group.id, fieldGroup.id)
+            ? "admin-settings-field-group is-route-focused"
+            : "admin-settings-field-group"}
+          data-settings-anchor={fieldGroup.titleKey
+            ? settingsFieldGroupAnchorKey(section.id, group.id, fieldGroup.id)
+            : undefined}
+        >
           {#if fieldGroup.titleKey}
             <header class="admin-settings-field-group-head">
               <strong>{fieldGroupTitle(fieldGroup)}</strong>
@@ -686,13 +936,23 @@
       {/if}
     </div>
   </div>
-  <Accordion.Root type="multiple" bind:value={settingsOpenSections} class="admin-accordion">
+  <Accordion.Root
+    type="multiple"
+    value={settingsOpenSections}
+    onValueChange={handleSettingsSectionsOpenChange}
+    class="admin-accordion"
+  >
     {#each visibleSettingsSections as section}
       {@const dirtyInSection = section.fields.filter((f) => Boolean(settingsDirty[f.key])).length}
       {@const overriddenInSection = section.fields.filter((f) => isOverridden(f)).length}
       <Accordion.Item value={section.id} class="admin-accordion-item admin-card">
         <Accordion.Header class="admin-accordion-header">
-          <Accordion.Trigger class="admin-accordion-trigger">
+          <Accordion.Trigger
+            class={settingsFocusedAnchorKey === settingsSectionAnchorKey(section.id)
+              ? "admin-accordion-trigger is-route-focused"
+              : "admin-accordion-trigger"}
+            data-settings-anchor={settingsSectionAnchorKey(section.id)}
+          >
             <span class="admin-accordion-title">{sectionTitle(section.id)}</span>
             <span class="admin-accordion-meta">
               {at(
@@ -729,8 +989,7 @@
               <Accordion.Root
                 type="multiple"
                 value={settingsOpenSubsections[section.id] || []}
-                onValueChange={(v) =>
-                  (settingsOpenSubsections = { ...settingsOpenSubsections, [section.id]: v })}
+                onValueChange={(v) => handleSettingsSubsectionsOpenChange(section.id, v)}
                 class="admin-subsection-accordion"
               >
                 {#each labelGroups as group}
@@ -740,7 +999,13 @@
                   {@const subOverridden = group.fields.filter((f) => isOverridden(f)).length}
                   <Accordion.Item value={group.id} class="admin-settings-subsection">
                     <Accordion.Header class="admin-accordion-header">
-                      <Accordion.Trigger class="admin-settings-subsection-trigger">
+                      <Accordion.Trigger
+                        class={settingsFocusedAnchorKey ===
+                        settingsSubsectionAnchorKey(section.id, group.id)
+                          ? "admin-settings-subsection-trigger is-route-focused"
+                          : "admin-settings-subsection-trigger"}
+                        data-settings-anchor={settingsSubsectionAnchorKey(section.id, group.id)}
+                      >
                         <strong>{subsectionTitle(group)}</strong>
                         <span class="admin-settings-subsection-meta">
                           {at(
