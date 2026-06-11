@@ -167,6 +167,13 @@ def get_main_menu_inline_keyboard(
         )
     )
 
+    if settings.SERVER_STATUS_URL:
+        builder.row(
+            InlineKeyboardButton(
+                text=_(key="menu_server_status_button"), url=settings.SERVER_STATUS_URL
+            )
+        )
+
     if settings.SUPPORT_LINK:
         builder.row(
             InlineKeyboardButton(text=_(key="menu_support_button"), url=settings.SUPPORT_LINK)
@@ -221,18 +228,14 @@ def get_bot_interface_inline_keyboard(
     language_button = InlineKeyboardButton(
         text=_(key="menu_language_settings_inline"), callback_data="main_action:bot_language"
     )
-    status_button_list = []
+    builder.row(language_button)
+
     if settings.SERVER_STATUS_URL:
-        status_button_list.append(
+        builder.row(
             InlineKeyboardButton(
                 text=_(key="menu_server_status_button"), url=settings.SERVER_STATUS_URL
             )
         )
-
-    if status_button_list:
-        builder.row(language_button, *status_button_list)
-    else:
-        builder.row(language_button)
 
     if settings.SUPPORT_LINK:
         builder.row(

@@ -344,6 +344,53 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(".bottom-nav.bottom-nav-many .bottom-nav-label", css)
         self.assertIn("display: none;", css)
 
+    def test_settings_screen_places_server_status_between_legal_and_support_links(self):
+        source = (Path(__file__).resolve().parents[1] / "frontend/src/App.svelte").read_text(
+            encoding="utf-8"
+        )
+        settings_source = (
+            Path(__file__).resolve().parents[1]
+            / "frontend/src/webapp/screens/SettingsScreen.svelte"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("CFG.serverStatusUrl", source)
+        self.assertIn("appSettings?.server_status_url", source)
+        self.assertIn("{serverStatusUrl}", source)
+        self.assertIn('t("menu_server_status_button")', settings_source)
+
+        agreement_pos = settings_source.index("{#if userAgreementUrl}")
+        privacy_pos = settings_source.index("{#if privacyPolicyUrl}")
+        status_pos = settings_source.index("{#if serverStatusUrl}")
+        support_pos = settings_source.index("{#if supportUrl}")
+
+        self.assertLess(agreement_pos, status_pos)
+        self.assertLess(privacy_pos, status_pos)
+        self.assertLess(status_pos, support_pos)
+
+    def test_webapp_bootstrap_exposes_server_status_url(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="123456:token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            SERVER_STATUS_URL="https://status.example.com",
+            SUPPORT_LINK="https://t.me/support",
+            PRIVACY_POLICY_URL="https://example.com/privacy",
+            USER_AGREEMENT_URL="https://example.com/agreement",
+        )
+        request = SimpleNamespace(
+            app={"settings": settings, "webapp_settings_cache": {"ts": 0.0, "data": {}}},
+            query={},
+        )
+
+        payload = subscription_webapp._build_webapp_bootstrap_payload(request)
+
+        self.assertEqual(payload["config"]["serverStatusUrl"], "https://status.example.com")
+        self.assertEqual(
+            request.app["webapp_settings_cache"]["data"]["server_status_url"],
+            "https://status.example.com",
+        )
+
     def test_https_webapp_logo_uses_same_origin_proxy(self):
         settings = SimpleNamespace(WEBAPP_LOGO_URL="https://cdn.example.com/logo.png")
 

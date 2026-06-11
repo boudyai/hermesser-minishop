@@ -340,6 +340,7 @@ export const DEV_MOCK = {
     adminJsAsset: "subscription_webapp_admin.js",
     adminCssAsset: "subscription_webapp_admin.css",
     supportUrl: "https://t.me/support",
+    serverStatusUrl: "https://status.example.com",
     privacyPolicyUrl: "https://example.com/privacy",
     userAgreementUrl: "https://example.com/agreement",
     currency: "RUB",

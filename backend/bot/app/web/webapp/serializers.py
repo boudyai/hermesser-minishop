@@ -181,6 +181,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
         "support_unread_count": int(support_unread_count or 0),
         "settings": {
             "support_url": settings.SUPPORT_LINK,
+            "server_status_url": settings.SERVER_STATUS_URL,
             "support_tickets_enabled": bool(settings.SUPPORT_TICKETS_ENABLED),
             "support_ticket_max_body_length": int(settings.SUPPORT_TICKET_MAX_BODY_LENGTH or 4000),
             "support_ticket_max_subject_length": int(

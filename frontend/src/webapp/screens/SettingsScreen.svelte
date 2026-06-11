@@ -5,6 +5,7 @@
     FileText,
     Mail,
     Send,
+    Server,
     Shield,
     UserRound,
   } from "$components/ui/icons.js";
@@ -31,6 +32,7 @@
   export let profileAvatarUrl = "";
   export let profileEmail = "";
   export let profileTelegramId = "";
+  export let serverStatusUrl = "";
   export let supportUrl = "";
   export let telegramNotificationsNeedPrompt = false;
   export let telegramNotificationsStartLink = "";
@@ -173,17 +175,6 @@
       onOpenChange={setLanguageMenuOpen}
       onValueChange={updateAccountLanguage}
     />
-    {#if supportUrl}
-      <button
-        class="settings-row settings-row-support"
-        type="button"
-        onclick={() => openExternalLink(supportUrl)}
-      >
-        <Send size={21} />
-        <span><strong>{t("menu_support_button")}</strong></span>
-        <ArrowRight size={17} />
-      </button>
-    {/if}
     {#if userAgreementUrl}
       <button
         class="settings-row settings-row-policy"
@@ -203,6 +194,28 @@
       >
         <Shield size={21} />
         <span><strong>{t("wa_settings_privacy_policy")}</strong></span>
+        <ArrowRight size={17} />
+      </button>
+    {/if}
+    {#if serverStatusUrl}
+      <button
+        class="settings-row settings-row-status"
+        type="button"
+        onclick={() => openExternalLink(serverStatusUrl)}
+      >
+        <Server size={21} />
+        <span><strong>{t("menu_server_status_button")}</strong></span>
+        <ArrowRight size={17} />
+      </button>
+    {/if}
+    {#if supportUrl}
+      <button
+        class="settings-row settings-row-support"
+        type="button"
+        onclick={() => openExternalLink(supportUrl)}
+      >
+        <Send size={21} />
+        <span><strong>{t("menu_support_button")}</strong></span>
         <ArrowRight size={17} />
       </button>
     {/if}

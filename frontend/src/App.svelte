@@ -504,6 +504,7 @@
   $: privacyPolicyUrl = String(CFG.privacyPolicyUrl || "").trim();
   $: userAgreementUrl = String(CFG.userAgreementUrl || "").trim();
   $: supportUrl = String(appSettings?.support_url || CFG.supportUrl || "").trim();
+  $: serverStatusUrl = String(appSettings?.server_status_url || CFG.serverStatusUrl || "").trim();
   $: telegramLoginBotId = Number(CFG.telegramLoginBotId || 0);
   $: telegramOAuthClientId = Number(CFG.telegramOAuthClientId || telegramLoginBotId || 0);
   $: telegramMiniAppInitData = tg?.initData || readTelegramMiniAppInitDataFromLocation();
@@ -2628,6 +2629,7 @@
                 {profileAvatarUrl}
                 {profileEmail}
                 {profileTelegramId}
+                {serverStatusUrl}
                 {supportUrl}
                 {telegramNotificationsNeedPrompt}
                 {telegramNotificationsStartLink}
