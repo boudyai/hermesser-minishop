@@ -264,6 +264,10 @@ async def create_user(
                     "language": user_data.get("language_code"),
                     "referred_by_id": user_data.get("referred_by_id"),
                     "registered_via": registered_via,
+                    "telegram_id": user_data.get("telegram_id"),
+                    "username": user_data.get("username"),
+                    "first_name": user_data.get("first_name"),
+                    "email": user_data.get("email"),
                 },
             )
     elif user is not None:
@@ -366,6 +370,8 @@ async def merge_users(
     *,
     source_user_id: int,
     target_user_id: int,
+    reason: str = "unknown",
+    send_user_email: bool = False,
 ) -> User:
     """Merge source user data into target user and remove the source row."""
 
@@ -651,6 +657,18 @@ async def merge_users(
         {
             "source_user_id": int(source_user_id),
             "target_user_id": int(target_user_id),
+            "reason": reason,
+            "send_user_email": send_user_email,
+            "source_panel_user_uuid": source_panel_uuid,
+            "target_panel_user_uuid": target.panel_user_uuid,
+            "email": target.email,
+            "telegram_id": target.telegram_id,
+            "username": target.username,
+            "first_name": target.first_name,
+            "language": target.language_code,
+            "final_end_date": events.iso(
+                getattr(target_anchor_sub or source_active_sub, "end_date", None)
+            ),
         },
     )
     return target

@@ -13,6 +13,7 @@ from bot.infra.redis import close_redis
 from bot.middlewares.i18n import JsonI18n
 from bot.plugins import PluginContext, apply_plugin_locales, run_setup
 from bot.routers import build_root_router
+from bot.services.event_reactions import register_core_reactions
 from bot.services.locale_override_service import load_locale_overrides
 from bot.utils.message_queue import init_queue_manager
 from config.settings import Settings
@@ -320,6 +321,7 @@ async def run_bot(settings_param: Settings):
     )
     # Plugins may contribute services, so run setup before the dispatcher copy.
     run_setup(plugin_context)
+    register_core_reactions(plugin_context)
 
     for key, service in services.items():
         dp[key] = service

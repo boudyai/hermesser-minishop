@@ -185,6 +185,10 @@ def test_create_user_emits_user_registered(monkeypatch):
             "language": "ru",
             "referred_by_id": 77,
             "registered_via": "telegram",
+            "telegram_id": 123,
+            "username": None,
+            "first_name": None,
+            "email": None,
         }
     ]
 

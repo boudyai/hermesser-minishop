@@ -2,7 +2,7 @@
 from ._runtime import *  # noqa: F403,F405
 
 from bot.app.web.webapp.auth import _trial_telegram_required_reason
-from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
+from bot.infra import events
 from db.dal import message_log_dal
 
 
@@ -416,23 +416,6 @@ async def activate_trial_route(request: web.Request) -> web.Response:
             activation_result.get("subscription_url"),
         )
 
-        i18n_instance = request.app.get("i18n")
-        if settings.LOG_TRIAL_ACTIVATIONS and i18n_instance:
-            try:
-                from bot.services.notification_service import NotificationService
-
-                notification_service = NotificationService(
-                    request.app["bot"], settings, i18n_instance
-                )
-                await notification_service.notify_trial_activation(
-                    user_id,
-                    end_date,
-                    username=db_user.username,
-                    email=getattr(db_user, "email", None),
-                )
-            except Exception:
-                logger.exception("Failed to send WebApp trial activation notification")
-
         try:
             await message_log_dal.create_message_log_no_commit(
                 session,
@@ -463,8 +446,6 @@ async def activate_trial_route(request: web.Request) -> web.Response:
         except Exception:
             await session.rollback()
             logger.exception("Failed to mark WebApp trial activation for ad attribution")
-
-        await invalidate_webapp_user_caches(settings, user_id)
 
         return web.json_response(
             {
@@ -869,7 +850,7 @@ async def _refresh_yookassa_payment_status(
             if current.status == "succeeded":
                 return current
             try:
-                await process_successful_payment(
+                event_payload = await process_successful_payment(
                     session,
                     request.app["bot"],
                     provider_payload,
@@ -881,6 +862,8 @@ async def _refresh_yookassa_payment_status(
                     request.app.get("lknpd_service"),
                 )
                 await session.commit()
+                if event_payload:
+                    await events.emit(events.PAYMENT_SUCCEEDED, event_payload)
             except Exception:
                 await session.rollback()
                 logger.exception(
@@ -903,7 +886,7 @@ async def _refresh_yookassa_payment_status(
             if not _payment_status_can_be_refreshed(current):
                 return current
             try:
-                await process_cancelled_payment(
+                event_payload = await process_cancelled_payment(
                     session,
                     request.app["bot"],
                     provider_payload,
@@ -911,6 +894,8 @@ async def _refresh_yookassa_payment_status(
                     request.app["settings"],
                 )
                 await session.commit()
+                if event_payload:
+                    await events.emit(events.PAYMENT_CANCELED, event_payload)
             except Exception:
                 await session.rollback()
                 logger.exception(
@@ -962,12 +947,6 @@ async def payment_status_route(request: web.Request) -> web.Response:
             return _json_error(404, "not_found", "Payment not found")
         payment = await _refresh_yookassa_payment_status(request, session, payment)
         payment = await _refresh_wata_payment_status(request, session, payment)
-        if payment.status == "succeeded":
-            await invalidate_webapp_user_caches(
-                request.app["settings"],
-                user_id,
-                include_devices=True,
-            )
         return web.json_response(
             {
                 "ok": True,

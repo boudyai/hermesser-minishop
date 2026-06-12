@@ -402,11 +402,6 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
             "last_name": "",
             "language_code": "ru",
         }
-        notification_service = SimpleNamespace(
-            notify_account_telegram_linked=AsyncMock(),
-            notify_account_merged=AsyncMock(),
-        )
-
         with (
             patch.object(account_routes, "_require_user_id", return_value=-100),
             patch.object(
@@ -434,10 +429,6 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
                 "get_active_subscription_by_user_id",
                 AsyncMock(return_value=None),
             ),
-            patch(
-                "bot.services.notification_service.NotificationService",
-                return_value=notification_service,
-            ),
             patch.object(
                 account_routes,
                 "_probe_telegram_notifications_for_user_id",
@@ -457,6 +448,8 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
             request.app["async_session_factory"].session,
             source_user_id=-100,
             target_user_id=42,
+            reason="telegram_link",
+            send_user_email=True,
         )
         probe_telegram_notifications.assert_awaited_once_with(request, 42)
         self.assertEqual(panel_calls, ["delete", "update"])
@@ -468,15 +461,4 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(update_uuid, "panel-telegram")
         self.assertEqual(update_payload["email"], "linked@example.com")
         self.assertEqual(update_payload["telegramId"], 42)
-        notification_service.notify_account_merged.assert_awaited_once_with(
-            primary_user_id=42,
-            removed_user_id=-100,
-            email="linked@example.com",
-            telegram_id=42,
-            username="alice",
-            first_name="Alice",
-            final_end_date_text="",
-            primary_panel_user_uuid="panel-telegram",
-            removed_panel_user_uuid="panel-email",
-        )
         self.assertIn("rw_webapp_session", response.cookies)

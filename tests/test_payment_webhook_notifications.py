@@ -21,23 +21,11 @@ class _I18n:
 
 
 class PaymentWebhookNotificationTests(IsolatedAsyncioTestCase):
-    async def test_failed_payment_notification_loads_user_explicitly(self):
-        user = SimpleNamespace(user_id=42, language_code="ru", email="u@example.test")
+    async def test_failed_payment_notification_emits_cancel_event(self):
         bot = SimpleNamespace(send_message=AsyncMock())
         settings = SimpleNamespace(DEFAULT_LANGUAGE="en", SUBSCRIPTION_MINI_APP_URL="")
 
-        with (
-            patch.object(
-                webhooks.user_dal,
-                "get_user_by_id",
-                AsyncMock(return_value=user),
-            ) as get_user,
-            patch.object(
-                webhooks,
-                "send_user_notification_email",
-                AsyncMock(),
-            ) as send_email,
-        ):
+        with patch.object(webhooks.events, "emit", AsyncMock()) as emit_event:
             await webhooks.notify_user_payment_failed(
                 bot=bot,
                 settings=settings,
@@ -46,9 +34,18 @@ class PaymentWebhookNotificationTests(IsolatedAsyncioTestCase):
                 payment=_PaymentWithLazyUser(),
             )
 
-        get_user.assert_awaited_once()
-        bot.send_message.assert_awaited_once_with(42, "payment_failed")
-        send_email.assert_awaited_once()
+        bot.send_message.assert_not_called()
+        emit_event.assert_awaited_once_with(
+            "payment.canceled",
+            {
+                "user_id": 42,
+                "payment_db_id": 12,
+                "provider": None,
+                "provider_payment_id": None,
+                "status": None,
+                "message_key": "payment_failed",
+            },
+        )
 
     async def test_finalize_failure_marks_payment_retryable(self):
         session = AsyncMock()

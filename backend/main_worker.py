@@ -14,6 +14,7 @@ import db.database_setup as database_setup
 from app_logging import configure_logging
 from bot.app.factories.build_services import build_core_services
 from bot.handlers.admin.sync_admin import perform_sync
+from bot.infra import events
 from bot.infra.redis import close_redis, redis_lock
 from bot.infra.webhook_queue import pop_webhook_event, webhook_queue_depth
 from bot.middlewares.i18n import get_i18n_instance
@@ -34,6 +35,7 @@ from bot.plugins import (
     run_setup,
 )
 from bot.services.backup_worker import BackupWorker
+from bot.services.event_reactions import register_core_reactions
 from bot.services.locale_override_service import load_locale_overrides
 from bot.services.subscription_notification_worker import SubscriptionNotificationWorker
 from bot.services.tariff_worker import TariffTrafficWorker
@@ -67,6 +69,7 @@ async def _build_worker_context(settings) -> PluginContext:
         services=services,
     )
     run_setup(ctx)
+    register_core_reactions(ctx)
     return ctx
 
 
@@ -75,7 +78,7 @@ async def _handle_yookassa_event(ctx: PluginContext, payload: Dict[str, Any]) ->
     async with payment_processing_lock:
         async with ctx.session_factory() as session:
             if payload.get("event") == YOOKASSA_EVENT_PAYMENT_SUCCEEDED:
-                await process_successful_payment(
+                event_payload = await process_successful_payment(
                     session,
                     ctx.bot,
                     payment_payload,
@@ -86,15 +89,20 @@ async def _handle_yookassa_event(ctx: PluginContext, payload: Dict[str, Any]) ->
                     ctx.services["referral_service"],
                     ctx.services.get("lknpd_service"),
                 )
+                await session.commit()
+                if event_payload:
+                    await events.emit(events.PAYMENT_SUCCEEDED, event_payload)
             elif payload.get("event") == YOOKASSA_EVENT_PAYMENT_CANCELED:
-                await process_cancelled_payment(
+                event_payload = await process_cancelled_payment(
                     session,
                     ctx.bot,
                     payment_payload,
                     ctx.i18n,
                     ctx.settings,
                 )
-            await session.commit()
+                await session.commit()
+                if event_payload:
+                    await events.emit(events.PAYMENT_CANCELED, event_payload)
 
 
 async def _handle_panel_event(ctx: PluginContext, payload: Dict[str, Any]) -> None:

@@ -155,9 +155,8 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
                 AsyncMock(return_value=SimpleNamespace(public_share_url=None)),
             ),
             patch.object(yookassa, "send_success_message_to_user", AsyncMock()) as send_success,
-            patch.object(yookassa, "notify_admins_payment_received", AsyncMock()),
         ):
-            await yookassa.process_successful_payment(
+            event_payload = await yookassa.process_successful_payment(
                 AsyncMock(),
                 AsyncMock(),
                 payment_info,
@@ -175,6 +174,11 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
         assert activation_kwargs["traffic_gb"] is None
         update_status.assert_awaited_once()
         send_success.assert_awaited_once()
+        assert event_payload["user_id"] == 42
+        assert event_payload["payment_db_id"] == 5
+        assert event_payload["notification_provider"] == "yookassa"
+        assert event_payload["sale_mode"] == "hwid_devices@standard"
+        assert event_payload["tariff_key"] == "standard"
 
     async def test_auto_renew_hwid_metadata_is_persisted_for_activation(self):
         valid_from = datetime(2099, 2, 1, tzinfo=timezone.utc)
@@ -256,9 +260,8 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
                 AsyncMock(return_value=("link", "https://example.test/sub")),
             ),
             patch.object(yookassa, "send_success_message_to_user", AsyncMock()) as send_success,
-            patch.object(yookassa, "notify_admins_payment_received", AsyncMock()),
         ):
-            await yookassa.process_successful_payment(
+            event_payload = await yookassa.process_successful_payment(
                 AsyncMock(),
                 AsyncMock(),
                 payment_info,
@@ -282,3 +285,9 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
         activation_kwargs = subscription_service.activate_subscription.await_args.kwargs
         assert activation_kwargs["sale_mode"] == "subscription@standard"
         send_success.assert_awaited_once()
+        assert event_payload["user_id"] == 42
+        assert event_payload["payment_db_id"] == 5
+        assert event_payload["notification_provider"] == "yookassa"
+        assert event_payload["sale_mode"] == "subscription@standard"
+        assert event_payload["tariff_key"] == "standard"
+        assert event_payload["is_auto_renew"] is True

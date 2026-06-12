@@ -722,8 +722,9 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
             ),
             patch(
                 "bot.payment_providers.yookassa.process_successful_payment",
-                AsyncMock(),
+                AsyncMock(return_value={"user_id": 1001, "payment_db_id": 42}),
             ) as process_success,
+            patch.object(billing_module.events, "emit", AsyncMock()) as emit_event,
         ):
             result = await billing_module._refresh_yookassa_payment_status(
                 request,
@@ -734,6 +735,10 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
         self.assertIs(result, refreshed_payment)
         session.commit.assert_awaited_once()
         process_success.assert_awaited_once()
+        emit_event.assert_awaited_once_with(
+            "payment.succeeded",
+            {"user_id": 1001, "payment_db_id": 42},
+        )
         provider_payload = process_success.await_args.args[2]
         self.assertEqual(provider_payload["amount"], {"value": "100.0", "currency": "RUB"})
 
@@ -786,7 +791,7 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
             False,
         )
 
-    async def test_payment_status_invalidates_profile_cache_for_succeeded_payment(self):
+    async def test_payment_status_returns_succeeded_payment_without_direct_cache_invalidation(self):
         settings = SimpleNamespace()
         payment = SimpleNamespace(payment_id=42, user_id=1001, status="succeeded")
         request = SimpleNamespace(
@@ -806,15 +811,9 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
                 "_refresh_yookassa_payment_status",
                 AsyncMock(return_value=payment),
             ),
-            patch.object(
-                billing_module,
-                "invalidate_webapp_user_caches",
-                AsyncMock(),
-            ) as invalidate_cache,
         ):
             response = await billing_module.payment_status_route(request)
 
-        invalidate_cache.assert_awaited_once_with(settings, 1001, include_devices=True)
         self.assertEqual(response.status, 200)
 
     async def test_wata_pending_payment_refresh_delegates_to_provider_service(self):

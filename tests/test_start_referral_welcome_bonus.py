@@ -58,10 +58,6 @@ class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
                 "bot.handlers.user.start.send_main_menu",
                 AsyncMock(),
             ),
-            patch(
-                "bot.services.notification_service.NotificationService",
-                return_value=SimpleNamespace(notify_new_user_registration=AsyncMock()),
-            ),
         ):
             await start_command_handler(
                 message=message,

@@ -79,7 +79,7 @@
   export let appFaviconUrl = "";
   export let appFaviconUseCustom = false;
   export let appVersion = "dev+local";
-  export let appRepositoryUrl = "https://github.com/3252a8/remnawave-minishop";
+  export let appRepositoryUrl = "https://minishop.minidoc.cc/";
   export let currentLang = "ru";
   export let languageOptions = [];
   export let languageBusy = false;
@@ -672,7 +672,7 @@
         href={appRepositoryUrl}
         target="_blank"
         rel="noopener noreferrer"
-        title="GitHub"
+        title="Documentation"
       >
         <span>remnawave-minishop</span>
         <span>{appVersion || "dev+local"}</span>

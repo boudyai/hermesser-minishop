@@ -363,6 +363,7 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
                     current_user_id=current_user_id,
                     telegram_user=telegram_user,
                     settings=settings,
+                    merge_reason="telegram_link",
                 )
                 if int(db_user.user_id) != current_user_id:
                     link_final_panel_uuid = db_user.panel_user_uuid
@@ -429,15 +430,6 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
             source_panel_uuid=link_source_panel_uuid,
             final_panel_uuid=link_final_panel_uuid,
             expire_at=merge_end_date,
-        )
-        await _notify_account_merged(
-            request,
-            settings,
-            merge_notice=link_merge_notice,
-            email=linked_user_for_panel.email,
-            telegram_id=_telegram_id_for_user(linked_user_for_panel),
-            username=linked_user_for_panel.username,
-            first_name=linked_user_for_panel.first_name,
         )
 
     if final_user_id:
@@ -686,7 +678,6 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
     email_service: EmailAuthService = request.app["email_auth_service"]
     async_session_factory: sessionmaker = request.app["async_session_factory"]
     created_user = False
-    new_user_referrer_id: Optional[int] = None
 
     async with async_session_factory() as session:
         try:
@@ -726,7 +717,6 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
                     referred_by_id=referred_by_id,
                 )
                 created_user = True
-                new_user_referrer_id = referred_by_id
             elif not db_user.email_verified_at:
                 db_user.email_verified_at = datetime.now(timezone.utc)
 
@@ -755,23 +745,6 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
             return _json_error(500, "auth_failed", "Auth failed")
 
     await _invalidate_webapp_user_caches(settings, int(db_user.user_id), include_devices=True)
-    if created_user:
-        try:
-            from bot.services.notification_service import NotificationService
-
-            bot: Bot = request.app["bot"]
-            notification_service = NotificationService(
-                bot,
-                settings,
-                request.app.get("i18n"),
-            )
-            await notification_service.notify_new_email_user_registration(
-                user_id=int(db_user.user_id),
-                email=email,
-                referred_by_id=new_user_referrer_id,
-            )
-        except Exception:
-            logger.exception("Failed to send new email user notification")
 
     token = create_webapp_session_token(settings, int(db_user.user_id))
     return _build_webapp_auth_response(
@@ -796,7 +769,6 @@ async def email_auth_magic_route(request: web.Request) -> web.Response:
     email_service: EmailAuthService = request.app["email_auth_service"]
     async_session_factory: sessionmaker = request.app["async_session_factory"]
     created_user = False
-    new_user_referrer_id: Optional[int] = None
     verified_email: Optional[str] = None
 
     async with async_session_factory() as session:
@@ -835,7 +807,6 @@ async def email_auth_magic_route(request: web.Request) -> web.Response:
                     referred_by_id=referred_by_id,
                 )
                 created_user = True
-                new_user_referrer_id = referred_by_id
             elif not db_user.email_verified_at:
                 db_user.email_verified_at = datetime.now(timezone.utc)
 
@@ -864,23 +835,6 @@ async def email_auth_magic_route(request: web.Request) -> web.Response:
             return _json_error(500, "auth_failed", "Auth failed")
 
     await _invalidate_webapp_user_caches(settings, int(db_user.user_id), include_devices=True)
-    if created_user and verified_email:
-        try:
-            from bot.services.notification_service import NotificationService
-
-            bot: Bot = request.app["bot"]
-            notification_service = NotificationService(
-                bot,
-                settings,
-                request.app.get("i18n"),
-            )
-            await notification_service.notify_new_email_user_registration(
-                user_id=int(db_user.user_id),
-                email=verified_email,
-                referred_by_id=new_user_referrer_id,
-            )
-        except Exception:
-            logger.exception("Failed to send new email user notification")
 
     session_token = create_webapp_session_token(settings, int(db_user.user_id))
     return _build_webapp_auth_response(
@@ -1211,42 +1165,6 @@ async def _build_account_merge_notice(
     }
 
 
-async def _notify_account_merged(
-    request: web.Request,
-    settings: Settings,
-    *,
-    merge_notice: Optional[Dict[str, Any]],
-    email: Optional[str],
-    telegram_id: Optional[int],
-    username: Optional[str],
-    first_name: Optional[str],
-) -> None:
-    if not merge_notice:
-        return
-    try:
-        from bot.services.notification_service import NotificationService
-
-        bot: Bot = request.app["bot"]
-        notification_service = NotificationService(
-            bot,
-            settings,
-            request.app.get("i18n"),
-        )
-        await notification_service.notify_account_merged(
-            primary_user_id=int(merge_notice.get("primary_user_id") or 0),
-            removed_user_id=int(merge_notice.get("removed_user_id") or 0),
-            email=email,
-            telegram_id=telegram_id,
-            username=username,
-            first_name=first_name,
-            final_end_date_text=str(merge_notice.get("final_end_date_text") or ""),
-            primary_panel_user_uuid=merge_notice.get("primary_panel_user_uuid"),
-            removed_panel_user_uuid=merge_notice.get("removed_panel_user_uuid"),
-        )
-    except Exception:
-        logger.exception("Failed to send account merged notification")
-
-
 def _apply_telegram_profile_to_user(
     user: User,
     telegram_user: Dict[str, Any],
@@ -1273,6 +1191,8 @@ async def _link_telegram_to_user(
     current_user_id: int,
     telegram_user: Dict[str, Any],
     settings: Settings,
+    merge_reason: str = "telegram_link",
+    merge_send_user_email: bool = False,
 ) -> User:
     telegram_id = int(telegram_user["id"])
     current_user = await user_dal.get_user_by_id(session, current_user_id)
@@ -1294,6 +1214,8 @@ async def _link_telegram_to_user(
             session,
             source_user_id=current_user.user_id,
             target_user_id=existing_telegram_user.user_id,
+            reason=merge_reason,
+            send_user_email=merge_send_user_email,
         )
         _apply_telegram_profile_to_user(merged_user, telegram_user, settings)
         await session.flush()
@@ -1326,6 +1248,8 @@ async def _link_telegram_to_user(
             session,
             source_user_id=current_user.user_id,
             target_user_id=target_user.user_id,
+            reason=merge_reason,
+            send_user_email=merge_send_user_email,
         )
         _apply_telegram_profile_to_user(merged_user, telegram_user, settings)
         await session.flush()

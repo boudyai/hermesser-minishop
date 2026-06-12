@@ -355,7 +355,7 @@ export const DEV_MOCK = {
     telegramOAuthClientId: 1234567890,
     telegramOAuthRequestAccess: ["write"],
     appVersion: "dev+local",
-    appRepositoryUrl: "https://github.com/3252a8/remnawave-minishop",
+    appRepositoryUrl: "https://minishop.minidoc.cc/",
     themesCatalog: {
       default_theme: "dark",
       themes: [

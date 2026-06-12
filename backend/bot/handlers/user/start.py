@@ -719,19 +719,6 @@ async def start_command_handler(
                             exc_info=True,
                         )
 
-                # Send notification about new user registration
-                try:
-                    from bot.services.notification_service import NotificationService
-
-                    notification_service = NotificationService(message.bot, settings, i18n)
-                    await notification_service.notify_new_user_registration(
-                        user_id=user_id,
-                        username=sanitized_username,
-                        first_name=sanitized_first_name,
-                        referred_by_id=referred_by_user_id,
-                    )
-                except Exception as e:
-                    logging.error(f"Failed to send new user notification: {e}")
         except Exception as e_create:
             logging.error(f"Failed to add new user {user_id} to session: {e_create}", exc_info=True)
             await message.answer(_("error_occurred_processing_request"))

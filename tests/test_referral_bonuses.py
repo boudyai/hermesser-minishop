@@ -116,12 +116,14 @@ class SkipPathTests(unittest.IsolatedAsyncioTestCase):
         subscription_service = AsyncMock()
         subscription_service.has_active_subscription = AsyncMock(return_value=True)
         service, _bot = _make_service(settings=settings, subscription_service=subscription_service)
-        with patch(
-            "bot.services.referral_service.user_dal.get_user_by_id",
-            AsyncMock(
-                side_effect=lambda session, uid: (
-                    _make_user(uid, referred_by_id=1) if uid == 42 else _make_user(uid)
-                )
+        with (
+            patch(
+                "bot.services.referral_service.user_dal.get_user_by_id",
+                AsyncMock(
+                    side_effect=lambda session, uid: (
+                        _make_user(uid, referred_by_id=1) if uid == 42 else _make_user(uid)
+                    )
+                ),
             ),
         ):
             result = await service.apply_referral_bonuses_for_payment(
@@ -153,13 +155,16 @@ class InviterBonusTests(unittest.IsolatedAsyncioTestCase):
         subscription_service.extend_active_subscription_days = AsyncMock(return_value=new_end)
         service, bot = _make_service(settings=settings, subscription_service=subscription_service)
 
-        with patch(
-            "bot.services.referral_service.user_dal.get_user_by_id",
-            AsyncMock(
-                side_effect=lambda session, uid: (
-                    _make_user(uid, referred_by_id=1) if uid == 42 else _make_user(uid)
-                )
+        with (
+            patch(
+                "bot.services.referral_service.user_dal.get_user_by_id",
+                AsyncMock(
+                    side_effect=lambda session, uid: (
+                        _make_user(uid, referred_by_id=1) if uid == 42 else _make_user(uid)
+                    )
+                ),
             ),
+            patch("bot.services.referral_service.events.emit", AsyncMock()) as emit_event,
         ):
             result = await service.apply_referral_bonuses_for_payment(
                 session=AsyncMock(),
@@ -176,7 +181,14 @@ class InviterBonusTests(unittest.IsolatedAsyncioTestCase):
             bonus_days=7,
             reason=unittest.mock.ANY,
         )
-        bot.send_message.assert_any_await(1, unittest.mock.ANY)
+        bot.send_message.assert_not_awaited()
+        emit_event.assert_awaited_once()
+        event_name, payload = emit_event.await_args.args
+        self.assertEqual(event_name, "referral.bonus_granted")
+        self.assertEqual(payload["inviter_user_id"], 1)
+        self.assertEqual(payload["inviter_bonus_days"], 7)
+        self.assertEqual(payload["inviter_bonus_end_date"], new_end.isoformat())
+        self.assertEqual(payload["inviter_bonus_kind"], "extended")
 
     async def test_creates_new_bonus_sub_when_inviter_has_no_active_sub(self):
         settings = _make_settings(REFERRAL_ONE_BONUS_PER_REFEREE=False)

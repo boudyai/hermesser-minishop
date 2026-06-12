@@ -92,11 +92,6 @@ class WebAppTrialActivationTests(IsolatedAsyncioTestCase):
                 "create_message_log_no_commit",
                 AsyncMock(),
             ) as create_log,
-            patch.object(
-                billing_module,
-                "invalidate_webapp_user_caches",
-                AsyncMock(),
-            ),
             patch("db.dal.ad_dal.mark_trial_activated", AsyncMock()) as mark_trial_activated,
         ):
             response = await billing_module.activate_trial_route(request)

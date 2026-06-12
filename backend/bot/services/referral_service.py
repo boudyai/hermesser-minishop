@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra import events
 from bot.middlewares.i18n import JsonI18n
-from bot.services.user_email_notifications import send_user_notification_email
 from config.settings import Settings
 from db.dal import payment_dal, subscription_dal, user_dal
 
@@ -41,6 +40,8 @@ class ReferralService:
         referee_final_end_date: Optional[datetime] = None
         referee_bonus_applied_days: Optional[int] = None
         inviter_bonus_successfully_applied = False
+        inviter_bonus_end_date: Optional[datetime] = None
+        inviter_bonus_kind: Optional[str] = None
 
         try:
             referee_user_model = await user_dal.get_user_by_id(session, referee_user_id)
@@ -134,46 +135,11 @@ class ReferralService:
 
                         if new_end_date_inviter:
                             inviter_bonus_successfully_applied = True
+                            inviter_bonus_end_date = new_end_date_inviter
+                            inviter_bonus_kind = "extended"
                             logging.info(
                                 f"Bonus of {inviter_bonus_days} days successfully applied/extended for inviter {inviter_user_id}."  # noqa: E501
                             )
-
-                            try:
-                                inviter_lang = (
-                                    inviter_user_model.language_code or default_lang_for_placeholder
-                                )
-                                _i = lambda k, **kw: self.i18n.gettext(inviter_lang, k, **kw)
-                                message_text = _i(
-                                    "referral_bonus_inviter_notification_extended",
-                                    days=inviter_bonus_days,
-                                    referee_name=referee_name_for_msg,
-                                    new_end_date=new_end_date_inviter.strftime("%Y-%m-%d"),
-                                )
-                                try:
-                                    await self.bot.send_message(inviter_user_id, message_text)
-                                except Exception as e_notify_inviter:
-                                    logging.error(
-                                        f"Failed to send bonus notification to inviter {inviter_user_id}: {e_notify_inviter}"  # noqa: E501
-                                    )
-                                await send_user_notification_email(
-                                    settings=self.settings,
-                                    i18n=self.i18n,
-                                    user=inviter_user_model,
-                                    subject_key="email_referral_bonus_subject",
-                                    message_text=message_text,
-                                    dashboard_url=(
-                                        getattr(
-                                            self.settings,
-                                            "SUBSCRIPTION_MINI_APP_URL",
-                                            "",
-                                        )
-                                        or None
-                                    ),
-                                )
-                            except Exception as e_notify_inviter:
-                                logging.error(
-                                    f"Failed to prepare bonus notification for inviter {inviter_user_id}: {e_notify_inviter}"  # noqa: E501
-                                )
                         else:
                             logging.info(
                                 f"Inviter {inviter_user_id} has no active sub to extend. Creating new bonus subscription for {inviter_bonus_days} days."  # noqa: E501
@@ -221,46 +187,10 @@ class ReferralService:
                                     )
                                     if panel_update_success:
                                         inviter_bonus_successfully_applied = True
+                                        inviter_bonus_end_date = bonus_end_date
+                                        inviter_bonus_kind = "new_sub"
                                         logging.info(
                                             f"New bonus subscription for {inviter_bonus_days} days created for inviter {inviter_user_id}."  # noqa: E501
-                                        )
-
-                                        inviter_lang = (
-                                            inviter_user_model.language_code
-                                            or default_lang_for_placeholder
-                                        )
-                                        _i = lambda k, **kw: self.i18n.gettext(
-                                            inviter_lang, k, **kw
-                                        )
-                                        message_text = _i(
-                                            "referral_bonus_inviter_notification_new_sub",
-                                            days=inviter_bonus_days,
-                                            referee_name=referee_name_for_msg,
-                                            new_end_date=bonus_end_date.strftime("%Y-%m-%d"),
-                                        )
-                                        try:
-                                            await self.bot.send_message(
-                                                inviter_user_id,
-                                                message_text,
-                                            )
-                                        except Exception as e_notify_inviter:
-                                            logging.error(
-                                                f"Failed to send bonus notification to inviter {inviter_user_id}: {e_notify_inviter}"  # noqa: E501
-                                            )
-                                        await send_user_notification_email(
-                                            settings=self.settings,
-                                            i18n=self.i18n,
-                                            user=inviter_user_model,
-                                            subject_key="email_referral_bonus_subject",
-                                            message_text=message_text,
-                                            dashboard_url=(
-                                                getattr(
-                                                    self.settings,
-                                                    "SUBSCRIPTION_MINI_APP_URL",
-                                                    "",
-                                                )
-                                                or None
-                                            ),
                                         )
                                     else:
                                         logging.warning(
@@ -301,6 +231,15 @@ class ReferralService:
                         "referee_bonus_days": referee_bonus_applied_days,
                         "referee_new_end_date": events.iso(referee_final_end_date),
                         "inviter_bonus_applied": inviter_bonus_successfully_applied,
+                        "inviter_user_id": (
+                            inviter_user_id if inviter_bonus_successfully_applied else None
+                        ),
+                        "inviter_bonus_days": (
+                            inviter_bonus_days if inviter_bonus_successfully_applied else None
+                        ),
+                        "inviter_bonus_end_date": events.iso(inviter_bonus_end_date),
+                        "inviter_bonus_kind": inviter_bonus_kind,
+                        "referee_name": referee_name_for_msg,
                         "payment_db_id": current_payment_db_id,
                         "reason": "payment",
                     },

@@ -69,7 +69,6 @@ from .shared import (
     is_traffic_sale_base,
     make_translator,
     mark_payment_failed_creation,
-    notify_admins_payment_received,
     parse_positive_int_units,
     payment_failed,
     payment_link_response,
@@ -815,21 +814,26 @@ async def process_successful_payment(
             )
             raise Exception(f"DB Error: Could not update payment record {payment_db_id}")
 
-        await events.emit(
-            events.PAYMENT_SUCCEEDED,
-            {
-                "user_id": user_id,
-                "payment_db_id": payment_db_id,
-                "provider": "yookassa",
-                "amount": payment_value,
-                "currency": str(amount_data.get("currency") or "RUB"),
-                "sale_mode": sale_mode,
-                "months": months_for_activation if sale_mode_base == "subscription" else None,
-                "traffic_gb": traffic_gb_for_activation,
-                "end_date": events.iso(activation_details.get("end_date")),
-                "is_auto_renew": is_auto_renew,
-            },
+        tariff_key_for_event = (
+            getattr(updated_payment_record, "tariff_key", None)
+            or getattr(payment_before_update, "tariff_key", None)
+            or getattr(payment_record, "tariff_key", None)
+            or _sale_mode_tariff_key(sale_mode)
         )
+        payment_succeeded_payload = {
+            "user_id": user_id,
+            "payment_db_id": payment_db_id,
+            "provider": "yookassa",
+            "notification_provider": "yookassa",
+            "amount": payment_value,
+            "currency": str(amount_data.get("currency") or "RUB"),
+            "sale_mode": sale_mode,
+            "tariff_key": tariff_key_for_event,
+            "months": months_for_activation if sale_mode_base == "subscription" else None,
+            "traffic_gb": traffic_gb_for_activation,
+            "end_date": events.iso(activation_details.get("end_date")),
+            "is_auto_renew": is_auto_renew,
+        }
         if sale_mode_base == "subscription":
             await events.emit(
                 events.SUBSCRIPTION_EXTENDED
@@ -978,33 +982,7 @@ async def process_successful_payment(
             log_prefix="YooKassa webhook",
         )
 
-        tariff_for_log = None
-        for source in (payment_before_update, updated_payment_record, payment_record):
-            if source is not None and getattr(source, "tariff_key", None):
-                tariff_for_log = source.tariff_key
-                break
-        user_for_notify = db_user or await user_dal.get_user_by_id(session, user_id)
-        await notify_admins_payment_received(
-            bot=bot,
-            settings=settings,
-            i18n=i18n,
-            user_id=user_id,
-            amount=payment_value,
-            currency=amount_data.get(
-                "currency",
-                default_payment_currency_code_for_settings(settings),
-            ),
-            months_for_admin=int(subscription_months) if sale_mode_base == "subscription" else 0,
-            traffic_gb_for_admin=(
-                traffic_amount_gb if is_traffic_sale_base(sale_mode_base) else None
-            ),
-            payment_provider="yookassa",
-            username=user_for_notify.username if user_for_notify else None,
-            email=getattr(user_for_notify, "email", None) if user_for_notify else None,
-            traffic_is_premium=sale_mode_base == "premium_topup",
-            tariff_key=tariff_for_log,
-            log_prefix="YooKassa webhook",
-        )
+        return payment_succeeded_payload
 
     except Exception as e_process:
         logging.error(
@@ -1051,40 +1029,16 @@ async def process_cancelled_payment(
             logging.info(
                 f"Payment {payment_db_id} (YK: {payment_info_from_webhook.get('id')}) status updated to cancelled for user {user_id}."  # noqa: E501
             )
-            await events.emit(
-                events.PAYMENT_CANCELED,
-                {
-                    "user_id": user_id,
-                    "payment_db_id": payment_db_id,
-                    "provider": "yookassa",
-                    "provider_payment_id": payment_info_from_webhook.get("id"),
-                    "status": payment_info_from_webhook.get("status", "canceled"),
-                },
-            )
+            return {
+                "user_id": user_id,
+                "payment_db_id": payment_db_id,
+                "provider": "yookassa",
+                "provider_payment_id": payment_info_from_webhook.get("id"),
+                "status": payment_info_from_webhook.get("status", "canceled"),
+            }
         else:
             logging.warning(
                 f"Could not find payment record {payment_db_id} to update status to cancelled for user {user_id}."  # noqa: E501
-            )
-
-        db_user = await user_dal.get_user_by_id(session, user_id)
-        user_lang = settings.DEFAULT_LANGUAGE
-        if db_user and db_user.language_code:
-            user_lang = db_user.language_code
-
-        _ = lambda key, **kwargs: i18n.gettext(user_lang, key, **kwargs)
-        message_text = _("payment_failed")
-        try:
-            await bot.send_message(user_id, message_text)
-        except Exception:
-            logging.exception("Failed to notify YooKassa user %s about cancelled payment.", user_id)
-        if db_user:
-            await send_user_notification_email(
-                settings=settings,
-                i18n=i18n,
-                user=db_user,
-                subject_key="email_payment_failed_subject",
-                message_text=message_text,
-                dashboard_url=(settings.SUBSCRIPTION_MINI_APP_URL or None),
             )
 
     except Exception as e_process_cancel:
@@ -1219,7 +1173,7 @@ async def yookassa_webhook_route(request: web.Request):
                             payment_dict_for_processing.get("paid")
                             and payment_dict_for_processing.get("status") == "succeeded"
                         ):
-                            await process_successful_payment(
+                            event_payload = await process_successful_payment(
                                 session,
                                 bot,
                                 payment_dict_for_processing,
@@ -1231,6 +1185,8 @@ async def yookassa_webhook_route(request: web.Request):
                                 lknpd_service,
                             )
                             await session.commit()
+                            if event_payload:
+                                await events.emit(events.PAYMENT_SUCCEEDED, event_payload)
                         else:
                             logging.warning(
                                 f"Payment Succeeded event for {payment_dict_for_processing.get('id')} "  # noqa: E501
@@ -1238,10 +1194,12 @@ async def yookassa_webhook_route(request: web.Request):
                                 f"paid='{payment_dict_for_processing.get('paid')}'"
                             )
                     elif notification_object.event == YOOKASSA_EVENT_PAYMENT_CANCELED:
-                        await process_cancelled_payment(
+                        event_payload = await process_cancelled_payment(
                             session, bot, payment_dict_for_processing, i18n_instance, settings
                         )
                         await session.commit()
+                        if event_payload:
+                            await events.emit(events.PAYMENT_CANCELED, event_payload)
                     elif notification_object.event == YOOKASSA_EVENT_PAYMENT_WAITING_FOR_CAPTURE:
                         # Bind-only flow: save method and cancel auth if metadata has bind_only
                         metadata = payment_dict_for_processing.get("metadata", {}) or {}

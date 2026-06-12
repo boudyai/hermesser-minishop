@@ -601,6 +601,7 @@ async def _bind_panel_email_to_user(
                     session,
                     source_user_id=user_with_email.user_id,
                     target_user_id=existing_user.user_id,
+                    reason="panel_sync",
                 )
                 if not merged_user.email:
                     merged_user.email = email_from_panel
@@ -660,6 +661,7 @@ async def _merge_local_duplicate_panel_user_if_needed(
             session,
             source_user_id=duplicate_local_user.user_id,
             target_user_id=existing_user.user_id,
+            reason="panel_sync",
         )
         logging.info(
             "Sync: merged local duplicate user %s into %s for duplicate panel UUID %s.",
