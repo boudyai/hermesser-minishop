@@ -177,6 +177,7 @@ class BuildServicesWiringTests(unittest.TestCase):
             "heleket_service",
             "paykilla_service",
             "lava_service",
+            "cloudpayments_service",
         }
         self.assertEqual(set(services), expected_keys)
 

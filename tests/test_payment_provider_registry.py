@@ -67,6 +67,7 @@ _PROVIDER_MODULES = {
     "heleket": "HeleketService",
     "paykilla": "PaykillaService",
     "lava": "LavaService",
+    "cloudpayments": "CloudPaymentsService",
 }
 
 
@@ -130,6 +131,7 @@ def test_service_keys_and_statuses_come_from_provider_specs():
         "heleket_service",
         "paykilla_service",
         "lava_service",
+        "cloudpayments_service",
     }
     assert set(pending_statuses()) >= {
         "pending",
@@ -143,6 +145,7 @@ def test_service_keys_and_statuses_come_from_provider_specs():
         "pending_heleket",
         "pending_paykilla",
         "pending_lava",
+        "pending_cloudpayments",
     }
 
 
