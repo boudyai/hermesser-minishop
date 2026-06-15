@@ -64,6 +64,43 @@ class SubscriptionLifecycleMixin:
         return str(value)
 
     @staticmethod
+    def _panel_update_confirms_expiry(
+        panel_update_result: Optional[Dict[str, Any]],
+        expected_expire_at: datetime,
+    ) -> bool:
+        if not panel_update_result:
+            return False
+        if not isinstance(panel_update_result, dict):
+            return True
+        if panel_update_result.get("error"):
+            return False
+        raw_expire_at = panel_update_result.get("expireAt")
+        if not raw_expire_at:
+            return True
+        try:
+            panel_expire_at = datetime.fromisoformat(
+                str(raw_expire_at).replace("Z", "+00:00")
+            )
+        except (TypeError, ValueError):
+            logging.warning(
+                "Panel update returned unparsable expireAt=%r for expected expiry %s.",
+                raw_expire_at,
+                expected_expire_at.isoformat(),
+            )
+            return False
+        expected = (
+            expected_expire_at
+            if expected_expire_at.tzinfo
+            else expected_expire_at.replace(tzinfo=timezone.utc)
+        )
+        actual = (
+            panel_expire_at
+            if panel_expire_at.tzinfo
+            else panel_expire_at.replace(tzinfo=timezone.utc)
+        )
+        return abs((actual - expected).total_seconds()) <= 1
+
+    @staticmethod
     def _device_topup_renewal_available(
         extra_hwid_devices: int,
         extra_hwid_valid_until: Optional[Any],
@@ -824,6 +861,8 @@ class SubscriptionLifecycleMixin:
         active_sub = await subscription_dal.get_active_subscription_by_user_id(
             session, user_id, panel_uuid
         )
+        rollback_payload: Optional[Dict[str, Any]] = None
+        hwid_extension_context: Optional[Tuple[int, datetime, datetime]] = None
         requested_tariff = None
         if tariff_key and self._tariffs_config():
             try:
@@ -902,30 +941,32 @@ class SubscriptionLifecycleMixin:
             updated_sub_model = await subscription_dal.upsert_subscription(
                 session, bonus_sub_payload
             )
+            rollback_payload = {
+                "is_active": False,
+                "status_from_panel": "PANEL_UPDATE_FAILED",
+                "last_notification_sent": None,
+            }
         else:
             current_end_date = active_sub.end_date
             now_utc = datetime.now(timezone.utc)
             start_point_for_bonus = current_end_date if current_end_date > now_utc else now_utc
             new_end_date_obj = start_point_for_bonus + timedelta(days=bonus_days)
+            rollback_payload = {
+                "end_date": current_end_date,
+                "last_notification_sent": getattr(active_sub, "last_notification_sent", None),
+                "is_active": getattr(active_sub, "is_active", True),
+                "status_from_panel": getattr(active_sub, "status_from_panel", None),
+            }
 
             updated_sub_model = await subscription_dal.update_subscription_end_date(
                 session, active_sub.subscription_id, new_end_date_obj
             )
             if updated_sub_model and extend_hwid_devices:
-                try:
-                    await tariff_dal.extend_hwid_device_purchases_for_subscription_bonus(
-                        session,
-                        subscription_id=active_sub.subscription_id,
-                        at=now_utc,
-                        subscription_end_before=current_end_date,
-                        delta=timedelta(days=bonus_days),
-                    )
-                except Exception:
-                    logging.exception(
-                        "Failed to extend HWID device purchases for %s bonus of user %s",
-                        reason,
-                        user_id,
-                    )
+                hwid_extension_context = (
+                    active_sub.subscription_id,
+                    now_utc,
+                    current_end_date,
+                )
 
             if admin_tariff and updated_sub_model:
                 try:
@@ -1069,12 +1110,49 @@ class SubscriptionLifecycleMixin:
                 panel_uuid,
                 panel_update_payload,
             )
-            if not panel_update_success:
+            if not self._panel_update_confirms_expiry(panel_update_success, new_end_date_obj):
                 logging.warning(
-                    f"Panel expiry update failed for {panel_uuid} after {reason} bonus. Local DB was updated to {new_end_date_obj}."  # noqa: E501
+                    "Panel expiry update failed for user %s panel_uuid=%s after %s bonus. "
+                    "requested_expire_at=%s panel_response=%s. Reverting local bonus update.",
+                    user_id,
+                    panel_uuid,
+                    reason,
+                    new_end_date_obj.isoformat(),
+                    panel_update_success,
                 )
+                if rollback_payload:
+                    try:
+                        await subscription_dal.update_subscription(
+                            session,
+                            updated_sub_model.subscription_id,
+                            rollback_payload,
+                        )
+                    except Exception:
+                        logging.exception(
+                            "Failed to revert local subscription update for user %s after "
+                            "panel expiry update failure.",
+                            user_id,
+                        )
                 if panel_tariff and "admin" in reason_lower:
                     return None
+                return None
+
+            if hwid_extension_context:
+                try:
+                    subscription_id, hwid_now, previous_end_date = hwid_extension_context
+                    await tariff_dal.extend_hwid_device_purchases_for_subscription_bonus(
+                        session,
+                        subscription_id=subscription_id,
+                        at=hwid_now,
+                        subscription_end_before=previous_end_date,
+                        delta=timedelta(days=bonus_days),
+                    )
+                except Exception:
+                    logging.exception(
+                        "Failed to extend HWID device purchases for %s bonus of user %s",
+                        reason,
+                        user_id,
+                    )
 
             logging.info(
                 f"Subscription for user {user_id} extended by {bonus_days} days ({reason}). New end date: {new_end_date_obj}."  # noqa: E501

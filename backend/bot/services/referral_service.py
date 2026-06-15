@@ -102,6 +102,18 @@ class ReferralService:
                 purchased_subscription_months,
                 tariff_key=tariff_key,
             )
+            logging.info(
+                "Referral bonus payment check: referee_user_id=%s inviter_user_id=%s "
+                "payment_db_id=%s months=%s tariff_key=%s inviter_bonus_days=%s "
+                "referee_bonus_days=%s",
+                referee_user_id,
+                inviter_user_id,
+                current_payment_db_id,
+                purchased_subscription_months,
+                tariff_key,
+                inviter_bonus_days,
+                referee_bonus_days,
+            )
 
             if inviter_bonus_days and inviter_bonus_days > 0:
                 if not inviter_user_model:
@@ -185,7 +197,11 @@ class ReferralService:
                                             "status": "ACTIVE",
                                         },
                                     )
-                                    if panel_update_success:
+                                    panel_update_ok = bool(panel_update_success) and not (
+                                        isinstance(panel_update_success, dict)
+                                        and panel_update_success.get("error")
+                                    )
+                                    if panel_update_ok:
                                         inviter_bonus_successfully_applied = True
                                         inviter_bonus_end_date = bonus_end_date
                                         inviter_bonus_kind = "new_sub"
@@ -196,6 +212,23 @@ class ReferralService:
                                         logging.warning(
                                             f"Failed to update panel for new bonus subscription for inviter {inviter_user_id}. Local bonus sub created (ID: {bonus_sub.subscription_id}) but may not be active on panel."  # noqa: E501
                                         )
+                                        try:
+                                            await subscription_dal.update_subscription(
+                                                session,
+                                                bonus_sub.subscription_id,
+                                                {
+                                                    "is_active": False,
+                                                    "status_from_panel": "PANEL_UPDATE_FAILED",
+                                                    "last_notification_sent": None,
+                                                },
+                                            )
+                                        except Exception:
+                                            logging.exception(
+                                                "Failed to deactivate local bonus subscription %s "
+                                                "after panel update failure for inviter %s.",
+                                                bonus_sub.subscription_id,
+                                                inviter_user_id,
+                                            )
 
                                 except Exception as e_create_bonus_sub:
                                     logging.error(

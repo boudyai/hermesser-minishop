@@ -662,6 +662,82 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn("trafficLimitBytes", payload)
             self.assertNotIn("trafficLimitStrategy", payload)
 
+    async def test_referral_extension_reverts_when_panel_keeps_old_expiry(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                _tariffs_config_payload(),
+                tmpdir,
+                USER_TRAFFIC_LIMIT_GB=999,
+            )
+            service = _make_service(settings)
+            service._get_or_create_panel_user_link_details = AsyncMock(
+                return_value=("panel-user", "short-uuid", "short", False)
+            )
+            current_end = datetime.now(timezone.utc) + timedelta(days=5)
+            service.panel_service.update_user_details_on_panel = AsyncMock(
+                return_value={
+                    "uuid": "panel-user",
+                    "expireAt": current_end.isoformat(timespec="milliseconds").replace(
+                        "+00:00", "Z"
+                    ),
+                }
+            )
+            active_sub = SimpleNamespace(
+                subscription_id=10,
+                end_date=current_end,
+                traffic_limit_bytes=100 * GIB,
+                tariff_key="standard",
+                is_active=True,
+                status_from_panel="ACTIVE",
+                last_notification_sent=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            )
+            updated_sub = SimpleNamespace(
+                **{**active_sub.__dict__, "end_date": current_end + timedelta(days=3)}
+            )
+            session = AsyncMock()
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.user_dal.get_user_by_id",
+                    AsyncMock(return_value=SimpleNamespace(user_id=42)),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=active_sub),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.update_subscription_end_date",
+                    AsyncMock(return_value=updated_sub),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.update_subscription",
+                    AsyncMock(return_value=active_sub),
+                ) as update_subscription,
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.tariff_dal.extend_hwid_device_purchases_for_subscription_bonus",
+                    AsyncMock(return_value=1),
+                ) as extend_hwid,
+            ):
+                result = await service.extend_active_subscription_days(
+                    session=session,
+                    user_id=42,
+                    bonus_days=3,
+                    reason="referral bonus from Alice",
+                )
+
+            self.assertIsNone(result)
+            update_subscription.assert_awaited_once_with(
+                session,
+                10,
+                {
+                    "end_date": current_end,
+                    "last_notification_sent": active_sub.last_notification_sent,
+                    "is_active": True,
+                    "status_from_panel": "ACTIVE",
+                },
+            )
+            extend_hwid.assert_not_awaited()
+
     async def test_admin_extension_can_skip_hwid_purchase_extension(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(
