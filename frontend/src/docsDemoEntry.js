@@ -8,7 +8,7 @@ import "./styles.css";
 
 const RUNTIME_BASE = "/demo/runtime";
 const DEFAULT_FAVICON_DIGEST = "19b2a242e5b7bc2d";
-const DEMO_HOME_LOGO_SCALE = 68;
+const DEMO_HOME_LOGO_SCALE = 70;
 
 function runtimePath(path) {
   return `${RUNTIME_BASE}/${String(path || "").replace(/^\/+/, "")}`;

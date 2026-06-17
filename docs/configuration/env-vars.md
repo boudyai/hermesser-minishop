@@ -68,6 +68,7 @@ proxy/Docker gateway и может отклонить валидный webhook. 
 | `PANEL_DEVICES_CACHE_TTL_SECONDS` | TTL кеша устройств пользователя Remnawave. |
 | `PANEL_ALL_USERS_CACHE_TTL_SECONDS` | TTL кеша полных сканов пользователей Remnawave. |
 | `PANEL_ALL_USERS_PAGE_SIZE` | Размер страницы Remnawave `/users`. |
+| `PANEL_ALL_USERS_PAGE_DELAY_SECONDS` | Пауза между страницами при полном скане `/users` (по умолчанию `0.1`). На крупных панелях (100k+ пользователей) это десятки секунд ожидания за синк; можно снизить или выставить `0`, если панель выдерживает более частые запросы. |
 | `PANEL_API_TOTAL_TIMEOUT_SECONDS` | Общий timeout запроса к Remnawave API. |
 | `PANEL_API_CONNECT_TIMEOUT_SECONDS` | Timeout получения соединения с Remnawave API. |
 | `PANEL_API_SOCK_CONNECT_TIMEOUT_SECONDS` | Timeout TCP/TLS-подключения к Remnawave API. |
@@ -167,7 +168,7 @@ proxy/Docker gateway и может отклонить валидный webhook. 
 | `SUBSCRIPTION_MINI_APP_URL` | `.env` / админка | Публичный HTTPS URL Mini App/frontend, например `https://app.domain.com/`. Используется в Telegram-кнопках, реферальных ссылках, входе по email и настройках BotFather Mini App. Не указывайте здесь `/api` или webhook-пути. |
 | `SUBSCRIPTION_GUIDES_ENABLED` | `.env` / админка | Включает встроенные инструкции установки в Web App. По умолчанию `True`; если конфиг недоступен или невалиден, кнопка подключения открывает обычную финальную ссылку подписки. |
 | `SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED` | `.env` / админка | Включает открытие Mini App `/install` из кнопок бота и показ публичной ссылки инструкции `/s/<token>`. По умолчанию `True`; если выключить, бот ведет на финальную Remnawave Subscription Page. |
-| `SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED` | `.env` / админка | Читать Remnawave Subscription Page config из панели для встроенных инструкций. По умолчанию `True`, чтобы не дублировать настройку страницы подписки в приложении. |
+| `SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED` | `.env` / админка | Читать Remnawave Subscription Page config из панели для встроенных инструкций. По умолчанию `True`; для активной подписки сначала используется resolved config по `shortUuid`, включая настройки External Squad, затем default config панели. |
 | `SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED` | `.env` / админка | Включает использование JSON из поля `SUBSCRIPTION_PAGE_CONFIG_JSON` вместо конфига панели. По умолчанию `False`. |
 | `SUBSCRIPTION_PAGE_CONFIG_PATH` | `.env` / админка | Резервный путь к локальному JSON-конфигу Remnawave Subscription Page v1, если конфиг панели выключен или недоступен. По умолчанию `data/subpage-config/multiapp.json`; файл не создается автоматически. |
 | `SUBSCRIPTION_PAGE_CONFIG_JSON` | Админка | Опциональное JSON-переопределение Remnawave Subscription Page v1. Применяется только при включенном `SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED`; backend валидирует JSON при сохранении. |
@@ -219,7 +220,7 @@ proxy/Docker gateway и может отклонить валидный webhook. 
 
 | Переменная | Назначение |
 | --- | --- |
-| `PAYMENT_METHODS_ORDER` | Порядок кнопок оплаты: `severpay,wata,freekassa,platega,yookassa,stars,cryptopay,heleket,paykilla`. |
+| `PAYMENT_METHODS_ORDER` | Порядок кнопок оплаты: `severpay,wata,freekassa,platega,yookassa,stars,cryptopay,heleket,paykilla,lava,cloudpayments,stripe`. |
 | `SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED` | Показывать описание подписки перед выбором срока. |
 | `SUBSCRIPTION_PURCHASE_DESCRIPTION_RU` / `SUBSCRIPTION_PURCHASE_DESCRIPTION_EN` | Локализованное описание подписки. |
 | `PAYMENT_REQUEST_TIMEOUT_SECONDS` | Общий таймаут одного API-запроса к платёжному провайдеру, в секундах. По умолчанию `20`. |
@@ -237,6 +238,8 @@ proxy/Docker gateway и может отклонить валидный webhook. 
 | `CRYPTOPAY_ENABLED` | Включает CryptoPay. |
 | `HELEKET_ENABLED` | Включает Heleket. |
 | `PAYKILLA_ENABLED` | Включает PayKilla. |
+| `LAVA_ENABLED` | Включает LAVA. |
+| `CLOUDPAYMENTS_ENABLED` | Включает CloudPayments. |
 
 Конкретные ключи отображения:
 
@@ -301,6 +304,24 @@ PAYMENT_PAYKILLA_WEBAPP_ICON
 PAYMENT_PAYKILLA_TELEGRAM_LABEL_RU
 PAYMENT_PAYKILLA_TELEGRAM_LABEL_EN
 PAYMENT_PAYKILLA_TELEGRAM_EMOJI
+PAYMENT_LAVA_WEBAPP_LABEL_RU
+PAYMENT_LAVA_WEBAPP_LABEL_EN
+PAYMENT_LAVA_WEBAPP_ICON
+PAYMENT_LAVA_TELEGRAM_LABEL_RU
+PAYMENT_LAVA_TELEGRAM_LABEL_EN
+PAYMENT_LAVA_TELEGRAM_EMOJI
+PAYMENT_CLOUDPAYMENTS_WEBAPP_LABEL_RU
+PAYMENT_CLOUDPAYMENTS_WEBAPP_LABEL_EN
+PAYMENT_CLOUDPAYMENTS_WEBAPP_ICON
+PAYMENT_CLOUDPAYMENTS_TELEGRAM_LABEL_RU
+PAYMENT_CLOUDPAYMENTS_TELEGRAM_LABEL_EN
+PAYMENT_CLOUDPAYMENTS_TELEGRAM_EMOJI
+PAYMENT_STRIPE_WEBAPP_LABEL_RU
+PAYMENT_STRIPE_WEBAPP_LABEL_EN
+PAYMENT_STRIPE_WEBAPP_ICON
+PAYMENT_STRIPE_TELEGRAM_LABEL_RU
+PAYMENT_STRIPE_TELEGRAM_LABEL_EN
+PAYMENT_STRIPE_TELEGRAM_EMOJI
 ```
 
 ### YooKassa
@@ -415,6 +436,59 @@ Webhook настраивается в PayKilla Dashboard: **Settings -> Webhooks
 | `PAYKILLA_VERIFY_WEBHOOK_SIGNATURE` | Проверять `X-API-SIGN` по raw body webhook. |
 | `PAYKILLA_WEBHOOK_URL` | Точный публичный webhook URL для проверки подписи, если он отличается от `WEBHOOK_BASE_URL` + `/webhook/paykilla`. |
 | `PAYKILLA_TRUSTED_IPS` | Необязательный список доверенных IP webhook-источников. |
+
+### LAVA
+
+Счета LAVA Business выставляются только в рублях. Исходящие запросы подписываются HMAC-SHA256 от raw body (заголовок `Signature`), webhook проверяется по заголовку `Authorization`.
+
+| Переменная | Назначение |
+| --- | --- |
+| `LAVA_BASE_URL` | Базовый URL API, по умолчанию `https://api.lava.ru`. |
+| `LAVA_SHOP_ID` | ID магазина в LAVA Business. |
+| `LAVA_SECRET_KEY` | Секретный ключ магазина для подписи исходящих API-запросов. |
+| `LAVA_WEBHOOK_SECRET` | Дополнительный ключ магазина для проверки подписи webhook; если пусто, используется `LAVA_SECRET_KEY`. |
+| `LAVA_RETURN_URL` | URL возврата после оплаты (`successUrl`/`failUrl`). |
+| `LAVA_LIFETIME_MINUTES` | Время жизни счета в минутах: 1..7200. |
+| `LAVA_INCLUDE_SERVICES` | Способы оплаты на странице счета через запятую, например `card,sbp`. |
+
+### CloudPayments
+
+CloudPayments принимает оплату картами через Orders API. Исходящие запросы авторизуются HTTP Basic auth (`CLOUDPAYMENTS_PUBLIC_ID`/`CLOUDPAYMENTS_API_SECRET`); уведомления Pay/Fail подписываются HMAC-SHA256 (base64) в заголовке `Content-HMAC`.
+
+| Переменная | Назначение |
+| --- | --- |
+| `CLOUDPAYMENTS_BASE_URL` | Базовый URL API, по умолчанию `https://api.cloudpayments.ru`. |
+| `CLOUDPAYMENTS_PUBLIC_ID` | Public ID из кабинета CloudPayments (логин HTTP Basic auth). |
+| `CLOUDPAYMENTS_API_SECRET` | API Secret из кабинета CloudPayments (пароль HTTP Basic auth и ключ проверки подписи). |
+| `CLOUDPAYMENTS_RETURN_URL` | URL успешного возврата после оплаты. |
+| `CLOUDPAYMENTS_FAILED_URL` | URL возврата при ошибке оплаты; если пусто, используется `CLOUDPAYMENTS_RETURN_URL`. |
+| `CLOUDPAYMENTS_RECURRING_ENABLED` | Включает списания по сохранённому CloudPayments `Token` для автопродления подписок. |
+| `CLOUDPAYMENTS_VERIFY_WEBHOOK_SIGNATURE` | Проверять заголовок `Content-HMAC` у уведомлений. |
+| `CLOUDPAYMENTS_TRUSTED_IPS` | Необязательный список доверенных IP webhook-источников. |
+
+### Stripe
+
+Stripe creates hosted Checkout Sessions and confirms app-managed auto-renewal
+with off-session PaymentIntents. Configure webhook endpoint:
+`WEBHOOK_BASE_URL` + `/webhook/stripe`.
+
+Recommended Stripe events: `checkout.session.completed`,
+`checkout.session.expired`, `payment_intent.succeeded`,
+`payment_intent.payment_failed`, `payment_intent.canceled`.
+
+| Переменная | Назначение |
+| --- | --- |
+| `STRIPE_ENABLED` | Включает Stripe. |
+| `STRIPE_SECRET_KEY` | Secret API key from Stripe Dashboard. |
+| `STRIPE_WEBHOOK_SECRET` | Endpoint signing secret (`whsec_...`) for `Stripe-Signature` verification. |
+| `STRIPE_BASE_URL` | Stripe API base URL, default `https://api.stripe.com`. |
+| `STRIPE_RETURN_URL` | Success return URL after Checkout. If empty, the bot link is used. |
+| `STRIPE_CANCEL_URL` | Cancel return URL after Checkout. If empty, `STRIPE_RETURN_URL` is used. |
+| `STRIPE_PAYMENT_METHOD_TYPES` | Comma-separated Checkout payment method types, default `card`. |
+| `STRIPE_SUPPORTED_CURRENCIES` | Optional comma-separated presentment currencies allowed in UI. Empty means no local filter. |
+| `STRIPE_RECURRING_ENABLED` | Saves Checkout payment methods for off-session auto-renewal. |
+| `STRIPE_VERIFY_WEBHOOK_SIGNATURE` | Verify `Stripe-Signature` with `STRIPE_WEBHOOK_SECRET`. |
+| `STRIPE_WEBHOOK_TOLERANCE_SECONDS` | Allowed clock skew for webhook signatures, default `300`. |
 
 ## Тарифы и legacy-цены
 

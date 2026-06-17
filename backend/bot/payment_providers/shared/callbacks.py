@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 from aiogram import types
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,6 +42,13 @@ class PaymentCallbackParts:
     @property
     def sale_base(self) -> str:
         return sale_mode_base(self.sale_mode)
+
+
+def _short_repr(value: Any, *, max_length: int = 2000) -> str:
+    text = repr(value)
+    if len(text) <= max_length:
+        return text
+    return text[: max_length - 3] + "..."
 
 
 def parse_payment_callback(callback_data: str) -> Optional[PaymentCallbackParts]:
@@ -345,6 +352,7 @@ async def render_link_or_fail(
     api_success: bool,
     payment_url: Optional[str],
     provider_payment_id: Optional[str] = None,
+    provider_response: Optional[Any] = None,
     new_status: Optional[str] = None,
     lead_text: Optional[str] = None,
     log_prefix: str,
@@ -379,5 +387,17 @@ async def render_link_or_fail(
         )
         return
 
+    logging.error(
+        "%s: payment creation failed for payment %s "
+        "(user_id=%s, api_success=%s, has_payment_url=%s, "
+        "has_provider_payment_id=%s, provider_response=%s).",
+        log_prefix,
+        getattr(payment, "payment_id", None),
+        getattr(payment, "user_id", None),
+        api_success,
+        bool(payment_url),
+        bool(provider_payment_id),
+        _short_repr(provider_response),
+    )
     await safe_mark_failed_creation(session, payment, log_prefix=log_prefix)
     await notify_payment_gateway_failure(callback, translator)

@@ -54,13 +54,9 @@ class PromoCodeServiceTests(IsolatedAsyncioTestCase):
                 AsyncMock(),
             ),
             patch(
-                "bot.services.promo_code_service.NotificationService",
-                return_value=SimpleNamespace(notify_promo_activation=AsyncMock()),
-            ),
-            patch(
-                "bot.services.promo_code_service.user_dal.get_user_by_id",
-                AsyncMock(return_value=None),
-            ),
+                "bot.services.promo_code_service.events.emit",
+                AsyncMock(),
+            ) as emit_event,
         ):
             success, result = await service.apply_promo_code(
                 session=session,
@@ -77,4 +73,13 @@ class PromoCodeServiceTests(IsolatedAsyncioTestCase):
             bonus_days=7,
             reason="promo code HELLO",
             tariff_key="standard",
+        )
+        emit_event.assert_awaited_once_with(
+            "promo_code.applied",
+            {
+                "user_id": 42,
+                "code": "HELLO",
+                "bonus_days": 7,
+                "new_end_date": end_date.isoformat(),
+            },
         )

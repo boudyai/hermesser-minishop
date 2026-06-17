@@ -44,6 +44,9 @@ reverse proxy должен прокидывать `X-Forwarded-For`, а его I
 | CryptoPay | `WEBHOOK_BASE_URL` + `/webhook/cryptopay` | Указывается в настройках Crypto Bot / CryptoPay webhook. |
 | Heleket | `WEBHOOK_BASE_URL` + `/webhook/heleket` | При необходимости включите `HELEKET_VERIFY_WEBHOOK_SIGNATURE` и `HELEKET_TRUSTED_IPS`. |
 | PayKilla | `WEBHOOK_BASE_URL` + `/webhook/paykilla` | Указывается в PayKilla Dashboard -> Settings -> Webhooks; включите события оплаты инвойсов. |
+| LAVA | `WEBHOOK_BASE_URL` + `/webhook/lava` | Передается автоматически как `hookUrl` при создании счета; можно также указать в кабинете LAVA Business. |
+| CloudPayments | `WEBHOOK_BASE_URL` + `/webhook/cloudpayments` | Укажите как адрес уведомлений Pay и Fail в кабинете CloudPayments. При IP-фильтрации заполните `CLOUDPAYMENTS_TRUSTED_IPS`. |
+| Stripe | `WEBHOOK_BASE_URL` + `/webhook/stripe` | Configure this endpoint in Stripe Dashboard and enable `checkout.session.completed`, `checkout.session.expired`, `payment_intent.succeeded`, `payment_intent.payment_failed`, `payment_intent.canceled`. |
 | Telegram Stars | Отдельный платежный webhook не нужен | Stars-события приходят через webhook Telegram-бота: `WEBHOOK_BASE_URL` + `/tg/webhook`. |
 
 После настройки сделайте тестовый платеж и проверьте, что в логах `backend` видно входящий `POST` на нужный путь. Если провайдер сообщает, что адрес недоступен, сначала проверьте DNS/HTTPS и reverse proxy для `WEBHOOK_BASE_URL`, затем убедитесь, что путь начинается ровно с `/webhook/...` без `/api`, `/auth` и frontend-домена.
@@ -242,6 +245,84 @@ Redirect URLs в PayKilla не отправляются. Завершение п
 ### Справочник
 
 - [PayKilla](../configuration/env-vars.md#paykilla)
+
+## LAVA
+
+LAVA Business используется для рублевых оплат картами и СБП через счета `https://api.lava.ru`.
+
+Исходящие API-запросы подписываются HMAC-SHA256 от raw body, подпись передается в заголовке `Signature`. Webhook проверяется по заголовку `Authorization`: принимается подпись raw body или sorted-keys JSON (legacy PHP SDK).
+
+### Особенности
+
+- Счета выставляются только в рублях (`RUB`).
+- `hookUrl` передается автоматически при создании счета, если задан `WEBHOOK_BASE_URL`.
+- `LAVA_INCLUDE_SERVICES` ограничивает способы оплаты на странице счета, например `card,sbp`.
+- При успешной оплате сумма из webhook сверяется с суммой платежа; расхождение отклоняется.
+
+### Настройка
+
+1. Включите `LAVA_ENABLED`.
+2. Укажите `LAVA_SHOP_ID` и `LAVA_SECRET_KEY` из кабинета LAVA Business.
+3. Если магазин использует отдельный дополнительный ключ для вебхуков, задайте `LAVA_WEBHOOK_SECRET`; пустое значение означает использование `LAVA_SECRET_KEY`.
+4. При необходимости задайте `LAVA_LIFETIME_MINUTES` (1..7200) и `LAVA_RETURN_URL`.
+5. Скопируйте URL вебхука из админ-панели и при необходимости укажите его в кабинете LAVA.
+
+### Справочник
+
+- [LAVA](../configuration/env-vars.md#lava)
+
+## CloudPayments
+
+CloudPayments используется для оплат картами через Orders API `https://api.cloudpayments.ru/orders/create`.
+
+Исходящие запросы авторизуются HTTP Basic auth: логин — `CLOUDPAYMENTS_PUBLIC_ID`, пароль — `CLOUDPAYMENTS_API_SECRET`. Уведомления Pay/Fail приходят как `application/x-www-form-urlencoded` и подписываются HMAC-SHA256 (base64) от raw body на `CLOUDPAYMENTS_API_SECRET` в заголовке `Content-HMAC` (старые интеграции — `X-Content-HMAC`).
+
+### Особенности
+
+- Платёж создаётся как заказ (order) со ссылкой `https://orders.cloudpayments.ru/...`; `InvoiceId` — это внутренний ID платежа.
+- Поддерживаемые валюты: `RUB`, `USD`, `EUR`, `GBP`, `KZT`, `UAH`, `BYN`, `AZN`, `AMD`, `KGS`.
+- При успешной оплате сумма из webhook сверяется с суммой платежа; расхождение отклоняется кодом `12`.
+- При `CLOUDPAYMENTS_RECURRING_ENABLED=true` Pay webhook сохраняет CloudPayments `Token` как способ оплаты пользователя, а автопродление выполняет merchant-initiated запрос `/payments/tokens/charge` с `TrInitiatorCode=0` и `PaymentScheduled=1`.
+- Встроенные CloudPayments subscriptions не используются: срок подписки, HWID-продления, отмена автопродления и повторная активация остаются в общей логике бота.
+- Backend отвечает CloudPayments телом `{"code": 0}` при успешной обработке.
+
+### Настройка
+
+1. Включите `CLOUDPAYMENTS_ENABLED`.
+2. Укажите `CLOUDPAYMENTS_PUBLIC_ID` и `CLOUDPAYMENTS_API_SECRET` из кабинета CloudPayments.
+3. При необходимости задайте `CLOUDPAYMENTS_RETURN_URL` и `CLOUDPAYMENTS_FAILED_URL`.
+4. Скопируйте URL вебхука из админ-панели и укажите его в CloudPayments как адрес уведомлений Pay и Fail.
+5. Для автопродления включите получение `Token` в уведомлении Pay на стороне CloudPayments и задайте `CLOUDPAYMENTS_RECURRING_ENABLED=true`.
+6. Для IP-фильтрации при необходимости заполните `CLOUDPAYMENTS_TRUSTED_IPS`.
+
+### Справочник
+
+- [CloudPayments](../configuration/env-vars.md#cloudpayments)
+
+## Stripe
+
+Stripe uses Checkout Sessions for hosted payment links and PaymentIntents for
+app-managed auto-renewal.
+
+### Integration notes
+
+- Configure `WEBHOOK_BASE_URL` + `/webhook/stripe` in Stripe Dashboard.
+- Enable events: `checkout.session.completed`, `checkout.session.expired`,
+  `payment_intent.succeeded`, `payment_intent.payment_failed`,
+  `payment_intent.canceled`.
+- Set `STRIPE_WEBHOOK_SECRET` from the endpoint signing secret (`whsec_...`).
+- With `STRIPE_RECURRING_ENABLED=true`, Checkout is created with
+  `payment_intent_data[setup_future_usage]=off_session`; successful webhooks
+  save `customer` + `payment_method`, and auto-renew creates an off-session
+  PaymentIntent.
+- Stripe Billing Subscriptions are not used by Minishop. Subscription duration,
+  HWID renewal, cancellation and retry behavior stay in the bot lifecycle.
+- Use `STRIPE_SUPPORTED_CURRENCIES` to restrict payment buttons to currencies
+  supported by your Stripe account and enabled payment methods.
+
+### Справочник
+
+- [Stripe](../configuration/env-vars.md#stripe)
 
 ## Telegram Stars
 

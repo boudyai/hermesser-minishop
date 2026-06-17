@@ -6,11 +6,11 @@ from typing import Tuple
 from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.infra import events
 from bot.middlewares.i18n import JsonI18n
 from config.settings import Settings
-from db.dal import promo_code_dal, security_dal, user_dal
+from db.dal import promo_code_dal, security_dal
 
-from .notification_service import NotificationService
 from .subscription_service import SubscriptionService
 
 
@@ -114,19 +114,15 @@ class PromoCodeService:
                     scope=security_dal.PROMO_CODE_APPLY_SCOPE,
                     identifier=throttle_identifier,
                 )
-                # Send notification about promo activation
-                try:
-                    notification_service = NotificationService(self.bot, self.settings, self.i18n)
-                    user = await user_dal.get_user_by_id(session, user_id)
-                    await notification_service.notify_promo_activation(
-                        user_id=user_id,
-                        promo_code=applied_code,
-                        bonus_days=bonus_days,
-                        username=user.username if user else None,
-                        email=getattr(user, "email", None) if user else None,
-                    )
-                except Exception as e:
-                    logging.error(f"Failed to send promo activation notification: {e}")
+                await events.emit(
+                    events.PROMO_CODE_APPLIED,
+                    {
+                        "user_id": user_id,
+                        "code": applied_code,
+                        "bonus_days": bonus_days,
+                        "new_end_date": events.iso(new_end_date),
+                    },
+                )
 
                 return True, new_end_date
             else:

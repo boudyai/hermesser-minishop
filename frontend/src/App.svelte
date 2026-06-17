@@ -57,10 +57,18 @@
   import { createI18n } from "./lib/webapp/i18n.js";
   import { normalizedEmail, telegramName } from "./lib/webapp/formatters.js";
   import { activeTariffName, buildTariffCatalog } from "./lib/webapp/tariffs.js";
-  import { premiumTrafficPercent, trafficPercent } from "./lib/webapp/traffic.js";
+  import {
+    premiumTrafficLimitVisible,
+    premiumTrafficPercent,
+    regularTrafficLimitVisible,
+    trafficPercent,
+  } from "./lib/webapp/traffic.js";
   import {
     findThemeEntry,
+    materializeThemesCatalog,
+    readThemePreviewDraft,
     resolveEffectiveThemeKey,
+    syncThemeGoogleFonts,
     themeCssHref,
     themeEntryToInlineStyle,
     themeRootClass,
@@ -99,6 +107,7 @@
     adminPaymentIdFromPath,
     adminPaymentsUserIdFromPath,
     adminSectionFromPath,
+    adminSettingsPathFromPath,
     adminUserIdFromPath,
     normalizeAdminSection,
     normalizeSection,
@@ -151,6 +160,7 @@
     ...(injectedConfig || {}),
   };
   const themePreviewKey = String(CFG.themePreviewKey || query.get("theme_preview") || "").trim();
+  const themePreviewDraft = readThemePreviewDraft(themePreviewKey);
   const I18N = injectedI18n || {};
   let telegramSdkStatus = "idle";
   let telegramMiniAppInitData = "";
@@ -164,6 +174,7 @@
   let publicInstallSubscription = null;
   let publicInstallToken = "";
   let trialBusy = false;
+  let autoRenewBusy = false;
   let trialActivationResult = null;
   let trialActivationError = "";
   let activationSuccessDialogOpen = false;
@@ -200,6 +211,8 @@
   let adminBundleApi = null;
   let adminBundlePromise = null;
   let adminBundleError = "";
+  let adminAssetsPrefetched = false;
+  let adminAssetsPrefetchHandle = null;
   let adminMountTarget = null;
   let adminMountHandle = null;
   let adminMountedTarget = null;
@@ -368,10 +381,10 @@
     title: brandTitle,
     logoUrl: CFG.logoUrl,
   });
-  $: faviconBrand = normalizeBrand({
+  $: faviconBrand = {
     ...brand,
-    logoUrl: String(CFG.faviconUrl || "").trim() || brand.logoUrl,
-  });
+    faviconUrl: String(CFG.faviconUrl || "").trim() || brand.logoUrl,
+  };
   $: plans = data?.plans?.length ? data.plans : MOCK_SOURCE.data.plans;
   $: methods = data?.payment_methods?.length ? data.payment_methods : [];
   $: appSettings = data?.settings || MOCK_SOURCE.data.settings;
@@ -405,12 +418,12 @@
   $: canOpenRegularTopupModal = Boolean(
     hasActiveTariffSubscription &&
     (subscription?.can_topup_regular_traffic ?? subscription?.can_topup_traffic) &&
-    Number(subscription?.traffic_limit_bytes || 0) > 0
+    regularTrafficLimitVisible(subscription)
   );
   $: canOpenPremiumTopupModal = Boolean(
     hasActiveTariffSubscription &&
     (subscription?.can_topup_premium_traffic ?? subscription?.can_topup_traffic) &&
-    Number(subscription?.premium_limit_bytes || 0) > 0
+    premiumTrafficLimitVisible(subscription)
   );
   $: activeTariffCatalogEntry =
     tariffCatalog.find((entry) => entry.key === String(subscription?.tariff_key || "").trim()) ||
@@ -437,8 +450,10 @@
       premiumTrafficPercent(subscription) >= TRAFFIC_TOPUP_UNLOCK_PERCENT)
   );
   $: user = data?.user || {};
-  $: themesCatalog = data?.themes_catalog ||
+  $: rawThemesCatalog = themePreviewDraft?.catalog ||
+    data?.themes_catalog ||
     CFG.themesCatalog || { default_theme: "dark", themes: [] };
+  $: themesCatalog = materializeThemesCatalog(rawThemesCatalog);
   $: previewThemeAllowed = Boolean(themePreviewKey && (!data?.user || user?.is_admin));
   $: previewThemeEntry = previewThemeAllowed
     ? findThemeEntry(themesCatalog, themePreviewKey)
@@ -461,6 +476,7 @@
     const bg = effectiveThemeEntry.tokens.bg;
     if (bg) document.body.style.backgroundColor = bg;
   }
+  $: syncThemeGoogleFonts(effectiveThemeEntry);
   $: isAdmin = Boolean(user?.is_admin);
   $: if (screen === "admin" && !isAdmin) {
     screen = "settings";
@@ -503,6 +519,7 @@
   $: privacyPolicyUrl = String(CFG.privacyPolicyUrl || "").trim();
   $: userAgreementUrl = String(CFG.userAgreementUrl || "").trim();
   $: supportUrl = String(appSettings?.support_url || CFG.supportUrl || "").trim();
+  $: serverStatusUrl = String(appSettings?.server_status_url || CFG.serverStatusUrl || "").trim();
   $: telegramLoginBotId = Number(CFG.telegramLoginBotId || 0);
   $: telegramOAuthClientId = Number(CFG.telegramOAuthClientId || telegramLoginBotId || 0);
   $: telegramMiniAppInitData = tg?.initData || readTelegramMiniAppInitDataFromLocation();
@@ -852,17 +869,20 @@
           adminActiveSection = isDocsDemo
             ? initialAdminSectionFromLocation()
             : adminSectionFromPath(routePathnameFromLocation(), routePrefix);
+          cancelAdminAssetsPrefetch();
+          activeTab = "settings";
+          screen = "admin";
           const pathAtStart = window.location.pathname;
-          void Promise.all([ensureI18nScope("admin"), ensureAdminBundle()])
-            .then(() => {
-              if (sectionFromPath(routePathnameFromLocation(), routePrefix) !== "admin") return;
-              if (window.location.pathname !== pathAtStart) return;
+          void Promise.all([ensureI18nScope("admin"), ensureAdminBundle()]).catch(() => {
+            if (sectionFromPath(routePathnameFromLocation(), routePrefix) !== "admin") return;
+            if (window.location.pathname !== pathAtStart) return;
+            if (screen === "admin") {
               activeTab = "settings";
-              screen = "admin";
-            })
-            .catch(() => {
-              showToast(t("wa_unavailable"));
-            });
+              screen = "settings";
+              syncAppSectionPath("settings", true);
+            }
+            showToast(t("wa_unavailable"));
+          });
           return;
         }
         const nextSection =
@@ -902,6 +922,7 @@
       supportStore.closePolling();
       stopPendingActivationWatch();
       clearLanguageClickGuard();
+      cancelAdminAssetsPrefetch();
       syncBodyScrollLock(false);
       destroyAdminMount();
     };
@@ -1055,6 +1076,51 @@
       if (!fallbackSrc || src === fallbackSrc) throw error;
       await appendScriptOnce(id, fallbackSrc);
     }
+  }
+
+  function appendPrefetchOnce(id, href, asType) {
+    if (typeof document === "undefined" || !href || document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "prefetch";
+    link.href = href;
+    if (asType) link.as = asType;
+    document.head.appendChild(link);
+  }
+
+  function prefetchAdminAssets() {
+    if (adminAssetsPrefetched || adminBundleApi || adminBundlePromise) return;
+    adminAssetsPrefetched = true;
+    const cssHref = resolveWebappAssetPath(CFG.adminCssAsset, "subscription_webapp_admin.css");
+    const jsSrc = resolveWebappAssetPath(CFG.adminJsAsset, "subscription_webapp_admin.js");
+    appendPrefetchOnce("subscription-webapp-admin-css-prefetch", cssHref, "style");
+    appendPrefetchOnce("subscription-webapp-admin-js-prefetch", jsSrc, "script");
+    void ensureI18nScope("admin");
+  }
+
+  function scheduleAdminAssetsPrefetch(adminAllowed = isAdmin) {
+    if (!adminAllowed || adminAssetsPrefetched || adminBundleApi || adminBundlePromise) return;
+    if (typeof window === "undefined") return;
+    const run = () => {
+      adminAssetsPrefetchHandle = null;
+      if (!isAdmin || screen === "admin") return;
+      prefetchAdminAssets();
+    };
+    if ("requestIdleCallback" in window) {
+      adminAssetsPrefetchHandle = window.requestIdleCallback(run, { timeout: 3000 });
+    } else {
+      adminAssetsPrefetchHandle = window.setTimeout(run, 1200);
+    }
+  }
+
+  function cancelAdminAssetsPrefetch() {
+    if (adminAssetsPrefetchHandle === null || typeof window === "undefined") return;
+    if ("cancelIdleCallback" in window && typeof adminAssetsPrefetchHandle === "number") {
+      window.cancelIdleCallback(adminAssetsPrefetchHandle);
+    } else {
+      window.clearTimeout(adminAssetsPrefetchHandle);
+    }
+    adminAssetsPrefetchHandle = null;
   }
 
   function readAdminBundleApi() {
@@ -1536,6 +1602,7 @@
     onClose: closeAdminPanel,
     onToast: (text) => showToast(text),
     initialSection: screen === "admin" ? adminActiveSection : initialAdminSectionFromLocation(),
+    initialSettingsPath: adminSettingsPathFromPath(routePathnameFromLocation(), routePrefix),
     initialPaymentId: adminPaymentIdFromPath(routePathnameFromLocation(), routePrefix),
     initialPaymentUserId: adminPaymentsUserIdFromPath(routePathnameFromLocation(), routePrefix),
     initialUserId: adminUserIdFromPath(routePathnameFromLocation(), routePrefix),
@@ -1722,14 +1789,19 @@
     const initialAdminSection =
       section === "admin" ? preservedAdminSection || initialAdminSectionFromLocation() : null;
     if (section === "admin" && payload.user?.is_admin) {
+      cancelAdminAssetsPrefetch();
+      adminActiveSection = initialAdminSection || "stats";
+      activeTab = "settings";
+      screen = "admin";
+      mode = "app";
       try {
         await ensureI18nScope("admin");
         await ensureAdminBundle();
-        adminActiveSection = initialAdminSection || "stats";
       } catch (_error) {
         void _error;
         section = "settings";
         activeTab = "settings";
+        screen = "settings";
         showToast(t("wa_unavailable"));
       }
     }
@@ -1746,6 +1818,9 @@
           : section;
     screen = section;
     mode = "app";
+    if (payload.user?.is_admin && section !== "admin") {
+      scheduleAdminAssetsPrefetch(Boolean(payload.user?.is_admin));
+    }
     if (payload.settings?.support_tickets_enabled !== false) {
       if (typeof payload.support_unread_count !== "undefined") {
         supportStore.hydrateUnread(payload.support_unread_count);
@@ -1798,11 +1873,11 @@
       const canRegular =
         hasTariffSub &&
         (sub?.can_topup_regular_traffic ?? sub?.can_topup_traffic) &&
-        Number(sub?.traffic_limit_bytes || 0) > 0;
+        regularTrafficLimitVisible(sub);
       const canPremium =
         hasTariffSub &&
         (sub?.can_topup_premium_traffic ?? sub?.can_topup_traffic) &&
-        Number(sub?.premium_limit_bytes || 0) > 0;
+        premiumTrafficLimitVisible(sub);
       if (topupDeep === "regular" && canRegular) {
         billingStore.openTopupModal("regular", payload.payment_methods?.[0]?.id || "");
         stripTopupQueryFromUrl();
@@ -2153,6 +2228,27 @@
     }
   }
 
+  async function toggleAutoRenew(enabled) {
+    if (autoRenewBusy) return;
+    autoRenewBusy = true;
+    try {
+      const response = await billing.postAutoRenew(enabled);
+      if (!response.ok) throw response;
+      showToast(
+        response.auto_renew_enabled ? t("wa_auto_renew_enabled") : t("wa_auto_renew_disabled")
+      );
+      await loadData({ fresh: true, preserveView: true });
+    } catch (error) {
+      if (error?.error === "auto_renew_requires_saved_method") {
+        showToast(t("wa_auto_renew_requires_saved_method"));
+      } else {
+        showToast(error?.message || t("wa_auto_renew_update_failed"));
+      }
+    } finally {
+      autoRenewBusy = false;
+    }
+  }
+
   function showToast(message) {
     toastText = message;
     if (toastTimer) window.clearTimeout(toastTimer);
@@ -2267,18 +2363,23 @@
     const nextAdminSection = normalizeAdminSection(
       adminActiveSection || adminSectionFromPath(routePathnameFromLocation(), routePrefix)
     );
+    cancelAdminAssetsPrefetch();
+    activeTab = "settings";
+    screen = "admin";
+    adminActiveSection = nextAdminSection;
+    syncAppSectionPath("admin", false, adminActiveSection);
     try {
       await ensureI18nScope("admin");
       await ensureAdminBundle();
     } catch (_error) {
       void _error;
+      if (screen === "admin") {
+        screen = "settings";
+        activeTab = "settings";
+        syncAppSectionPath("settings");
+      }
       showToast(t("wa_unavailable"));
-      return;
     }
-    activeTab = "settings";
-    screen = "admin";
-    adminActiveSection = nextAdminSection;
-    syncAppSectionPath("admin", false, adminActiveSection);
   }
 
   function closeAdminPanel() {
@@ -2510,6 +2611,7 @@
                 {regularTrafficTopupUnlocked}
                 {referral}
                 {subscription}
+                {autoRenewBusy}
                 {linkTelegramBusy}
                 {telegramNotificationsNeedPrompt}
                 {telegramNotificationsStartLink}
@@ -2518,6 +2620,7 @@
                 {trafficMode}
                 {trialBusy}
                 {activateTrial}
+                {toggleAutoRenew}
                 {linkTelegramAndActivateTrial}
                 {linkTelegramAndClaimReferralWelcome}
                 {openTelegramNotificationsBot}
@@ -2626,6 +2729,7 @@
                 {profileAvatarUrl}
                 {profileEmail}
                 {profileTelegramId}
+                {serverStatusUrl}
                 {supportUrl}
                 {telegramNotificationsNeedPrompt}
                 {telegramNotificationsStartLink}

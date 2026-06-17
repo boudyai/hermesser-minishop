@@ -34,6 +34,7 @@ from .base import (
     provider_runtime_enabled,
 )
 from .shared import (
+    PAYMENT_STATUS_PENDING_FINALIZATION,
     PaymentSuccessRequest,
     describe_payment,
     finalize_successful_payment,
@@ -334,7 +335,7 @@ class CryptoPayService:
                     session,
                     payment_db_id,
                     str(invoice.invoice_id),
-                    "succeeded",
+                    PAYMENT_STATUS_PENDING_FINALIZATION,
                 )
                 await session.commit()
             except Exception:

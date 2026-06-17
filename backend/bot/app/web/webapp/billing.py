@@ -1,8 +1,21 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
 
-from bot.app.web.webapp.auth import _trial_telegram_required_reason
-from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
+from bot.app.web.webapp.auth import _require_user_id, _trial_telegram_required_reason
+from bot.app.web.webapp.assets import _enforce_webapp_rate_limit, _get_cached_webapp_settings
+from bot.app.web.webapp.common import (
+    _invalidate_webapp_user_caches,
+    _json_error,
+    _normalize_language,
+    _read_json,
+    _validate_model_payload,
+)
+from bot.app.web.webapp.payloads import (
+    WebAppAutoRenewPayload,
+    WebAppPaymentCreatePayload,
+    WebAppTariffChangePayload,
+)
+from bot.infra import events
 from db.dal import message_log_dal
 
 
@@ -93,6 +106,102 @@ async def apply_promo_route(request: web.Request) -> web.Response:
             await session.rollback()
             logger.exception("WebApp promo apply failed")
             return _json_error(500, "promo_apply_failed", "Promo apply failed")
+
+
+async def subscription_auto_renew_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    payload = await _read_json(request)
+    auto_renew_payload, validation_error = _validate_model_payload(
+        WebAppAutoRenewPayload,
+        payload,
+    )
+    if validation_error:
+        return validation_error
+
+    enabled = bool(auto_renew_payload.enabled)
+    settings: Settings = request.app["settings"]
+    subscription_service: SubscriptionService = request.app["subscription_service"]
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+
+    async with async_session_factory() as session:
+        try:
+            db_user = await user_dal.get_user_by_id(session, user_id)
+            if not db_user or db_user.is_banned:
+                await session.rollback()
+                return _json_error(403, "access_denied", "Access denied")
+            sub = await subscription_dal.get_active_subscription_by_user_id(
+                session,
+                user_id,
+                db_user.panel_user_uuid,
+            )
+            if not sub:
+                await session.rollback()
+                return _json_error(
+                    400,
+                    "subscription_required",
+                    "Active subscription is required",
+                )
+
+            provider = str(getattr(sub, "provider", "") or "").strip().lower()
+            from bot.payment_providers import provider_label_map, provider_supports_recurring
+            from bot.payment_providers.shared import service_supports_recurring
+            from db.dal import user_billing_dal
+
+            if not provider_supports_recurring(provider):
+                await session.rollback()
+                return _json_error(
+                    400,
+                    "auto_renew_unavailable",
+                    "Auto-renew is not available for this payment provider",
+                )
+
+            if enabled:
+                recurring_service_for = getattr(subscription_service, "recurring_service_for", None)
+                recurring_service = (
+                    recurring_service_for(provider) if callable(recurring_service_for) else None
+                )
+                if not service_supports_recurring(recurring_service):
+                    await session.rollback()
+                    return _json_error(
+                        400,
+                        "auto_renew_unavailable",
+                        "Auto-renew is not available for this payment provider",
+                    )
+                has_saved_method = await user_billing_dal.user_has_saved_payment_method(
+                    session,
+                    user_id,
+                    provider=provider,
+                )
+                if not has_saved_method:
+                    await session.rollback()
+                    return _json_error(
+                        400,
+                        "auto_renew_requires_saved_method",
+                        "A saved payment method is required",
+                    )
+
+            await subscription_dal.update_subscription(
+                session,
+                sub.subscription_id,
+                {"auto_renew_enabled": enabled},
+            )
+            await session.commit()
+            await _invalidate_webapp_user_caches(settings, user_id)
+
+            lang = _normalize_language(db_user.language_code or settings.DEFAULT_LANGUAGE)
+            provider_label = provider_label_map(settings, language=lang).get(provider, provider)
+            return web.json_response(
+                {
+                    "ok": True,
+                    "auto_renew_enabled": enabled,
+                    "provider": provider,
+                    "provider_label": provider_label,
+                }
+            )
+        except Exception:
+            await session.rollback()
+            logger.exception("WebApp auto-renew update failed for user %s", user_id)
+            return _json_error(500, "auto_renew_update_failed", "Auto-renew update failed")
 
 
 async def create_payment_route(request: web.Request) -> web.Response:
@@ -416,23 +525,6 @@ async def activate_trial_route(request: web.Request) -> web.Response:
             activation_result.get("subscription_url"),
         )
 
-        i18n_instance = request.app.get("i18n")
-        if settings.LOG_TRIAL_ACTIVATIONS and i18n_instance:
-            try:
-                from bot.services.notification_service import NotificationService
-
-                notification_service = NotificationService(
-                    request.app["bot"], settings, i18n_instance
-                )
-                await notification_service.notify_trial_activation(
-                    user_id,
-                    end_date,
-                    username=db_user.username,
-                    email=getattr(db_user, "email", None),
-                )
-            except Exception:
-                logger.exception("Failed to send WebApp trial activation notification")
-
         try:
             await message_log_dal.create_message_log_no_commit(
                 session,
@@ -463,8 +555,6 @@ async def activate_trial_route(request: web.Request) -> web.Response:
         except Exception:
             await session.rollback()
             logger.exception("Failed to mark WebApp trial activation for ad attribution")
-
-        await invalidate_webapp_user_caches(settings, user_id)
 
         return web.json_response(
             {
@@ -858,6 +948,7 @@ async def _refresh_yookassa_payment_status(
     provider_status = str(provider_payload.get("status") or "").lower()
     if provider_status == "succeeded" and provider_payload.get("paid") is True:
         from bot.payment_providers.yookassa import (
+            emit_yookassa_success_events,
             payment_processing_lock,
             process_successful_payment,
         )
@@ -869,7 +960,7 @@ async def _refresh_yookassa_payment_status(
             if current.status == "succeeded":
                 return current
             try:
-                await process_successful_payment(
+                event_payload = await process_successful_payment(
                     session,
                     request.app["bot"],
                     provider_payload,
@@ -881,6 +972,8 @@ async def _refresh_yookassa_payment_status(
                     request.app.get("lknpd_service"),
                 )
                 await session.commit()
+                if event_payload:
+                    await emit_yookassa_success_events(event_payload)
             except Exception:
                 await session.rollback()
                 logger.exception(
@@ -903,7 +996,7 @@ async def _refresh_yookassa_payment_status(
             if not _payment_status_can_be_refreshed(current):
                 return current
             try:
-                await process_cancelled_payment(
+                event_payload = await process_cancelled_payment(
                     session,
                     request.app["bot"],
                     provider_payload,
@@ -911,6 +1004,8 @@ async def _refresh_yookassa_payment_status(
                     request.app["settings"],
                 )
                 await session.commit()
+                if event_payload:
+                    await events.emit(events.PAYMENT_CANCELED, event_payload)
             except Exception:
                 await session.rollback()
                 logger.exception(
@@ -962,12 +1057,6 @@ async def payment_status_route(request: web.Request) -> web.Response:
             return _json_error(404, "not_found", "Payment not found")
         payment = await _refresh_yookassa_payment_status(request, session, payment)
         payment = await _refresh_wata_payment_status(request, session, payment)
-        if payment.status == "succeeded":
-            await invalidate_webapp_user_caches(
-                request.app["settings"],
-                user_id,
-                include_devices=True,
-            )
         return web.json_response(
             {
                 "ok": True,

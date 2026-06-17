@@ -19,8 +19,8 @@ async def warm_subscription_guides_config(app: web.Application) -> None:
 
 
 async def subscription_guides_route(request: web.Request) -> web.Response:
-    _require_user_id(request)
-    status = await _subscription_guides_status_shared(request.app)
+    user_id = _require_user_id(request)
+    status = await _subscription_guides_status_for_request(request, user_id=user_id)
     payload = {
         "enabled": bool(status.get("enabled")),
         "config": status.get("config") if status.get("enabled") else None,
@@ -52,7 +52,10 @@ async def public_subscription_guides_route(request: web.Request) -> web.Response
             status=404,
         )
 
-    status = await _subscription_guides_status_shared(request.app)
+    status = await _subscription_guides_status_for_request(
+        request,
+        panel_short_uuid=subscription.get("panel_short_uuid"),
+    )
     payload = {
         "enabled": bool(status.get("enabled")),
         "config": status.get("config") if status.get("enabled") else None,
@@ -93,6 +96,33 @@ async def _subscription_guides_status_shared(app: web.Application) -> Dict[str, 
         return status
 
 
+async def _subscription_guides_status_for_request(
+    request: web.Request,
+    *,
+    user_id: Optional[int] = None,
+    panel_short_uuid: Optional[str] = None,
+) -> Dict[str, Any]:
+    settings: Settings = request.app["settings"]
+    if not _subscription_guides_should_try_resolved_panel_config(settings):
+        return await _subscription_guides_status_shared(request.app)
+
+    short_uuid = str(panel_short_uuid or "").strip()
+    if not short_uuid and user_id is not None:
+        short_uuid = await _active_panel_short_uuid_for_user(request, int(user_id))
+
+    if short_uuid:
+        panel_status = await _subscription_guides_status_from_panel_short_uuid(
+            request.app,
+            settings,
+            short_uuid,
+            request_headers=_subscription_page_request_headers(request),
+        )
+        if panel_status.get("enabled"):
+            return panel_status
+
+    return await _subscription_guides_status_shared(request.app)
+
+
 async def _load_subscription_guides_status(
     app: web.Application,
     settings: Settings,
@@ -100,11 +130,7 @@ async def _load_subscription_guides_status(
     if not bool(getattr(settings, "SUBSCRIPTION_GUIDES_ENABLED", False)):
         return {"enabled": False, "config": None, "source": None, "error": None}
 
-    admin_json = str(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_JSON", "") or "").strip()
-    json_override_enabled = bool(
-        getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED", False)
-    )
-    if admin_json and json_override_enabled:
+    if _subscription_guides_admin_json_override_enabled(settings):
         return subscription_guides_status(settings)
 
     if bool(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED", True)):
@@ -150,6 +176,43 @@ async def _subscription_guides_status_from_panel_config(
     return {"enabled": True, "config": config, "source": "panel", "error": None}
 
 
+async def _subscription_guides_status_from_panel_short_uuid(
+    app: web.Application,
+    settings: Settings,
+    short_uuid: str,
+    *,
+    request_headers: Optional[Dict[str, str]] = None,
+) -> Dict[str, Any]:
+    panel_service = _panel_service_from_app(app)
+    get_config = getattr(panel_service, "get_subscription_page_config_by_short_uuid", None)
+    if not callable(get_config):
+        return {
+            "enabled": False,
+            "config": None,
+            "source": "panel",
+            "error": "Panel service cannot resolve subscription page config by short UUID",
+        }
+
+    try:
+        detail = await get_config(short_uuid, request_headers=request_headers or {})
+        if detail is None:
+            raise SubscriptionGuidesConfigError(
+                f"Panel subscription page config for subscription {short_uuid} is unavailable"
+            )
+        config = validate_panel_subscription_guides_config(
+            detail,
+            allow_default_when_missing=True,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Failed to load resolved subscription guides config from Remnawave Panel: %s",
+            exc,
+        )
+        return {"enabled": False, "config": None, "source": "panel", "error": str(exc)}
+
+    return {"enabled": True, "config": config, "source": "panel", "error": None}
+
+
 async def _default_panel_subscription_page_config_uuid(panel_service: Any) -> str:
     get_list = getattr(panel_service, "get_subscription_page_config_list", None)
     if not callable(get_list):
@@ -171,6 +234,38 @@ async def _default_panel_subscription_page_config_uuid(panel_service: Any) -> st
         if uuid:
             return uuid
     return ""
+
+
+async def _active_panel_short_uuid_for_user(request: web.Request, user_id: int) -> str:
+    panel_service = _panel_service_from_app(request.app)
+    get_user = getattr(panel_service, "get_user_by_uuid", None)
+    if not callable(get_user):
+        return ""
+
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async with async_session_factory() as session:
+        db_user = await user_dal.get_user_by_id(session, user_id)
+        panel_user_uuid = str(getattr(db_user, "panel_user_uuid", "") or "").strip()
+        if not panel_user_uuid:
+            return ""
+        local_sub = await subscription_dal.get_active_subscription_by_user_id(
+            session,
+            user_id,
+            panel_user_uuid,
+        )
+        if not local_sub:
+            return ""
+
+    try:
+        panel_user = await get_user(panel_user_uuid)
+    except Exception:
+        logger.warning(
+            "Failed to resolve panel short UUID for install guides user %s",
+            user_id,
+            exc_info=True,
+        )
+        return ""
+    return _panel_short_uuid_from_user(panel_user)
 
 
 async def _public_subscription_payload(
@@ -200,7 +295,7 @@ async def _public_subscription_payload(
         if panel_user:
             raw_link = str(panel_user.get("subscriptionUrl") or "").strip()
             username = str(panel_user.get("username") or "").strip()
-            resolved_short_uuid = str(panel_user.get("shortUuid") or "").strip()
+            resolved_short_uuid = _panel_short_uuid_from_user(panel_user)
 
     display_link, connect_url = await prepare_config_links(settings, raw_link)
     return {
@@ -220,6 +315,32 @@ def _panel_service_from_app(app: web.Application) -> Any:
         getattr(subscription_service, "panel_service", None) if subscription_service else None
     )
     return panel_service or app.get("panel_service")
+
+
+def _panel_short_uuid_from_user(panel_user: Any) -> str:
+    if not isinstance(panel_user, dict):
+        return ""
+    for key in ("shortUuid", "shortUUID", "short_uuid"):
+        value = str(panel_user.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _subscription_guides_admin_json_override_enabled(settings: Settings) -> bool:
+    admin_json = str(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_JSON", "") or "").strip()
+    return bool(
+        admin_json
+        and bool(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED", False))
+    )
+
+
+def _subscription_guides_should_try_resolved_panel_config(settings: Settings) -> bool:
+    return bool(
+        getattr(settings, "SUBSCRIPTION_GUIDES_ENABLED", False)
+        and getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED", True)
+        and not _subscription_guides_admin_json_override_enabled(settings)
+    )
 
 
 def _subscription_guides_settings_fingerprint(settings: Settings) -> Tuple[Any, ...]:

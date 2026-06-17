@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import aliased
 
+from bot.infra import events
+
 from ..models import (
     AdAttribution,
     EmailVerificationCode,
@@ -200,10 +202,23 @@ async def get_user_by_panel_uuid(session: AsyncSession, panel_uuid: str) -> Opti
 ## Removed unused generic get_user helper to keep DAL explicit and simple
 
 
-async def create_user(session: AsyncSession, user_data: Dict[str, Any]) -> Tuple[User, bool]:
+async def create_user(
+    session: AsyncSession,
+    user_data: Dict[str, Any],
+    *,
+    registered_via: Optional[str] = "auto",
+) -> Tuple[User, bool]:
     """Create a user if not exists in a race-safe way.
 
     Returns a tuple of (user, created_flag).
+
+    When a new row is created, a ``user.registered`` domain event is emitted.
+    ``registered_via`` labels the registration source in the event payload:
+    ``"auto"`` (default) derives ``telegram``/``email``/``unknown`` from the
+    payload, an explicit string (e.g. ``"panel_sync"``) is used as-is, and
+    ``None`` suppresses the event for technical row creation that is not a
+    real registration (e.g. the intermediate row built during account
+    linking, or bulk migration imports).
     """
 
     if "registration_date" not in user_data:
@@ -234,6 +249,27 @@ async def create_user(session: AsyncSession, user_data: Dict[str, Any]) -> Tuple
         logging.info(
             f"New user {user.user_id} created in DAL. Referred by: {user.referred_by_id or 'N/A'}."
         )
+        if registered_via == "auto":
+            if user_data.get("telegram_id"):
+                registered_via = "telegram"
+            elif user_data.get("email"):
+                registered_via = "email"
+            else:
+                registered_via = "unknown"
+        if registered_via:
+            await events.emit(
+                events.USER_REGISTERED,
+                {
+                    "user_id": int(user.user_id),
+                    "language": user_data.get("language_code"),
+                    "referred_by_id": user_data.get("referred_by_id"),
+                    "registered_via": registered_via,
+                    "telegram_id": user_data.get("telegram_id"),
+                    "username": user_data.get("username"),
+                    "first_name": user_data.get("first_name"),
+                    "email": user_data.get("email"),
+                },
+            )
     elif user is not None:
         logging.info(f"User {user.user_id} already exists in DAL. Proceeding without creation.")
 
@@ -247,6 +283,7 @@ async def create_email_user(
     language_code: str,
     email_verified_at: Optional[datetime] = None,
     referred_by_id: Optional[int] = None,
+    registered_via: Optional[str] = "email",
 ) -> Tuple[User, bool]:
     normalized_email = (email or "").strip().lower()
     user_id = await generate_unique_email_user_id(session)
@@ -260,6 +297,7 @@ async def create_email_user(
             "referred_by_id": referred_by_id,
             "registration_date": datetime.now(timezone.utc),
         },
+        registered_via=registered_via,
     )
 
 
@@ -332,6 +370,8 @@ async def merge_users(
     *,
     source_user_id: int,
     target_user_id: int,
+    reason: str = "unknown",
+    send_user_email: bool = False,
 ) -> User:
     """Merge source user data into target user and remove the source row."""
 
@@ -486,6 +526,15 @@ async def merge_users(
         target_synced_at = getattr(target, "lifetime_used_traffic_synced_at", None)
         if source_synced_at and (not target_synced_at or source_synced_at > target_synced_at):
             target.lifetime_used_traffic_synced_at = source_synced_at
+    source_welcome_claimed_at = getattr(source, "referral_welcome_bonus_claimed_at", None)
+    target_welcome_claimed_at = getattr(target, "referral_welcome_bonus_claimed_at", None)
+    if source_welcome_claimed_at and (
+        not target_welcome_claimed_at or source_welcome_claimed_at < target_welcome_claimed_at
+    ):
+        # The welcome bonus is once-per-person: if either account already
+        # claimed it, the merged account must keep that mark so the bonus
+        # cannot be re-granted after the merge.
+        target.referral_welcome_bonus_claimed_at = source_welcome_claimed_at
     if not target.referred_by_id and source.referred_by_id != target_user_id:
         target.referred_by_id = source.referred_by_id
     if target.referred_by_id == source_user_id:
@@ -602,6 +651,26 @@ async def merge_users(
     await session.delete(source)
     await session.flush()
     await session.refresh(target)
+
+    await events.emit(
+        events.ACCOUNT_MERGED,
+        {
+            "source_user_id": int(source_user_id),
+            "target_user_id": int(target_user_id),
+            "reason": reason,
+            "send_user_email": send_user_email,
+            "source_panel_user_uuid": source_panel_uuid,
+            "target_panel_user_uuid": target.panel_user_uuid,
+            "email": target.email,
+            "telegram_id": target.telegram_id,
+            "username": target.username,
+            "first_name": target.first_name,
+            "language": target.language_code,
+            "final_end_date": events.iso(
+                getattr(target_anchor_sub or source_active_sub, "end_date", None)
+            ),
+        },
+    )
     return target
 
 

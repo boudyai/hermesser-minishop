@@ -163,6 +163,17 @@ def test_webapp_title_is_first_general_admin_setting():
     assert [item["key"] for item in items if item["section"] == "general"][0] == "WEBAPP_TITLE"
 
 
+def test_server_status_url_is_admin_editable():
+    manifest = _manifest_by_key()
+    field = manifest["SERVER_STATUS_URL"]
+
+    assert field["type"] == "url"
+    assert field["section"] == "general"
+    assert field["i18n_label_key"] == "admin_settings_field_server_status_url_label"
+    for language in ("ru", "en"):
+        assert field["i18n_label_key"] in _locale(language)
+
+
 def test_support_settings_manifest_uses_admin_i18n_keys():
     manifest = _manifest_by_key()
 

@@ -84,6 +84,7 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("GET", "/settings"): "index_route",
             ("GET", "/admin"): "index_route",
             ("GET", "/admin/{section}"): "index_route",
+            ("GET", "/admin/settings/{settings_path}"): "index_route",
             ("GET", "/admin/users/{user_id}"): "index_route",
             ("GET", "/auth/telegram/start"): "telegram_oauth_start_route",
             ("GET", "/auth/telegram/callback"): "telegram_oauth_callback_route",
@@ -166,6 +167,7 @@ class WebAppRouteContractTests(unittest.TestCase):
             ): "admin_user_message_preview_route",
             ("POST", "/api/admin/users/{user_id}/reset-trial"): "admin_user_reset_trial_route",
             ("POST", "/api/admin/users/{user_id}/extend"): "admin_user_extend_route",
+            ("POST", "/api/admin/users/{user_id}/tariff"): "admin_user_tariff_route",
             (
                 "POST",
                 "/api/admin/users/{user_id}/premium-override",
@@ -252,6 +254,20 @@ class WebAppRouteContractTests(unittest.TestCase):
         match_info = asyncio.run(app.router.resolve(request))
 
         self.assertEqual(match_info.handler.__name__, "index_route")
+
+    def test_admin_settings_nested_page_route_is_registered(self):
+        app = web.Application()
+        subscription_webapp.setup_subscription_webapp_routes(app)
+
+        for path in (
+            "/admin/settings/payments",
+            "/admin/settings/payments/platega",
+            "/admin/settings/payments/platega/sbp",
+        ):
+            request = make_mocked_request("GET", path, app=app)
+            match_info = asyncio.run(app.router.resolve(request))
+
+            self.assertEqual(match_info.handler.__name__, "index_route")
 
     def test_webapp_favicon_asset_route_is_registered(self):
         app = web.Application()

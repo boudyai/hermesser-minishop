@@ -64,6 +64,92 @@ class SubscriptionLifecycleMixin:
         return str(value)
 
     @staticmethod
+    def _panel_expiry_matches(raw_expire_at: Optional[Any], expected_expire_at: datetime) -> bool:
+        if not raw_expire_at:
+            return False
+        try:
+            panel_expire_at = datetime.fromisoformat(str(raw_expire_at).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            logging.warning(
+                "Panel update returned unparsable expireAt=%r for expected expiry %s.",
+                raw_expire_at,
+                expected_expire_at.isoformat(),
+            )
+            return False
+        expected = (
+            expected_expire_at
+            if expected_expire_at.tzinfo
+            else expected_expire_at.replace(tzinfo=timezone.utc)
+        )
+        actual = (
+            panel_expire_at
+            if panel_expire_at.tzinfo
+            else panel_expire_at.replace(tzinfo=timezone.utc)
+        )
+        return abs((actual - expected).total_seconds()) <= 1
+
+    async def _panel_update_confirms_expiry(
+        self,
+        panel_user_uuid: str,
+        panel_update_result: Optional[Dict[str, Any]],
+        expected_expire_at: datetime,
+    ) -> bool:
+        if not panel_update_result:
+            return False
+        if isinstance(panel_update_result, dict):
+            if panel_update_result.get("error"):
+                return False
+            raw_expire_at = panel_update_result.get("expireAt")
+            if raw_expire_at and self._panel_expiry_matches(raw_expire_at, expected_expire_at):
+                return True
+
+            if raw_expire_at:
+                logging.warning(
+                    "Panel update response expiry mismatch for user %s: expireAt=%r "
+                    "expected=%s. Fetching panel user to verify persisted state.",
+                    panel_user_uuid,
+                    raw_expire_at,
+                    expected_expire_at.isoformat(),
+                )
+            else:
+                logging.info(
+                    "Panel update response for user %s did not include expireAt. "
+                    "Fetching panel user to verify persisted state.",
+                    panel_user_uuid,
+                )
+        else:
+            logging.warning(
+                "Panel update response for user %s had unexpected type %s. "
+                "Fetching panel user to verify persisted state.",
+                panel_user_uuid,
+                type(panel_update_result).__name__,
+            )
+
+        try:
+            try:
+                panel_user = await self.panel_service.get_user_by_uuid(
+                    panel_user_uuid,
+                    log_response=False,
+                )
+            except TypeError:
+                panel_user = await self.panel_service.get_user_by_uuid(panel_user_uuid)
+        except Exception:
+            logging.exception(
+                "Failed to verify panel expiry for user %s after update.",
+                panel_user_uuid,
+            )
+            return False
+
+        if not isinstance(panel_user, dict):
+            logging.warning(
+                "Panel expiry verification for user %s returned unexpected payload: %r",
+                panel_user_uuid,
+                panel_user,
+            )
+            return False
+        return self._panel_expiry_matches(panel_user.get("expireAt"), expected_expire_at)
+
+    @staticmethod
     def _device_topup_renewal_available(
         extra_hwid_devices: int,
         extra_hwid_valid_until: Optional[Any],
@@ -194,7 +280,10 @@ class SubscriptionLifecycleMixin:
             return None
         before_tariff_key = sub.tariff_key
         now = datetime.now(timezone.utc)
-        options = await self.calculate_tariff_switch_options_with_hwid(session, sub, target)
+        if mode == "admin_assign":
+            options = dict(self.calculate_tariff_switch_options(sub, target))
+        else:
+            options = await self.calculate_tariff_switch_options_with_hwid(session, sub, target)
         converted_hwid_purchase_ids = list(options.get("convertible_hwid_purchase_ids") or [])
         if converted_hwid_purchase_ids:
             await tariff_dal.expire_hwid_device_purchases(
@@ -598,10 +687,23 @@ class SubscriptionLifecycleMixin:
         )
 
         auto_renew_should_enable = False
-        if provider == "yookassa" and self.settings.yookassa_autopayments_active:
-            auto_renew_should_enable = await user_billing_dal.user_has_saved_payment_method(
-                session, user_id
+        try:
+            from bot.payment_providers import provider_supports_recurring
+            from bot.payment_providers.shared import service_supports_recurring
+
+            provider_key = str(provider or "").strip().lower()
+            recurring_service_for = getattr(self, "recurring_service_for", None)
+            recurring_service = (
+                recurring_service_for(provider_key) if callable(recurring_service_for) else None
             )
+            if provider_supports_recurring(provider_key) and service_supports_recurring(
+                recurring_service
+            ):
+                auto_renew_should_enable = await user_billing_dal.user_has_saved_payment_method(
+                    session, user_id, provider=provider_key
+                )
+        except Exception:
+            logging.exception("Failed to evaluate auto-renew availability for user %s", user_id)
 
         topup_balance_bytes = int(getattr(current_active_sub, "topup_balance_bytes", 0) or 0)
         extra_hwid_devices = 0
@@ -768,6 +870,7 @@ class SubscriptionLifecycleMixin:
             "subscription_url": final_subscription_url,
             "applied_promo_bonus_days": applied_promo_bonus_days,
             "tariff_key": tariff.key if tariff else None,
+            "was_extension": current_active_sub is not None,
             "hwid_devices_renewal_recommended_count": 0
             if hwid_devices_renewed_count
             else extra_hwid_devices,
@@ -807,20 +910,31 @@ class SubscriptionLifecycleMixin:
         active_sub = await subscription_dal.get_active_subscription_by_user_id(
             session, user_id, panel_uuid
         )
-        preserve_tariff_limits = bool(
-            active_sub and active_sub.tariff_key and self._tariffs_config()
-        )
-        bonus_tariff = None
-        if not active_sub and tariff_key and self._tariffs_config():
+        rollback_payload: Optional[Dict[str, Any]] = None
+        hwid_extension_context: Optional[Tuple[int, datetime, datetime]] = None
+        pending_tariff_change_payload: Optional[Dict[str, Any]] = None
+        requested_tariff = None
+        if tariff_key and self._tariffs_config():
             try:
-                bonus_tariff = self._resolve_tariff(tariff_key)
+                requested_tariff = self._resolve_tariff(tariff_key, "period")
             except Exception:
                 logging.warning(
-                    "Unable to resolve bonus tariff %s for user %s.",
+                    "Unable to resolve requested tariff %s for %s extension of user %s.",
                     tariff_key,
+                    reason,
                     user_id,
                     exc_info=True,
                 )
+                if "admin" in reason_lower:
+                    return None
+
+        admin_tariff = requested_tariff if active_sub and "admin" in reason_lower else None
+        preserve_tariff_limits = bool(
+            active_sub and active_sub.tariff_key and self._tariffs_config() and not admin_tariff
+        )
+        bonus_tariff = None
+        if not active_sub and requested_tariff:
+            bonus_tariff = requested_tariff
         if not active_sub or not active_sub.end_date:
             logging.info(
                 f"No active subscription found for user {user_id}. Creating new one for {bonus_days} days."  # noqa: E501
@@ -877,34 +991,139 @@ class SubscriptionLifecycleMixin:
             updated_sub_model = await subscription_dal.upsert_subscription(
                 session, bonus_sub_payload
             )
+            rollback_payload = {
+                "is_active": False,
+                "status_from_panel": "PANEL_UPDATE_FAILED",
+                "last_notification_sent": None,
+            }
         else:
             current_end_date = active_sub.end_date
             now_utc = datetime.now(timezone.utc)
             start_point_for_bonus = current_end_date if current_end_date > now_utc else now_utc
             new_end_date_obj = start_point_for_bonus + timedelta(days=bonus_days)
+            rollback_payload = {
+                "end_date": current_end_date,
+                "last_notification_sent": getattr(active_sub, "last_notification_sent", None),
+                "is_active": getattr(active_sub, "is_active", True),
+                "status_from_panel": getattr(active_sub, "status_from_panel", None),
+            }
+            for attr in (
+                "tariff_key",
+                "tier_baseline_bytes",
+                "topup_balance_bytes",
+                "regular_bonus_bytes",
+                "regular_unlimited_override",
+                "traffic_limit_bytes",
+                "premium_baseline_bytes",
+                "premium_topup_balance_bytes",
+                "premium_topup_used_bytes",
+                "premium_used_bytes",
+                "premium_bonus_bytes",
+                "premium_is_limited",
+                "premium_period_start_at",
+                "period_start_at",
+                "is_throttled",
+                "effective_monthly_price_rub",
+                "hwid_device_limit",
+                "extra_hwid_devices",
+            ):
+                if hasattr(active_sub, attr):
+                    rollback_payload[attr] = getattr(active_sub, attr)
 
             updated_sub_model = await subscription_dal.update_subscription_end_date(
                 session, active_sub.subscription_id, new_end_date_obj
             )
             if updated_sub_model and extend_hwid_devices:
+                hwid_extension_context = (
+                    active_sub.subscription_id,
+                    now_utc,
+                    current_end_date,
+                )
+
+            if admin_tariff and updated_sub_model:
                 try:
-                    await tariff_dal.extend_hwid_device_purchases_for_subscription_bonus(
+                    extra_hwid_devices = await tariff_dal.sum_active_hwid_devices(
                         session,
                         subscription_id=active_sub.subscription_id,
                         at=now_utc,
-                        subscription_end_before=current_end_date,
-                        delta=timedelta(days=bonus_days),
                     )
                 except Exception:
                     logging.exception(
-                        "Failed to extend HWID device purchases for %s bonus of user %s",
-                        reason,
+                        "Failed to recalculate HWID devices during admin tariff assignment "
+                        "for user %s",
                         user_id,
                     )
+                    extra_hwid_devices = int(getattr(active_sub, "extra_hwid_devices", 0) or 0)
+
+                premium_topup_balance = int(
+                    getattr(active_sub, "premium_topup_balance_bytes", 0) or 0
+                )
+                premium_topup_used = int(getattr(active_sub, "premium_topup_used_bytes", 0) or 0)
+                premium_bonus_bytes = int(getattr(active_sub, "premium_bonus_bytes", 0) or 0)
+                premium_baseline = admin_tariff.premium_monthly_bytes
+                premium_limit = self._premium_effective_limit_bytes(
+                    premium_baseline,
+                    premium_topup_balance,
+                    premium_topup_used,
+                    premium_bonus_bytes,
+                )
+                premium_used = int(getattr(active_sub, "premium_used_bytes", 0) or 0)
+                rb = int(getattr(active_sub, "regular_bonus_bytes", 0) or 0)
+                runl = bool(getattr(active_sub, "regular_unlimited_override", False))
+                used_sub = int(getattr(active_sub, "traffic_used_bytes", 0) or 0)
+                target_monthly_price = admin_tariff.period_price(
+                    1,
+                    default_currency_key_for_settings(self.settings),
+                ) or admin_tariff.min_period_price(default_currency_key_for_settings(self.settings))
+                admin_update_data: Dict[str, Any] = {
+                    "tariff_key": admin_tariff.key,
+                    "tier_baseline_bytes": admin_tariff.monthly_bytes,
+                    "traffic_limit_bytes": self._compute_main_traffic_limit_bytes(
+                        tier_baseline_bytes=admin_tariff.monthly_bytes,
+                        topup_balance_bytes=int(getattr(active_sub, "topup_balance_bytes", 0) or 0),
+                        regular_bonus_bytes=rb,
+                        regular_unlimited_override=runl,
+                        traffic_used_bytes=used_sub,
+                    ),
+                    "premium_baseline_bytes": premium_baseline,
+                    "premium_topup_balance_bytes": premium_topup_balance,
+                    "premium_topup_used_bytes": premium_topup_used,
+                    "premium_is_limited": bool(premium_limit > 0 and premium_used >= premium_limit),
+                    "period_start_at": None,
+                    "is_throttled": False,
+                    "effective_monthly_price_rub": target_monthly_price,
+                    "hwid_device_limit": self._base_hwid_limit_for_tariff(admin_tariff),
+                    "extra_hwid_devices": extra_hwid_devices,
+                }
+                updated_sub_model = await subscription_dal.update_subscription(
+                    session,
+                    updated_sub_model.subscription_id,
+                    admin_update_data,
+                )
+                if updated_sub_model and active_sub.tariff_key != admin_tariff.key:
+                    pending_tariff_change_payload = {
+                        "subscription_id": updated_sub_model.subscription_id,
+                        "from_tariff_key": active_sub.tariff_key,
+                        "to_tariff_key": admin_tariff.key,
+                        "mode": "admin_assign",
+                        "payment_id": None,
+                        "days_before": max(0, (current_end_date - now_utc).days)
+                        if current_end_date
+                        else None,
+                        "days_after": max(0, (new_end_date_obj - now_utc).days)
+                        if new_end_date_obj
+                        else None,
+                        "converted_bytes": None,
+                        "converted_hwid_value_rub": None,
+                        "converted_hwid_days": None,
+                        "eff_price_before": active_sub.effective_monthly_price_rub,
+                        "eff_price_after": target_monthly_price,
+                    }
 
             if (
                 apply_main_traffic_limit
                 and not preserve_tariff_limits
+                and not admin_tariff
                 and updated_sub_model
                 and updated_sub_model.traffic_limit_bytes != self.settings.user_traffic_limit_bytes
             ):
@@ -915,34 +1134,41 @@ class SubscriptionLifecycleMixin:
                 )
 
         if updated_sub_model:
-            # Prepare panel update payload
+            panel_tariff = admin_tariff or bonus_tariff
             panel_update_payload = self._build_panel_update_payload(
                 expire_at=new_end_date_obj,
+                status="ACTIVE" if panel_tariff else None,
                 traffic_limit_bytes=(
                     updated_sub_model.traffic_limit_bytes
-                    if bonus_tariff
+                    if panel_tariff
                     else self.settings.user_traffic_limit_bytes
                     if apply_main_traffic_limit and not preserve_tariff_limits
                     else None
                 ),
                 traffic_limit_strategy=(
                     "MONTH"
-                    if bonus_tariff and bonus_tariff.billing_model == "period"
+                    if panel_tariff and panel_tariff.billing_model == "period"
                     else self.settings.USER_TRAFFIC_STRATEGY
-                    if bonus_tariff
+                    if panel_tariff
                     else None
                 ),
                 hwid_device_limit=(
-                    self._effective_hwid_limit(updated_sub_model.hwid_device_limit, 0)
-                    if bonus_tariff
+                    self._effective_hwid_limit(
+                        updated_sub_model.hwid_device_limit,
+                        int(getattr(updated_sub_model, "extra_hwid_devices", 0) or 0),
+                    )
+                    if panel_tariff
                     else None
                 ),
                 include_uuid=False,
                 include_default_squads=False,
             )
-            if bonus_tariff:
+            if panel_tariff:
                 panel_update_payload["activeInternalSquads"] = self._panel_squads_for_tariff(
-                    bonus_tariff
+                    panel_tariff,
+                    include_premium=not bool(
+                        getattr(updated_sub_model, "premium_is_limited", False)
+                    ),
                 )
                 if self.settings.parsed_user_external_squad_uuid:
                     panel_update_payload["externalSquadUuid"] = (
@@ -953,10 +1179,56 @@ class SubscriptionLifecycleMixin:
                 panel_uuid,
                 panel_update_payload,
             )
-            if not panel_update_success:
+            if not await self._panel_update_confirms_expiry(
+                panel_uuid,
+                panel_update_success,
+                new_end_date_obj,
+            ):
                 logging.warning(
-                    f"Panel expiry update failed for {panel_uuid} after {reason} bonus. Local DB was updated to {new_end_date_obj}."  # noqa: E501
+                    "Panel expiry update failed for user %s panel_uuid=%s after %s bonus. "
+                    "requested_expire_at=%s panel_response=%s. Reverting local bonus update.",
+                    user_id,
+                    panel_uuid,
+                    reason,
+                    new_end_date_obj.isoformat(),
+                    panel_update_success,
                 )
+                if rollback_payload:
+                    try:
+                        await subscription_dal.update_subscription(
+                            session,
+                            updated_sub_model.subscription_id,
+                            rollback_payload,
+                        )
+                    except Exception:
+                        logging.exception(
+                            "Failed to revert local subscription update for user %s after "
+                            "panel expiry update failure.",
+                            user_id,
+                        )
+                if panel_tariff and "admin" in reason_lower:
+                    return None
+                return None
+
+            if pending_tariff_change_payload:
+                await tariff_dal.create_tariff_change(session, pending_tariff_change_payload)
+
+            if hwid_extension_context:
+                try:
+                    subscription_id, hwid_now, previous_end_date = hwid_extension_context
+                    await tariff_dal.extend_hwid_device_purchases_for_subscription_bonus(
+                        session,
+                        subscription_id=subscription_id,
+                        at=hwid_now,
+                        subscription_end_before=previous_end_date,
+                        delta=timedelta(days=bonus_days),
+                    )
+                except Exception:
+                    logging.exception(
+                        "Failed to extend HWID device purchases for %s bonus of user %s",
+                        reason,
+                        user_id,
+                    )
 
             logging.info(
                 f"Subscription for user {user_id} extended by {bonus_days} days ({reason}). New end date: {new_end_date_obj}."  # noqa: E501

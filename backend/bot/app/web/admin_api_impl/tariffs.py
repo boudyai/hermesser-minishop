@@ -89,6 +89,8 @@ def _provider_currency_support_payload(
             {
                 "id": spec.id,
                 "provider_key": spec.provider_key,
+                "provider_label": _provider_currency_support_label(spec),
+                "settings_path": _provider_settings_path(spec),
                 "label": presentation.webapp_label or spec.label,
                 "telegram_label": presentation.telegram_label,
                 "icon": presentation.webapp_icon,
@@ -112,3 +114,19 @@ def _provider_currency_support_payload(
             }
         )
     return providers
+
+
+def _provider_currency_support_label(spec: Any) -> str:
+    if spec.id == "platega_sbp":
+        return "Platega SBP/card"
+    if spec.id == "platega_crypto":
+        return "Platega Crypto"
+    return str(spec.label or spec.id)
+
+
+def _provider_settings_path(spec: Any) -> List[str]:
+    if spec.id == "platega_sbp":
+        return ["payments", "platega", "sbp"]
+    if spec.id == "platega_crypto":
+        return ["payments", "platega", "crypto"]
+    return ["payments", str(spec.provider_key or spec.id).replace("_", "-")]

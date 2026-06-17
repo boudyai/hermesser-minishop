@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-import logging
 from typing import Any, Optional
 
 from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.services.user_email_notifications import send_user_notification_email
-from db.dal import payment_dal, user_dal
+from bot.infra import events
+from db.dal import payment_dal
 from db.models import Payment
-
-from .common import make_translator
 
 
 def coerce_payment_db_id(order_id_raw: Any) -> Optional[int]:
@@ -50,27 +47,16 @@ async def notify_user_payment_failed(
     payment: Payment,
     message_key: str = "payment_failed",
 ) -> None:
-    """Send the localized ``payment_failed`` text to the user; never raises."""
-    db_user = await user_dal.get_user_by_id(session, payment.user_id)
-    language = (
-        db_user.language_code if db_user and db_user.language_code else settings.DEFAULT_LANGUAGE
+    """Publish the standard payment-canceled event; reactions notify the user."""
+    await events.emit(
+        events.PAYMENT_CANCELED,
+        {
+            "user_id": int(payment.user_id),
+            "payment_db_id": getattr(payment, "payment_id", None),
+            "provider": getattr(payment, "provider", None),
+            "provider_payment_id": getattr(payment, "provider_payment_id", None)
+            or getattr(payment, "yookassa_payment_id", None),
+            "status": getattr(payment, "status", None),
+            "message_key": message_key,
+        },
     )
-    translator = make_translator(i18n, language)
-    message_text = translator(message_key)
-    try:
-        await bot.send_message(payment.user_id, message_text)
-    except Exception:
-        logging.exception(
-            "Webhook helper: failed to notify user %s about %s.",
-            payment.user_id,
-            message_key,
-        )
-    if db_user:
-        await send_user_notification_email(
-            settings=settings,
-            i18n=i18n,
-            user=db_user,
-            subject_key="email_payment_failed_subject",
-            message_text=message_text,
-            dashboard_url=(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", "") or None),
-        )

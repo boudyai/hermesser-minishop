@@ -34,6 +34,7 @@ from .base import (
     provider_runtime_enabled,
 )
 from .shared import (
+    PAYMENT_STATUS_PENDING_FINALIZATION,
     HttpClientMixin,
     PaymentSuccessRequest,
     build_payment_record_payload,
@@ -350,7 +351,7 @@ class SeverPayService(HttpClientMixin):
                         session,
                         payment.payment_id,
                         resolved_provider_id,
-                        "succeeded",
+                        PAYMENT_STATUS_PENDING_FINALIZATION,
                     )
                     await session.commit()
                 except Exception:
@@ -569,6 +570,7 @@ async def pay_severpay_callback_handler(
         api_success=success,
         payment_url=first_value(response_data, "url", "payment_url", "paymentUrl"),
         provider_payment_id=first_value(response_data, "id", "uid"),
+        provider_response=response_data,
         log_prefix=_LOG,
     )
 
@@ -624,6 +626,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
             first_value(response_data, "url", "payment_url", "paymentUrl") if success else None
         ),
         provider_payment_id=first_value(response_data, "id", "uid"),
+        provider_response=response_data,
         log_prefix="SeverPay",
     )
 

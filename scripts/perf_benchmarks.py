@@ -204,6 +204,10 @@ async def bench_panel_all_users_cache(users: int) -> dict:
         PANEL_DEVICES_CACHE_TTL_SECONDS=60,
         PANEL_ALL_USERS_CACHE_TTL_SECONDS=60,
         PANEL_ALL_USERS_PAGE_SIZE=1000,
+        # Disable the inter-page courtesy delay so this measures real paging /
+        # aggregation throughput rather than the fixed I/O throttle (which would
+        # otherwise dominate: ~0.1s * pages).
+        PANEL_ALL_USERS_PAGE_DELAY_SECONDS=0,
         REDIS_URL=None,
         REDIS_KEY_PREFIX="bench",
     )

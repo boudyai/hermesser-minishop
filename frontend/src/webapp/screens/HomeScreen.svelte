@@ -23,8 +23,10 @@
     trafficPercent as trafficPercentFn,
     trafficLabel as trafficLabelFn,
     trafficResetLabel as trafficResetLabelFn,
+    regularTrafficLimitVisible as regularTrafficLimitVisibleFn,
     premiumTrafficPercent as premiumTrafficPercentFn,
     premiumTrafficLabel as premiumTrafficLabelFn,
+    premiumTrafficLimitVisible as premiumTrafficLimitVisibleFn,
     premiumTitle as premiumTitleFn,
     premiumServerLabels as premiumServerLabelsFn,
     activeSubscriptionTermLabel as activeSubscriptionTermLabelFn,
@@ -46,6 +48,7 @@
   export let hasActiveTariffSubscription = false;
   export let hasMultipleTariffs = false;
   export let subscription = {};
+  export let autoRenewBusy = false;
   export let linkTelegramBusy = false;
   export let telegramNotificationsNeedPrompt = false;
   export let telegramNotificationsStartLink = "";
@@ -64,6 +67,9 @@
   }
   function trafficResetLabel(sub) {
     return trafficResetLabelFn(sub, t);
+  }
+  function regularTrafficLimitVisible(sub = subscription) {
+    return regularTrafficLimitVisibleFn(sub);
   }
   function regularTrafficDepleted(sub = subscription) {
     const used = Number(sub?.traffic_used_bytes || 0);
@@ -87,6 +93,9 @@
   }
   function premiumTrafficPercent(sub) {
     return premiumTrafficPercentFn(sub);
+  }
+  function premiumTrafficLimitVisible(sub = subscription) {
+    return premiumTrafficLimitVisibleFn(sub);
   }
   function premiumTrafficLabel(sub) {
     return premiumTrafficLabelFn(sub, t);
@@ -188,6 +197,8 @@
   ]
     .filter(Boolean)
     .join(" ");
+  $: autoRenewVisible = Boolean(subscription?.active && subscription?.auto_renew_available);
+  $: autoRenewEnabled = Boolean(subscription?.auto_renew_enabled);
 
   onMount(() => {
     const countdownTimer = window.setInterval(() => {
@@ -198,6 +209,7 @@
   });
 
   export let activateTrial = () => {};
+  export let toggleAutoRenew = () => {};
   export let linkTelegramAndActivateTrial = () => {};
   export let linkTelegramAndClaimReferralWelcome = () => {};
   export let openConnectLink = () => {};
@@ -263,6 +275,33 @@
             </Button>
           {/if}
         </div>
+        {#if autoRenewVisible}
+          <div class="auto-renew-row">
+            <div class="auto-renew-state">
+              <Repeat2 size={17} />
+              <span>
+                <strong>
+                  {autoRenewEnabled ? t("wa_auto_renew_enabled") : t("wa_auto_renew_disabled")}
+                </strong>
+              </span>
+            </div>
+            <Button
+              class="auto-renew-action"
+              variant="secondary"
+              onclick={() => toggleAutoRenew(!autoRenewEnabled)}
+              disabled={autoRenewBusy ||
+                (!autoRenewEnabled && !subscription?.auto_renew_can_enable)}
+            >
+              {#if autoRenewEnabled}
+                <CircleX size={17} />
+                {t("wa_auto_renew_disable")}
+              {:else}
+                <Repeat2 size={17} />
+                {t("wa_auto_renew_enable")}
+              {/if}
+            </Button>
+          </div>
+        {/if}
       {:else}
         <div class="sub-status sub-status-inactive">
           <CircleX class="sub-status-icon" size={23} />
@@ -272,64 +311,32 @@
     </Card>
 
     {#if subscription.active}
-      <Card compact class={regularTrafficCardClass(subscription)}>
-        {#if regularTrafficTopupBarClickable}
-          <button
-            class="card-click-target"
-            type="button"
-            onclick={openRegularTopupModal}
-            aria-label={t("wa_add_traffic")}
-          ></button>
-        {/if}
-        <div class="traffic-summary-row">
-          <span class="traffic-summary-left">
-            {t("wa_home_traffic_used")}
-            <span class="traffic-summary-separator" aria-hidden="true">|</span>
-            {regularTrafficMetaLabel(subscription)}
-          </span>
-          <strong class="traffic-summary-right">
-            <span>{trafficLabel(subscription)}</span>
-            <span class="traffic-summary-separator" aria-hidden="true">|</span>
-            <span>{trafficPercent(subscription)}%</span>
-          </strong>
-        </div>
-        <LinearProgress value={trafficPercent(subscription)} label={t("wa_home_traffic_used")} />
-      </Card>
-      {#if premiumTrafficAvailable(subscription) && subscription?.premium_unlimited_override}
-        <Card compact class="traffic-card-compact premium-traffic-card">
-          {#if premiumServerLabels(subscription).length}
-            <details class="premium-server-dropdown premium-server-dropdown-inline">
-              <summary class="traffic-summary-row premium-server-summary">
-                <span class="traffic-summary-left premium-summary-trigger">
-                  <span class="premium-summary-copy">
-                    {premiumTitle(subscription)}
-                    <span class="traffic-summary-separator" aria-hidden="true">|</span>
-                    {t("wa_premium_unlimited", {}, "Безлимит на premium-сервера")}
-                  </span>
-                  <CircleQuestionMark class="premium-server-help-icon" size={15} />
-                </span>
-                <strong class="traffic-summary-right">∞</strong>
-              </summary>
-              <div class="premium-server-list premium-server-list-dropdown">
-                <div>
-                  {#each premiumServerLabels(subscription).slice(0, 8) as label}
-                    <span>{label}</span>
-                  {/each}
-                </div>
-              </div>
-            </details>
-          {:else}
-            <div class="traffic-summary-row">
-              <span class="traffic-summary-left">
-                {premiumTitle(subscription)}
-                <span class="traffic-summary-separator" aria-hidden="true">|</span>
-                {t("wa_premium_unlimited", {}, "Безлимит на premium-сервера")}
-              </span>
-              <strong class="traffic-summary-right">∞</strong>
-            </div>
+      {#if regularTrafficLimitVisible(subscription)}
+        <Card compact class={regularTrafficCardClass(subscription)}>
+          {#if regularTrafficTopupBarClickable}
+            <button
+              class="card-click-target"
+              type="button"
+              onclick={openRegularTopupModal}
+              aria-label={t("wa_add_traffic")}
+            ></button>
           {/if}
+          <div class="traffic-summary-row">
+            <span class="traffic-summary-left">
+              {t("wa_home_traffic_used")}
+              <span class="traffic-summary-separator" aria-hidden="true">|</span>
+              {regularTrafficMetaLabel(subscription)}
+            </span>
+            <strong class="traffic-summary-right">
+              <span>{trafficLabel(subscription)}</span>
+              <span class="traffic-summary-separator" aria-hidden="true">|</span>
+              <span>{trafficPercent(subscription)}%</span>
+            </strong>
+          </div>
+          <LinearProgress value={trafficPercent(subscription)} label={t("wa_home_traffic_used")} />
         </Card>
-      {:else if premiumTrafficAvailable(subscription) && Number(subscription?.premium_limit_bytes || 0) > 0}
+      {/if}
+      {#if premiumTrafficAvailable(subscription) && premiumTrafficLimitVisible(subscription)}
         <Card
           compact
           class={`traffic-card-compact ${premiumTrafficTopupBarClickable ? "traffic-card-clickable " : ""}premium-traffic-card${subscription?.premium_is_limited ? " premium-traffic-card-limited" : ""}`}
@@ -516,13 +523,13 @@
         {/if}
         {primaryPayActionLabel()}
       </Button>
-      {#if regularTrafficTopupUnlocked}
+      {#if regularTrafficTopupUnlocked && regularTrafficLimitVisible(subscription)}
         <Button class="wide" variant="secondary" onclick={openRegularTopupModal}>
           <Database size={18} />
           {t("wa_add_traffic")}
         </Button>
       {/if}
-      {#if premiumTrafficTopupUnlocked && premiumTrafficAvailable(subscription)}
+      {#if premiumTrafficTopupUnlocked && premiumTrafficAvailable(subscription) && premiumTrafficLimitVisible(subscription)}
         <Button class="wide" variant="secondary" onclick={openPremiumTopupModal}>
           <Database size={18} />
           {t("wa_add_traffic_premium", { target: premiumTitle(subscription) })}

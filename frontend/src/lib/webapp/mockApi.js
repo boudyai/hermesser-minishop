@@ -2,8 +2,51 @@ import { DEV_MOCK } from "./previewMock.js";
 import { DEMO_DATASET } from "./demoDataset.js";
 import SETTINGS_MANIFEST_SECTIONS from "./settingsManifest.generated.json";
 import { withDemoAvatar, withDemoAvatarDetail, withDemoAvatarTicket } from "./demoAvatars.js";
+import { readJsonScript } from "./browser.js";
 
 const DEMO_LANGUAGE_STORAGE_KEY = "rw_minishop_demo_language";
+const DEMO_I18N_SCRIPT_ID = "i18n";
+const DEMO_TRANSLATION_GROUP_RULES = [
+  ["admin_appearance_", "admin_appearance"],
+  ["admin_translations_", "admin_translations"],
+  ["admin_settings_field_payment_", "admin_settings_payments"],
+  ["admin_settings_field_freekassa_", "admin_settings_payments"],
+  ["admin_settings_field_cryptomus_", "admin_settings_payments"],
+  ["admin_settings_field_yookassa_", "admin_settings_payments"],
+  ["admin_settings_field_cloudpayments_", "admin_settings_payments"],
+  ["admin_settings_field_stripe_", "admin_settings_payments"],
+  ["admin_settings_field_platega_", "admin_settings_payments"],
+  ["admin_settings_field_tbank_", "admin_settings_payments"],
+  ["admin_settings_field_subscription_", "admin_settings_subscriptions"],
+  ["admin_settings_field_autorenew_", "admin_settings_subscriptions"],
+  ["admin_settings_field_trial_", "admin_settings_subscriptions"],
+  ["admin_settings_field_stars_", "admin_settings_subscriptions"],
+  ["admin_settings_field_", "admin_settings"],
+  ["admin_settings_", "admin_settings"],
+  ["admin_health_", "admin_settings_notifications"],
+  ["admin_support_", "admin_support"],
+  ["admin_tariff", "admin_tariffs"],
+  ["admin_payment", "admin_payments"],
+  ["admin_promo", "admin_promos_marketing"],
+  ["admin_ads_", "admin_promos_marketing"],
+  ["admin_broadcast_", "admin_promos_marketing"],
+  ["admin_user", "admin_users"],
+  ["admin_log", "admin_logs"],
+  ["admin_export", "admin_logs"],
+  ["admin_stats_", "admin_dashboard"],
+  ["admin_nav_", "admin_navigation"],
+  ["admin_section_", "admin_navigation"],
+  ["admin_", "admin_misc"],
+  ["wa_", "webapp"],
+  ["telegram_", "bot_menu"],
+  ["subscription_", "subscriptions"],
+  ["trial_", "subscriptions"],
+  ["autorenew_", "subscriptions"],
+  ["payment_", "payments"],
+  ["referral_", "referrals_promos"],
+  ["email_", "emails"],
+  ["user_", "auth_security"],
+];
 
 function defaultClone(value) {
   try {
@@ -11,6 +54,96 @@ function defaultClone(value) {
   } catch {
     return JSON.parse(JSON.stringify(value));
   }
+}
+
+function readDemoI18nMessages() {
+  if (typeof document === "undefined") return {};
+  const payload = readJsonScript(DEMO_I18N_SCRIPT_ID);
+  return payload && typeof payload === "object" ? payload : {};
+}
+
+function translationValue(base, fallback) {
+  const effective = base || fallback || "";
+  return {
+    base: base || "",
+    fallback: fallback || "",
+    effective,
+    override: "",
+    overridden: false,
+    updated_at: null,
+    updated_by: null,
+  };
+}
+
+function messageFor(messages, lang, key) {
+  const value = messages?.[lang]?.[key];
+  return typeof value === "string" ? value : "";
+}
+
+function createLocaleTranslationItem(key, messages, languages) {
+  const fallback =
+    messageFor(messages, "ru", key) ||
+    Object.values(messages || {})
+      .map((bucket) => (bucket && typeof bucket === "object" ? bucket[key] : ""))
+      .find((value) => typeof value === "string" && value.length) ||
+    key;
+  const values = {};
+  for (const language of languages || []) {
+    const code = language?.code;
+    if (!code) continue;
+    values[code] = translationValue(messageFor(messages, code, key) || fallback, fallback);
+  }
+  if (!values.ru) values.ru = translationValue(fallback, fallback);
+  if (!values.en)
+    values.en = translationValue(messageFor(messages, "en", key) || fallback, fallback);
+  return {
+    key,
+    audience: key.startsWith("admin_") ? "internal" : "user",
+    values,
+  };
+}
+
+function targetTranslationGroup(groups, key) {
+  const exact = DEMO_TRANSLATION_GROUP_RULES.find(([prefix]) => key.startsWith(prefix));
+  const groupId = exact?.[1] || "common";
+  return (
+    (groups || []).find((group) => group.id === groupId) ||
+    (groups || []).find((group) => group.id === "common") ||
+    (groups || [])[0]
+  );
+}
+
+function withCurrentLocaleTranslations(payload) {
+  const messages = readDemoI18nMessages();
+  const groups = payload?.groups || [];
+  if (!groups.length || !messages || !Object.keys(messages).length) return payload;
+
+  const existingKeys = new Set(
+    groups.flatMap((group) => (group.items || []).map((item) => item.key))
+  );
+  const localeKeys = new Set();
+  for (const bucket of Object.values(messages)) {
+    if (!bucket || typeof bucket !== "object") continue;
+    for (const key of Object.keys(bucket)) localeKeys.add(key);
+  }
+
+  for (const key of Array.from(localeKeys).sort()) {
+    if (existingKeys.has(key)) continue;
+    const group = targetTranslationGroup(groups, key);
+    if (!group) continue;
+    group.items = group.items || [];
+    group.items.push(createLocaleTranslationItem(key, messages, payload.languages || []));
+    existingKeys.add(key);
+  }
+
+  for (const group of groups) {
+    group.items = (group.items || []).sort((a, b) => String(a.key).localeCompare(String(b.key)));
+  }
+  return payload;
+}
+
+function demoTranslationsPayload(clone = defaultClone) {
+  return withCurrentLocaleTranslations(clone(DEMO_DATASET.translations || {}));
 }
 
 let demoPromosState = null;
@@ -65,6 +198,219 @@ function demoTariffs() {
     );
   }
   return demoTariffsState;
+}
+
+function demoProviderCurrencySupport() {
+  return [
+    {
+      id: "freekassa",
+      provider_key: "freekassa",
+      provider_label: "FreeKassa",
+      settings_path: ["payments", "freekassa"],
+      label: "FreeKassa / SBP",
+      enabled: true,
+      configured: true,
+      admin_only: false,
+      price_source: "rub",
+      currencies: ["RUB"],
+      accepts_any_currency: false,
+      supports_default_currency: true,
+      directly_supports_default_currency: true,
+      default_currency: "rub",
+    },
+    {
+      id: "platega_sbp",
+      provider_key: "platega",
+      provider_label: "Platega SBP/card",
+      settings_path: ["payments", "platega", "sbp"],
+      label: "Pay with card (SBP)",
+      enabled: true,
+      configured: true,
+      admin_only: false,
+      price_source: "rub",
+      currencies: ["RUB"],
+      accepts_any_currency: false,
+      supports_default_currency: true,
+      directly_supports_default_currency: true,
+      default_currency: "rub",
+    },
+    {
+      id: "platega_crypto",
+      provider_key: "platega",
+      provider_label: "Platega Crypto",
+      settings_path: ["payments", "platega", "crypto"],
+      label: "Crypto",
+      enabled: true,
+      configured: true,
+      admin_only: false,
+      price_source: "rub",
+      currencies: ["USDT", "TON"],
+      accepts_any_currency: false,
+      supports_default_currency: false,
+      directly_supports_default_currency: false,
+      default_currency: "rub",
+    },
+    {
+      id: "severpay",
+      provider_key: "severpay",
+      provider_label: "SeverPay",
+      settings_path: ["payments", "severpay"],
+      label: "SeverPay",
+      enabled: true,
+      configured: true,
+      admin_only: false,
+      price_source: "rub",
+      currencies: ["RUB"],
+      accepts_any_currency: false,
+      supports_default_currency: true,
+      directly_supports_default_currency: true,
+      default_currency: "rub",
+    },
+    {
+      id: "wata",
+      provider_key: "wata",
+      provider_label: "Wata",
+      settings_path: ["payments", "wata"],
+      label: "Wata",
+      enabled: true,
+      configured: true,
+      admin_only: false,
+      price_source: "rub",
+      currencies: ["RUB"],
+      accepts_any_currency: false,
+      supports_default_currency: true,
+      directly_supports_default_currency: true,
+      default_currency: "rub",
+    },
+    {
+      id: "yookassa",
+      provider_key: "yookassa",
+      provider_label: "YooKassa",
+      settings_path: ["payments", "yookassa"],
+      label: "YooKassa",
+      enabled: false,
+      configured: false,
+      admin_only: false,
+      price_source: "rub",
+      currencies: ["RUB"],
+      accepts_any_currency: false,
+      supports_default_currency: true,
+      directly_supports_default_currency: true,
+      default_currency: "rub",
+    },
+    {
+      id: "stars",
+      provider_key: "telegram_stars",
+      provider_label: "Telegram Stars",
+      settings_path: ["payments", "telegram-stars"],
+      label: "Telegram Stars",
+      enabled: true,
+      configured: true,
+      admin_only: false,
+      price_source: "stars",
+      currencies: ["XTR"],
+      accepts_any_currency: false,
+      supports_default_currency: false,
+      directly_supports_default_currency: false,
+      default_currency: "rub",
+    },
+    {
+      id: "cryptopay",
+      provider_key: "cryptopay",
+      provider_label: "CryptoPay",
+      settings_path: ["payments", "cryptopay"],
+      label: "CryptoPay",
+      enabled: true,
+      configured: true,
+      admin_only: false,
+      price_source: "rub",
+      currencies: ["USDT", "TON", "BTC"],
+      accepts_any_currency: false,
+      supports_default_currency: false,
+      directly_supports_default_currency: false,
+      default_currency: "rub",
+    },
+    {
+      id: "heleket",
+      provider_key: "heleket",
+      provider_label: "Heleket",
+      settings_path: ["payments", "heleket"],
+      label: "Heleket",
+      enabled: true,
+      configured: true,
+      admin_only: false,
+      price_source: "rub",
+      currencies: ["RUB", "USDT"],
+      accepts_any_currency: false,
+      supports_default_currency: true,
+      directly_supports_default_currency: true,
+      default_currency: "rub",
+    },
+    {
+      id: "paykilla",
+      provider_key: "paykilla",
+      provider_label: "PayKilla",
+      settings_path: ["payments", "paykilla"],
+      label: "PayKilla",
+      enabled: true,
+      configured: false,
+      admin_only: false,
+      price_source: "rub",
+      currencies: ["RUB"],
+      accepts_any_currency: false,
+      supports_default_currency: true,
+      directly_supports_default_currency: true,
+      default_currency: "rub",
+    },
+    {
+      id: "lava",
+      provider_key: "lava",
+      provider_label: "LAVA",
+      settings_path: ["payments", "lava"],
+      label: "LAVA",
+      enabled: true,
+      configured: true,
+      admin_only: false,
+      price_source: "rub",
+      currencies: ["RUB"],
+      accepts_any_currency: false,
+      supports_default_currency: true,
+      directly_supports_default_currency: true,
+      default_currency: "rub",
+    },
+    {
+      id: "cloudpayments",
+      provider_key: "cloudpayments",
+      provider_label: "CloudPayments",
+      settings_path: ["payments", "cloudpayments"],
+      label: "CloudPayments",
+      enabled: true,
+      configured: true,
+      admin_only: false,
+      price_source: "rub",
+      currencies: ["RUB", "USD", "EUR", "GBP", "KZT", "UAH", "BYN", "AZN", "AMD", "KGS"],
+      accepts_any_currency: false,
+      supports_default_currency: true,
+      directly_supports_default_currency: true,
+      default_currency: "rub",
+    },
+    {
+      id: "stripe",
+      provider_key: "stripe",
+      provider_label: "Stripe",
+      settings_path: ["payments", "stripe"],
+      label: "Stripe",
+      enabled: false,
+      configured: false,
+      admin_only: false,
+      price_source: "rub",
+      currencies: ["RUB", "USD", "EUR", "GBP"],
+      accepts_any_currency: false,
+      supports_default_currency: true,
+      directly_supports_default_currency: true,
+      default_currency: "rub",
+    },
+  ];
 }
 
 function queryParams(path) {
@@ -969,7 +1315,8 @@ function demoApiResponse(path, cleanPath, options, context) {
       reverted: (body.deletes || []).length,
     };
   }
-  if (cleanPath === "/admin/settings") return { ok: true, sections: demoSettingsSections(clone) };
+  if (cleanPath === "/admin/settings")
+    return { ok: true, sections: demoSettingsSections(clone), features: [] };
 
   if (cleanPath === "/admin/tariffs") {
     if (method === "PUT") {
@@ -981,6 +1328,7 @@ function demoApiResponse(path, cleanPath, options, context) {
       ok: true,
       path: "data/tariffs.json",
       catalog: clone(demoTariffs()),
+      provider_currency_support: demoProviderCurrencySupport(),
     };
   }
 
@@ -1001,7 +1349,7 @@ function demoApiResponse(path, cleanPath, options, context) {
     return { ok: true, applied: 1, reverted: 0, file_written: false };
   }
   if (cleanPath === "/admin/translations") {
-    return { ok: true, ...clone(DEMO_DATASET.translations) };
+    return { ok: true, ...demoTranslationsPayload(clone) };
   }
 
   if (cleanPath === "/admin/support/stats") return { ok: true, stats: demoSupportCounts() };
@@ -1151,6 +1499,7 @@ export async function mockApi(path, options = {}, context = {}) {
   } = context;
   await new Promise((resolve) => window.setTimeout(resolve, 120));
   const cleanPath = String(path || "").split("?")[0];
+  const method = String(options.method || "GET").toUpperCase();
   const demoResponse = demoApiResponse(path, cleanPath, options, {
     clone,
     currentLang,
@@ -1565,6 +1914,7 @@ export async function mockApi(path, options = {}, context = {}) {
     return {
       ok: true,
       path: "data/tariffs.json",
+      provider_currency_support: demoProviderCurrencySupport(),
       catalog: {
         default_tariff: "standard",
         topup_packages_default: { rub: [{ gb: 10, price: 99 }], stars: [] },
@@ -1779,7 +2129,7 @@ export async function mockApi(path, options = {}, context = {}) {
     return { ok: true, applied: 1, reverted: 0, file_written: true };
   }
   if (path === "/admin/translations") {
-    return {
+    return withCurrentLocaleTranslations({
       ok: true,
       path: "data/locales-overrides.json",
       override_count: 1,
@@ -1845,11 +2195,12 @@ export async function mockApi(path, options = {}, context = {}) {
           ],
         },
       ],
-    };
+    });
   }
   if (path === "/admin/settings")
     return {
       ok: true,
+      features: [],
       sections: [
         {
           id: "general",
@@ -2156,6 +2507,25 @@ export async function mockApi(path, options = {}, context = {}) {
     return { ok: true, ticket, messages: clone(supportMessages[ticket.ticket_id] || []) };
   }
   if (cleanPath === "/support/unread") return { ok: true, unread: 1 };
+  if (cleanPath === "/subscription/auto-renew" && method === "POST") {
+    const body = jsonBody(options);
+    const enabled = Boolean(body.enabled);
+    DEV_MOCK.data.subscription = {
+      ...(DEV_MOCK.data.subscription || {}),
+      auto_renew_enabled: enabled,
+      auto_renew_available: true,
+      auto_renew_can_enable: true,
+      auto_renew_provider_label:
+        DEV_MOCK.data.subscription?.auto_renew_provider_label || "CloudPayments",
+      provider: DEV_MOCK.data.subscription?.provider || "cloudpayments",
+    };
+    return {
+      ok: true,
+      auto_renew_enabled: enabled,
+      provider: DEV_MOCK.data.subscription.provider,
+      provider_label: DEV_MOCK.data.subscription.auto_renew_provider_label,
+    };
+  }
   if (cleanPath === "/me") return clone(DEV_MOCK.data);
   if (path === "/subscription-guides") return clone(DEV_MOCK.data.subscription_guides);
   if (cleanPath.startsWith("/subscription-guides/public/")) {

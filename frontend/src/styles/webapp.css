@@ -305,6 +305,61 @@ a {
   white-space: nowrap;
 }
 
+.auto-renew-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 5px 6px 5px 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-muted) 62%, transparent);
+}
+
+.auto-renew-state {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+}
+
+.auto-renew-state > svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+.auto-renew-state > span {
+  display: block;
+  min-width: 0;
+}
+
+.auto-renew-state strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auto-renew-state strong {
+  font-size: 12px;
+  line-height: 1.1;
+}
+
+.auto-renew-action {
+  min-height: 28px;
+  padding: 0 9px;
+  flex: 0 0 auto;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.auto-renew-action svg {
+  width: 14px;
+  height: 14px;
+}
+
 @media (max-width: 1023px) {
   .status-card {
     padding: 13px;
@@ -3293,6 +3348,7 @@ a {
   }
 
   .settings-row-language,
+  .settings-row-status,
   .settings-row-support,
   .settings-row-logout {
     grid-column: 1 / -1;

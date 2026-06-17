@@ -66,6 +66,14 @@ class UserBotMenuTests(unittest.TestCase):
             if button.callback_data
         ]
 
+    def _url_buttons(self, markup):
+        return [
+            (button.text, button.url)
+            for row in markup.inline_keyboard
+            for button in row
+            if button.url
+        ]
+
     def test_main_menu_exposes_bot_menu_and_information(self):
         markup = get_main_menu_inline_keyboard("en", self.i18n, self.settings)
 
@@ -73,6 +81,19 @@ class UserBotMenuTests(unittest.TestCase):
 
         self.assertIn("main_action:bot_interface", callbacks)
         self.assertIn("main_action:info", callbacks)
+
+    def test_server_status_link_appears_in_bot_menus_when_configured(self):
+        self.settings.SERVER_STATUS_URL = "https://status.example.com"
+        expected = (
+            self.i18n.gettext("en", "menu_server_status_button"),
+            "https://status.example.com",
+        )
+
+        main_markup = get_main_menu_inline_keyboard("en", self.i18n, self.settings)
+        bot_markup = get_bot_interface_inline_keyboard("en", self.i18n, self.settings)
+
+        self.assertIn(expected, self._url_buttons(main_markup))
+        self.assertIn(expected, self._url_buttons(bot_markup))
 
     def test_main_menu_shows_trial_button_as_mini_app_deeplink_when_available(self):
         markup = get_main_menu_inline_keyboard(

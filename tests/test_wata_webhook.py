@@ -271,7 +271,7 @@ def test_wata_refresh_finds_paid_transaction_by_order_id_and_finalizes(monkeypat
     result = asyncio.run(service.refresh_payment_status(session, payment))
 
     assert result is payment
-    assert updates == [(465, "tx-paid", "succeeded")]
+    assert updates == [(465, "tx-paid", wata.PAYMENT_STATUS_PENDING_FINALIZATION)]
     assert finalized == [(465, "wata", "wata")]
     assert session.commits == 1
 

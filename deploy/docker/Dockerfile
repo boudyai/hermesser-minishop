@@ -74,7 +74,10 @@ RUN set -eux; \
       > /etc/apt/sources.list.d/pgdg.list; \
     apt-get update; \
     apt-get install -y --no-install-recommends postgresql-client-17; \
-    apt-get purge -y --auto-remove curl gnupg; \
+    # Keep curl in the runtime image: it backs the container healthcheck. A
+    # spawned curl is far cheaper than booting a full Python interpreter every
+    # interval. Only gnupg (build-time key import) is purged here.
+    apt-get purge -y --auto-remove gnupg; \
     rm -rf /var/lib/apt/lists/*
 
 RUN useradd -u 10001 -m appuser
@@ -82,6 +85,12 @@ RUN useradd -u 10001 -m appuser
 COPY backend/requirements.txt backend/requirements.txt
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir -r backend/requirements.txt
+# aiocryptopay 0.4.8 (latest upstream) caps certifi at <2024, which resolves to
+# a version with a known CVE (PYSEC-2024-230). The cap is metadata-only — the
+# certifi API is stable — so force-upgrade it after the main resolve. Drop this
+# once aiocryptopay relaxes the pin upstream.
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir --upgrade "certifi>=2024.7.4"
 
 COPY locales ./locales
 COPY data ./data

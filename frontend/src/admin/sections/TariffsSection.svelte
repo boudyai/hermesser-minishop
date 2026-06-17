@@ -22,6 +22,7 @@
   export let at;
   export let fmtMoney;
   export let onSettingsSaved = () => {};
+  export let onOpenSettingsPath = () => {};
 
   const tariffsStore = getContext("tariffsStore");
   const settingsStore = getContext("settingsStore");
@@ -100,6 +101,36 @@
     { value: "WEEK", label: "WEEK" },
     { value: "MONTH", label: "MONTH" },
   ];
+  const PROVIDER_FALLBACK_LABELS = {
+    cryptopay: "CryptoPay",
+    freekassa: "FreeKassa",
+    heleket: "Heleket",
+    lava: "LAVA",
+    paykilla: "PayKilla",
+    platega: "Platega",
+    platega_crypto: "Platega Crypto",
+    platega_sbp: "Platega SBP/card",
+    severpay: "SeverPay",
+    stars: "Telegram Stars",
+    telegram_stars: "Telegram Stars",
+    wata: "Wata",
+    yookassa: "YooKassa",
+  };
+  const PROVIDER_SETTINGS_PATHS = {
+    cryptopay: ["payments", "cryptopay"],
+    freekassa: ["payments", "freekassa"],
+    heleket: ["payments", "heleket"],
+    lava: ["payments", "lava"],
+    paykilla: ["payments", "paykilla"],
+    platega: ["payments", "platega"],
+    platega_crypto: ["payments", "platega", "crypto"],
+    platega_sbp: ["payments", "platega", "sbp"],
+    severpay: ["payments", "severpay"],
+    stars: ["payments", "telegram-stars"],
+    telegram_stars: ["payments", "telegram-stars"],
+    wata: ["payments", "wata"],
+    yookassa: ["payments", "yookassa"],
+  };
 
   $: ({
     tariffsCatalog,
@@ -271,6 +302,47 @@
     if (!provider.configured) return at("status_not_configured", {}, "Не настроен");
     if (provider.supports_default_currency) return at("tariff_currency_supported", {}, "Доступен");
     return at("tariff_currency_unsupported", {}, "Заблокирован");
+  }
+
+  function providerKey(provider) {
+    return String(provider?.id || provider?.provider_key || provider?.key || "")
+      .trim()
+      .toLowerCase();
+  }
+
+  function providerDisplayName(provider) {
+    const key = providerKey(provider);
+    return (
+      provider?.provider_label ||
+      provider?.provider_name ||
+      PROVIDER_FALLBACK_LABELS[key] ||
+      PROVIDER_FALLBACK_LABELS[
+        String(provider?.provider_key || "")
+          .trim()
+          .toLowerCase()
+      ] ||
+      provider?.label ||
+      provider?.id ||
+      "—"
+    );
+  }
+
+  function providerSettingsPath(provider) {
+    if (Array.isArray(provider?.settings_path) && provider.settings_path.length) {
+      return provider.settings_path.map((segment) => String(segment || "").trim()).filter(Boolean);
+    }
+    const key = providerKey(provider);
+    const providerRouteKey = String(provider?.provider_key || "")
+      .trim()
+      .toLowerCase();
+    const mapped = PROVIDER_SETTINGS_PATHS[key] || PROVIDER_SETTINGS_PATHS[providerRouteKey];
+    if (mapped) return mapped;
+    const fallback = providerRouteKey || key;
+    return fallback ? ["payments", fallback.replace(/_/g, "-")] : ["payments"];
+  }
+
+  function openProviderSettings(provider) {
+    onOpenSettingsPath(providerSettingsPath(provider));
   }
 
   function removeTrialSquad(uuid) {
@@ -1176,7 +1248,9 @@
           {#if providerCurrencySupport?.length}
             <div class="admin-provider-currency-grid">
               {#each providerCurrencySupport as provider}
-                <div
+                {@const providerName = providerDisplayName(provider)}
+                <button
+                  type="button"
                   class="admin-provider-currency"
                   class:is-supported={provider.supports_default_currency &&
                     provider.enabled &&
@@ -1184,15 +1258,17 @@
                   class:is-unavailable={!provider.supports_default_currency ||
                     !provider.enabled ||
                     !provider.configured}
+                  title={providerName}
+                  onclick={() => openProviderSettings(provider)}
                 >
                   <div class="admin-provider-currency-main">
-                    <strong>{provider.label}</strong>
+                    <strong>{providerName}</strong>
                     <small>{providerCurrencyLabel(provider)}</small>
                   </div>
                   <AdminBadge variant={providerCurrencyVariant(provider)}>
                     {providerCurrencyStatus(provider)}
                   </AdminBadge>
-                </div>
+                </button>
               {/each}
             </div>
           {:else}

@@ -344,6 +344,95 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(".bottom-nav.bottom-nav-many .bottom-nav-label", css)
         self.assertIn("display: none;", css)
 
+    def test_settings_screen_places_server_status_between_legal_and_support_links(self):
+        source = (Path(__file__).resolve().parents[1] / "frontend/src/App.svelte").read_text(
+            encoding="utf-8"
+        )
+        settings_source = (
+            Path(__file__).resolve().parents[1]
+            / "frontend/src/webapp/screens/SettingsScreen.svelte"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("CFG.serverStatusUrl", source)
+        self.assertIn("appSettings?.server_status_url", source)
+        self.assertIn("{serverStatusUrl}", source)
+        self.assertIn('t("menu_server_status_button")', settings_source)
+
+        agreement_pos = settings_source.index("{#if userAgreementUrl}")
+        privacy_pos = settings_source.index("{#if privacyPolicyUrl}")
+        status_pos = settings_source.index("{#if serverStatusUrl}")
+        support_pos = settings_source.index("{#if supportUrl}")
+
+        self.assertLess(agreement_pos, status_pos)
+        self.assertLess(privacy_pos, status_pos)
+        self.assertLess(status_pos, support_pos)
+
+    def test_webapp_bootstrap_exposes_server_status_url(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="123456:token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            SERVER_STATUS_URL="https://status.example.com",
+            SUPPORT_LINK="https://t.me/support",
+            PRIVACY_POLICY_URL="https://example.com/privacy",
+            USER_AGREEMENT_URL="https://example.com/agreement",
+        )
+        i18n = SimpleNamespace(
+            locales_data={
+                "en": {
+                    "menu_support_button": "Support",
+                    "menu_server_status_button": "Server status",
+                    "admin_settings_title": "Admin settings",
+                }
+            },
+            base_locales_data={"en": {}},
+            reload_overrides_from_file=lambda: None,
+        )
+        request = SimpleNamespace(
+            app={
+                "settings": settings,
+                "webapp_settings_cache": {"ts": 0.0, "data": {}},
+                "i18n": i18n,
+            },
+            query={},
+        )
+
+        payload = subscription_webapp._build_webapp_bootstrap_payload(request)
+
+        self.assertEqual(payload["config"]["serverStatusUrl"], "https://status.example.com")
+        self.assertEqual(
+            request.app["webapp_settings_cache"]["data"]["server_status_url"],
+            "https://status.example.com",
+        )
+        self.assertEqual(payload["i18n"]["en"]["menu_server_status_button"], "Server status")
+        self.assertEqual(payload["i18n"]["en"]["menu_support_button"], "Support")
+        self.assertNotIn("admin_settings_title", payload["i18n"]["en"])
+
+    def test_home_screen_hides_unlimited_traffic_limit_cards(self):
+        root = Path(__file__).resolve().parents[1]
+        app_source = (root / "frontend/src/App.svelte").read_text(encoding="utf-8")
+        home_source = (root / "frontend/src/webapp/screens/HomeScreen.svelte").read_text(
+            encoding="utf-8"
+        )
+        traffic_source = (root / "frontend/src/lib/webapp/traffic.js").read_text(encoding="utf-8")
+
+        self.assertIn("export function regularTrafficLimitVisible", traffic_source)
+        self.assertIn("!sub?.regular_unlimited_override", traffic_source)
+        self.assertIn("Number(sub?.traffic_limit_bytes || 0) > 0", traffic_source)
+        self.assertIn("export function premiumTrafficLimitVisible", traffic_source)
+        self.assertIn("!sub?.premium_unlimited_override", traffic_source)
+        self.assertIn("Number(sub?.premium_limit_bytes || 0) > 0", traffic_source)
+        self.assertIn("{#if regularTrafficLimitVisible(subscription)}", home_source)
+        self.assertIn(
+            "{#if premiumTrafficAvailable(subscription) "
+            "&& premiumTrafficLimitVisible(subscription)}",
+            home_source,
+        )
+        self.assertNotIn("wa_premium_unlimited", home_source)
+        self.assertIn("regularTrafficLimitVisible(subscription)", app_source)
+        self.assertIn("premiumTrafficLimitVisible(subscription)", app_source)
+
     def test_https_webapp_logo_uses_same_origin_proxy(self):
         settings = SimpleNamespace(WEBAPP_LOGO_URL="https://cdn.example.com/logo.png")
 
@@ -634,7 +723,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             "ui-sortable-item.is-drop-target::before",
         )
 
-        for key in ("light", "ascii", "windows95"):
+        for key in ("ascii", "windows95"):
             css = (theme_root / key / "style.css").read_text(encoding="utf-8")
             for selector in required_selectors:
                 self.assertIn(selector, css, f"{key} theme must style {selector}")
@@ -713,17 +802,19 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
     def test_initial_theme_head_markup_includes_css_and_tokens(self):
         cfg = builtin_webapp_themes_config("#123456")
-        theme = cfg.theme_by_key("light")
-        theme.tokens.home_logo_scale = 135
-        theme.tokens.home_logo_scale_desktop = 150
-        theme.tokens.home_logo_scale_mobile = 85
+        theme = cfg.theme_by_key("dark")
+        theme.active_variant = "light"
+        theme.variants["light"].home_logo_scale = 135
+        theme.variants["light"].home_logo_scale_desktop = 150
+        theme.variants["light"].home_logo_scale_mobile = 85
         request = SimpleNamespace(get=lambda key, default="": "nonce-value")
 
         markup = subscription_webapp._initial_theme_head_markup(request, theme, "#123456")
 
-        self.assertIn("/webapp-theme-css/light/style.css?v=", markup)
+        self.assertNotIn("/webapp-theme-css/light/style.css", markup)
         self.assertIn('nonce="nonce-value"', markup)
         self.assertIn("--accent:#123456", markup)
+        self.assertIn("--bg:#f7f8fb", markup)
         self.assertIn("--home-logo-scale:1.35", markup)
         self.assertIn("--home-logo-scale-desktop:1.5", markup)
         self.assertIn("--home-logo-scale-mobile:0.85", markup)
@@ -1253,15 +1344,15 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                         WEBAPP_THEMES_DIR=tmpdir,
                     )
                 },
-                match_info={"path": "light/style.css"},
+                match_info={"path": "windows95/style.css"},
             )
 
             response = await subscription_webapp.theme_css_asset_route(request)
 
             self.assertEqual(response.content_type, "text/css")
-            self.assertIn(".theme-key-light", response.text)
-            self.assertTrue((Path(tmpdir) / "light" / "theme.json").exists())
-            self.assertTrue((Path(tmpdir) / "light" / "style.css").exists())
+            self.assertIn(".theme-key-windows95", response.text)
+            self.assertTrue((Path(tmpdir) / "windows95" / "theme.json").exists())
+            self.assertTrue((Path(tmpdir) / "windows95" / "style.css").exists())
 
     async def test_theme_css_asset_route_rejects_path_traversal(self):
         with tempfile.TemporaryDirectory() as tmpdir:

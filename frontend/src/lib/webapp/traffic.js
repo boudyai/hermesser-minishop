@@ -7,6 +7,10 @@ export function trafficPercent(sub) {
   return Math.max(0, Math.min(100, Math.round((used / limit) * 100)));
 }
 
+export function regularTrafficLimitVisible(sub) {
+  return !sub?.regular_unlimited_override && Number(sub?.traffic_limit_bytes || 0) > 0;
+}
+
 export function trafficLabel(sub, t) {
   if (!sub?.traffic_limit_bytes || Number(sub.traffic_limit_bytes) <= 0)
     return t("wa_unlimited_traffic");
@@ -33,6 +37,10 @@ export function premiumTrafficPercent(sub) {
   const limit = Number(sub?.premium_limit_bytes || 0);
   if (!limit || limit <= 0) return 0;
   return Math.max(0, Math.min(100, Math.round((used / limit) * 100)));
+}
+
+export function premiumTrafficLimitVisible(sub) {
+  return !sub?.premium_unlimited_override && Number(sub?.premium_limit_bytes || 0) > 0;
 }
 
 export function premiumTrafficLabel(sub, t) {

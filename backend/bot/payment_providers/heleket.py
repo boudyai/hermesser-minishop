@@ -37,6 +37,7 @@ from .base import (
     provider_runtime_enabled,
 )
 from .shared import (
+    PAYMENT_STATUS_PENDING_FINALIZATION,
     HttpClientMixin,
     PaymentSuccessRequest,
     build_payment_record_payload,
@@ -546,7 +547,7 @@ class HeleketService(HttpClientMixin):
                         session,
                         payment.payment_id,
                         resolved_id,
-                        "succeeded",
+                        PAYMENT_STATUS_PENDING_FINALIZATION,
                     )
                     await session.commit()
                 except Exception:
@@ -741,6 +742,7 @@ async def pay_heleket_callback_handler(
         api_success=success,
         payment_url=first_value(result, "url"),
         provider_payment_id=first_value(result, "uuid"),
+        provider_response=response_data,
         log_prefix=_LOG,
     )
 
@@ -779,6 +781,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
         api_success=success,
         payment_url=first_value(result, "url") if success else None,
         provider_payment_id=first_value(result, "uuid"),
+        provider_response=response_data,
         log_prefix="Heleket",
     )
 

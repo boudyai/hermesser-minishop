@@ -16,7 +16,7 @@ Remnawave Minishop - Telegram-бот и Web App (Mini App) для продажи
 - Web App / Mini App с входом через Telegram или email;
 - встроенные инструкции установки в Mini App: личный экран `/install` и публичная ссылка `/s/<token>` для передачи инструкции;
 - пробный период, промокоды и реферальная программа;
-- оплата через YooKassa, FreeKassa, Platega, SeverPay, Wata, CryptoPay, Heleket, PayKilla и Telegram Stars;
+- оплата через YooKassa, FreeKassa, Platega, SeverPay, Wata, CryptoPay, Heleket, PayKilla, LAVA, CloudPayments и Telegram Stars;
 - тикеты поддержки в Web App и внешняя ссылка на поддержку;
 - раздел "Мои устройства" при включенном `MY_DEVICES_SECTION_ENABLED`.
 
@@ -139,15 +139,3 @@ IMAGE_TAG=3.1.0 docker compose up -d
 - `docker.io/3252a8/remnawave-minishop-backend`
 - `docker.io/3252a8/remnawave-minishop-worker`
 - `docker.io/3252a8/remnawave-minishop-frontend`
-
-Сборка и публикация сразу в GHCR и Docker Hub:
-
-```bash
-docker login ghcr.io
-docker login docker.io
-IMAGE_TAG=v3.4.3 bash scripts/docker-build-push-images.sh
-```
-
-## Поддержать проект
-
-- Crypto: `USDT/Other ERC-20 0xeD506D44aae634fEc0E01C8835744fBedb7B2a44 (Ethereum/Polygon/Gnosis)`

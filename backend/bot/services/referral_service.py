@@ -1,13 +1,13 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 from aiogram import Bot
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.infra import events
 from bot.middlewares.i18n import JsonI18n
-from bot.services.user_email_notifications import send_user_notification_email
 from config.settings import Settings
 from db.dal import payment_dal, subscription_dal, user_dal
 
@@ -40,6 +40,8 @@ class ReferralService:
         referee_final_end_date: Optional[datetime] = None
         referee_bonus_applied_days: Optional[int] = None
         inviter_bonus_successfully_applied = False
+        inviter_bonus_end_date: Optional[datetime] = None
+        inviter_bonus_kind: Optional[str] = None
 
         try:
             referee_user_model = await user_dal.get_user_by_id(session, referee_user_id)
@@ -100,6 +102,18 @@ class ReferralService:
                 purchased_subscription_months,
                 tariff_key=tariff_key,
             )
+            logging.info(
+                "Referral bonus payment check: referee_user_id=%s inviter_user_id=%s "
+                "payment_db_id=%s months=%s tariff_key=%s inviter_bonus_days=%s "
+                "referee_bonus_days=%s",
+                referee_user_id,
+                inviter_user_id,
+                current_payment_db_id,
+                purchased_subscription_months,
+                tariff_key,
+                inviter_bonus_days,
+                referee_bonus_days,
+            )
 
             if inviter_bonus_days and inviter_bonus_days > 0:
                 if not inviter_user_model:
@@ -122,6 +136,13 @@ class ReferralService:
                         )
 
                     else:
+                        inviter_active_sub = (
+                            await subscription_dal.get_active_subscription_by_user_id(
+                                session,
+                                inviter_user_id,
+                                inviter_panel_uuid,
+                            )
+                        )
                         new_end_date_inviter = (
                             await self.subscription_service.extend_active_subscription_days(
                                 session=session,
@@ -133,144 +154,18 @@ class ReferralService:
 
                         if new_end_date_inviter:
                             inviter_bonus_successfully_applied = True
+                            inviter_bonus_end_date = new_end_date_inviter
+                            inviter_bonus_kind = "extended" if inviter_active_sub else "new_sub"
                             logging.info(
                                 f"Bonus of {inviter_bonus_days} days successfully applied/extended for inviter {inviter_user_id}."  # noqa: E501
                             )
-
-                            try:
-                                inviter_lang = (
-                                    inviter_user_model.language_code or default_lang_for_placeholder
-                                )
-                                _i = lambda k, **kw: self.i18n.gettext(inviter_lang, k, **kw)
-                                message_text = _i(
-                                    "referral_bonus_inviter_notification_extended",
-                                    days=inviter_bonus_days,
-                                    referee_name=referee_name_for_msg,
-                                    new_end_date=new_end_date_inviter.strftime("%Y-%m-%d"),
-                                )
-                                try:
-                                    await self.bot.send_message(inviter_user_id, message_text)
-                                except Exception as e_notify_inviter:
-                                    logging.error(
-                                        f"Failed to send bonus notification to inviter {inviter_user_id}: {e_notify_inviter}"  # noqa: E501
-                                    )
-                                await send_user_notification_email(
-                                    settings=self.settings,
-                                    i18n=self.i18n,
-                                    user=inviter_user_model,
-                                    subject_key="email_referral_bonus_subject",
-                                    message_text=message_text,
-                                    dashboard_url=(
-                                        getattr(
-                                            self.settings,
-                                            "SUBSCRIPTION_MINI_APP_URL",
-                                            "",
-                                        )
-                                        or None
-                                    ),
-                                )
-                            except Exception as e_notify_inviter:
-                                logging.error(
-                                    f"Failed to prepare bonus notification for inviter {inviter_user_id}: {e_notify_inviter}"  # noqa: E501
-                                )
                         else:
-                            logging.info(
-                                f"Inviter {inviter_user_id} has no active sub to extend. Creating new bonus subscription for {inviter_bonus_days} days."  # noqa: E501
+                            logging.warning(
+                                "Failed to apply inviter referral bonus for inviter %s after "
+                                "payment %s. Bonus not marked successful.",
+                                inviter_user_id,
+                                current_payment_db_id,
                             )
-
-                            bonus_start_date = datetime.now(timezone.utc)
-                            bonus_end_date = bonus_start_date + timedelta(days=inviter_bonus_days)
-
-                            if not inviter_panel_sub_link_id:
-                                logging.error(
-                                    f"Cannot create bonus subscription for inviter {inviter_user_id}: panel_sub_link_id is missing even after link detail fetch."  # noqa: E501
-                                )
-                            else:
-                                bonus_sub_payload = {
-                                    "user_id": inviter_user_id,
-                                    "panel_user_uuid": inviter_panel_uuid,
-                                    "panel_subscription_uuid": inviter_panel_sub_link_id,
-                                    "start_date": bonus_start_date,
-                                    "end_date": bonus_end_date,
-                                    "duration_months": 0,
-                                    "is_active": True,
-                                    "status_from_panel": "ACTIVE_BONUS",
-                                    "traffic_limit_bytes": self.settings.user_traffic_limit_bytes,
-                                    "auto_renew_enabled": False,
-                                    # Short bonus grant: warn only hours before it
-                                    # ends, not days ahead. A real payment clears this.
-                                    "suppress_early_expiry_notifications": True,
-                                }
-                                try:
-                                    await subscription_dal.deactivate_other_active_subscriptions(
-                                        session, inviter_panel_uuid, inviter_panel_sub_link_id
-                                    )
-                                    bonus_sub = await subscription_dal.upsert_subscription(
-                                        session, bonus_sub_payload
-                                    )
-
-                                    panel_update_success = await self.subscription_service.panel_service.update_user_details_on_panel(  # noqa: E501
-                                        inviter_panel_uuid,
-                                        {
-                                            "expireAt": bonus_end_date.isoformat(
-                                                timespec="milliseconds"
-                                            ).replace("+00:00", "Z"),
-                                            "status": "ACTIVE",
-                                        },
-                                    )
-                                    if panel_update_success:
-                                        inviter_bonus_successfully_applied = True
-                                        logging.info(
-                                            f"New bonus subscription for {inviter_bonus_days} days created for inviter {inviter_user_id}."  # noqa: E501
-                                        )
-
-                                        inviter_lang = (
-                                            inviter_user_model.language_code
-                                            or default_lang_for_placeholder
-                                        )
-                                        _i = lambda k, **kw: self.i18n.gettext(
-                                            inviter_lang, k, **kw
-                                        )
-                                        message_text = _i(
-                                            "referral_bonus_inviter_notification_new_sub",
-                                            days=inviter_bonus_days,
-                                            referee_name=referee_name_for_msg,
-                                            new_end_date=bonus_end_date.strftime("%Y-%m-%d"),
-                                        )
-                                        try:
-                                            await self.bot.send_message(
-                                                inviter_user_id,
-                                                message_text,
-                                            )
-                                        except Exception as e_notify_inviter:
-                                            logging.error(
-                                                f"Failed to send bonus notification to inviter {inviter_user_id}: {e_notify_inviter}"  # noqa: E501
-                                            )
-                                        await send_user_notification_email(
-                                            settings=self.settings,
-                                            i18n=self.i18n,
-                                            user=inviter_user_model,
-                                            subject_key="email_referral_bonus_subject",
-                                            message_text=message_text,
-                                            dashboard_url=(
-                                                getattr(
-                                                    self.settings,
-                                                    "SUBSCRIPTION_MINI_APP_URL",
-                                                    "",
-                                                )
-                                                or None
-                                            ),
-                                        )
-                                    else:
-                                        logging.warning(
-                                            f"Failed to update panel for new bonus subscription for inviter {inviter_user_id}. Local bonus sub created (ID: {bonus_sub.subscription_id}) but may not be active on panel."  # noqa: E501
-                                        )
-
-                                except Exception as e_create_bonus_sub:
-                                    logging.error(
-                                        f"Failed to create new bonus subscription for inviter {inviter_user_id}: {e_create_bonus_sub}",  # noqa: E501
-                                        exc_info=True,
-                                    )
 
             if referee_bonus_days and referee_bonus_days > 0:
                 new_end_date_referee = (
@@ -292,10 +187,39 @@ class ReferralService:
                         f"Failed to apply referee bonus for {referee_user_id} (could not extend their new subscription)."  # noqa: E501
                     )
 
+            if referee_bonus_applied_days or inviter_bonus_successfully_applied:
+                referral_event_payload = {
+                    "referee_user_id": referee_user_id,
+                    "referee_bonus_days": referee_bonus_applied_days,
+                    "referee_new_end_date": events.iso(referee_final_end_date),
+                    "inviter_bonus_applied": inviter_bonus_successfully_applied,
+                    "inviter_user_id": (
+                        inviter_user_id if inviter_bonus_successfully_applied else None
+                    ),
+                    "inviter_bonus_days": (
+                        inviter_bonus_days if inviter_bonus_successfully_applied else None
+                    ),
+                    "inviter_bonus_end_date": events.iso(inviter_bonus_end_date),
+                    "inviter_bonus_kind": inviter_bonus_kind,
+                    "referee_name": referee_name_for_msg,
+                    "payment_db_id": current_payment_db_id,
+                    "purchased_subscription_months": purchased_subscription_months,
+                    "tariff_key": tariff_key,
+                    "one_bonus_per_referee": getattr(
+                        self.settings,
+                        "REFERRAL_ONE_BONUS_PER_REFEREE",
+                        True,
+                    ),
+                    "reason": "payment",
+                }
+            else:
+                referral_event_payload = None
+
             return {
                 "referee_bonus_applied_days": referee_bonus_applied_days,
                 "referee_new_end_date": referee_final_end_date,
                 "inviter_bonus_applied_flag": inviter_bonus_successfully_applied,
+                "event_payload": referral_event_payload,
             }
         except Exception as e:
             logging.error(

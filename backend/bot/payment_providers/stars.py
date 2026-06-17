@@ -23,6 +23,7 @@ from .base import (
     provider_env_file,
 )
 from .shared import (
+    PAYMENT_STATUS_PENDING_FINALIZATION,
     PaymentSuccessRequest,
     create_webapp_payment_record,
     describe_payment,
@@ -156,7 +157,7 @@ class StarsService:
                 session,
                 payment_db_id,
                 message.successful_payment.provider_payment_charge_id,
-                "succeeded",
+                PAYMENT_STATUS_PENDING_FINALIZATION,
             )
             await session.commit()
         except Exception:

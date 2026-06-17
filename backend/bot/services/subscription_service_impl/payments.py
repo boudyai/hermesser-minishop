@@ -13,8 +13,10 @@ class PaymentContextMixin:
         "platega": "Platega",
         "severpay": "SeverPay",
         "wata": "Wata",
+        "lava": "LAVA",
         "cryptopay": "Crypto Pay",
         "paykilla": "PayKilla",
+        "cloudpayments": "CloudPayments",
         "telegram_stars": "Telegram Stars",
     }
 

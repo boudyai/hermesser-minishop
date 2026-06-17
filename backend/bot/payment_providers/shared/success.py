@@ -8,8 +8,8 @@ from typing import Any, Optional
 from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.infra import events
 from bot.keyboards.inline.user_keyboards import get_connect_and_main_keyboard
-from bot.services.notification_service import NotificationService
 from bot.utils.config_link import prepare_config_links
 from bot.utils.install_links import ensure_user_install_guide_links
 from bot.utils.text_sanitizer import sanitize_display_name, username_for_display
@@ -26,6 +26,7 @@ from .common import (
 
 _TRAFFIC_MODES = {"traffic", "traffic_package", "topup", "premium_topup"}
 _HWID_DEVICE_MODES = {"hwid_device", "hwid_devices", "hwid_devices_renewal"}
+PAYMENT_STATUS_PENDING_FINALIZATION = "succeeded_pending_finalization"
 
 
 def is_traffic_sale_base(sale_base: str) -> bool:
@@ -216,42 +217,6 @@ async def send_success_message_to_user(
         logging.exception("%s: failed to notify user %s.", log_prefix, user_id)
 
 
-async def notify_admins_payment_received(
-    *,
-    bot: Bot,
-    settings: Any,
-    i18n: Any,
-    user_id: int,
-    amount: float,
-    currency: str,
-    months_for_admin: int,
-    traffic_gb_for_admin: Optional[float],
-    payment_provider: str,
-    username: Optional[str],
-    traffic_is_premium: bool,
-    tariff_key: Optional[str],
-    log_prefix: str = "payment_providers",
-    email: Optional[str] = None,
-) -> None:
-    """Push the standard ``notify_payment_received`` to the admin log channel."""
-    try:
-        notification_service = NotificationService(bot, settings, i18n)
-        await notification_service.notify_payment_received(
-            user_id=user_id,
-            amount=amount,
-            currency=currency,
-            months=months_for_admin,
-            traffic_gb=traffic_gb_for_admin,
-            payment_provider=payment_provider,
-            username=username,
-            email=email,
-            traffic_is_premium=traffic_is_premium,
-            tariff_key=tariff_key,
-        )
-    except Exception:
-        logging.exception("%s: failed to notify admins.", log_prefix)
-
-
 @dataclass
 class PaymentSuccessRequest:
     """All the inputs ``finalize_successful_payment`` needs."""
@@ -296,7 +261,7 @@ class PaymentSuccessOutcome:
 async def finalize_successful_payment(
     req: PaymentSuccessRequest,
 ) -> Optional[PaymentSuccessOutcome]:
-    """Activate the subscription, apply referral bonus, notify user + admins.
+    """Activate the subscription, apply referral bonus, notify user, and emit events.
 
     Returns ``None`` if the activation pipeline failed mid-way (errors are
     logged and the session is rolled back). On success returns an outcome
@@ -311,6 +276,12 @@ async def finalize_successful_payment(
         int(float(req.months)) if is_subscription else int(float(req.traffic_amount or req.months))
     )
     traffic_gb_for_activation = float(req.traffic_amount or req.months) if is_traffic else None
+    effective_tariff_key = str(
+        getattr(req.payment, "tariff_key", "") or ""
+    ).strip() or sale_mode_tariff_key(req.sale_mode)
+    activation_extra_kwargs = dict(req.activation_extra_kwargs or {})
+    if effective_tariff_key and "tariff_key" not in activation_extra_kwargs:
+        activation_extra_kwargs["tariff_key"] = effective_tariff_key
 
     try:
         activation = await req.subscription_service.activate_subscription(
@@ -322,7 +293,7 @@ async def finalize_successful_payment(
             provider=req.provider_subscription,
             sale_mode=req.sale_mode,
             traffic_gb=traffic_gb_for_activation,
-            **req.activation_extra_kwargs,
+            **activation_extra_kwargs,
         )
         referral_bonus = None
         if is_subscription:
@@ -332,8 +303,13 @@ async def finalize_successful_payment(
                 activation_months or 1,
                 current_payment_db_id=req.payment.payment_id,
                 skip_if_active_before_payment=False,
-                tariff_key=sale_mode_tariff_key(req.sale_mode),
+                tariff_key=effective_tariff_key,
             )
+        await payment_dal.update_payment_status_by_db_id(
+            req.session,
+            req.payment.payment_id,
+            "succeeded",
+        )
         await req.session.commit()
     except Exception:
         await req.session.rollback()
@@ -358,20 +334,43 @@ async def finalize_successful_payment(
             )
         return None
 
-    try:
-        from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
-
-        await invalidate_webapp_user_caches(
-            req.settings,
-            req.user_id,
-            include_devices=True,
+    await events.emit(
+        events.PAYMENT_SUCCEEDED,
+        {
+            "user_id": req.user_id,
+            "payment_db_id": req.payment.payment_id,
+            "provider": req.provider_subscription,
+            "notification_provider": req.provider_notification,
+            "amount": req.amount,
+            "currency": req.currency,
+            "sale_mode": req.sale_mode,
+            "tariff_key": effective_tariff_key,
+            "months": activation_months if is_subscription else None,
+            "traffic_gb": traffic_gb_for_activation,
+            "end_date": events.iso(activation.get("end_date") if activation else None),
+            "is_auto_renew": False,
+        },
+    )
+    if is_subscription and activation:
+        await events.emit(
+            events.SUBSCRIPTION_EXTENDED
+            if activation.get("was_extension")
+            else events.SUBSCRIPTION_CREATED,
+            {
+                "user_id": req.user_id,
+                "subscription_id": activation.get("subscription_id"),
+                "tariff_key": activation.get("tariff_key"),
+                "end_date": events.iso(activation.get("end_date")),
+                "provider": req.provider_subscription,
+                "months": activation_months,
+                "payment_db_id": req.payment.payment_id,
+            },
         )
-    except Exception:
-        logging.exception(
-            "%s: failed to invalidate webapp caches for user %s.",
-            req.log_prefix,
-            req.user_id,
-        )
+    referral_event_payload = (
+        referral_bonus.get("event_payload") if isinstance(referral_bonus, dict) else None
+    )
+    if referral_event_payload:
+        await events.emit(events.REFERRAL_BONUS_GRANTED, referral_event_payload)
 
     db_user, language = await resolve_user_language(
         req.session,
@@ -462,26 +461,6 @@ async def finalize_successful_payment(
         connect_button_url=connect_button_url,
         install_share_url=install_share_url,
         include_keyboard=not req.skip_keyboard,
-        log_prefix=req.log_prefix,
-    )
-
-    refreshed_payment = await payment_dal.get_payment_by_db_id(req.session, req.payment.payment_id)
-    tariff_key = getattr(refreshed_payment or req.payment, "tariff_key", None)
-
-    await notify_admins_payment_received(
-        bot=req.bot,
-        settings=req.settings,
-        i18n=req.i18n,
-        user_id=req.user_id,
-        amount=req.amount,
-        currency=req.currency,
-        months_for_admin=activation_months if is_subscription else 0,
-        traffic_gb_for_admin=traffic_gb_for_activation,
-        payment_provider=req.provider_notification,
-        username=db_user.username if db_user else None,
-        email=getattr(db_user, "email", None) if db_user else None,
-        traffic_is_premium=base == "premium_topup",
-        tariff_key=tariff_key,
         log_prefix=req.log_prefix,
     )
 

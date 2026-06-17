@@ -382,6 +382,14 @@ class PanelApiService:
             value = 1000
         return min(1000, max(1, value))
 
+    def _resolve_all_users_page_delay(self) -> float:
+        raw_value = getattr(self.settings, "PANEL_ALL_USERS_PAGE_DELAY_SECONDS", 0.1)
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError):
+            return 0.1
+        return value if value > 0 else 0.0
+
     async def get_all_panel_users(
         self, page_size: Optional[int] = None, log_responses: bool = False
     ) -> Optional[List[Dict[str, Any]]]:
@@ -421,6 +429,7 @@ class PanelApiService:
     ) -> Optional[List[Dict[str, Any]]]:
         all_users = []
         start_offset = 0
+        page_delay = self._resolve_all_users_page_delay()
         while True:
             params = {"size": page_size, "start": start_offset}
             response_data = await self._request(
@@ -439,7 +448,8 @@ class PanelApiService:
             if len(users_batch) < page_size:
                 break
             start_offset += page_size
-            await asyncio.sleep(0.1)
+            if page_delay:
+                await asyncio.sleep(page_delay)
         logging.info(f"Fetched {len(all_users)} users from panel API.")
         return all_users
 

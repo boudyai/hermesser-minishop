@@ -10,7 +10,6 @@ from bot.keyboards.inline.user_keyboards import (
     get_main_menu_inline_keyboard,
 )
 from bot.middlewares.i18n import JsonI18n
-from bot.services.notification_service import NotificationService
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service import SubscriptionService
 from bot.utils.config_link import prepare_config_links
@@ -19,7 +18,6 @@ from bot.utils.install_links import (
     ensure_user_install_guide_links,
 )
 from config.settings import Settings
-from db.dal import user_dal
 
 from .start import send_main_menu
 
@@ -118,15 +116,6 @@ async def request_trial_confirmation_handler(
             install_share_url,
         )
 
-        # Send notification to admin about new trial
-        notification_service = NotificationService(callback.bot, settings, i18n)
-        db_user = await user_dal.get_user_by_id(session, user_id)
-        await notification_service.notify_trial_activation(
-            user_id,
-            end_date_obj,
-            username=db_user.username if db_user else callback.from_user.username,
-            email=getattr(db_user, "email", None) if db_user else None,
-        )
         # Mark ad attribution trial if exists
         try:
             from db.dal import ad_dal as _ad_dal
@@ -324,14 +313,6 @@ async def confirm_activate_trial_handler(
             )
 
     if activation_result and activation_result.get("activated") and end_date_obj:
-        notification_service = NotificationService(callback.bot, settings, i18n)
-        db_user = await user_dal.get_user_by_id(session, user_id)
-        await notification_service.notify_trial_activation(
-            user_id,
-            end_date_obj,
-            username=db_user.username if db_user else callback.from_user.username,
-            email=getattr(db_user, "email", None) if db_user else None,
-        )
         try:
             from db.dal import ad_dal as _ad_dal
 

@@ -11,6 +11,12 @@ from aiohttp.web_log import AccessLogger, KeyMethod
 from sqlalchemy.orm import sessionmaker
 
 from bot.payment_providers import iter_provider_specs, iter_service_keys
+from bot.plugins import (
+    WEB_SCOPE_WEBAPP,
+    WEB_SCOPE_WEBHOOKS,
+    PluginContext,
+    setup_web_plugins,
+)
 from bot.utils.request_security import request_client_ip
 from config.settings import Settings
 
@@ -87,6 +93,7 @@ async def build_and_start_web_app(
     async_session_factory: sessionmaker,
     *,
     after_webhooks_started: Optional[Callable[[], Awaitable[None]]] = None,
+    plugin_context: Optional[PluginContext] = None,
 ):
     app = web.Application()
     _inject_shared_instances(app, dp, bot, settings, async_session_factory)
@@ -147,6 +154,9 @@ async def build_and_start_web_app(
         app.router.add_post(panel_path, panel_webhook_route)
         logging.info(f"Panel webhook route configured at: [POST] {panel_path}")
 
+    if plugin_context is not None:
+        setup_web_plugins(plugin_context, app, scope=WEB_SCOPE_WEBHOOKS)
+
     runners = []
 
     webhooks_runner = web.AppRunner(app, access_log_class=TrustedProxyAccessLogger)
@@ -174,6 +184,8 @@ async def build_and_start_web_app(
             settings,
             async_session_factory,
         )
+        if plugin_context is not None:
+            setup_web_plugins(plugin_context, subscription_app, scope=WEB_SCOPE_WEBAPP)
         subscription_runner = web.AppRunner(
             subscription_app,
             access_log_class=TrustedProxyAccessLogger,

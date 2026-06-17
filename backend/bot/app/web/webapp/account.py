@@ -2,9 +2,9 @@
 from ._runtime import *  # noqa: F403,F405
 
 from bot.app.web.webapp.cache_helpers import webapp_cached_user_payload
+from bot.infra import events
 from .auth import (
     _hash_email_password,
-    _notify_account_merged,
     _sync_merged_panel_identity_for_user,
 )
 from .common import _invalidate_webapp_user_caches
@@ -74,7 +74,6 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
     merge_notice: Optional[Dict[str, Any]] = None
     source_panel_uuid: Optional[str] = None
     final_user_id = user_id
-    final_email = email
     final_telegram_id: Optional[int] = None
     final_username: Optional[str] = None
     final_first_name: Optional[str] = None
@@ -118,6 +117,8 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
                     session,
                     source_user_id=existing_email_user.user_id,
                     target_user_id=current_user.user_id,
+                    reason="email_link",
+                    send_user_email=True,
                 )
                 merge_notice = await _build_account_merge_notice(
                     session,
@@ -137,6 +138,18 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
             final_first_name = current_user.first_name
             final_panel_uuid = current_user.panel_user_uuid
 
+            await events.emit(
+                events.ACCOUNT_EMAIL_LINKED,
+                {
+                    "user_id": final_user_id,
+                    "email": email,
+                    "first_link": should_notify_email_linked,
+                    "telegram_id": final_telegram_id,
+                    "username": final_username,
+                    "first_name": final_first_name,
+                },
+            )
+
             if merge_notice:
                 merge_end_date_raw = merge_notice.get("final_end_date")
                 merge_end_date = (
@@ -150,30 +163,6 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
                     expire_at=merge_end_date,
                 )
 
-                email_service: EmailAuthService = request.app.get("email_auth_service")
-                if email_service and final_email:
-                    email_content = render_account_merged(
-                        settings,
-                        language_code=merge_notice.get("language") or settings.DEFAULT_LANGUAGE,
-                        primary_user_id=merge_notice.get("primary_user_id"),
-                        removed_user_id=merge_notice.get("removed_user_id"),
-                        final_end_date_text=str(
-                            merge_notice.get("final_end_date_text")
-                            or merge_notice.get("final_end_date")
-                            or ""
-                        ),
-                    )
-                    try:
-                        await email_service.send_rendered_email(
-                            email=final_email,
-                            content=email_content,
-                        )
-                    except Exception as exc:
-                        logger.warning(
-                            "Failed to send account merge email to %s: %s",
-                            final_email,
-                            exc,
-                        )
         except UserMergeConflictError as exc:
             await session.rollback()
             return _json_error(409, "account_merge_conflict", str(exc))
@@ -183,35 +172,6 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
             return _json_error(500, "link_failed", "Link failed")
 
     await _invalidate_webapp_user_caches(settings, user_id, final_user_id, include_devices=True)
-    if merge_notice:
-        await _notify_account_merged(
-            request,
-            settings,
-            merge_notice=merge_notice,
-            email=final_email,
-            telegram_id=final_telegram_id,
-            username=final_username,
-            first_name=final_first_name,
-        )
-    if should_notify_email_linked:
-        try:
-            from bot.services.notification_service import NotificationService
-
-            bot: Bot = request.app["bot"]
-            notification_service = NotificationService(
-                bot,
-                settings,
-                request.app.get("i18n"),
-            )
-            await notification_service.notify_account_email_linked(
-                user_id=int(final_user_id),
-                email=final_email,
-                telegram_id=final_telegram_id,
-                username=final_username,
-                first_name=final_first_name,
-            )
-        except Exception:
-            logger.exception("Failed to send account email linked notification")
 
     token = create_webapp_session_token(settings, int(final_user_id))
     response_payload: Dict[str, Any] = {"ok": True}
@@ -341,6 +301,7 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
                 current_user_id=user_id,
                 telegram_user=telegram_user,
                 settings=settings,
+                merge_send_user_email=True,
             )
             if db_user.is_banned:
                 await session.rollback()
@@ -362,6 +323,18 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
                 )
             await session.commit()
 
+            await events.emit(
+                events.ACCOUNT_TELEGRAM_LINKED,
+                {
+                    "user_id": final_user_id,
+                    "telegram_id": final_telegram_id,
+                    "first_link": should_notify_telegram_linked,
+                    "email": final_email,
+                    "username": final_username,
+                    "first_name": final_first_name,
+                },
+            )
+
             if merge_notice:
                 merge_end_date_raw = merge_notice.get("final_end_date")
                 merge_end_date = (
@@ -375,30 +348,6 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
                     expire_at=merge_end_date,
                 )
 
-                email_service: EmailAuthService = request.app.get("email_auth_service")
-                if email_service and final_email:
-                    email_content = render_account_merged(
-                        settings,
-                        language_code=merge_notice.get("language") or settings.DEFAULT_LANGUAGE,
-                        primary_user_id=merge_notice.get("primary_user_id"),
-                        removed_user_id=merge_notice.get("removed_user_id"),
-                        final_end_date_text=str(
-                            merge_notice.get("final_end_date_text")
-                            or merge_notice.get("final_end_date")
-                            or ""
-                        ),
-                    )
-                    try:
-                        await email_service.send_rendered_email(
-                            email=final_email,
-                            content=email_content,
-                        )
-                    except Exception as exc:
-                        logger.warning(
-                            "Failed to send account merge email to %s: %s",
-                            final_email,
-                            exc,
-                        )
         except UserMergeConflictError as exc:
             await session.rollback()
             return _json_error(409, "account_merge_conflict", str(exc))
@@ -408,35 +357,6 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
             return _json_error(500, "link_failed", "Link failed")
 
     await _invalidate_webapp_user_caches(settings, user_id, final_user_id, include_devices=True)
-    if merge_notice:
-        await _notify_account_merged(
-            request,
-            settings,
-            merge_notice=merge_notice,
-            email=final_email,
-            telegram_id=final_telegram_id,
-            username=final_username,
-            first_name=final_first_name,
-        )
-    if should_notify_telegram_linked and final_telegram_id:
-        try:
-            from bot.services.notification_service import NotificationService
-
-            bot: Bot = request.app["bot"]
-            notification_service = NotificationService(
-                bot,
-                settings,
-                request.app.get("i18n"),
-            )
-            await notification_service.notify_account_telegram_linked(
-                user_id=int(final_user_id),
-                email=final_email,
-                telegram_id=int(final_telegram_id),
-                username=final_username,
-                first_name=final_first_name,
-            )
-        except Exception:
-            logger.exception("Failed to send account Telegram linked notification")
 
     await _probe_telegram_notifications_for_user_id(request, int(final_user_id))
 

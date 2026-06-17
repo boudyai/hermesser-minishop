@@ -37,6 +37,7 @@ from .base import (
     provider_runtime_enabled,
 )
 from .shared import (
+    PAYMENT_STATUS_PENDING_FINALIZATION,
     HttpClientMixin,
     PaymentSuccessRequest,
     build_payment_record_payload,
@@ -444,7 +445,7 @@ class FreeKassaService(HttpClientMixin):
                     session=session,
                     payment_db_id=payment.payment_id,
                     provider_payment_id=resolved_provider_id,
-                    new_status="succeeded",
+                    new_status=PAYMENT_STATUS_PENDING_FINALIZATION,
                 )
                 await session.commit()
             except Exception:
@@ -655,6 +656,7 @@ async def pay_fk_callback_handler(
         api_success=success,
         payment_url=location,
         provider_payment_id=provider_identifier,
+        provider_response=response_data,
         lead_text=lead_text,
         log_prefix=_LOG,
     )
@@ -713,6 +715,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
         api_success=success,
         payment_url=first_value(response_data, "location") if success else None,
         provider_payment_id=first_value(response_data, "orderHash", "orderId"),
+        provider_response=response_data,
         log_prefix="FreeKassa",
     )
 

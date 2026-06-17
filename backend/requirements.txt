@@ -9,6 +9,9 @@ pydantic_settings==2.14.1
 email-validator==2.3.0
 sqlalchemy[asyncio]==2.0.49
 asyncpg==0.31.0
+# NB: caps certifi at <2024 (metadata-only); the Dockerfile force-upgrades
+# certifi after install and pip-audit ignores PYSEC-2024-230 in CI. Revisit
+# when a release newer than 0.4.8 relaxes the pin.
 aiocryptopay==0.4.8
 PyJWT[crypto]==2.13.0
 Pillow==12.2.0

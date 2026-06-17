@@ -54,10 +54,11 @@ SUPPORT_TICKET_RATE_LIMIT_PER_HOUR=5
 Конфиг инструкций загружается в таком порядке:
 
 1. JSON из админки, только если включен `SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED`.
-2. Subscription Page config из Remnawave Panel, если включен `SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED`.
-3. Локальный файл `SUBSCRIPTION_PAGE_CONFIG_PATH` как fallback.
+2. Resolved Subscription Page config конкретной подписки из Remnawave Panel, если включен `SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED` и у активной подписки найден `shortUuid`.
+3. Default Subscription Page config из Remnawave Panel.
+4. Локальный файл `SUBSCRIPTION_PAGE_CONFIG_PATH` как fallback.
 
-По умолчанию используются инструкции из Remnawave Panel, чтобы не дублировать настройку страницы подписки в Minishop. Локальный файл в `data/subpage-config/multiapp.json` не создается автоматически. Конфиг кешируется на backend и обновляется при изменении связанных настроек; ошибки загрузки кешируются кратко, чтобы не дергать панель на каждый пользовательский запрос.
+По умолчанию используются инструкции из Remnawave Panel, чтобы не дублировать настройку страницы подписки в Minishop. Если пользователю в панели назначен External Squad со своим Subpage Config, встроенный экран `/install` и публичная ссылка `/s/<token>` получают уже примененный к этой подписке конфиг. Локальный файл в `data/subpage-config/multiapp.json` не создается автоматически. Общий fallback-конфиг кешируется на backend и обновляется при изменении связанных настроек; ошибки загрузки кешируются кратко, чтобы не дергать панель на каждый пользовательский запрос.
 
 Личный экран показывает QR-код финальной ссылки подписки, кнопку копирования и кнопку **Поделиться**. Для передачи инструкции генерируется публичная ссылка `/s/<token>`: она открывает тот же интерфейс инструкций без авторизации и нижней навигации, но без QR-блока. Публичный payload отдается через `/api/subscription-guides/public/{share_token}` только для активной локальной подписки с валидным share token.
 

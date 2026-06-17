@@ -36,6 +36,7 @@ from .base import (
     provider_runtime_enabled,
 )
 from .shared import (
+    PAYMENT_STATUS_PENDING_FINALIZATION,
     HttpClientMixin,
     PaymentSuccessRequest,
     build_payment_record_payload,
@@ -547,7 +548,7 @@ class WataService(HttpClientMixin):
                 session,
                 payment.payment_id,
                 transaction_id,
-                "succeeded",
+                PAYMENT_STATUS_PENDING_FINALIZATION,
             )
             await session.commit()
         except Exception:
@@ -971,6 +972,7 @@ async def pay_wata_callback_handler(
         api_success=success,
         payment_url=first_value(response_data, "url", "paymentUrl", "payment_url"),
         provider_payment_id=first_value(response_data, "id", "paymentLinkId"),
+        provider_response=response_data,
         log_prefix=_LOG,
     )
 
@@ -1010,6 +1012,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
         if success
         else None,
         provider_payment_id=first_value(response_data, "id", "paymentLinkId"),
+        provider_response=response_data,
         log_prefix="Wata",
     )
 

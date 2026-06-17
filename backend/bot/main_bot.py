@@ -11,7 +11,9 @@ from bot.app.factories.build_services import build_core_services
 from bot.app.web.web_server import build_and_start_web_app
 from bot.infra.redis import close_redis
 from bot.middlewares.i18n import JsonI18n
+from bot.plugins import PluginContext, apply_plugin_locales, run_setup
 from bot.routers import build_root_router
+from bot.services.event_reactions import register_core_reactions
 from bot.services.locale_override_service import load_locale_overrides
 from bot.utils.message_queue import init_queue_manager
 from config.settings import Settings
@@ -86,8 +88,12 @@ async def _run_telegram_startup_step(
             return False
 
 
-async def register_all_routers(dp: Dispatcher, settings: Settings):
-    dp.include_router(build_root_router(settings))
+async def register_all_routers(
+    dp: Dispatcher,
+    settings: Settings,
+    plugin_context: Optional[PluginContext] = None,
+):
+    dp.include_router(build_root_router(settings, plugin_context))
     logging.info("All application routers registered.")
 
 
@@ -274,6 +280,7 @@ async def run_bot(settings_param: Settings):
     await init_db(settings_param, local_async_session_factory)
     dp, bot, extra = build_dispatcher(settings_param, local_async_session_factory)
     i18n_instance = extra["i18n_instance"]
+    apply_plugin_locales(settings_param, i18n_instance)
     await load_locale_overrides(i18n_instance, local_async_session_factory)
 
     # Get bot username for YooKassa default return URL if needed
@@ -304,6 +311,18 @@ async def run_bot(settings_param: Settings):
         i18n_instance,
         actual_bot_username,
     )
+    plugin_context = PluginContext(
+        settings=settings_param,
+        session_factory=local_async_session_factory,
+        bot=bot,
+        i18n=i18n_instance,
+        dispatcher=dp,
+        services=services,
+    )
+    # Plugins may contribute services, so run setup before the dispatcher copy.
+    run_setup(plugin_context)
+    register_core_reactions(plugin_context)
+
     for key, service in services.items():
         dp[key] = service
     dp["panel_service"] = services["panel_service"]
@@ -319,7 +338,7 @@ async def run_bot(settings_param: Settings):
     dp.startup.register(_on_startup_wrapper)
     dp.shutdown.register(_on_shutdown_wrapper)
 
-    await register_all_routers(dp, settings_param)
+    await register_all_routers(dp, settings_param, plugin_context)
 
     if not settings_param.WEBHOOK_BASE_URL:
         logging.error("WEBHOOK_BASE_URL is required. Polling mode is disabled. Exiting.")
@@ -346,6 +365,7 @@ async def run_bot(settings_param: Settings):
             settings_param,
             local_async_session_factory,
             after_webhooks_started=_after_webhooks_started,
+            plugin_context=plugin_context,
         )
 
     main_tasks = [asyncio.create_task(web_server_task(), name="AIOHTTPServerTask")]

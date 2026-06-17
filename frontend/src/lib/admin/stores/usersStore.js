@@ -22,6 +22,9 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     userMessageDraft: "",
     userExtendDays: 30,
     userExtendHwidDevices: true,
+    userExtendTariffKey: "",
+    userTariffActionKey: "",
+    userTariffActionBaselineKey: "",
     userActionBusy: false,
     userDeleteOpen: false,
     userBanConfirmOpen: false,
@@ -35,11 +38,17 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     userReferralsInviter: null,
     userDetailTab: "profile",
     premiumUnlimitedDraft: false,
+    premiumUnlimitedBaseline: false,
     premiumBonusGbDraft: "",
+    premiumBonusGbBaseline: "",
     regularUnlimitedDraft: false,
+    regularUnlimitedBaseline: false,
     regularBonusGbDraft: "",
+    regularBonusGbBaseline: "",
     hwidUnlimitedDraft: false,
+    hwidUnlimitedBaseline: false,
     hwidDeviceLimitDraft: "",
+    hwidDeviceLimitBaseline: "",
     grantTrafficGbDraft: "",
     grantTrafficKindDraft: "regular",
 
@@ -64,6 +73,9 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
       userMessageDraft: "",
       userExtendDays: 30,
       userExtendHwidDevices: true,
+      userExtendTariffKey: "",
+      userTariffActionKey: "",
+      userTariffActionBaselineKey: "",
       userDeleteOpen: false,
       userBanConfirmOpen: false,
       userMessageConfirmOpen: false,
@@ -75,11 +87,17 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
       userReferralsInviter: null,
       userDetailTab: "profile",
       premiumUnlimitedDraft: false,
+      premiumUnlimitedBaseline: false,
       premiumBonusGbDraft: "",
+      premiumBonusGbBaseline: "",
       regularUnlimitedDraft: false,
+      regularUnlimitedBaseline: false,
       regularBonusGbDraft: "",
+      regularBonusGbBaseline: "",
       hwidUnlimitedDraft: false,
+      hwidUnlimitedBaseline: false,
       hwidDeviceLimitDraft: "",
+      hwidDeviceLimitBaseline: "",
       grantTrafficGbDraft: "",
       grantTrafficKindDraft: "regular",
       userLogs: [],
@@ -105,6 +123,81 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     return (
       requestId === _openUserRequestId && Boolean(s.openedUser) && s.openedUser.user_id === userId
     );
+  }
+
+  function _gbDraftFromBytes(bytes) {
+    const value = Number(bytes || 0);
+    return value > 0 ? +(value / 1024 ** 3).toFixed(2) : "";
+  }
+
+  function _draftStateFromSubscription(sub) {
+    const bonusGb = _gbDraftFromBytes(sub?.premium_bonus_bytes);
+    const regularBonusGb = _gbDraftFromBytes(sub?.regular_bonus_bytes);
+    const hasHwidLimit = sub?.hwid_device_limit !== null && sub?.hwid_device_limit !== undefined;
+    const hwidLimit = hasHwidLimit ? Number(sub?.hwid_device_limit) : null;
+    const hwidUnlimited = hasHwidLimit && hwidLimit === 0;
+    const hwidLimitDraft = hasHwidLimit && hwidLimit > 0 ? String(hwidLimit) : "";
+    const tariffKey = String(sub?.tariff_key || "");
+
+    return {
+      tariffKey,
+      premiumUnlimited: Boolean(sub?.premium_unlimited_override),
+      premiumBonusGb: bonusGb,
+      regularUnlimited: Boolean(sub?.regular_unlimited_override),
+      regularBonusGb,
+      hwidUnlimited,
+      hwidDeviceLimit: hwidLimitDraft,
+    };
+  }
+
+  function _applyUserDetailSnapshot(s, res, options = {}) {
+    const {
+      resetExtendTariff = true,
+      resetTariffAction = true,
+      resetPremium = true,
+      resetRegular = true,
+      resetHwid = true,
+      resetGrant = true,
+    } = options;
+    const sub = res.active_subscription || null;
+    const draft = _draftStateFromSubscription(sub);
+    const next = {
+      ...s,
+      openedUserDetail: res,
+      openedUser: res.user ? { ...res.user, ...s.openedUser, ...res.user } : s.openedUser,
+    };
+
+    if (resetExtendTariff) {
+      next.userExtendTariffKey = draft.tariffKey || s.userExtendTariffKey || "";
+    }
+    if (resetTariffAction) {
+      next.userTariffActionKey = draft.tariffKey;
+      next.userTariffActionBaselineKey = draft.tariffKey;
+    }
+    if (resetPremium) {
+      next.premiumUnlimitedDraft = draft.premiumUnlimited;
+      next.premiumBonusGbDraft = draft.premiumBonusGb;
+      next.premiumUnlimitedBaseline = draft.premiumUnlimited;
+      next.premiumBonusGbBaseline = draft.premiumBonusGb;
+    }
+    if (resetRegular) {
+      next.regularUnlimitedDraft = draft.regularUnlimited;
+      next.regularBonusGbDraft = draft.regularBonusGb;
+      next.regularUnlimitedBaseline = draft.regularUnlimited;
+      next.regularBonusGbBaseline = draft.regularBonusGb;
+    }
+    if (resetHwid) {
+      next.hwidUnlimitedDraft = draft.hwidUnlimited;
+      next.hwidDeviceLimitDraft = draft.hwidDeviceLimit;
+      next.hwidUnlimitedBaseline = draft.hwidUnlimited;
+      next.hwidDeviceLimitBaseline = draft.hwidDeviceLimit;
+    }
+    if (resetGrant) {
+      next.grantTrafficGbDraft = "";
+      next.grantTrafficKindDraft = "regular";
+    }
+
+    return next;
   }
 
   function setActive(active) {
@@ -191,28 +284,9 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     try {
       const res = await api(`/admin/users/${userId}`);
       if (res?.ok) {
-        const sub = res.active_subscription || null;
-        const bonusBytes = Number(sub?.premium_bonus_bytes || 0);
-        const regularBonusBytes = Number(sub?.regular_bonus_bytes || 0);
-        const hasHwidLimit =
-          sub?.hwid_device_limit !== null && sub?.hwid_device_limit !== undefined;
-        const hwidLimit = hasHwidLimit ? Number(sub?.hwid_device_limit) : null;
         state.update((s) => {
           if (!_isCurrentUserRequest(s, requestId, userId)) return s;
-          return {
-            ...s,
-            openedUserDetail: res,
-            openedUser: res.user ? { ...res.user, ...s.openedUser, ...res.user } : s.openedUser,
-            premiumUnlimitedDraft: Boolean(sub?.premium_unlimited_override),
-            premiumBonusGbDraft: bonusBytes > 0 ? +(bonusBytes / 1024 ** 3).toFixed(2) : "",
-            regularUnlimitedDraft: Boolean(sub?.regular_unlimited_override),
-            regularBonusGbDraft:
-              regularBonusBytes > 0 ? +(regularBonusBytes / 1024 ** 3).toFixed(2) : "",
-            hwidUnlimitedDraft: hasHwidLimit && hwidLimit === 0,
-            hwidDeviceLimitDraft: hasHwidLimit && hwidLimit > 0 ? String(hwidLimit) : "",
-            grantTrafficGbDraft: "",
-            grantTrafficKindDraft: "regular",
-          };
+          return _applyUserDetailSnapshot(s, res);
         });
       } else {
         let shouldClearPath = false;
@@ -233,6 +307,27 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
         return { ...s, userDetailLoading: false };
       });
     }
+  }
+
+  async function refreshOpenedUserDetail(options = {}) {
+    let snapshot;
+    state.update((st) => {
+      snapshot = st;
+      return st;
+    });
+    const userId = Number(snapshot?.openedUser?.user_id || 0);
+    if (!userId) return null;
+    const requestId = _openUserRequestId;
+    const res = await api(`/admin/users/${userId}`);
+    if (res?.ok) {
+      state.update((s) => {
+        if (!_isCurrentUserRequest(s, requestId, userId)) return s;
+        return _applyUserDetailSnapshot(s, res, options);
+      });
+      return res;
+    }
+    onToast(res?.error || "load_failed");
+    return res;
   }
 
   function closeUser(opts = {}) {
@@ -489,14 +584,51 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     if (!days || days <= 0) return;
     state.update((st) => ({ ...st, userActionBusy: true }));
     try {
+      const body = { days, extend_hwid_devices: Boolean(s.userExtendHwidDevices) };
+      if (s.userExtendTariffKey) body.tariff_key = s.userExtendTariffKey;
       const res = await api(`/admin/users/${s.openedUser.user_id}/extend`, {
         method: "POST",
-        body: JSON.stringify({ days, extend_hwid_devices: Boolean(s.userExtendHwidDevices) }),
+        body: JSON.stringify(body),
       });
       if (res?.ok) {
         onToast(at("subscription_extended", { days }, `Продлено на ${days} д.`));
-        await openUser(s.openedUser, { skipPush: true });
+        await refreshOpenedUserDetail({
+          resetPremium: false,
+          resetRegular: false,
+          resetHwid: false,
+          resetGrant: false,
+        });
       } else onToast(res?.error || at("error", {}, "Ошибка"));
+    } finally {
+      state.update((st) => ({ ...st, userActionBusy: false }));
+    }
+  }
+
+  async function changeUserTariff() {
+    let s;
+    state.update((st) => {
+      s = st;
+      return st;
+    });
+    if (!s.openedUser || !s.userTariffActionKey) return;
+    state.update((st) => ({ ...st, userActionBusy: true }));
+    try {
+      const res = await api(`/admin/users/${s.openedUser.user_id}/tariff`, {
+        method: "POST",
+        body: JSON.stringify({ tariff_key: s.userTariffActionKey }),
+      });
+      if (res?.ok) {
+        onToast(at("user_tariff_saved", {}, "Tariff saved"));
+        await refreshOpenedUserDetail({
+          resetPremium: false,
+          resetRegular: false,
+          resetHwid: false,
+          resetGrant: false,
+        });
+        if (_activeRef === "users") await loadUsers();
+      } else {
+        onToast(res?.message || res?.error || at("error", {}, "РћС€РёР±РєР°"));
+      }
     } finally {
       state.update((st) => ({ ...st, userActionBusy: false }));
     }
@@ -514,7 +646,14 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
       const res = await api(`/admin/users/${s.openedUser.user_id}/reset-trial`, { method: "POST" });
       if (res?.ok) {
         onToast(at("trial_reset", {}, "Триал сброшен"));
-        await openUser(s.openedUser.user_id, { skipPush: true, pathContext: _pathContext });
+        await refreshOpenedUserDetail({
+          resetExtendTariff: false,
+          resetTariffAction: false,
+          resetPremium: false,
+          resetRegular: false,
+          resetHwid: false,
+          resetGrant: false,
+        });
         if (_activeRef === "users") await loadUsers();
       } else onToast(res?.error || at("error", {}, "Ошибка"));
     } finally {
@@ -549,7 +688,13 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
       });
       if (res?.ok) {
         onToast(at("premium_override_saved", {}, "Премиум-оверрайд сохранён"));
-        await openUser(s.openedUser, { skipPush: true });
+        await refreshOpenedUserDetail({
+          resetExtendTariff: false,
+          resetTariffAction: false,
+          resetRegular: false,
+          resetHwid: false,
+          resetGrant: false,
+        });
       } else {
         onToast(res?.error || at("error", {}, "Ошибка"));
       }
@@ -585,7 +730,13 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
       });
       if (res?.ok) {
         onToast(at("regular_override_saved", {}, "Оверрайд основного трафика сохранён"));
-        await openUser(s.openedUser, { skipPush: true });
+        await refreshOpenedUserDetail({
+          resetExtendTariff: false,
+          resetTariffAction: false,
+          resetPremium: false,
+          resetHwid: false,
+          resetGrant: false,
+        });
       } else {
         onToast(res?.error || at("error", {}, "Ошибка"));
       }
@@ -630,7 +781,13 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
       });
       if (res?.ok) {
         onToast(at("hwid_limit_saved", {}, "Лимит устройств сохранён"));
-        await openUser(s.openedUser, { skipPush: true });
+        await refreshOpenedUserDetail({
+          resetExtendTariff: false,
+          resetTariffAction: false,
+          resetPremium: false,
+          resetRegular: false,
+          resetGrant: false,
+        });
       } else {
         onToast(res?.error || at("error", {}, "Ошибка"));
       }
@@ -665,8 +822,13 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
             ? at("traffic_grant_premium_done", { gb }, `+${gb} ГБ премиум-трафика`)
             : at("traffic_grant_regular_done", { gb }, `+${gb} ГБ трафика`)
         );
-        state.update((st) => ({ ...st, grantTrafficGbDraft: "" }));
-        await openUser(s.openedUser, { skipPush: true });
+        await refreshOpenedUserDetail({
+          resetExtendTariff: false,
+          resetTariffAction: false,
+          resetPremium: false,
+          resetRegular: false,
+          resetHwid: false,
+        });
       } else {
         onToast(res?.error || at("error", {}, "Ошибка"));
       }
@@ -719,6 +881,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     previewUserMessage,
     sendTelegramProfileLink,
     extendUser,
+    changeUserTariff,
     resetTrialUser,
     deleteUser,
     savePremiumTrafficOverride,

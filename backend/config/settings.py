@@ -219,6 +219,12 @@ class Settings(BaseSettings):
     PANEL_DEVICES_CACHE_TTL_SECONDS: int = Field(default=5)
     PANEL_ALL_USERS_CACHE_TTL_SECONDS: int = Field(default=5)
     PANEL_ALL_USERS_PAGE_SIZE: int = Field(default=1000)
+    # Courtesy delay between consecutive /users pages when fetching the full
+    # panel user list. The panel caps page size at 1000, so large deployments
+    # page many times (100k users -> 100 pages); at the default 0.1s that is
+    # ~10s of pure waiting per full sync. Operators with a panel that tolerates
+    # faster polling can lower this (0 disables the delay entirely).
+    PANEL_ALL_USERS_PAGE_DELAY_SECONDS: float = Field(default=0.1)
     PANEL_API_TOTAL_TIMEOUT_SECONDS: float = Field(default=25)
     PANEL_API_CONNECT_TIMEOUT_SECONDS: float = Field(default=8)
     PANEL_API_SOCK_CONNECT_TIMEOUT_SECONDS: float = Field(default=8)
@@ -329,7 +335,7 @@ class Settings(BaseSettings):
     STARS_ADMIN_ONLY_ENABLED: bool = Field(default=False)
     PAYMENT_METHODS_ORDER: Optional[str] = Field(
         default=None,
-        description="Comma-separated list of payment methods to show (e.g., severpay,wata,freekassa,yookassa,platega,stars,cryptopay,heleket,paykilla)",  # noqa: E501
+        description="Comma-separated list of payment methods to show (e.g., severpay,wata,freekassa,yookassa,platega,stars,cryptopay,heleket,paykilla,lava,cloudpayments,stripe)",  # noqa: E501
     )
     SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED: bool = Field(
         default=True,
@@ -1056,6 +1062,9 @@ class Settings(BaseSettings):
             "cryptopay",
             "heleket",
             "paykilla",
+            "lava",
+            "cloudpayments",
+            "stripe",
         ]
         # Make sure default_order itself includes every registered spec.
         for sid in spec_ids:
@@ -1295,6 +1304,17 @@ class Settings(BaseSettings):
             and str(self.TELEMETRY_ENDPOINT or "").strip()
             and str(self.TELEMETRY_API_KEY or "").strip()
         )
+
+    PLUGINS_ENABLED: bool = Field(
+        default=True,
+        description="Discover and load extension plugins from the minishop.plugins entry points.",
+    )
+    PLUGINS_STRICT: bool = Field(
+        default=False,
+        description=(
+            "Treat plugin load/setup errors as fatal instead of logging and skipping the plugin."
+        ),
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore", populate_by_name=True

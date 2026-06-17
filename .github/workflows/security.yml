@@ -31,10 +31,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -43,17 +43,21 @@ jobs:
 
       - name: Audit Python dependencies
         continue-on-error: true
-        run: pip-audit -r backend/requirements.txt
+        # PYSEC-2024-230 (certifi): pulled in by aiocryptopay's <2024 cap.
+        # The Docker image force-upgrades certifi after install (see
+        # deploy/docker/Dockerfile), so the advisory does not apply to the
+        # shipped images. Remove once aiocryptopay relaxes the pin.
+        run: pip-audit -r backend/requirements.txt --ignore-vuln PYSEC-2024-230
 
   npm-audit:
     name: npm audit
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
@@ -76,7 +80,7 @@ jobs:
       security-events: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Run Trivy
         uses: aquasecurity/trivy-action@v0.36.0
@@ -89,7 +93,7 @@ jobs:
           ignore-unfixed: true
 
       - name: Upload Trivy results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: trivy-results.sarif

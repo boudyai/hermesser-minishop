@@ -10,6 +10,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.text_decorations import html_decoration as hd
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.infra import events
 from bot.keyboards.inline.user_keyboards import (
     get_bot_interface_inline_keyboard,
     get_channel_subscription_keyboard,
@@ -672,7 +673,22 @@ async def start_command_handler(
                             )
                         )
                         if referral_bonus_end_date:
+                            # Mark the welcome bonus as claimed so it cannot be
+                            # re-granted later (e.g. via the WebApp claim route
+                            # once this grant expires).
+                            db_user.referral_welcome_bonus_claimed_at = datetime.now(timezone.utc)
                             await session.commit()
+                            await events.emit(
+                                events.REFERRAL_BONUS_GRANTED,
+                                {
+                                    "referee_user_id": user_id,
+                                    "referee_bonus_days": referral_welcome_days,
+                                    "referee_new_end_date": events.iso(referral_bonus_end_date),
+                                    "inviter_bonus_applied": False,
+                                    "payment_db_id": None,
+                                    "reason": "welcome",
+                                },
+                            )
                             logging.info(
                                 "Referral welcome bonus applied: user %s got %s days, new end date %s.",  # noqa: E501
                                 user_id,
@@ -703,19 +719,6 @@ async def start_command_handler(
                             exc_info=True,
                         )
 
-                # Send notification about new user registration
-                try:
-                    from bot.services.notification_service import NotificationService
-
-                    notification_service = NotificationService(message.bot, settings, i18n)
-                    await notification_service.notify_new_user_registration(
-                        user_id=user_id,
-                        username=sanitized_username,
-                        first_name=sanitized_first_name,
-                        referred_by_id=referred_by_user_id,
-                    )
-                except Exception as e:
-                    logging.error(f"Failed to send new user notification: {e}")
         except Exception as e_create:
             logging.error(f"Failed to add new user {user_id} to session: {e_create}", exc_info=True)
             await message.answer(_("error_occurred_processing_request"))

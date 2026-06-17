@@ -2,7 +2,20 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Mapping, Optional
 
-from . import cryptopay, freekassa, heleket, paykilla, platega, severpay, stars, wata, yookassa
+from . import (
+    cloudpayments,
+    cryptopay,
+    freekassa,
+    heleket,
+    lava,
+    paykilla,
+    platega,
+    severpay,
+    stars,
+    stripe,
+    wata,
+    yookassa,
+)
 from .base import (
     PaymentProviderPresentation,
     PaymentProviderSpec,
@@ -22,6 +35,9 @@ PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (
     cryptopay.SPEC,
     heleket.SPEC,
     paykilla.SPEC,
+    lava.SPEC,
+    cloudpayments.SPEC,
+    stripe.SPEC,
 )
 
 
@@ -284,6 +300,28 @@ def build_provider_services(ctx: ServiceFactoryContext) -> Dict[str, Any]:
     for spec in iter_service_specs():
         services[spec.service_key] = spec.create_service(ctx)
     return services
+
+
+def recurring_provider_services(services: Mapping[str, Any]) -> Dict[str, Any]:
+    """Map ``provider_key`` to service for every recurring-capable provider.
+
+    Keyed by ``provider_key`` because that is what ``Subscription.provider``
+    stores, so the renewal worker can resolve the service straight from a
+    subscription row without knowing about service-key naming.
+    """
+    recurring: Dict[str, Any] = {}
+    for spec in PAYMENT_PROVIDER_SPECS:
+        if not spec.supports_recurring or not spec.service_key:
+            continue
+        service = services.get(spec.service_key)
+        if service is not None:
+            recurring[spec.provider_key] = service
+    return recurring
+
+
+def provider_supports_recurring(provider: Optional[str]) -> bool:
+    spec = get_provider_spec(provider or "")
+    return bool(spec and spec.supports_recurring)
 
 
 def provider_label_map(settings: Any = None, language: Optional[str] = None) -> Dict[str, str]:

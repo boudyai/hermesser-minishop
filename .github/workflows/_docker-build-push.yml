@@ -45,7 +45,7 @@ jobs:
             image: remnawave-minishop-frontend
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # Full history + tags: the Dockerfile's version-builder stage runs
           # `git describe --tags` against the copied .git tree.
@@ -71,11 +71,11 @@ jobs:
           echo "Release version: ${version}"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to GitHub Container Registry
         if: inputs.push
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -83,7 +83,7 @@ jobs:
 
       - name: Log in to Docker Hub
         if: inputs.push && inputs.publish_dockerhub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -107,7 +107,7 @@ jobs:
 
       - name: Docker metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: |
             name=${{ steps.image_namespaces.outputs.dockerhub_owner }}/${{ matrix.image }},enable=${{ inputs.push && inputs.publish_dockerhub }}
@@ -118,7 +118,7 @@ jobs:
             type=raw,value=${{ steps.version.outputs.version }},enable=${{ inputs.tag_mode == 'release' }}
 
       - name: Build${{ inputs.push && ' & push' || '' }} ${{ matrix.image }}
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: deploy/docker/Dockerfile

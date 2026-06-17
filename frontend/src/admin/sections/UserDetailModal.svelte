@@ -47,6 +47,7 @@
   let avatarPreviewOpen = false;
   let avatarPreviewUrl = "";
   let avatarPreviewName = "";
+  let tariffsLoadRequested = false;
 
   function pretty(val) {
     if (val === true) return at("yes", {}, "Да");
@@ -103,6 +104,65 @@
   }
 
   const usersStore = getContext("usersStore");
+  const tariffsStore = getContext("tariffsStore");
+
+  function tariffLabel(tariff) {
+    return (
+      tariff?.names?.ru ||
+      tariff?.names?.en ||
+      tariff?.name ||
+      tariff?.key ||
+      at("user_history_no_tariff", {}, "No tariff")
+    );
+  }
+
+  function uniqueTariffsByKey(tariffs) {
+    const seen = new Set();
+    return tariffs.filter((tariff) => {
+      const key = String(tariff?.key || "");
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function tariffSelectItem(tariff, { currentKey = "", markCurrent = false } = {}) {
+    const value = String(tariff?.key || "");
+    const label = tariffLabel(tariff);
+    return {
+      value,
+      label:
+        markCurrent && value && value === currentKey
+          ? `${label} (${at("user_tariff_current_badge", {}, "current")})`
+          : label,
+    };
+  }
+
+  function gbDraftNumber(value) {
+    if (value === "" || value === null || value === undefined) return 0;
+    const num = Number(value);
+    return Number.isFinite(num) ? num : NaN;
+  }
+
+  function sameGbDraft(left, right) {
+    const leftNum = gbDraftNumber(left);
+    const rightNum = gbDraftNumber(right);
+    if (!Number.isFinite(leftNum) || !Number.isFinite(rightNum)) return false;
+    return Math.abs(leftNum - rightNum) < 0.000001;
+  }
+
+  function hwidDraftState(unlimited, value) {
+    if (unlimited) return { key: "unlimited", valid: true };
+    if (value === "" || value === null || value === undefined) {
+      return { key: "default", valid: true };
+    }
+    const limit = Number(value);
+    if (!Number.isInteger(limit) || limit < 0 || limit > 1_000_000) {
+      return { key: "invalid", valid: false };
+    }
+    if (limit === 0) return { key: "unlimited", valid: true };
+    return { key: `limit:${limit}`, valid: true };
+  }
 
   $: ({
     openedUser,
@@ -120,8 +180,21 @@
     userReferralsPage,
     userReferralsPageSize,
     premiumUnlimitedDraft,
+    premiumUnlimitedBaseline,
+    premiumBonusGbDraft,
+    premiumBonusGbBaseline,
+    regularUnlimitedDraft,
+    regularUnlimitedBaseline,
+    regularBonusGbDraft,
+    regularBonusGbBaseline,
     hwidUnlimitedDraft,
+    hwidUnlimitedBaseline,
+    hwidDeviceLimitDraft,
+    hwidDeviceLimitBaseline,
     userDetailTab,
+    userTariffActionKey,
+    userTariffActionBaselineKey,
+    grantTrafficGbDraft,
     userLogs,
     userLogsTotal,
     userLogsPage,
@@ -149,6 +222,83 @@
       ? at("user_open_tg_profile_id_hint", {}, "Бот отправит кнопку профиля в Telegram")
       : at("user_open_tg_profile_hint", {}, "Открыть профиль Telegram");
 
+  $: tariffCatalogItems = $tariffsStore.tariffsCatalog?.tariffs || [];
+  $: enabledTariffs = tariffCatalogItems.filter((tariff) => tariff?.enabled !== false);
+  $: currentSubscriptionTariffKey = String(openedUserDetail?.active_subscription?.tariff_key || "");
+  $: currentSubscriptionTariff =
+    tariffCatalogItems.find(
+      (tariff) => String(tariff?.key || "") === currentSubscriptionTariffKey
+    ) || null;
+  $: periodTariffs = enabledTariffs.filter((tariff) => tariff?.billing_model === "period");
+  $: periodTariffItems = periodTariffs.map((tariff) => tariffSelectItem(tariff));
+  $: extendPeriodTariffs = uniqueTariffsByKey([
+    ...periodTariffs,
+    ...(currentSubscriptionTariff?.billing_model === "period" ? [currentSubscriptionTariff] : []),
+  ]);
+  $: extendTariffItems = extendPeriodTariffs.map((tariff) =>
+    tariffSelectItem(tariff, { currentKey: currentSubscriptionTariffKey, markCurrent: true })
+  );
+  $: extendTariffRequired = extendTariffItems.length > 1;
+  $: userExtendTariffValid =
+    !$usersStore.userExtendTariffKey ||
+    !extendTariffItems.length ||
+    extendTariffItems.some((item) => item.value === $usersStore.userExtendTariffKey);
+  $: userExtendDaysValid = Number($usersStore.userExtendDays) > 0;
+  $: extendTariffsLoading = Boolean(
+    openedUser && $tariffsStore.tariffsLoading && !extendTariffItems.length
+  );
+  $: tariffActionDirty =
+    Boolean(userTariffActionKey) && userTariffActionKey !== userTariffActionBaselineKey;
+  $: premiumOverrideDraftValid = gbDraftNumber(premiumBonusGbDraft) >= 0;
+  $: premiumOverrideDirty =
+    Boolean(premiumUnlimitedDraft) !== Boolean(premiumUnlimitedBaseline) ||
+    !sameGbDraft(premiumBonusGbDraft, premiumBonusGbBaseline);
+  $: regularOverrideDraftValid = gbDraftNumber(regularBonusGbDraft) >= 0;
+  $: regularOverrideDirty =
+    Boolean(regularUnlimitedDraft) !== Boolean(regularUnlimitedBaseline) ||
+    !sameGbDraft(regularBonusGbDraft, regularBonusGbBaseline);
+  $: hwidDraft = hwidDraftState(hwidUnlimitedDraft, hwidDeviceLimitDraft);
+  $: hwidBaseline = hwidDraftState(hwidUnlimitedBaseline, hwidDeviceLimitBaseline);
+  $: hwidLimitDraftValid = hwidDraft.valid;
+  $: hwidLimitDirty = hwidDraft.key !== hwidBaseline.key;
+  $: grantTrafficGbValid =
+    grantTrafficGbDraft !== "" &&
+    grantTrafficGbDraft !== null &&
+    grantTrafficGbDraft !== undefined &&
+    gbDraftNumber(grantTrafficGbDraft) > 0;
+  $: currentSubscriptionTariffLabel =
+    (currentSubscriptionTariff ? tariffLabel(currentSubscriptionTariff) : "") ||
+    periodTariffItems.find((item) => item.value === currentSubscriptionTariffKey)?.label ||
+    currentSubscriptionTariffKey ||
+    at("user_tariff_none", {}, "No tariff");
+
+  $: if (
+    openedUser &&
+    !tariffsLoadRequested &&
+    !$tariffsStore.tariffsLoading &&
+    enabledTariffs.length === 0
+  ) {
+    tariffsLoadRequested = true;
+    tariffsStore.loadTariffs();
+  }
+
+  $: if (openedUser && extendTariffItems.length === 1 && !$usersStore.userExtendTariffKey) {
+    usersStore.updateState({ userExtendTariffKey: extendTariffItems[0].value });
+  }
+
+  $: if (
+    openedUser &&
+    extendTariffItems.length > 0 &&
+    $usersStore.userExtendTariffKey &&
+    !userExtendTariffValid
+  ) {
+    usersStore.updateState({ userExtendTariffKey: "" });
+  }
+
+  $: if (openedUser && currentSubscriptionTariffKey && !$usersStore.userTariffActionKey) {
+    usersStore.updateState({ userTariffActionKey: currentSubscriptionTariffKey });
+  }
+
   $: if (openedUser && userDetailTab === "logs" && !userLogsLoading && !userLogsLoaded) {
     usersStore.loadUserLogs(0);
   }
@@ -157,6 +307,7 @@
     avatarPreviewOpen = false;
     avatarPreviewUrl = "";
     avatarPreviewName = "";
+    tariffsLoadRequested = false;
   }
 
   function openAvatarPreview() {
@@ -761,6 +912,109 @@
 
             <Tabs.Content value="actions" class="admin-tabs-content admin-actions-tab">
               <div class="admin-user-quick-actions">
+                <section class="admin-user-action-sheet admin-user-action-sheet--extend">
+                  <AdminSectionHeader title={at("user_label_extend", {}, "Продлить подписку")} />
+                  <div class="admin-user-action-sheet-body admin-user-extend-stack">
+                    <div class="admin-user-extend-grid">
+                      <Label.Root
+                        class="admin-field-label admin-extend-field admin-user-extend-days-field"
+                      >
+                        <span>{at("user_label_extend_days", {}, "Дней")}</span>
+                        <Input
+                          class="input"
+                          type="number"
+                          min="1"
+                          max="3650"
+                          step="1"
+                          bind:value={$usersStore.userExtendDays}
+                          aria-label={at("user_label_extend_days", {}, "Дней")}
+                        />
+                      </Label.Root>
+                      {#if extendTariffItems.length}
+                        <Label.Root
+                          class="admin-field-label admin-extend-field admin-user-extend-tariff-field"
+                        >
+                          <span>{at("user_tariff_select_label", {}, "Tariff")}</span>
+                          <AdminSelect
+                            class="admin-user-tariff-select admin-user-extend-tariff-select"
+                            value={$usersStore.userExtendTariffKey}
+                            items={extendTariffItems}
+                            placeholder={at("user_tariff_select_placeholder", {}, "Select tariff")}
+                            ariaLabel={at("user_tariff_select_label", {}, "Tariff")}
+                            disabled={userActionBusy || extendTariffItems.length === 1}
+                            onValueChange={(value) =>
+                              usersStore.updateState({ userExtendTariffKey: value })}
+                          />
+                        </Label.Root>
+                      {/if}
+                      <AdminButton
+                        class="admin-user-extend-submit"
+                        variant="primary"
+                        onclick={usersStore.extendUser}
+                        disabled={userActionBusy ||
+                          extendTariffsLoading ||
+                          !userExtendDaysValid ||
+                          !userExtendTariffValid ||
+                          (extendTariffRequired && !$usersStore.userExtendTariffKey)}
+                      >
+                        <Plus size={14} />
+                        {at("user_btn_extend", {}, "Продлить")}
+                      </AdminButton>
+                    </div>
+                    {#if extendTariffItems.length && !userExtendTariffValid}
+                      <small class="admin-muted"
+                        >{at(
+                          "user_extend_tariff_required",
+                          {},
+                          "Select a tariff before adding days"
+                        )}</small
+                      >
+                    {:else if extendTariffRequired && !$usersStore.userExtendTariffKey}
+                      <small class="admin-muted"
+                        >{at(
+                          "user_extend_tariff_required",
+                          {},
+                          "Select a tariff before adding days"
+                        )}</small
+                      >
+                    {/if}
+                    {#if Number(openedUserDetail?.active_subscription?.extra_hwid_devices || 0) > 0}
+                      <label class="admin-extend-hwid-option">
+                        <Checkbox
+                          bind:checked={$usersStore.userExtendHwidDevices}
+                          disabled={userActionBusy}
+                          ariaLabel={at(
+                            "user_extend_hwid_devices_aria",
+                            {},
+                            "Продлить докупленные HWID-устройства"
+                          )}
+                        />
+                        <span>
+                          <strong>
+                            {at(
+                              "user_extend_hwid_devices",
+                              {
+                                count: Number(
+                                  openedUserDetail.active_subscription.extra_hwid_devices || 0
+                                ),
+                              },
+                              `Продлить также +${Number(
+                                openedUserDetail.active_subscription.extra_hwid_devices || 0
+                              )} HWID-устройств`
+                            )}
+                          </strong>
+                          <small>
+                            {at(
+                              "user_extend_hwid_devices_hint",
+                              {},
+                              "Срок действующих докупок увеличится на те же дни."
+                            )}
+                          </small>
+                        </span>
+                      </label>
+                    {/if}
+                  </div>
+                </section>
                 <AdminButton
                   class="admin-reset-trial-btn"
                   onclick={usersStore.resetTrialUser}
@@ -769,61 +1023,76 @@
                   <RefreshCw size={14} />
                   {at("user_btn_reset_trial", {}, "Сбросить триал")}
                 </AdminButton>
-                <Label.Root class="admin-field-label admin-extend-field">
-                  <span>{at("user_label_extend", {}, "Продлить подписку")}</span>
-                  <div class="admin-extend-control">
-                    <Input
-                      class="input"
-                      type="number"
-                      min="1"
-                      bind:value={$usersStore.userExtendDays}
-                      aria-label={at("user_label_extend_days", {}, "Дней")}
-                    />
-                    <AdminButton onclick={usersStore.extendUser} disabled={userActionBusy}>
-                      <Plus size={14} />
-                      {at("user_btn_extend", {}, "Продлить")}
-                    </AdminButton>
-                  </div>
-                  {#if Number(openedUserDetail?.active_subscription?.extra_hwid_devices || 0) > 0}
-                    <label class="admin-extend-hwid-option">
-                      <Checkbox
-                        bind:checked={$usersStore.userExtendHwidDevices}
-                        disabled={userActionBusy}
-                        ariaLabel={at(
-                          "user_extend_hwid_devices_aria",
-                          {},
-                          "Продлить докупленные HWID-устройства"
-                        )}
-                      />
-                      <span>
-                        <strong>
-                          {at(
-                            "user_extend_hwid_devices",
-                            {
-                              count: Number(
-                                openedUserDetail.active_subscription.extra_hwid_devices || 0
-                              ),
-                            },
-                            `Продлить также +${Number(
-                              openedUserDetail.active_subscription.extra_hwid_devices || 0
-                            )} HWID-устройств`
-                          )}
-                        </strong>
-                        <small>
-                          {at(
-                            "user_extend_hwid_devices_hint",
-                            {},
-                            "Срок действующих докупок увеличится на те же дни."
-                          )}
-                        </small>
-                      </span>
-                    </label>
-                  {/if}
-                </Label.Root>
               </div>
 
               {#if openedUserDetail?.active_subscription}
-                <section class="admin-user-action-sheet admin-user-action-sheet--premium-override">
+                {#if periodTariffItems.length}
+                  <section
+                    class="admin-user-action-sheet admin-user-action-sheet--tariff"
+                    class:is-dirty={tariffActionDirty}
+                  >
+                    <AdminSectionHeader
+                      title={at("user_tariff_card_title", {}, "Tariff")}
+                      description={at(
+                        "user_tariff_card_hint",
+                        {},
+                        "Change the user's tariff and sync panel squads immediately."
+                      )}
+                    />
+                    <div class="admin-user-action-sheet-body admin-user-tariff-stack">
+                      <Label.Root class="admin-field-label admin-extend-field">
+                        <span>{at("user_tariff_select_label", {}, "Tariff")}</span>
+                        <AdminSelect
+                          class="admin-user-tariff-select"
+                          value={$usersStore.userTariffActionKey}
+                          items={periodTariffItems}
+                          placeholder={at("user_tariff_select_placeholder", {}, "Select tariff")}
+                          ariaLabel={at("user_tariff_select_label", {}, "Tariff")}
+                          disabled={userActionBusy}
+                          onValueChange={(value) =>
+                            usersStore.updateState({ userTariffActionKey: value })}
+                        />
+                      </Label.Root>
+                    </div>
+                    <div class="admin-user-action-sheet-footer admin-override-card-footer">
+                      <div class="admin-override-card-toolbar">
+                        <span class="admin-meta-truncate">
+                          {at(
+                            "user_tariff_current",
+                            { tariff: currentSubscriptionTariffLabel },
+                            `Current: ${currentSubscriptionTariffLabel}`
+                          )}
+                        </span>
+                        <div class="admin-action-save-controls">
+                          {#if tariffActionDirty}
+                            <AdminBadge variant="warning"
+                              >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                            >
+                          {/if}
+                          <AdminButton
+                            variant="primary"
+                            onclick={usersStore.changeUserTariff}
+                            disabled={userActionBusy || !userTariffActionKey || !tariffActionDirty}
+                          >
+                            <RefreshCw size={14} />
+                            {at("user_tariff_save", {}, "Save tariff")}
+                          </AdminButton>
+                        </div>
+                      </div>
+                      {#if tariffActionDirty}
+                        <div class="admin-override-status-lines">
+                          <span class="admin-unsaved-hint">
+                            {at("user_action_unsaved_hint", {}, "Есть несохранённые изменения")}
+                          </span>
+                        </div>
+                      {/if}
+                    </div>
+                  </section>
+                {/if}
+                <section
+                  class="admin-user-action-sheet admin-user-action-sheet--premium-override"
+                  class:is-dirty={premiumOverrideDirty}
+                >
                   <AdminSectionHeader
                     title={at("user_premium_override_card_title", {}, "Премиум-трафик")}
                     description={at(
@@ -862,15 +1131,34 @@
                         />
                         <span>{at("user_override_unlimited_short", {}, "Безлимит")}</span>
                       </label>
-                      <AdminButton
-                        variant="primary"
-                        onclick={usersStore.savePremiumTrafficOverride}
-                        disabled={userActionBusy}
-                      >
-                        {at("user_premium_override_save", {}, "Сохранить")}
-                      </AdminButton>
+                      <div class="admin-action-save-controls">
+                        {#if premiumOverrideDirty}
+                          <AdminBadge variant="warning"
+                            >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                          >
+                        {/if}
+                        <AdminButton
+                          variant="primary"
+                          onclick={usersStore.savePremiumTrafficOverride}
+                          disabled={userActionBusy ||
+                            !premiumOverrideDirty ||
+                            !premiumOverrideDraftValid}
+                        >
+                          {at("user_premium_override_save", {}, "Сохранить")}
+                        </AdminButton>
+                      </div>
                     </div>
                     <div class="admin-override-status-lines">
+                      {#if premiumOverrideDirty}
+                        <span class="admin-unsaved-hint">
+                          {at("user_action_unsaved_hint", {}, "Есть несохранённые изменения")}
+                        </span>
+                      {/if}
+                      {#if !premiumOverrideDraftValid}
+                        <span class="admin-invalid-hint">
+                          {at("premium_override_invalid_bonus", {}, "Некорректное значение GB")}
+                        </span>
+                      {/if}
                       {#if openedUserDetail.active_subscription.premium_unlimited_override}
                         <span class="admin-meta-truncate">
                           {at("user_premium_override_status_unlimited", {}, "Сейчас: безлимит")}
@@ -901,7 +1189,10 @@
                   </div>
                 </section>
 
-                <section class="admin-user-action-sheet admin-user-action-sheet--regular-override">
+                <section
+                  class="admin-user-action-sheet admin-user-action-sheet--regular-override"
+                  class:is-dirty={regularOverrideDirty}
+                >
                   <AdminSectionHeader
                     title={at("user_regular_override_card_title", {}, "Основной трафик")}
                     description={at(
@@ -922,7 +1213,7 @@
                         min="0"
                         step="1"
                         placeholder="0"
-                        disabled={$usersStore.regularUnlimitedDraft}
+                        disabled={regularUnlimitedDraft}
                         aria-label={at(
                           "user_regular_override_bonus",
                           {},
@@ -941,15 +1232,38 @@
                         />
                         <span>{at("user_override_unlimited_short", {}, "Безлимит")}</span>
                       </label>
-                      <AdminButton
-                        variant="primary"
-                        onclick={usersStore.saveRegularTrafficOverride}
-                        disabled={userActionBusy}
-                      >
-                        {at("user_regular_override_save", {}, "Сохранить")}
-                      </AdminButton>
+                      <div class="admin-action-save-controls">
+                        {#if regularOverrideDirty}
+                          <AdminBadge variant="warning"
+                            >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                          >
+                        {/if}
+                        <AdminButton
+                          variant="primary"
+                          onclick={usersStore.saveRegularTrafficOverride}
+                          disabled={userActionBusy ||
+                            !regularOverrideDirty ||
+                            !regularOverrideDraftValid}
+                        >
+                          {at("user_regular_override_save", {}, "Сохранить")}
+                        </AdminButton>
+                      </div>
                     </div>
                     <div class="admin-override-status-lines">
+                      {#if regularOverrideDirty}
+                        <span class="admin-unsaved-hint">
+                          {at("user_action_unsaved_hint", {}, "Есть несохранённые изменения")}
+                        </span>
+                      {/if}
+                      {#if !regularOverrideDraftValid}
+                        <span class="admin-invalid-hint">
+                          {at(
+                            "regular_override_invalid_bonus",
+                            {},
+                            "Некорректное значение GB для основного трафика"
+                          )}
+                        </span>
+                      {/if}
                       {#if openedUserDetail.active_subscription.regular_unlimited_override}
                         <span class="admin-meta-truncate">
                           {at("user_regular_override_status_unlimited", {}, "Сейчас: безлимит")}
@@ -980,7 +1294,10 @@
                   </div>
                 </section>
 
-                <section class="admin-user-action-sheet admin-user-action-sheet--hwid-limit">
+                <section
+                  class="admin-user-action-sheet admin-user-action-sheet--hwid-limit"
+                  class:is-dirty={hwidLimitDirty}
+                >
                   <AdminSectionHeader
                     title={at("user_hwid_limit_card_title", {}, "HWID-устройства")}
                     description={at(
@@ -1020,15 +1337,36 @@
                         />
                         <span>{at("user_override_unlimited_short", {}, "Безлимит")}</span>
                       </label>
-                      <AdminButton
-                        variant="primary"
-                        onclick={usersStore.saveHwidDeviceLimit}
-                        disabled={userActionBusy}
-                      >
-                        {at("user_hwid_limit_save", {}, "Сохранить")}
-                      </AdminButton>
+                      <div class="admin-action-save-controls">
+                        {#if hwidLimitDirty}
+                          <AdminBadge variant="warning"
+                            >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                          >
+                        {/if}
+                        <AdminButton
+                          variant="primary"
+                          onclick={usersStore.saveHwidDeviceLimit}
+                          disabled={userActionBusy || !hwidLimitDirty || !hwidLimitDraftValid}
+                        >
+                          {at("user_hwid_limit_save", {}, "Сохранить")}
+                        </AdminButton>
+                      </div>
                     </div>
                     <div class="admin-override-status-lines">
+                      {#if hwidLimitDirty}
+                        <span class="admin-unsaved-hint">
+                          {at("user_action_unsaved_hint", {}, "Есть несохранённые изменения")}
+                        </span>
+                      {/if}
+                      {#if !hwidLimitDraftValid}
+                        <span class="admin-invalid-hint">
+                          {at(
+                            "hwid_limit_invalid",
+                            {},
+                            "Введите целое число устройств от 0 до 1 000 000 или включите безлимит"
+                          )}
+                        </span>
+                      {/if}
                       <span class="admin-meta-truncate">
                         {at(
                           "user_hwid_limit_status",
@@ -1084,7 +1422,7 @@
                         <AdminButton
                           variant="primary"
                           onclick={usersStore.grantTraffic}
-                          disabled={userActionBusy}
+                          disabled={userActionBusy || !grantTrafficGbValid}
                         >
                           <Plus size={14} />
                           {at("user_traffic_grant_submit", {}, "Выдать")}
@@ -1383,6 +1721,10 @@
     overflow: hidden;
     background: var(--admin-surface-1, rgba(255, 255, 255, 0.02));
   }
+  .admin-user-action-sheet.is-dirty {
+    border-color: color-mix(in srgb, var(--warning, #f5b84b) 46%, var(--admin-border-muted));
+    background: color-mix(in srgb, var(--warning, #f5b84b) 7%, var(--admin-surface-1));
+  }
   .admin-user-action-sheet :global(.admin-dashboard-section-head) {
     padding: 12px 14px 10px;
     margin: 0;
@@ -1400,6 +1742,11 @@
     gap: 14px;
   }
   .admin-user-grant-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .admin-user-tariff-stack {
     display: flex;
     flex-direction: column;
     gap: 14px;
@@ -1430,6 +1777,21 @@
     padding-left: 16px;
     padding-right: 16px;
   }
+  .admin-action-save-controls {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex: 0 0 auto;
+  }
+  .admin-unsaved-hint {
+    color: var(--warning, #f5b84b);
+    font-weight: 600;
+  }
+  .admin-invalid-hint {
+    color: var(--danger, #ef4444);
+    font-weight: 600;
+  }
   .admin-override-unlimited-label {
     display: inline-flex;
     align-items: center;
@@ -1448,6 +1810,15 @@
     .admin-override-card-toolbar :global(.admin-btn) {
       width: 100%;
     }
+    .admin-action-save-controls {
+      width: 100%;
+      align-items: stretch;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+    .admin-action-save-controls :global(.admin-btn) {
+      flex: 1 1 180px;
+    }
   }
   .admin-override-status-lines {
     display: flex;
@@ -1464,8 +1835,18 @@
   .admin-user-action-sheet--regular-override {
     margin-top: 10px;
   }
+  .admin-user-action-sheet--extend {
+    margin-bottom: 0;
+  }
+  .admin-user-action-sheet--tariff {
+    margin-top: 10px;
+  }
   .admin-user-action-sheet--traffic-grant {
     margin-top: 10px;
+  }
+  .admin-user-action-sheet :global(.admin-user-tariff-select) {
+    width: 100%;
+    max-width: 100%;
   }
   .admin-user-action-sheet :global(.admin-grant-kind-select) {
     width: 100%;

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +12,13 @@ from db.models import Payment
 from .common import mark_payment_failed_creation, payment_failed, payment_link_response
 
 
+def _short_repr(value: Any, *, max_length: int = 2000) -> str:
+    text = repr(value)
+    if len(text) <= max_length:
+        return text
+    return text[: max_length - 3] + "..."
+
+
 async def finalize_webapp_link_payment(
     *,
     session: AsyncSession,
@@ -19,6 +26,7 @@ async def finalize_webapp_link_payment(
     api_success: bool,
     payment_url: Optional[str],
     provider_payment_id: Optional[str] = None,
+    provider_response: Optional[Any] = None,
     new_status: Optional[str] = None,
     log_prefix: str,
 ) -> web.Response:
@@ -60,6 +68,18 @@ async def finalize_webapp_link_payment(
             )
 
     if not payment_url:
+        logging.error(
+            "%s: WebApp payment creation failed for payment %s "
+            "(user_id=%s, api_success=%s, has_payment_url=%s, "
+            "has_provider_payment_id=%s, provider_response=%s).",
+            log_prefix,
+            getattr(payment, "payment_id", None),
+            getattr(payment, "user_id", None),
+            api_success,
+            bool(payment_url),
+            bool(provider_payment_id),
+            _short_repr(provider_response),
+        )
         try:
             await mark_payment_failed_creation(session, payment.payment_id)
         except Exception:

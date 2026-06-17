@@ -26,8 +26,10 @@ _PROVIDERS_FROM_CALLERS = {
     "platega",
     "severpay",
     "wata",
+    "lava",
     "cryptopay",
     "paykilla",
+    "cloudpayments",
     "telegram_stars",
 }
 
