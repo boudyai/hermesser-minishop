@@ -109,8 +109,8 @@
   $: if (selectedAppIndex >= apps.length) selectedAppIndex = 0;
   $: selectedApp = apps[selectedAppIndex] || apps[0] || null;
   $: selectedBlocks = Array.isArray(selectedApp?.blocks) ? selectedApp.blocks : [];
-  $: hasAppSelector = apps.length > 1;
-  $: stepsDelayOffset = hasAppSelector ? apps.length + 1 : 0;
+  $: hasAppCard = apps.length > 0;
+  $: stepsDelayOffset = hasAppCard ? apps.length + 1 : 0;
   $: qrDelayIndex = stepsDelayOffset + selectedBlocks.length + 1;
   $: installStageStyle = `${stageHeightStyle} --motion-stage-duration:${STAGE_HEIGHT_ANIMATION_MS}ms;`;
   $: guideSubscription = guideState?.subscription || subscription || {};
@@ -424,7 +424,7 @@
       bind:this={installContentStage}
     >
       {#key selectedPlatformKey}
-        {#if hasAppSelector}
+        {#if hasAppCard}
           <section
             class="install-selector-block motion-enter-card"
             style={installMotionStyle(0)}
