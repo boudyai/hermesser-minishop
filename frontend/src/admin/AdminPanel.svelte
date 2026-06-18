@@ -168,7 +168,7 @@
   const adsStore = createAdsStore({ api, onToast: flash, at });
   const backupsStore = createBackupsStore({ api, onToast: flash, at });
   const broadcastStore = createBroadcastStore({ api, onToast: flash, at });
-  const healthStore = createHealthStore({ api });
+  const healthStore = createHealthStore({ api, at });
   const logsStore = createLogsStore({ api, at });
   const paymentsStore = createPaymentsStore({ api, onToast: flash, at, routePrefix });
   const promosStore = createPromosStore({ api, onToast: flash, at });

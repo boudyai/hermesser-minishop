@@ -1,4 +1,5 @@
 import { writable } from "svelte/store";
+import { adminErrorMessage } from "../errors.js";
 
 export function createBroadcastStore({ api, onToast, at }) {
   const COUNTS_CACHE_TTL_MS = 30_000;
@@ -124,7 +125,7 @@ export function createBroadcastStore({ api, onToast, at }) {
         }));
         onToast(at("broadcast_started", {}, "Рассылка запущена"));
       } else {
-        onToast(res?.error || at("broadcast_failed", {}, "Ошибка рассылки"));
+        onToast(adminErrorMessage(res, at, at("broadcast_failed", {}, "Ошибка рассылки")));
       }
     } finally {
       state.update((s) => ({ ...s, broadcastBusy: false }));

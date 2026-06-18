@@ -1,4 +1,5 @@
 import { writable } from "svelte/store";
+import { adminErrorMessage } from "../errors.js";
 
 function dirtyId(lang, key) {
   return `${lang}:${key}`;
@@ -153,7 +154,8 @@ export function createTranslationsStore({ api, onToast, at }) {
           .join("; ");
         onToast(at("translations_validation_errors", { errors: summary }, `Errors: ${summary}`));
       } else {
-        onToast(at("translations_save_error", { error: res?.error || "" }, res?.error || "Error"));
+        const message = adminErrorMessage(res, at);
+        onToast(at("translations_save_error", { error: message }, message));
       }
       return false;
     } finally {

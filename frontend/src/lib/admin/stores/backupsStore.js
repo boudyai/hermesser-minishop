@@ -1,4 +1,5 @@
 import { writable } from "svelte/store";
+import { adminErrorMessage } from "../errors.js";
 
 export function createBackupsStore({ api, onToast, at }) {
   const state = writable({
@@ -24,9 +25,7 @@ export function createBackupsStore({ api, onToast, at }) {
         }));
       } else {
         onToast(
-          data?.message ||
-            data?.error ||
-            at("backups_load_failed", {}, "Не удалось загрузить бэкапы")
+          adminErrorMessage(data, at, at("backups_load_failed", {}, "Не удалось загрузить бэкапы"))
         );
       }
     } finally {
@@ -47,7 +46,7 @@ export function createBackupsStore({ api, onToast, at }) {
         return data.archive || null;
       }
       onToast(
-        data?.message || data?.error || at("backups_create_failed", {}, "Не удалось создать бэкап")
+        adminErrorMessage(data, at, at("backups_create_failed", {}, "Не удалось создать бэкап"))
       );
       return null;
     } finally {
@@ -71,9 +70,7 @@ export function createBackupsStore({ api, onToast, at }) {
         return data.archive || null;
       }
       onToast(
-        data?.message ||
-          data?.error ||
-          at("backups_upload_failed", {}, "Не удалось загрузить архив")
+        adminErrorMessage(data, at, at("backups_upload_failed", {}, "Не удалось загрузить архив"))
       );
       return null;
     } finally {
@@ -109,7 +106,7 @@ export function createBackupsStore({ api, onToast, at }) {
         return true;
       }
       onToast(
-        data?.message || data?.error || at("backups_restore_failed", {}, "Не удалось восстановить")
+        adminErrorMessage(data, at, at("backups_restore_failed", {}, "Не удалось восстановить"))
       );
       return false;
     } finally {

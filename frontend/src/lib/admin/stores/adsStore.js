@@ -1,4 +1,5 @@
 import { writable } from "svelte/store";
+import { adminErrorMessage } from "../errors.js";
 
 export function createAdsStore({ api, onToast, at }) {
   const state = writable({
@@ -47,7 +48,7 @@ export function createAdsStore({ api, onToast, at }) {
       }));
       await loadAds();
     } else {
-      onToast(res?.error || at("error", {}, "Ошибка"));
+      onToast(adminErrorMessage(res, at));
     }
   }
 
@@ -62,7 +63,7 @@ export function createAdsStore({ api, onToast, at }) {
         ads: s.ads.map((c) => (c.id === ad.id ? { ...c, is_active: !ad.is_active } : c)),
       }));
     } else {
-      onToast(res?.error || at("error", {}, "Ошибка"));
+      onToast(adminErrorMessage(res, at));
     }
   }
 
@@ -75,7 +76,7 @@ export function createAdsStore({ api, onToast, at }) {
       }));
       onToast(at("ad_deleted", {}, "Кампания удалена"));
     } else {
-      onToast(res?.error || at("error", {}, "Ошибка"));
+      onToast(adminErrorMessage(res, at));
     }
   }
 

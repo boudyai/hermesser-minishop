@@ -1,4 +1,5 @@
 import { writable } from "svelte/store";
+import { adminErrorMessage } from "../errors.js";
 import { withRoutePrefix } from "../../webapp/routes.js";
 
 export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
@@ -298,7 +299,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
           _pathContext = null;
           return { ...s, ..._closedUserModalState() };
         });
-        if (shouldShowError) onToast(res?.error || "load_failed");
+        if (shouldShowError) onToast(adminErrorMessage(res, at, "load_failed"));
         if (shouldClearPath && !opts.skipPush) _pushUserPath(null);
       }
     } finally {
@@ -326,7 +327,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
       });
       return res;
     }
-    onToast(res?.error || "load_failed");
+    onToast(adminErrorMessage(res, at, "load_failed"));
     return res;
   }
 
@@ -377,7 +378,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
           };
         });
       } else if (data?.error) {
-        onToast(data.error);
+        onToast(adminErrorMessage(data, at));
       }
     } finally {
       state.update((st) => ({ ...st, userLogsLoading: false }));
@@ -422,7 +423,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
           };
         });
       } else if (data?.error) {
-        onToast(data.error);
+        onToast(adminErrorMessage(data, at));
       }
     } finally {
       state.update((st) => ({ ...st, userReferralsLoading: false }));
@@ -492,7 +493,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
         onToast(
           banned ? at("user_banned", {}, "Заблокирован") : at("user_unbanned", {}, "Разблокирован")
         );
-      } else onToast(res?.error || at("error", {}, "Ошибка"));
+      } else onToast(adminErrorMessage(res, at));
     } finally {
       state.update((st) => ({ ...st, userActionBusy: false }));
     }
@@ -518,7 +519,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
           userMessageDraft: "",
           userMessageConfirmOpen: false,
         }));
-      } else onToast(res?.error || at("message_send_failed", {}, "Ошибка отправки"));
+      } else onToast(adminErrorMessage(res, at, at("message_send_failed", {}, "Ошибка отправки")));
     } finally {
       state.update((st) => ({ ...st, userActionBusy: false }));
     }
@@ -545,7 +546,10 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
         body: JSON.stringify({ text: s.userMessageDraft }),
       });
       if (res?.ok) onToast(at("message_preview_sent", {}, "Превью отправлено в Telegram"));
-      else onToast(res?.error || at("message_preview_failed", {}, "Ошибка отправки превью"));
+      else
+        onToast(
+          adminErrorMessage(res, at, at("message_preview_failed", {}, "Ошибка отправки превью"))
+        );
     } finally {
       state.update((st) => ({ ...st, userActionBusy: false }));
     }
@@ -566,7 +570,13 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
       if (res?.ok) {
         onToast(at("user_tg_profile_link_sent", {}, "Ссылка отправлена в Telegram"));
       } else {
-        onToast(res?.error || at("user_tg_profile_link_failed", {}, "Не удалось отправить ссылку"));
+        onToast(
+          adminErrorMessage(
+            res,
+            at,
+            at("user_tg_profile_link_failed", {}, "Не удалось отправить ссылку")
+          )
+        );
       }
     } finally {
       state.update((st) => ({ ...st, userActionBusy: false }));
@@ -598,7 +608,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
           resetHwid: false,
           resetGrant: false,
         });
-      } else onToast(res?.error || at("error", {}, "Ошибка"));
+      } else onToast(adminErrorMessage(res, at));
     } finally {
       state.update((st) => ({ ...st, userActionBusy: false }));
     }
@@ -627,7 +637,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
         });
         if (_activeRef === "users") await loadUsers();
       } else {
-        onToast(res?.message || res?.error || at("error", {}, "РћС€РёР±РєР°"));
+        onToast(adminErrorMessage(res, at));
       }
     } finally {
       state.update((st) => ({ ...st, userActionBusy: false }));
@@ -655,7 +665,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
           resetGrant: false,
         });
         if (_activeRef === "users") await loadUsers();
-      } else onToast(res?.error || at("error", {}, "Ошибка"));
+      } else onToast(adminErrorMessage(res, at));
     } finally {
       state.update((st) => ({ ...st, userActionBusy: false }));
     }
@@ -696,7 +706,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
           resetGrant: false,
         });
       } else {
-        onToast(res?.error || at("error", {}, "Ошибка"));
+        onToast(adminErrorMessage(res, at));
       }
     } finally {
       state.update((st) => ({ ...st, userActionBusy: false }));
@@ -738,7 +748,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
           resetGrant: false,
         });
       } else {
-        onToast(res?.error || at("error", {}, "Ошибка"));
+        onToast(adminErrorMessage(res, at));
       }
     } finally {
       state.update((st) => ({ ...st, userActionBusy: false }));
@@ -789,7 +799,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
           resetGrant: false,
         });
       } else {
-        onToast(res?.error || at("error", {}, "Ошибка"));
+        onToast(adminErrorMessage(res, at));
       }
     } finally {
       state.update((st) => ({ ...st, userActionBusy: false }));
@@ -830,7 +840,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
           resetHwid: false,
         });
       } else {
-        onToast(res?.error || at("error", {}, "Ошибка"));
+        onToast(adminErrorMessage(res, at));
       }
     } finally {
       state.update((st) => ({ ...st, userActionBusy: false }));
@@ -854,7 +864,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
           users: st.users.filter((u) => u.user_id !== st.openedUser.user_id),
         }));
         closeUser();
-      } else onToast(res?.error || at("error", {}, "Ошибка"));
+      } else onToast(adminErrorMessage(res, at));
     } finally {
       state.update((st) => ({ ...st, userActionBusy: false }));
     }

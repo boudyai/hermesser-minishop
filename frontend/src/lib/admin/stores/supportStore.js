@@ -1,5 +1,6 @@
 import { writable } from "svelte/store";
 import { withRoutePrefix } from "../../webapp/routes.js";
+import { adminErrorMessage } from "../errors.js";
 
 export function createAdminSupportStore({ api, onToast, at, routePrefix = "" }) {
   const OPEN_TICKET_POLL_MS = 3_000;
@@ -89,7 +90,7 @@ export function createAdminSupportStore({ api, onToast, at, routePrefix = "" }) 
       }
       const res = await api(`/admin/support/tickets?${params.toString()}`);
       if (res?.ok) state.update((s) => ({ ...s, tickets: res.tickets || [] }));
-      else if (res?.error) onToast(res.message || res.error);
+      else if (res?.error) onToast(adminErrorMessage(res, at));
     } finally {
       if (!silent) state.update((s) => ({ ...s, loading: false }));
     }
@@ -161,7 +162,7 @@ export function createAdminSupportStore({ api, onToast, at, routePrefix = "" }) 
           await loadList({ silent: true });
           scheduleTicketPoll(OPEN_TICKET_POLL_MS);
         }
-      } else onToast(res?.message || res?.error || "not_found");
+      } else onToast(adminErrorMessage(res, at, "not_found"));
     } finally {
       state.update((s) => (s.openedTicketId === id ? { ...s, detailLoading: false } : s));
     }
@@ -215,7 +216,7 @@ export function createAdminSupportStore({ api, onToast, at, routePrefix = "" }) 
       void Promise.allSettled([loadList({ silent: true }), loadStats()]);
       return true;
     } catch (error) {
-      onToast(error?.message || at("support_send_failed", {}, "Send failed"));
+      onToast(adminErrorMessage(error, at, at("support_send_failed", {}, "Send failed")));
       return false;
     } finally {
       state.update((s) => ({ ...s, sending: false }));
@@ -242,7 +243,7 @@ export function createAdminSupportStore({ api, onToast, at, routePrefix = "" }) 
       }));
       await loadList();
       await loadStats();
-    } else onToast(res?.message || res?.error || "update_failed");
+    } else onToast(adminErrorMessage(res, at, "update_failed"));
   }
 
   function closeTicket() {

@@ -3,6 +3,7 @@ function cloneCatalog(catalog) {
 }
 
 import { writable } from "svelte/store";
+import { adminErrorMessage } from "../errors.js";
 
 const HOME_LOGO_SCALE_TOKEN = {
   desktop: "home_logo_scale_desktop",
@@ -196,7 +197,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
           themesDir: data.themes_dir || "",
         }));
       } else {
-        flash(data?.message || data?.error || at("load_failed", {}, "Не удалось загрузить темы"));
+        flash(adminErrorMessage(data, at, at("load_failed", {}, "Не удалось загрузить темы")));
       }
     } finally {
       state.update((s) => ({ ...s, themesLoading: false }));
@@ -227,7 +228,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
         if (!silent) flash(at("themes_saved", {}, "Темы сохранены"));
         if (typeof onThemesSaved === "function") await onThemesSaved();
       } else {
-        flash(data?.message || data?.error || at("themes_save_failed", {}, "Не удалось сохранить"));
+        flash(adminErrorMessage(data, at, at("themes_save_failed", {}, "Не удалось сохранить")));
       }
     } finally {
       state.update((s) => ({ ...s, themesSaving: false }));
@@ -249,9 +250,11 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
         return { logoUrl: data.logo_url || "", faviconUrl: data.favicon_url || "" };
       }
       flash(
-        data?.message ||
-          data?.error ||
+        adminErrorMessage(
+          data,
+          at,
           at("appearance_logo_upload_failed", {}, "Не удалось загрузить логотип")
+        )
       );
       return null;
     } finally {
@@ -273,9 +276,11 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
         return { logoUrl: data.logo_url || "", faviconUrl: data.favicon_url || "" };
       }
       flash(
-        data?.message ||
-          data?.error ||
+        adminErrorMessage(
+          data,
+          at,
           at("appearance_logo_upload_failed", {}, "Не удалось загрузить логотип")
+        )
       );
       return null;
     } finally {
@@ -298,9 +303,11 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
         return { faviconUrl: data.favicon_url || "", variants: data.variants || {} };
       }
       flash(
-        data?.message ||
-          data?.error ||
+        adminErrorMessage(
+          data,
+          at,
           at("appearance_favicon_upload_failed", {}, "Не удалось загрузить favicon")
+        )
       );
       return null;
     } finally {
@@ -322,9 +329,11 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
         return { faviconUrl: data.favicon_url || "", variants: data.variants || {} };
       }
       flash(
-        data?.message ||
-          data?.error ||
+        adminErrorMessage(
+          data,
+          at,
           at("appearance_favicon_upload_failed", {}, "Не удалось загрузить favicon")
+        )
       );
       return null;
     } finally {

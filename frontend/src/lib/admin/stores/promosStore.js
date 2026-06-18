@@ -1,6 +1,11 @@
 import { writable } from "svelte/store";
+import { adminErrorMessage } from "../errors.js";
 
-export function createPromosStore({ api, onToast }) {
+export function createPromosStore({
+  api,
+  onToast,
+  at = (key, _params, fallback) => fallback || key,
+}) {
   const state = writable({
     promos: [],
     promosTotal: 0,
@@ -51,7 +56,7 @@ export function createPromosStore({ api, onToast }) {
       }));
       await loadPromos();
     } else {
-      onToast(res?.error || "Ошибка");
+      onToast(adminErrorMessage(res, at, "Ошибка"));
     }
   }
 
@@ -66,7 +71,7 @@ export function createPromosStore({ api, onToast }) {
         promos: s.promos.map((p) => (p.id === promo.id ? res.promo : p)),
       }));
     } else {
-      onToast(res?.error || "Ошибка");
+      onToast(adminErrorMessage(res, at, "Ошибка"));
     }
   }
 
@@ -79,7 +84,7 @@ export function createPromosStore({ api, onToast }) {
       }));
       onToast("Промокод удалён");
     } else {
-      onToast(res?.error || "Ошибка");
+      onToast(adminErrorMessage(res, at, "Ошибка"));
     }
   }
 

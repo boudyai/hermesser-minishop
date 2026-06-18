@@ -1,5 +1,6 @@
 import { writable } from "svelte/store";
 import { withRoutePrefix } from "../../webapp/routes.js";
+import { adminErrorMessage } from "../errors.js";
 
 export function createPaymentsStore({
   api,
@@ -91,7 +92,7 @@ export function createPaymentsStore({
         }));
       } else {
         onToast(
-          res?.message || res?.error || at("payment_load_failed", {}, "Не удалось загрузить платеж")
+          adminErrorMessage(res, at, at("payment_load_failed", {}, "Не удалось загрузить платеж"))
         );
         state.update((s) => ({ ...s, openedPaymentId: null, openedPayment: null }));
         if (!opts.skipPush) pushPaymentPath(null);

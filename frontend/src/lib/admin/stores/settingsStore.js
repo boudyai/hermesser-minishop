@@ -1,4 +1,5 @@
 import { writable } from "svelte/store";
+import { adminErrorMessage } from "../errors.js";
 
 export function createSettingsStore({ api, onToast, at }) {
   const state = writable({
@@ -89,7 +90,8 @@ export function createSettingsStore({ api, onToast, at }) {
           .join("; ");
         onToast(at("settings_validation_errors", { errors: summary }, `Ошибки: ${summary}`));
       } else {
-        onToast(at("settings_save_error", { error: res?.error || "" }, res?.error || "Ошибка"));
+        const message = adminErrorMessage(res, at);
+        onToast(at("settings_save_error", { error: message }, message));
       }
       return false;
     } finally {

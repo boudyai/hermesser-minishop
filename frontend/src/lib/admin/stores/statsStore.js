@@ -1,4 +1,5 @@
 import { writable } from "svelte/store";
+import { adminErrorMessage } from "../errors.js";
 
 export function createStatsStore({ api, onToast, at }) {
   const state = writable({
@@ -13,7 +14,7 @@ export function createStatsStore({ api, onToast, at }) {
     try {
       const data = await api("/admin/stats");
       if (!data?.ok) {
-        state.update((s) => ({ ...s, statsError: data?.error || "load_failed" }));
+        state.update((s) => ({ ...s, statsError: adminErrorMessage(data, at, "load_failed") }));
       } else {
         state.update((s) => ({ ...s, stats: data }));
       }
@@ -39,7 +40,7 @@ export function createStatsStore({ api, onToast, at }) {
         onToast(at("sync_started", {}, "Синхронизация запущена"));
         await loadStats();
       } else {
-        onToast(res?.error || at("sync_error", {}, "Ошибка синхронизации"));
+        onToast(adminErrorMessage(res, at, at("sync_error", {}, "Ошибка синхронизации")));
       }
     } finally {
       state.update((s) => ({ ...s, syncBusy: false }));

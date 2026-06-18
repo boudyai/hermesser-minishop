@@ -1,6 +1,7 @@
 import { writable } from "svelte/store";
+import { adminErrorMessage } from "../errors.js";
 
-export function createHealthStore({ api }) {
+export function createHealthStore({ api, at = (key, _params, fallback) => fallback || key }) {
   const state = writable({
     alerts: [],
     checkedAt: null,
@@ -13,7 +14,7 @@ export function createHealthStore({ api }) {
     try {
       const data = await api(`/admin/health${refresh ? "?refresh=1" : ""}`);
       if (!data?.ok) {
-        state.update((s) => ({ ...s, healthError: data?.error || "load_failed" }));
+        state.update((s) => ({ ...s, healthError: adminErrorMessage(data, at, "load_failed") }));
       } else {
         state.update((s) => ({
           ...s,

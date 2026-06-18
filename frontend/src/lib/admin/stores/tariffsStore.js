@@ -1,4 +1,5 @@
 import { writable } from "svelte/store";
+import { adminErrorMessage } from "../errors.js";
 import {
   emptyTariffDraft,
   cloneCatalog,
@@ -48,7 +49,7 @@ export function createTariffsStore({ api, onTariffsSaved, flash, at }) {
           providerCurrencySupport: data.provider_currency_support || [],
         }));
       } else {
-        flash(data?.message || data?.error || at("load_failed", {}, "Не удалось загрузить тарифы"));
+        flash(adminErrorMessage(data, at, at("load_failed", {}, "Не удалось загрузить тарифы")));
       }
     } finally {
       state.update((s) => ({ ...s, tariffsLoading: false }));
@@ -133,7 +134,7 @@ export function createTariffsStore({ api, onTariffsSaved, flash, at }) {
         flash(successText || at("tariffs_saved", {}, "Тарифы сохранены"));
       } else {
         flash(
-          res?.message || res?.error || at("tariffs_save_failed", {}, "Ошибка сохранения тарифов")
+          adminErrorMessage(res, at, at("tariffs_save_failed", {}, "Ошибка сохранения тарифов"))
         );
       }
     } finally {
