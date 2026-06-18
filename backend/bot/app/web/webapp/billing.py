@@ -1046,7 +1046,8 @@ async def _refresh_wata_payment_status(
     session: AsyncSession,
     payment: Payment,
 ) -> Payment:
-    if str(getattr(payment, "provider", "") or "").lower() != "wata":
+    provider = str(getattr(payment, "provider", "") or "").strip().lower()
+    if provider not in {"wata", "wata_crypto"}:
         return payment
     if not _payment_status_can_be_refreshed(payment):
         return payment

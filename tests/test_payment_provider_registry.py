@@ -90,17 +90,23 @@ def test_every_provider_module_owns_its_service_and_spec():
         assert hasattr(module, "SPEC") or hasattr(module, "SPECS")
 
 
-def test_wata_is_registered_as_single_provider_module():
+def test_wata_registers_card_and_crypto_specs_on_one_service():
     spec = get_provider_spec("wata")
+    crypto_spec = get_provider_spec("wata_crypto")
 
     assert spec is not None
+    assert crypto_spec is not None
     assert spec.service_key == "wata_service"
+    assert crypto_spec.service_key == "wata_service"
     assert spec.pending_status == "pending_wata"
+    assert crypto_spec.pending_status == "pending_wata"
     assert spec.callback_prefix == "pay_wata"
+    assert crypto_spec.callback_prefix == "pay_wata_crypto"
     assert spec.router is not None
     assert spec.create_service is not None
     assert spec.webhook_route is not None
     assert spec.create_webapp_payment is not None
+    assert crypto_spec.create_webapp_payment is not None
 
 
 def test_yookassa_provider_keeps_autorenew_entrypoints_local():
@@ -185,6 +191,7 @@ def test_provider_labels_and_emojis_include_storage_keys_and_method_aliases():
     emojis = provider_emoji_map()
 
     assert labels["wata"] == "Wata"
+    assert labels["wata_crypto"] == "Wata"
     assert labels["telegram_stars"] == "Telegram Stars"
     assert labels["stars"] == "Telegram Stars"
     assert labels["platega"] == "Platega"
@@ -290,6 +297,7 @@ def test_subscription_hwid_renewal_token_adds_quote_to_callback_parts():
 
 def test_payment_method_keyboard_uses_custom_telegram_text_without_changing_callback(monkeypatch):
     monkeypatch.setenv("WATA_ENABLED", "True")
+    monkeypatch.setenv("WATA_API_TOKEN", "wata-token")
     monkeypatch.setenv("PAYMENT_WATA_TELEGRAM_LABEL_EN", "Wata custom")
     monkeypatch.setenv("PAYMENT_WATA_TELEGRAM_EMOJI", "💸")
     build_provider_configs(force=True)
@@ -322,6 +330,7 @@ def test_payment_method_keyboard_uses_custom_telegram_text_without_changing_call
 def test_payment_method_keyboard_filters_providers_by_payment_currency(monkeypatch):
     monkeypatch.setenv("YOOKASSA_ENABLED", "True")
     monkeypatch.setenv("WATA_ENABLED", "True")
+    monkeypatch.setenv("WATA_API_TOKEN", "wata-token")
     build_provider_configs(force=True)
 
     settings = Settings(
@@ -420,6 +429,7 @@ def test_admin_only_provider_is_visible_only_to_admins(monkeypatch):
 
     monkeypatch.setenv("WATA_ENABLED", "False")
     monkeypatch.setenv("WATA_ADMIN_ONLY_ENABLED", "True")
+    monkeypatch.setenv("WATA_API_TOKEN", "wata-token")
     build_provider_configs(force=True)
 
     settings = Settings(
@@ -476,6 +486,7 @@ def test_webapp_payment_methods_filter_by_default_currency(monkeypatch):
 
     monkeypatch.setenv("YOOKASSA_ENABLED", "True")
     monkeypatch.setenv("WATA_ENABLED", "True")
+    monkeypatch.setenv("WATA_API_TOKEN", "wata-token")
     build_provider_configs(force=True)
 
     settings = Settings(
@@ -545,6 +556,7 @@ def test_admin_only_provider_toggle_pairs_are_declared():
     pairs = set(provider_admin_only_pairs())
 
     assert ("WATA_ENABLED", "WATA_ADMIN_ONLY_ENABLED") in pairs
+    assert ("WATA_CRYPTO_ENABLED", "WATA_CRYPTO_ADMIN_ONLY_ENABLED") in pairs
     assert ("PLATEGA_SBP_ENABLED", "PLATEGA_SBP_ADMIN_ONLY_ENABLED") in pairs
     assert ("PLATEGA_CRYPTO_ENABLED", "PLATEGA_CRYPTO_ADMIN_ONLY_ENABLED") in pairs
     assert ("STARS_ENABLED", "STARS_ADMIN_ONLY_ENABLED") in pairs
@@ -565,9 +577,11 @@ def test_admin_only_provider_toggle_normalization_disables_public_pair():
 
 def test_provider_callbacks_are_built_from_specs():
     wata = get_provider_spec("wata")
+    wata_crypto = get_provider_spec("wata_crypto")
     stars = get_provider_spec("stars")
 
     assert wata is not None
+    assert wata_crypto is not None
     assert stars is not None
     assert (
         wata.callback_data(
@@ -577,6 +591,15 @@ def test_provider_callbacks_are_built_from_specs():
             sale_mode="subscription",
         )
         == "pay_wata:1:150:subscription"
+    )
+    assert (
+        wata_crypto.callback_data(
+            value="1",
+            rub_price=150,
+            stars_price=None,
+            sale_mode="subscription",
+        )
+        == "pay_wata_crypto:1:150:subscription"
     )
     assert (
         stars.callback_data(
@@ -600,6 +623,7 @@ def test_provider_callbacks_are_built_from_specs():
 
 def test_provider_visibility_uses_service_configuration(monkeypatch):
     monkeypatch.setenv("WATA_ENABLED", "True")
+    monkeypatch.setenv("WATA_API_TOKEN", "wata-token")
     monkeypatch.delenv("WATA_ADMIN_ONLY_ENABLED", raising=False)
     build_provider_configs(force=True)
 

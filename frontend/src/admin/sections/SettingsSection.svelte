@@ -63,11 +63,43 @@
     "PLATEGA_CRYPTO_METHOD",
   ]);
   const PLATEGA_LEGACY_KEYS = new Set(["PLATEGA_PAYMENT_METHOD"]);
+  const WATA_FIAT_KEYS = new Set([
+    "WATA_ENABLED",
+    "WATA_ADMIN_ONLY_ENABLED",
+    "WATA_API_TOKEN",
+    "WATA_TERMINAL_ID",
+    "WATA_TERMINAL_PUBLIC_ID",
+    "WATA_RETURN_URL",
+    "WATA_FAILED_URL",
+    "WATA_LINK_TTL_MINUTES",
+    "WATA_SUPPORTED_CURRENCIES",
+  ]);
+  const WATA_CRYPTO_KEYS = new Set([
+    "WATA_CRYPTO_ENABLED",
+    "WATA_CRYPTO_ADMIN_ONLY_ENABLED",
+    "WATA_CRYPTO_API_TOKEN",
+    "WATA_CRYPTO_TERMINAL_ID",
+    "WATA_CRYPTO_TERMINAL_PUBLIC_ID",
+    "WATA_CRYPTO_RETURN_URL",
+    "WATA_CRYPTO_FAILED_URL",
+    "WATA_CRYPTO_LINK_TTL_MINUTES",
+    "WATA_CRYPTO_SUPPORTED_CURRENCIES",
+  ]);
+  const WATA_WEBHOOK_KEYS = new Set([
+    "WATA_WEBHOOK_VERIFY_SIGNATURE",
+    "WATA_PUBLIC_KEY",
+    "WATA_CRYPTO_PUBLIC_KEY",
+    "WATA_TRUSTED_IPS",
+  ]);
   const SEMANTIC_FIELD_GROUP_ORDER = {
     platega_common: 1,
     platega_sbp: 2,
     platega_crypto: 3,
     platega_legacy: 4,
+    wata_common: 1,
+    wata_fiat: 2,
+    wata_crypto: 3,
+    wata_webhook: 4,
   };
 
   $: settingsAllOpen =
@@ -271,6 +303,22 @@
         fieldGroupToken === "plategasbp"
       ) {
         return settingsFieldGroupAnchorKey("payments", "Platega", "platega_sbp");
+      }
+    }
+    if (sectionToken === "payments" && subsectionToken === "wata") {
+      if (fieldGroupToken === "crypto" || fieldGroupToken === "watacrypto") {
+        return settingsFieldGroupAnchorKey("payments", "Wata", "wata_crypto");
+      }
+      if (
+        fieldGroupToken === "card" ||
+        fieldGroupToken === "fiat" ||
+        fieldGroupToken === "sbp" ||
+        fieldGroupToken === "watafiat"
+      ) {
+        return settingsFieldGroupAnchorKey("payments", "Wata", "wata_fiat");
+      }
+      if (fieldGroupToken === "webhook" || fieldGroupToken === "webhooks") {
+        return settingsFieldGroupAnchorKey("payments", "Wata", "wata_webhook");
       }
     }
     const fieldGroup = findSettingsFieldGroup(target.section, target.group, fieldGroupSegment);
@@ -676,9 +724,50 @@
     );
   }
 
+  function wataSemanticGroup(field) {
+    const key = String(field?.key || "");
+    if (WATA_WEBHOOK_KEYS.has(key)) {
+      return fieldGroupMeta(
+        "wata_webhook",
+        "settings_group_wata_webhook",
+        "Webhook verification",
+        "settings_group_wata_webhook_hint",
+        "Signature, public keys, trusted IPs, and the shared webhook URL."
+      );
+    }
+    if (WATA_CRYPTO_KEYS.has(key) || key.startsWith("PAYMENT_WATA_CRYPTO_")) {
+      return fieldGroupMeta(
+        "wata_crypto",
+        "settings_group_wata_crypto",
+        "Crypto terminal",
+        "settings_group_wata_crypto_hint",
+        "Visibility, credentials, redirects, currencies, and labels for the crypto button."
+      );
+    }
+    if (WATA_FIAT_KEYS.has(key) || key.startsWith("PAYMENT_WATA_")) {
+      return fieldGroupMeta(
+        "wata_fiat",
+        "settings_group_wata_fiat",
+        "Card/SBP terminal",
+        "settings_group_wata_fiat_hint",
+        "Visibility, credentials, redirects, currencies, and labels for the card/SBP button."
+      );
+    }
+    return fieldGroupMeta(
+      "wata_common",
+      "settings_group_wata_common",
+      "Common settings",
+      "settings_group_wata_common_hint",
+      "API endpoint shared by all Wata terminal profiles."
+    );
+  }
+
   function semanticFieldGroup(section, group, field) {
     if (section?.id === "payments" && group?.id === "Platega") {
       return plategaSemanticGroup(field);
+    }
+    if (section?.id === "payments" && group?.id === "Wata") {
+      return wataSemanticGroup(field);
     }
     return null;
   }

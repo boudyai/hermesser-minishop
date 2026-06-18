@@ -1058,6 +1058,7 @@ class Settings(BaseSettings):
             "platega_crypto",
             "severpay",
             "wata",
+            "wata_crypto",
             "yookassa",
             "stars",
             "cryptopay",

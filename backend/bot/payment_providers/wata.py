@@ -1,6 +1,7 @@
 import base64
 import json
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
@@ -32,6 +33,7 @@ from .base import (
     ServiceFactoryContext,
     WebAppPaymentContext,
     normalize_payment_currency_code,
+    parse_supported_currency_codes,
     provider_env_file,
     provider_runtime_enabled,
 )
@@ -67,7 +69,10 @@ from .shared import (
 
 router = Router(name="user_subscription_payments_wata_router")
 _LOG = "wata"
+WATA_PROVIDER = "wata"
+WATA_CRYPTO_PROVIDER = "wata_crypto"
 WATA_SUPPORTED_CURRENCIES = ("RUB", "USD", "EUR")
+_WATA_SUPPORTED_CURRENCIES_DEFAULT = ",".join(WATA_SUPPORTED_CURRENCIES)
 _WATA_IN_PROGRESS_STATUSES = {"created", "pending"}
 _WATA_LINK_OPENED_STATUSES = {"opened", "open"}
 _WATA_LINK_DEFAULT_TTL_MINUTES = 15
@@ -127,6 +132,38 @@ def _wata_payment_link_id(payload: Optional[Mapping[str, Any]]) -> Optional[str]
     return first_value(payload, "paymentLinkId", "payment_link_id")
 
 
+def _normalize_terminal_public_id(value: Any) -> str:
+    return str(value or "").strip().lower()
+
+
+def _wata_provider_from_method(method: Any) -> str:
+    normalized = str(method or "").strip().lower()
+    if normalized in {WATA_CRYPTO_PROVIDER, "crypto", "wata_crypto"}:
+        return WATA_CRYPTO_PROVIDER
+    return WATA_PROVIDER
+
+
+@dataclass(frozen=True)
+class WataTerminalProfile:
+    provider: str
+    api_token: str
+    terminal_id: str = ""
+    terminal_public_id: str = ""
+    return_url: Optional[str] = None
+    failed_url: Optional[str] = None
+    link_ttl_minutes: int = _WATA_LINK_DEFAULT_TTL_MINUTES
+    public_key: Optional[str] = None
+    supported_currencies: Tuple[str, ...] = WATA_SUPPORTED_CURRENCIES
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.api_token)
+
+    @property
+    def log_label(self) -> str:
+        return "Wata crypto" if self.provider == WATA_CRYPTO_PROVIDER else "Wata"
+
+
 class WataConfig(ProviderEnvConfig):
     model_config = SettingsConfigDict(
         env_file=provider_env_file(),
@@ -137,10 +174,23 @@ class WataConfig(ProviderEnvConfig):
 
     ENABLED: bool = Field(default=False)
     API_TOKEN: Optional[str] = None
+    TERMINAL_ID: Optional[str] = None
+    TERMINAL_PUBLIC_ID: Optional[str] = None
     BASE_URL: str = Field(default="https://api.wata.pro/api/h2h")
     RETURN_URL: Optional[str] = None
     FAILED_URL: Optional[str] = None
     LINK_TTL_MINUTES: int = Field(default=_WATA_LINK_DEFAULT_TTL_MINUTES)
+    SUPPORTED_CURRENCIES: str = Field(default=_WATA_SUPPORTED_CURRENCIES_DEFAULT)
+    CRYPTO_ENABLED: bool = Field(default=False)
+    CRYPTO_ADMIN_ONLY_ENABLED: bool = Field(default=False)
+    CRYPTO_API_TOKEN: Optional[str] = None
+    CRYPTO_TERMINAL_ID: Optional[str] = None
+    CRYPTO_TERMINAL_PUBLIC_ID: Optional[str] = None
+    CRYPTO_RETURN_URL: Optional[str] = None
+    CRYPTO_FAILED_URL: Optional[str] = None
+    CRYPTO_LINK_TTL_MINUTES: Optional[int] = None
+    CRYPTO_PUBLIC_KEY: Optional[str] = None
+    CRYPTO_SUPPORTED_CURRENCIES: Optional[str] = None
     WEBHOOK_VERIFY_SIGNATURE: bool = Field(default=True)
     PUBLIC_KEY: Optional[str] = None
     TRUSTED_IPS: str = Field(default="62.84.126.140,51.250.106.150")
@@ -150,7 +200,29 @@ class WataConfig(ProviderEnvConfig):
     def _clamp_link_ttl_minutes(cls, v):
         return _clamp_wata_link_ttl_minutes(v, default=_WATA_LINK_DEFAULT_TTL_MINUTES)
 
-    @field_validator("API_TOKEN", "RETURN_URL", "FAILED_URL", "PUBLIC_KEY", mode="before")
+    @field_validator("CRYPTO_LINK_TTL_MINUTES", mode="before")
+    @classmethod
+    def _clamp_optional_link_ttl_minutes(cls, v):
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return None
+        return _clamp_wata_link_ttl_minutes(v, default=_WATA_LINK_DEFAULT_TTL_MINUTES)
+
+    @field_validator(
+        "API_TOKEN",
+        "TERMINAL_ID",
+        "TERMINAL_PUBLIC_ID",
+        "RETURN_URL",
+        "FAILED_URL",
+        "CRYPTO_API_TOKEN",
+        "CRYPTO_TERMINAL_ID",
+        "CRYPTO_TERMINAL_PUBLIC_ID",
+        "CRYPTO_RETURN_URL",
+        "CRYPTO_FAILED_URL",
+        "CRYPTO_PUBLIC_KEY",
+        "CRYPTO_SUPPORTED_CURRENCIES",
+        "PUBLIC_KEY",
+        mode="before",
+    )
     @classmethod
     def _strip_optional(cls, v):
         if isinstance(v, str) and not v.strip():
@@ -165,12 +237,80 @@ class WataConfig(ProviderEnvConfig):
     def trusted_ips_list(self) -> List[str]:
         return [item.strip() for item in (self.TRUSTED_IPS or "").split(",") if item.strip()]
 
+    def profile_for_method(self, method: Any) -> WataTerminalProfile:
+        provider = _wata_provider_from_method(method)
+        if provider == WATA_CRYPTO_PROVIDER:
+            supported = parse_supported_currency_codes(
+                self.CRYPTO_SUPPORTED_CURRENCIES or self.SUPPORTED_CURRENCIES
+            ) or WATA_SUPPORTED_CURRENCIES
+            return WataTerminalProfile(
+                provider=WATA_CRYPTO_PROVIDER,
+                api_token=self.CRYPTO_API_TOKEN or "",
+                terminal_id=self.CRYPTO_TERMINAL_ID or "",
+                terminal_public_id=self.CRYPTO_TERMINAL_PUBLIC_ID or "",
+                return_url=self.CRYPTO_RETURN_URL or self.RETURN_URL,
+                failed_url=self.CRYPTO_FAILED_URL or self.FAILED_URL,
+                link_ttl_minutes=self.CRYPTO_LINK_TTL_MINUTES or self.LINK_TTL_MINUTES,
+                public_key=self.CRYPTO_PUBLIC_KEY or self.PUBLIC_KEY,
+                supported_currencies=supported,
+            )
+
+        supported = (
+            parse_supported_currency_codes(self.SUPPORTED_CURRENCIES) or WATA_SUPPORTED_CURRENCIES
+        )
+        return WataTerminalProfile(
+            provider=WATA_PROVIDER,
+            api_token=self.API_TOKEN or "",
+            terminal_id=self.TERMINAL_ID or "",
+            terminal_public_id=self.TERMINAL_PUBLIC_ID or "",
+            return_url=self.RETURN_URL,
+            failed_url=self.FAILED_URL,
+            link_ttl_minutes=self.LINK_TTL_MINUTES,
+            public_key=self.PUBLIC_KEY,
+            supported_currencies=supported,
+        )
+
+    @property
+    def fiat_profile(self) -> WataTerminalProfile:
+        return self.profile_for_method(WATA_PROVIDER)
+
+    @property
+    def crypto_profile(self) -> WataTerminalProfile:
+        return self.profile_for_method(WATA_CRYPTO_PROVIDER)
+
+    @property
+    def fiat_runtime_enabled(self) -> bool:
+        return bool(provider_runtime_enabled(self) and self.fiat_profile.configured)
+
+    @property
+    def crypto_runtime_enabled(self) -> bool:
+        return bool(
+            (self.CRYPTO_ENABLED or self.CRYPTO_ADMIN_ONLY_ENABLED)
+            and self.crypto_profile.configured
+        )
+
 
 class WataPresentation(ProviderEnvConfig):
     model_config = SettingsConfigDict(
         env_file=provider_env_file(),
         env_file_encoding="utf-8",
         env_prefix="PAYMENT_WATA_",
+        extra="ignore",
+    )
+
+    WEBAPP_LABEL_RU: Optional[str] = None
+    WEBAPP_LABEL_EN: Optional[str] = None
+    WEBAPP_ICON: Optional[str] = None
+    TELEGRAM_LABEL_RU: Optional[str] = None
+    TELEGRAM_LABEL_EN: Optional[str] = None
+    TELEGRAM_EMOJI: Optional[str] = None
+
+
+class WataCryptoPresentation(ProviderEnvConfig):
+    model_config = SettingsConfigDict(
+        env_file=provider_env_file(),
+        env_file_encoding="utf-8",
+        env_prefix="PAYMENT_WATA_CRYPTO_",
         extra="ignore",
     )
 
@@ -203,7 +343,7 @@ class WataService(HttpClientMixin):
         self.subscription_service = subscription_service
         self.referral_service = referral_service
         self._default_return_url = default_return_url
-        self._cached_public_key_pem = None  # populated by webhook on first verify
+        self._cached_public_key_pem: Dict[str, Optional[str]] = {}
 
         self._init_http_client(total_timeout=lambda: self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
         if not self.configured:
@@ -211,27 +351,59 @@ class WataService(HttpClientMixin):
 
     @property
     def configured(self) -> bool:
-        return bool(provider_runtime_enabled(self.config) and self.api_token)
+        return bool(self.config.fiat_runtime_enabled or self.config.crypto_runtime_enabled)
 
     @property
     def base_url(self) -> str:
         return (self.config.BASE_URL or "https://api.wata.pro/api/h2h").rstrip("/")
 
+    def profile_for_method(self, method: Any = WATA_PROVIDER) -> WataTerminalProfile:
+        return self.config.profile_for_method(method)
+
+    def profile_for_payment(self, payment: Any) -> WataTerminalProfile:
+        return self.profile_for_method(getattr(payment, "provider", None))
+
+    def profile_enabled(self, method: Any = WATA_PROVIDER) -> bool:
+        provider = _wata_provider_from_method(method)
+        if provider == WATA_CRYPTO_PROVIDER:
+            return self.config.crypto_runtime_enabled
+        return self.config.fiat_runtime_enabled
+
+    def iter_enabled_profiles(self) -> Tuple[WataTerminalProfile, ...]:
+        profiles: List[WataTerminalProfile] = []
+        for provider in (WATA_PROVIDER, WATA_CRYPTO_PROVIDER):
+            profile = self.profile_for_method(provider)
+            if self.profile_enabled(provider):
+                profiles.append(profile)
+        return tuple(profiles)
+
+    def profile_for_terminal_public_id(
+        self,
+        terminal_public_id: Any,
+    ) -> Optional[WataTerminalProfile]:
+        normalized = _normalize_terminal_public_id(terminal_public_id)
+        if not normalized:
+            return None
+        for profile in self.iter_enabled_profiles():
+            if _normalize_terminal_public_id(profile.terminal_public_id) == normalized:
+                return profile
+        return None
+
     @property
     def api_token(self) -> str:
-        return self.config.API_TOKEN or ""
+        return self.profile_for_method(WATA_PROVIDER).api_token
 
     @property
     def return_url(self) -> str:
-        return self.config.RETURN_URL or f"https://t.me/{self._default_return_url}"
+        return self._return_url_for_profile(self.profile_for_method(WATA_PROVIDER))
 
     @property
     def failed_url(self) -> str:
-        return self.config.FAILED_URL or self.return_url
+        return self._failed_url_for_profile(self.profile_for_method(WATA_PROVIDER))
 
     @property
     def payment_link_ttl_minutes(self) -> int:
-        return self.config.LINK_TTL_MINUTES
+        return self.profile_for_method(WATA_PROVIDER).link_ttl_minutes
 
     @property
     def verify_webhook_signature(self) -> bool:
@@ -239,15 +411,26 @@ class WataService(HttpClientMixin):
 
     @property
     def _public_key_pem(self):
-        return self.config.PUBLIC_KEY or self._cached_public_key_pem
+        profile = self.profile_for_method(WATA_PROVIDER)
+        return profile.public_key or self._cached_public_key_pem.get(profile.provider)
 
     @_public_key_pem.setter
     def _public_key_pem(self, value):
-        self._cached_public_key_pem = value
+        self._cached_public_key_pem[WATA_PROVIDER] = value
 
-    def _auth_headers(self) -> Dict[str, str]:
+    def _return_url_for_profile(self, profile: WataTerminalProfile) -> str:
+        return profile.return_url or f"https://t.me/{self._default_return_url}"
+
+    def _failed_url_for_profile(self, profile: WataTerminalProfile) -> str:
+        return profile.failed_url or self._return_url_for_profile(profile)
+
+    def _auth_headers(
+        self,
+        profile: Optional[WataTerminalProfile] = None,
+    ) -> Dict[str, str]:
+        resolved = profile or self.profile_for_method(WATA_PROVIDER)
         return {
-            "Authorization": f"Bearer {self.api_token}",
+            "Authorization": f"Bearer {resolved.api_token}",
             "Content-Type": "application/json",
         }
 
@@ -258,40 +441,45 @@ class WataService(HttpClientMixin):
         amount: float,
         currency: Optional[str],
         description: str,
+        method: Any = WATA_PROVIDER,
     ) -> Tuple[bool, Dict[str, Any]]:
-        if not self.configured:
-            logging.error("WataService is not configured. Cannot create payment link.")
+        profile = self.profile_for_method(method)
+        if not self.profile_enabled(profile.provider):
+            logging.error(
+                "%s service profile is not configured. Cannot create payment link.",
+                profile.log_label,
+            )
             return False, {"message": "service_not_configured"}
 
         currency_code = normalize_payment_currency_code(
             currency or self.settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
         )
-        if currency_code not in WATA_SUPPORTED_CURRENCIES:
+        if currency_code not in profile.supported_currencies:
             return False, {
                 "message": "unsupported_currency",
                 "currency": currency_code,
-                "supported_currencies": list(WATA_SUPPORTED_CURRENCIES),
+                "supported_currencies": list(profile.supported_currencies),
             }
 
         session = await self._get_session()
         expires_at = (
-            datetime.now(timezone.utc) + timedelta(minutes=self.payment_link_ttl_minutes)
+            datetime.now(timezone.utc) + timedelta(minutes=profile.link_ttl_minutes)
         ).replace(microsecond=0)
         body: Dict[str, Any] = {
             "amount": float(format_decimal_amount(amount)),
             "currency": currency_code,
             "description": description,
             "orderId": str(payment_db_id),
-            "successRedirectUrl": self.return_url,
-            "failRedirectUrl": self.failed_url,
+            "successRedirectUrl": self._return_url_for_profile(profile),
+            "failRedirectUrl": self._failed_url_for_profile(profile),
             "expirationDateTime": expires_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
         return await post_json_request(
             session,
             f"{self.base_url}/links",
             body=body,
-            headers=self._auth_headers(),
-            log_prefix="Wata create_payment_link",
+            headers=self._auth_headers(profile),
+            log_prefix=f"{profile.log_label} create_payment_link",
             is_success=_wata_success_status,
         )
 
@@ -301,9 +489,14 @@ class WataService(HttpClientMixin):
         *,
         params: Optional[Mapping[str, Any]] = None,
         log_prefix: str,
+        profile: Optional[WataTerminalProfile] = None,
     ) -> Tuple[bool, Dict[str, Any]]:
-        if not self.configured:
-            logging.error("WataService is not configured. Cannot fetch provider state.")
+        resolved_profile = profile or self.profile_for_method(WATA_PROVIDER)
+        if not self.profile_enabled(resolved_profile.provider):
+            logging.error(
+                "%s service profile is not configured. Cannot fetch provider state.",
+                resolved_profile.log_label,
+            )
             return False, {"message": "service_not_configured"}
 
         session = await self._get_session()
@@ -311,7 +504,7 @@ class WataService(HttpClientMixin):
             async with session.get(
                 url,
                 params=dict(params or {}),
-                headers=self._auth_headers(),
+                headers=self._auth_headers(resolved_profile),
             ) as response:
                 response_text = await response.text()
                 try:
@@ -336,10 +529,16 @@ class WataService(HttpClientMixin):
             logging.exception("%s: request failed.", log_prefix)
             return False, {"message": str(exc)}
 
-    async def get_payment_link(self, payment_link_id: str) -> Tuple[bool, Dict[str, Any]]:
+    async def get_payment_link(
+        self,
+        payment_link_id: str,
+        *,
+        profile: Optional[WataTerminalProfile] = None,
+    ) -> Tuple[bool, Dict[str, Any]]:
         return await self._get_json(
             f"{self.base_url}/links/{payment_link_id}",
             log_prefix="Wata get_payment_link",
+            profile=profile,
         )
 
     async def try_reuse_pending_link(self, payment: Any) -> Optional[str]:
@@ -350,13 +549,14 @@ class WataService(HttpClientMixin):
         signals and can cause downstream bank-side rejections during the
         bank-selection step.
         """
-        if not self.configured:
+        profile = self.profile_for_payment(payment)
+        if not self.profile_enabled(profile.provider):
             return None
         provider_payment_id = str(getattr(payment, "provider_payment_id", "") or "").strip()
         if not provider_payment_id:
             return None
 
-        success, data = await self.get_payment_link(provider_payment_id)
+        success, data = await self.get_payment_link(provider_payment_id, profile=profile)
         if not success or not isinstance(data, dict):
             return None
 
@@ -391,10 +591,16 @@ class WataService(HttpClientMixin):
 
         return first_value(data, "url", "paymentUrl", "payment_url")
 
-    async def get_transaction(self, transaction_id: str) -> Tuple[bool, Dict[str, Any]]:
+    async def get_transaction(
+        self,
+        transaction_id: str,
+        *,
+        profile: Optional[WataTerminalProfile] = None,
+    ) -> Tuple[bool, Dict[str, Any]]:
         return await self._get_json(
             f"{self.base_url}/transactions/{transaction_id}",
             log_prefix="Wata get_transaction",
+            profile=profile,
         )
 
     async def search_transactions(
@@ -404,6 +610,7 @@ class WataService(HttpClientMixin):
         payment_link_id: Optional[str] = None,
         status: Optional[str] = None,
         limit: int = 5,
+        profile: Optional[WataTerminalProfile] = None,
     ) -> Tuple[bool, Dict[str, Any]]:
         params: Dict[str, Any] = {
             "skipCount": 0,
@@ -419,32 +626,50 @@ class WataService(HttpClientMixin):
             f"{self.base_url}/transactions",
             params=params,
             log_prefix="Wata search_transactions",
+            profile=profile,
         )
 
-    async def _get_public_key_pem(self) -> Optional[str]:
-        if self._public_key_pem:
-            value = self._public_key_pem
+    async def _get_public_key_pem(
+        self,
+        profile: Optional[WataTerminalProfile] = None,
+    ) -> Optional[str]:
+        resolved_profile = profile or self.profile_for_method(WATA_PROVIDER)
+        if resolved_profile.public_key:
+            value = resolved_profile.public_key
+            return value.replace("\\n", "\n") if isinstance(value, str) else None
+
+        cached = self._cached_public_key_pem.get(resolved_profile.provider)
+        if cached:
+            value = cached
             return value.replace("\\n", "\n") if isinstance(value, str) else None
 
         session = await self._get_session()
         try:
-            async with session.get(f"{self.base_url}/public-key") as response:
+            async with session.get(
+                f"{self.base_url}/public-key",
+                headers=self._auth_headers(resolved_profile),
+            ) as response:
                 if response.status != 200:
                     logging.error("Wata public key request failed with status %s", response.status)
                     return None
                 data = await response.json()
                 value = data.get("value") if isinstance(data, dict) else None
                 if isinstance(value, str) and value.strip():
-                    self._public_key_pem = value
+                    self._cached_public_key_pem[resolved_profile.provider] = value
                     return value.replace("\\n", "\n")
         except Exception:
             logging.exception("Wata public key request failed.")
         return None
 
-    async def _verify_signature(self, raw_body: bytes, signature_header: str) -> bool:
+    async def _verify_signature_with_profile(
+        self,
+        raw_body: bytes,
+        signature_header: str,
+        profile: WataTerminalProfile,
+    ) -> bool:
         if not signature_header:
             return False
-        public_key_pem = await self._get_public_key_pem()
+        public_key_pem = await self._get_public_key_pem(profile)
         if not public_key_pem:
             return False
         try:
@@ -458,6 +683,62 @@ class WataService(HttpClientMixin):
         except Exception:
             logging.exception("Wata webhook: signature verification failed.")
             return False
+
+    async def _verify_signature(
+        self,
+        raw_body: bytes,
+        signature_header: str,
+        *,
+        profile: Optional[WataTerminalProfile] = None,
+    ) -> bool:
+        if not signature_header:
+            return False
+        profiles = (profile,) if profile else self.iter_enabled_profiles()
+        if not profiles:
+            profiles = (self.profile_for_method(WATA_PROVIDER),)
+
+        checked_keys: set[tuple[str, str]] = set()
+        for candidate in profiles:
+            cache_key = (
+                candidate.provider,
+                str(
+                    candidate.public_key
+                    or self._cached_public_key_pem.get(candidate.provider)
+                    or ""
+                ),
+            )
+            if cache_key in checked_keys:
+                continue
+            checked_keys.add(cache_key)
+            if await self._verify_signature_with_profile(raw_body, signature_header, candidate):
+                return True
+        return False
+
+    def _profile_hint_from_raw_body(self, raw_body: bytes) -> Optional[WataTerminalProfile]:
+        try:
+            payload = json.loads(raw_body.decode("utf-8"))
+        except Exception:
+            return None
+        if not isinstance(payload, Mapping):
+            return None
+        return self.profile_for_terminal_public_id(payload.get("terminalPublicId"))
+
+    def _payload_matches_profile(
+        self,
+        payload: Mapping[str, Any],
+        profile: WataTerminalProfile,
+    ) -> bool:
+        terminal_public_id = _normalize_terminal_public_id(payload.get("terminalPublicId"))
+        expected_public_id = _normalize_terminal_public_id(profile.terminal_public_id)
+        if expected_public_id and terminal_public_id and terminal_public_id != expected_public_id:
+            logging.warning(
+                "Wata webhook terminal mismatch: provider=%s expected_public_id=%s got=%s",
+                profile.provider,
+                profile.terminal_public_id,
+                payload.get("terminalPublicId"),
+            )
+            return False
+        return True
 
     def _transaction_matches_payment(
         self,
@@ -486,11 +767,15 @@ class WataService(HttpClientMixin):
         *,
         status: str,
     ) -> Optional[Dict[str, Any]]:
+        profile = self.profile_for_payment(payment)
+        if not self.profile_enabled(profile.provider):
+            return None
         provider_payment_id = str(getattr(payment, "provider_payment_id", "") or "").strip()
         success, response_data = await self.search_transactions(
             order_id=str(payment.payment_id),
             status=status,
             limit=5,
+            profile=profile,
         )
         if success:
             for item in response_data.get("items") or []:
@@ -502,7 +787,7 @@ class WataService(HttpClientMixin):
                     item,
                     payment,
                     provider_payment_id=provider_payment_id or None,
-                ):
+                ) and self._payload_matches_profile(item, profile):
                     return item
 
         return None
@@ -579,8 +864,8 @@ class WataService(HttpClientMixin):
                 sale_mode=sale_mode,
                 months=payment_units,
                 traffic_amount=float(payment_units),
-                provider_subscription="wata",
-                provider_notification="wata",
+                provider_subscription=str(getattr(payment, "provider", "") or WATA_PROVIDER),
+                provider_notification=str(getattr(payment, "provider", "") or WATA_PROVIDER),
                 db_user=payment.user,
                 log_prefix=log_prefix,
             )
@@ -627,6 +912,7 @@ class WataService(HttpClientMixin):
         return await payment_dal.get_payment_by_db_id(session, payment.payment_id) or payment
 
     def _local_payment_link_ttl_expired(self, payment: Any) -> bool:
+        profile = self.profile_for_payment(payment)
         created_at = getattr(payment, "created_at", None)
         if isinstance(created_at, datetime):
             created_dt = (
@@ -638,15 +924,18 @@ class WataService(HttpClientMixin):
             created_dt = _parse_wata_datetime(created_at)
         if created_dt is None:
             return False
-        expires_at = created_dt + timedelta(minutes=self.payment_link_ttl_minutes)
+        expires_at = created_dt + timedelta(minutes=profile.link_ttl_minutes)
         return expires_at <= datetime.now(timezone.utc)
 
     async def _expired_link_payload_for_payment(self, payment: Any) -> Optional[Mapping[str, Any]]:
+        profile = self.profile_for_payment(payment)
+        if not self.profile_enabled(profile.provider):
+            return None
         provider_payment_id = str(getattr(payment, "provider_payment_id", "") or "").strip()
         if not provider_payment_id:
             return None
 
-        success, data = await self.get_payment_link(provider_payment_id)
+        success, data = await self.get_payment_link(provider_payment_id, profile=profile)
         if not success or not isinstance(data, dict):
             status_code = data.get("status") if isinstance(data, dict) else None
             if status_code == 404 and self._local_payment_link_ttl_expired(payment):
@@ -693,9 +982,10 @@ class WataService(HttpClientMixin):
         return await payment_dal.get_payment_by_db_id(session, payment.payment_id) or payment
 
     async def refresh_payment_status(self, session: AsyncSession, payment: Any) -> Any:
-        if str(getattr(payment, "provider", "") or "").lower() != "wata":
+        provider = str(getattr(payment, "provider", "") or "").strip().lower()
+        if provider not in {WATA_PROVIDER, WATA_CRYPTO_PROVIDER}:
             return payment
-        if not self.configured:
+        if not self.profile_enabled(provider):
             return payment
 
         current_status = str(getattr(payment, "status", "") or "").lower()
@@ -759,9 +1049,10 @@ class WataService(HttpClientMixin):
             return web.Response(status=403, text="forbidden")
 
         raw_body = await request.read()
+        profile_hint = self._profile_hint_from_raw_body(raw_body)
         if self.verify_webhook_signature:
             signature = request.headers.get("X-Signature", "")
-            if not await self._verify_signature(raw_body, signature):
+            if not await self._verify_signature(raw_body, signature, profile=profile_hint):
                 return web.Response(status=403, text="invalid_signature")
 
         try:
@@ -799,6 +1090,21 @@ class WataService(HttpClientMixin):
                     payment_link_id,
                 )
                 return web.Response(status=404, text="payment_not_found")
+
+            profile = self.profile_for_payment(payment)
+            if profile_hint and profile_hint.provider != profile.provider:
+                logging.warning(
+                    "Wata webhook profile mismatch: payment_provider=%s terminal_provider=%s",
+                    profile.provider,
+                    profile_hint.provider,
+                )
+                return web.Response(status=403, text="terminal_mismatch")
+            if self.verify_webhook_signature and profile_hint is None:
+                signature = request.headers.get("X-Signature", "")
+                if not await self._verify_signature(raw_body, signature, profile=profile):
+                    return web.Response(status=403, text="invalid_signature")
+            if not self._payload_matches_profile(payload, profile):
+                return web.Response(status=403, text="terminal_mismatch")
 
             if payment.status == "succeeded":
                 return web.Response(text="ok")
@@ -852,6 +1158,13 @@ class WataService(HttpClientMixin):
             return web.Response(text="status_ignored")
 
 
+def _wata_spec_for_callback_prefix(callback_prefix: str) -> PaymentProviderSpec:
+    if callback_prefix == "pay_wata_crypto":
+        return CRYPTO_SPEC
+    return SPEC
+
+
+@router.callback_query(F.data.startswith("pay_wata_crypto:"))
 @router.callback_query(F.data.startswith("pay_wata:"))
 async def pay_wata_callback_handler(
     callback: types.CallbackQuery,
@@ -868,7 +1181,9 @@ async def pay_wata_callback_handler(
         await notify_callback_parse_error(callback, translator)
         return
 
-    if not SPEC.is_available_to_user(
+    callback_prefix, _, _ = (callback.data or "").partition(":")
+    spec = _wata_spec_for_callback_prefix(callback_prefix)
+    if not spec.is_available_to_user(
         settings,
         user_id=callback.from_user.id,
         require_configured=False,
@@ -876,7 +1191,8 @@ async def pay_wata_callback_handler(
         await notify_service_unavailable(callback, translator)
         return
 
-    if not wata_service or not wata_service.configured:
+    profile = wata_service.profile_for_method(spec.id) if wata_service else None
+    if not wata_service or not profile or not wata_service.profile_enabled(profile.provider):
         logging.error("Wata service is not configured or unavailable.")
         await notify_service_unavailable(callback, translator)
         return
@@ -908,7 +1224,7 @@ async def pay_wata_callback_handler(
     reusable_payment = await payment_dal.find_recent_pending_provider_payment(
         session,
         user_id=callback.from_user.id,
-        provider="wata",
+        provider=profile.provider,
         pending_status="pending_wata",
         amount=parts.price,
         currency=currency_code,
@@ -917,7 +1233,7 @@ async def pay_wata_callback_handler(
         purchased_gb=reuse_amounts.purchased_gb,
         purchased_hwid_devices=reuse_amounts.purchased_hwid_devices,
         tariff_key=reuse_amounts.tariff_key,
-        since_minutes=wata_service.payment_link_ttl_minutes,
+        since_minutes=profile.link_ttl_minutes,
     )
     if reusable_payment is not None:
         reusable_url = await wata_service.try_reuse_pending_link(reusable_payment)
@@ -941,7 +1257,7 @@ async def pay_wata_callback_handler(
         status="pending_wata",
         description=payment_description,
         months=parts.months,
-        provider="wata",
+        provider=profile.provider,
         sale_mode=parts.sale_mode,
         hwid_quote=hwid_quote,
     )
@@ -964,6 +1280,7 @@ async def pay_wata_callback_handler(
         amount=parts.price,
         currency=currency_code,
         description=payment_description,
+        method=profile.provider,
     )
     await render_link_or_fail(
         callback,
@@ -984,7 +1301,8 @@ async def pay_wata_callback_handler(
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     settings: Settings = ctx.request.app["settings"]
     service: WataService = ctx.request.app["wata_service"]
-    if not service or not service.configured:
+    profile = service.profile_for_method(ctx.method) if service else None
+    if not service or not profile or not service.profile_enabled(profile.provider):
         return payment_unavailable()
 
     currency = ctx.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
@@ -995,13 +1313,14 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
             amount=ctx.price,
             currency=currency,
             status="pending_wata",
-            provider="wata",
+            provider=profile.provider,
         )
         success, response_data = await service.create_payment_link(
             payment_db_id=payment.payment_id,
             amount=ctx.price,
             currency=currency,
             description=ctx.description,
+            method=profile.provider,
         )
     except Exception:
         await ctx.session.rollback()
@@ -1023,7 +1342,10 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
 
 async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
     service: WataService = ctx.request.app.get("wata_service")
-    if not service or not service.configured:
+    profile = service.profile_for_method(ctx.method) if service else None
+    if not service or not profile or not service.profile_enabled(profile.provider):
+        return None
+    if str(getattr(payment, "provider", "") or "").strip().lower() != profile.provider:
         return None
     return await service.try_reuse_pending_link(payment)
 
@@ -1047,75 +1369,72 @@ def create_service(ctx: ServiceFactoryContext) -> WataService:
         default_return_url=ctx.bot_username_for_default_return,
     )
 
-
-_PRESENTATION_MANIFEST = tuple(
-    ProviderManifestField(
-        key=key,
-        type=type_,
-        label=label,
-        description=description,
-        placeholder=placeholder,
-        subsection="Wata",
-        target="presentation",
-        attr=attr,
+def _wata_presentation_manifest(default_icon: str, prefix: str) -> tuple:
+    return tuple(
+        ProviderManifestField(
+            key=f"PAYMENT_{prefix}_{suffix_key}",
+            type=type_,
+            label=label,
+            description=description,
+            placeholder=placeholder,
+            subsection="Wata",
+            target="presentation",
+            attr=attr,
+        )
+        for suffix_key, type_, label, description, placeholder, attr in (
+            (
+                "WEBAPP_LABEL_RU",
+                "string",
+                "WebApp button text (RU)",
+                "Custom Russian text shown in the Web App payment method button.",
+                "",
+                "WEBAPP_LABEL_RU",
+            ),
+            (
+                "WEBAPP_LABEL_EN",
+                "string",
+                "WebApp button text (EN)",
+                "Custom English text shown in the Web App payment method button.",
+                "",
+                "WEBAPP_LABEL_EN",
+            ),
+            (
+                "WEBAPP_ICON",
+                "icon",
+                "WebApp button icon",
+                "Lucide icon name rendered inside the Web App payment method button.",
+                default_icon,
+                "WEBAPP_ICON",
+            ),
+            (
+                "TELEGRAM_LABEL_RU",
+                "string",
+                "Telegram button text (RU)",
+                "Custom Russian text shown in Telegram bot payment buttons.",
+                "",
+                "TELEGRAM_LABEL_RU",
+            ),
+            (
+                "TELEGRAM_LABEL_EN",
+                "string",
+                "Telegram button text (EN)",
+                "Custom English text shown in Telegram bot payment buttons.",
+                "",
+                "TELEGRAM_LABEL_EN",
+            ),
+            (
+                "TELEGRAM_EMOJI",
+                "string",
+                "Telegram button emoji",
+                "Emoji prepended to the Telegram bot payment button when customized.",
+                "",
+                "TELEGRAM_EMOJI",
+            ),
+        )
     )
-    for key, type_, label, description, placeholder, attr in (
-        (
-            "PAYMENT_WATA_WEBAPP_LABEL_RU",
-            "string",
-            "WebApp button text (RU)",
-            "Custom Russian text shown in the Web App payment method button.",
-            "",
-            "WEBAPP_LABEL_RU",
-        ),
-        (
-            "PAYMENT_WATA_WEBAPP_LABEL_EN",
-            "string",
-            "WebApp button text (EN)",
-            "Custom English text shown in the Web App payment method button.",
-            "",
-            "WEBAPP_LABEL_EN",
-        ),
-        (
-            "PAYMENT_WATA_WEBAPP_ICON",
-            "icon",
-            "WebApp button icon",
-            "Lucide icon name rendered inside the Web App payment method button.",
-            "WalletCards",
-            "WEBAPP_ICON",
-        ),
-        (
-            "PAYMENT_WATA_TELEGRAM_LABEL_RU",
-            "string",
-            "Telegram button text (RU)",
-            "Custom Russian text shown in Telegram bot payment buttons.",
-            "",
-            "TELEGRAM_LABEL_RU",
-        ),
-        (
-            "PAYMENT_WATA_TELEGRAM_LABEL_EN",
-            "string",
-            "Telegram button text (EN)",
-            "Custom English text shown in Telegram bot payment buttons.",
-            "",
-            "TELEGRAM_LABEL_EN",
-        ),
-        (
-            "PAYMENT_WATA_TELEGRAM_EMOJI",
-            "string",
-            "Telegram button emoji",
-            "Emoji prepended to the Telegram bot payment button when customized.",
-            "💳",
-            "TELEGRAM_EMOJI",
-        ),
-    )
-)
 
-_CONFIG_MANIFEST = (
-    ProviderManifestField("WATA_ENABLED", "bool", "Enabled", subsection="Wata", attr="ENABLED"),
-    ProviderManifestField(
-        "WATA_API_TOKEN", "string", "API token", subsection="Wata", secret=True, attr="API_TOKEN"
-    ),
+
+_COMMON_CONFIG_MANIFEST_V2 = (
     ProviderManifestField(
         "WATA_BASE_URL",
         "url",
@@ -1123,6 +1442,49 @@ _CONFIG_MANIFEST = (
         placeholder="https://api.wata.pro/api/h2h",
         subsection="Wata",
         attr="BASE_URL",
+    ),
+    ProviderManifestField(
+        "WATA_WEBHOOK_VERIFY_SIGNATURE",
+        "bool",
+        "Verify webhook signature",
+        subsection="Wata",
+        attr="WEBHOOK_VERIFY_SIGNATURE",
+    ),
+    ProviderManifestField(
+        "WATA_TRUSTED_IPS",
+        "string",
+        "Trusted IPs",
+        description="Comma-separated IP addresses accepted for Wata webhooks.",
+        subsection="Wata",
+        attr="TRUSTED_IPS",
+    ),
+)
+
+_FIAT_CONFIG_MANIFEST = (
+    ProviderManifestField("WATA_ENABLED", "bool", "Enabled", subsection="Wata", attr="ENABLED"),
+    ProviderManifestField(
+        "WATA_API_TOKEN",
+        "string",
+        "API token",
+        subsection="Wata",
+        secret=True,
+        attr="API_TOKEN",
+    ),
+    ProviderManifestField(
+        "WATA_TERMINAL_ID",
+        "string",
+        "Terminal ID",
+        description="Optional internal terminal identifier from the Wata merchant account.",
+        subsection="Wata",
+        attr="TERMINAL_ID",
+    ),
+    ProviderManifestField(
+        "WATA_TERMINAL_PUBLIC_ID",
+        "string",
+        "Terminal public ID",
+        description="Optional. Used to validate that Wata webhooks belong to this terminal.",
+        subsection="Wata",
+        attr="TERMINAL_PUBLIC_ID",
     ),
     ProviderManifestField(
         "WATA_RETURN_URL", "url", "Return URL", subsection="Wata", attr="RETURN_URL"
@@ -1144,11 +1506,13 @@ _CONFIG_MANIFEST = (
         attr="LINK_TTL_MINUTES",
     ),
     ProviderManifestField(
-        "WATA_WEBHOOK_VERIFY_SIGNATURE",
-        "bool",
-        "Verify webhook signature",
+        "WATA_SUPPORTED_CURRENCIES",
+        "string",
+        "Supported currencies",
+        description="Comma-separated currencies enabled for this Wata terminal.",
+        placeholder=_WATA_SUPPORTED_CURRENCIES_DEFAULT,
         subsection="Wata",
-        attr="WEBHOOK_VERIFY_SIGNATURE",
+        attr="SUPPORTED_CURRENCIES",
     ),
     ProviderManifestField(
         "WATA_PUBLIC_KEY",
@@ -1159,20 +1523,145 @@ _CONFIG_MANIFEST = (
         secret=True,
         attr="PUBLIC_KEY",
     ),
+)
+
+_CRYPTO_CONFIG_MANIFEST = (
     ProviderManifestField(
-        "WATA_TRUSTED_IPS",
-        "string",
-        "Trusted IPs",
-        description="Comma-separated IP addresses accepted for Wata webhooks.",
+        "WATA_CRYPTO_ENABLED",
+        "bool",
+        "Crypto terminal enabled",
         subsection="Wata",
-        attr="TRUSTED_IPS",
+        attr="CRYPTO_ENABLED",
+    ),
+    ProviderManifestField(
+        "WATA_CRYPTO_API_TOKEN",
+        "string",
+        "Crypto API token",
+        subsection="Wata",
+        secret=True,
+        attr="CRYPTO_API_TOKEN",
+    ),
+    ProviderManifestField(
+        "WATA_CRYPTO_TERMINAL_ID",
+        "string",
+        "Crypto terminal ID",
+        description="Optional internal crypto terminal identifier from the Wata merchant account.",
+        subsection="Wata",
+        attr="CRYPTO_TERMINAL_ID",
+    ),
+    ProviderManifestField(
+        "WATA_CRYPTO_TERMINAL_PUBLIC_ID",
+        "string",
+        "Crypto terminal public ID",
+        description="Optional. Used to validate that Wata webhooks belong to the crypto terminal.",
+        subsection="Wata",
+        attr="CRYPTO_TERMINAL_PUBLIC_ID",
+    ),
+    ProviderManifestField(
+        "WATA_CRYPTO_RETURN_URL",
+        "url",
+        "Crypto return URL",
+        description="Optional. Falls back to WATA_RETURN_URL.",
+        subsection="Wata",
+        attr="CRYPTO_RETURN_URL",
+    ),
+    ProviderManifestField(
+        "WATA_CRYPTO_FAILED_URL",
+        "url",
+        "Crypto failed URL",
+        description="Optional. Falls back to WATA_FAILED_URL.",
+        subsection="Wata",
+        attr="CRYPTO_FAILED_URL",
+    ),
+    ProviderManifestField(
+        "WATA_CRYPTO_LINK_TTL_MINUTES",
+        "int",
+        "Crypto link lifetime (minutes)",
+        description="Optional. Falls back to WATA_LINK_TTL_MINUTES.",
+        subsection="Wata",
+        min=_WATA_LINK_MIN_TTL_MINUTES,
+        max=_WATA_LINK_MAX_TTL_MINUTES,
+        attr="CRYPTO_LINK_TTL_MINUTES",
+    ),
+    ProviderManifestField(
+        "WATA_CRYPTO_SUPPORTED_CURRENCIES",
+        "string",
+        "Crypto supported currencies",
+        description="Optional comma-separated currencies. Falls back to WATA_SUPPORTED_CURRENCIES.",
+        placeholder=_WATA_SUPPORTED_CURRENCIES_DEFAULT,
+        subsection="Wata",
+        attr="CRYPTO_SUPPORTED_CURRENCIES",
+    ),
+    ProviderManifestField(
+        "WATA_CRYPTO_PUBLIC_KEY",
+        "text",
+        "Crypto webhook public key",
+        description="Optional. Falls back to WATA_PUBLIC_KEY or fetching the key from Wata.",
+        subsection="Wata",
+        secret=True,
+        attr="CRYPTO_PUBLIC_KEY",
     ),
 )
 
 
+def _source_bool(source: Any, *attrs: str) -> bool:
+    for attr in attrs:
+        if hasattr(source, attr):
+            return bool(getattr(source, attr, False))
+    return False
+
+
+def _wata_profile_configured(source: Any, provider: str) -> bool:
+    if isinstance(source, WataConfig):
+        return source.profile_for_method(provider).configured
+    if provider == WATA_CRYPTO_PROVIDER:
+        return bool(
+            getattr(source, "CRYPTO_API_TOKEN", None)
+            or getattr(source, "WATA_CRYPTO_API_TOKEN", None)
+        )
+    return bool(getattr(source, "API_TOKEN", None) or getattr(source, "WATA_API_TOKEN", None))
+
+
+def _wata_enabled(source: Any) -> bool:
+    return _source_bool(source, "ENABLED", "WATA_ENABLED") and _wata_profile_configured(
+        source,
+        WATA_PROVIDER,
+    )
+
+
+def _wata_admin_only_enabled(source: Any) -> bool:
+    return _source_bool(
+        source,
+        "ADMIN_ONLY_ENABLED",
+        "WATA_ADMIN_ONLY_ENABLED",
+    ) and _wata_profile_configured(source, WATA_PROVIDER)
+
+
+def _wata_crypto_enabled(source: Any) -> bool:
+    return _source_bool(
+        source,
+        "CRYPTO_ENABLED",
+        "WATA_CRYPTO_ENABLED",
+    ) and _wata_profile_configured(source, WATA_CRYPTO_PROVIDER)
+
+
+def _wata_crypto_admin_only_enabled(source: Any) -> bool:
+    return _source_bool(
+        source,
+        "CRYPTO_ADMIN_ONLY_ENABLED",
+        "WATA_CRYPTO_ADMIN_ONLY_ENABLED",
+    ) and _wata_profile_configured(source, WATA_CRYPTO_PROVIDER)
+
+
+def _wata_supported_currencies(source: Any, provider: str) -> Tuple[str, ...]:
+    if isinstance(source, WataConfig):
+        return source.profile_for_method(provider).supported_currencies
+    return WATA_SUPPORTED_CURRENCIES
+
+
 SPEC = PaymentProviderSpec(
-    id="wata",
-    provider_key="wata",
+    id=WATA_PROVIDER,
+    provider_key=WATA_PROVIDER,
     label="Wata",
     webapp_label="Wata",
     webapp_labels={"ru": "Wata", "en": "Wata"},
@@ -1180,7 +1669,8 @@ SPEC = PaymentProviderSpec(
     telegram_labels={"ru": "Wata", "en": "Wata"},
     telegram_emoji="💳",
     pending_status="pending_wata",
-    enabled=lambda config: bool(getattr(config, "ENABLED", False)),
+    enabled=_wata_enabled,
+    admin_only_enabled=_wata_admin_only_enabled,
     service_key="wata_service",
     callback_prefix="pay_wata",
     router=router,
@@ -1191,10 +1681,50 @@ SPEC = PaymentProviderSpec(
     reuse_webapp_payment=reuse_webapp_payment,
     config_class=WataConfig,
     presentation_class=WataPresentation,
-    manifest_fields=_CONFIG_MANIFEST + _PRESENTATION_MANIFEST,
-    supported_currencies=WATA_SUPPORTED_CURRENCIES,
+    manifest_fields=_COMMON_CONFIG_MANIFEST_V2
+    + _FIAT_CONFIG_MANIFEST
+    + _wata_presentation_manifest("WalletCards", "WATA"),
+    supported_currencies_resolver=lambda config: _wata_supported_currencies(
+        config,
+        WATA_PROVIDER,
+    ),
     currency_support_note=(
-        "WATA H2H payment links and widget document RUB, USD and EUR as payment currencies."
+        "WATA H2H payment links document RUB, USD and EUR as payment currencies; "
+        "configure the currencies enabled for your terminal."
     ),
     currency_support_url="https://wata.pro/api",
 )
+
+CRYPTO_SPEC = PaymentProviderSpec(
+    id=WATA_CRYPTO_PROVIDER,
+    provider_key=WATA_CRYPTO_PROVIDER,
+    label="Wata",
+    webapp_label="Wata Crypto",
+    webapp_labels={"ru": "Wata Crypto", "en": "Wata Crypto"},
+    webapp_icon="Bitcoin",
+    telegram_labels={"ru": "Wata Crypto", "en": "Wata Crypto"},
+    telegram_emoji="🪙",
+    pending_status="pending_wata",
+    enabled=_wata_crypto_enabled,
+    admin_only_enabled=_wata_crypto_admin_only_enabled,
+    admin_only_config_attr="CRYPTO_ADMIN_ONLY_ENABLED",
+    service_key="wata_service",
+    callback_prefix="pay_wata_crypto",
+    create_webapp_payment=create_webapp_payment,
+    reuse_webapp_payment=reuse_webapp_payment,
+    config_class=WataConfig,
+    presentation_class=WataCryptoPresentation,
+    manifest_fields=_CRYPTO_CONFIG_MANIFEST
+    + _wata_presentation_manifest("Bitcoin", "WATA_CRYPTO"),
+    supported_currencies_resolver=lambda config: _wata_supported_currencies(
+        config,
+        WATA_CRYPTO_PROVIDER,
+    ),
+    currency_support_note=(
+        "WATA H2H payment links document RUB, USD and EUR as payment currencies; "
+        "configure the currencies enabled for your crypto terminal."
+    ),
+    currency_support_url="https://wata.pro/api",
+)
+
+SPECS = (SPEC, CRYPTO_SPEC)

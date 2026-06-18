@@ -383,6 +383,14 @@ def test_payment_provider_admin_only_toggles_are_mutually_exclusive():
     assert manifest["WATA_ADMIN_ONLY_ENABLED"]["mutually_exclusive_key"] == "WATA_ENABLED"
     assert manifest["WATA_ENABLED"]["mutually_exclusive_key"] == "WATA_ADMIN_ONLY_ENABLED"
     assert (
+        manifest["WATA_CRYPTO_ADMIN_ONLY_ENABLED"]["mutually_exclusive_key"]
+        == "WATA_CRYPTO_ENABLED"
+    )
+    assert (
+        manifest["WATA_CRYPTO_ENABLED"]["mutually_exclusive_key"]
+        == "WATA_CRYPTO_ADMIN_ONLY_ENABLED"
+    )
+    assert (
         manifest["PLATEGA_CRYPTO_ADMIN_ONLY_ENABLED"]["mutually_exclusive_key"]
         == "PLATEGA_CRYPTO_ENABLED"
     )
@@ -425,6 +433,16 @@ def test_platega_settings_share_one_admin_subsection():
 
     assert platega_keys
     assert {manifest[key]["subsection"] for key in platega_keys} == {"Platega"}
+
+
+def test_wata_settings_share_one_admin_subsection():
+    manifest = _manifest_by_key()
+    wata_keys = [
+        key for key in manifest if key.startswith("WATA_") or key.startswith("PAYMENT_WATA_")
+    ]
+
+    assert wata_keys
+    assert {manifest[key]["subsection"] for key in wata_keys} == {"Wata"}
 
 
 def test_tariff_settings_page_i18n_keys_exist():

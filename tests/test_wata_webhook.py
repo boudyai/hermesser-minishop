@@ -216,7 +216,14 @@ def test_wata_refresh_finds_paid_transaction_by_order_id_and_finalizes(monkeypat
     finalized = []
     service = _service(session)
 
-    async def search_transactions(*, order_id=None, payment_link_id=None, status=None, limit=5):
+    async def search_transactions(
+        *,
+        order_id=None,
+        payment_link_id=None,
+        status=None,
+        limit=5,
+        profile=None,
+    ):
         assert order_id == "465"
         assert payment_link_id is None
         assert status == "Paid"
@@ -288,7 +295,14 @@ def test_wata_hwid_payment_finalizes_purchased_device_count(monkeypatch):
     finalized = []
     service = _service(session)
 
-    async def search_transactions(*, order_id=None, payment_link_id=None, status=None, limit=5):
+    async def search_transactions(
+        *,
+        order_id=None,
+        payment_link_id=None,
+        status=None,
+        limit=5,
+        profile=None,
+    ):
         return True, {
             "items": [
                 {
@@ -340,7 +354,7 @@ def test_try_reuse_pending_link_returns_url_for_opened_link():
 
     future_iso = "2099-01-01T00:00:00Z"
 
-    async def fake_get_payment_link(payment_link_id):
+    async def fake_get_payment_link(payment_link_id, *, profile=None):
         assert payment_link_id == "link-id"
         return True, {
             "id": "link-id",
@@ -359,7 +373,7 @@ def test_try_reuse_pending_link_returns_none_for_other_link_id():
     service = _service(_FakeSession())
     payment = _payment(provider_payment_id="link-id")
 
-    async def fake_get_payment_link(payment_link_id):
+    async def fake_get_payment_link(payment_link_id, *, profile=None):
         assert payment_link_id == "link-id"
         return True, {
             "id": "other-link-id",
@@ -378,7 +392,7 @@ def test_try_reuse_pending_link_returns_none_for_other_order_id():
     service = _service(_FakeSession())
     payment = _payment(provider_payment_id="link-id")
 
-    async def fake_get_payment_link(payment_link_id):
+    async def fake_get_payment_link(payment_link_id, *, profile=None):
         assert payment_link_id == "link-id"
         return True, {
             "id": "link-id",
@@ -398,7 +412,7 @@ def test_try_reuse_pending_link_returns_none_for_closed_link():
     service = _service(_FakeSession())
     payment = _payment(provider_payment_id="link-id")
 
-    async def fake_get_payment_link(payment_link_id):
+    async def fake_get_payment_link(payment_link_id, *, profile=None):
         return True, {
             "id": "link-id",
             "status": "Closed",
@@ -416,7 +430,7 @@ def test_try_reuse_pending_link_returns_none_for_expired_link():
     service = _service(_FakeSession())
     payment = _payment(provider_payment_id="link-id")
 
-    async def fake_get_payment_link(payment_link_id):
+    async def fake_get_payment_link(payment_link_id, *, profile=None):
         return True, {
             "id": "link-id",
             "status": "Opened",
@@ -434,7 +448,7 @@ def test_try_reuse_pending_link_returns_none_when_no_provider_payment_id():
     service = _service(_FakeSession())
     payment = _payment(provider_payment_id=None)
 
-    async def fake_get_payment_link(payment_link_id):
+    async def fake_get_payment_link(payment_link_id, *, profile=None):
         raise AssertionError("get_payment_link must not be called without provider id")
 
     service.get_payment_link = fake_get_payment_link
@@ -447,7 +461,7 @@ def test_try_reuse_pending_link_returns_none_when_get_fails():
     service = _service(_FakeSession())
     payment = _payment(provider_payment_id="link-id")
 
-    async def fake_get_payment_link(payment_link_id):
+    async def fake_get_payment_link(payment_link_id, *, profile=None):
         return False, {"status": 429, "message": "rate_limited"}
 
     service.get_payment_link = fake_get_payment_link
@@ -487,6 +501,47 @@ def test_create_payment_link_uses_clean_iso_expiration_without_microseconds(monk
     assert timedelta(minutes=14, seconds=30) <= ttl_delta <= timedelta(minutes=15, seconds=30)
 
 
+def test_create_crypto_payment_link_uses_crypto_terminal_credentials(monkeypatch):
+    captured = {}
+
+    async def fake_post_json_request(session, url, *, body, headers, log_prefix, is_success):
+        captured["body"] = body
+        captured["headers"] = headers
+        captured["log_prefix"] = log_prefix
+        return True, {"id": "crypto-link", "url": "https://wata.pro/p/crypto-link"}
+
+    monkeypatch.setattr(wata, "post_json_request", fake_post_json_request)
+
+    service = _service(
+        _FakeSession(),
+        CRYPTO_ENABLED=True,
+        CRYPTO_API_TOKEN="crypto-token",
+        CRYPTO_RETURN_URL="https://example.com/ok",
+        CRYPTO_FAILED_URL="https://example.com/fail",
+        CRYPTO_LINK_TTL_MINUTES=45,
+    )
+
+    success, _ = asyncio.run(
+        service.create_payment_link(
+            payment_db_id=465,
+            amount=199.5,
+            currency="RUB",
+            description="Crypto payment",
+            method="wata_crypto",
+        )
+    )
+
+    assert success is True
+    assert captured["headers"]["Authorization"] == "Bearer crypto-token"
+    assert captured["body"]["successRedirectUrl"] == "https://example.com/ok"
+    assert captured["body"]["failRedirectUrl"] == "https://example.com/fail"
+    assert captured["log_prefix"] == "Wata crypto create_payment_link"
+    expiration = wata._parse_wata_datetime(captured["body"]["expirationDateTime"])
+    assert expiration is not None
+    ttl_delta = expiration - datetime.now(timezone.utc)
+    assert timedelta(minutes=44, seconds=30) <= ttl_delta <= timedelta(minutes=45, seconds=30)
+
+
 def test_wata_link_ttl_uses_minutes_with_default_and_minimum():
     default_config = WataConfig(ENABLED=True, API_TOKEN="token")
     assert default_config.LINK_TTL_MINUTES == 15
@@ -496,6 +551,167 @@ def test_wata_link_ttl_uses_minutes_with_default_and_minimum():
 
     custom_config = WataConfig(ENABLED=True, API_TOKEN="token", LINK_TTL_MINUTES=45)
     assert custom_config.LINK_TTL_MINUTES == 45
+
+
+def test_try_reuse_pending_link_uses_crypto_profile():
+    service = _service(
+        _FakeSession(),
+        CRYPTO_ENABLED=True,
+        CRYPTO_API_TOKEN="crypto-token",
+    )
+    payment = _payment(provider="wata_crypto", provider_payment_id="crypto-link")
+
+    async def fake_get_payment_link(payment_link_id, *, profile=None):
+        assert payment_link_id == "crypto-link"
+        assert profile is not None
+        assert profile.provider == "wata_crypto"
+        assert profile.api_token == "crypto-token"
+        return True, {
+            "id": "crypto-link",
+            "status": "Opened",
+            "url": "https://wata.pro/p/crypto-link",
+            "expirationDateTime": "2099-01-01T00:00:00Z",
+        }
+
+    service.get_payment_link = fake_get_payment_link
+
+    url = asyncio.run(service.try_reuse_pending_link(payment))
+    assert url == "https://wata.pro/p/crypto-link"
+
+
+def test_wata_webhook_rejects_mismatched_terminal_public_id(monkeypatch):
+    session = _FakeSession()
+    payment = _payment(provider="wata")
+
+    async def lookup_payment(_session, *, order_id_raw=None, provider_payment_id=None):
+        return payment
+
+    async def update_provider_payment_and_status(*args, **kwargs):
+        raise AssertionError("terminal mismatch must not mutate payment state")
+
+    monkeypatch.setattr(wata, "lookup_payment_by_order_or_provider_id", lookup_payment)
+    monkeypatch.setattr(
+        wata.payment_dal,
+        "update_provider_payment_and_status",
+        update_provider_payment_and_status,
+    )
+
+    response = asyncio.run(
+        _service(session, TERMINAL_PUBLIC_ID="fiat-public").webhook_route(
+            _FakeRequest(
+                {
+                    "transactionStatus": "Created",
+                    "transactionId": "tx-1",
+                    "orderId": "465",
+                    "terminalPublicId": "other-public",
+                }
+            )
+        )
+    )
+
+    assert response.status == 403
+    assert response.text == "terminal_mismatch"
+    assert session.commits == 0
+
+
+def test_wata_crypto_webhook_accepts_matching_terminal_public_id(monkeypatch):
+    session = _FakeSession()
+    payment = _payment(provider="wata_crypto")
+    updates = []
+
+    async def lookup_payment(_session, *, order_id_raw=None, provider_payment_id=None):
+        return payment
+
+    async def update_provider_payment_and_status(
+        _session,
+        payment_id,
+        provider_payment_id,
+        status,
+    ):
+        updates.append((payment_id, provider_payment_id, status))
+
+    monkeypatch.setattr(wata, "lookup_payment_by_order_or_provider_id", lookup_payment)
+    monkeypatch.setattr(
+        wata.payment_dal,
+        "update_provider_payment_and_status",
+        update_provider_payment_and_status,
+    )
+
+    response = asyncio.run(
+        _service(
+            session,
+            CRYPTO_ENABLED=True,
+            CRYPTO_API_TOKEN="crypto-token",
+            CRYPTO_TERMINAL_PUBLIC_ID="crypto-public",
+        ).webhook_route(
+            _FakeRequest(
+                {
+                    "transactionStatus": "Created",
+                    "transactionId": "tx-crypto",
+                    "orderId": "465",
+                    "terminalPublicId": "crypto-public",
+                }
+            )
+        )
+    )
+
+    assert response.status == 200
+    assert updates == [(465, "tx-crypto", "pending_wata")]
+    assert session.commits == 1
+
+
+def test_wata_webhook_without_terminal_hint_rechecks_signature_with_payment_profile(monkeypatch):
+    session = _FakeSession()
+    payment = _payment(provider="wata_crypto")
+    updates = []
+
+    async def lookup_payment(_session, *, order_id_raw=None, provider_payment_id=None):
+        return payment
+
+    async def update_provider_payment_and_status(
+        _session,
+        payment_id,
+        provider_payment_id,
+        status,
+    ):
+        updates.append((payment_id, provider_payment_id, status))
+
+    monkeypatch.setattr(wata, "lookup_payment_by_order_or_provider_id", lookup_payment)
+    monkeypatch.setattr(
+        wata.payment_dal,
+        "update_provider_payment_and_status",
+        update_provider_payment_and_status,
+    )
+
+    service = _service(
+        session,
+        WEBHOOK_VERIFY_SIGNATURE=True,
+        CRYPTO_ENABLED=True,
+        CRYPTO_API_TOKEN="crypto-token",
+    )
+    verified_profiles = []
+
+    async def verify_signature(raw_body, signature_header, *, profile=None):
+        verified_profiles.append(None if profile is None else profile.provider)
+        return True
+
+    service._verify_signature = verify_signature
+
+    response = asyncio.run(
+        service.webhook_route(
+            _FakeRequest(
+                {
+                    "transactionStatus": "Created",
+                    "transactionId": "tx-crypto",
+                    "orderId": "465",
+                }
+            )
+        )
+    )
+
+    assert response.status == 200
+    assert verified_profiles == [None, "wata_crypto"]
+    assert updates == [(465, "tx-crypto", "pending_wata")]
 
 
 def test_refresh_marks_expired_wata_link_as_canceled(monkeypatch):
@@ -511,7 +727,7 @@ def test_refresh_marks_expired_wata_link_as_canceled(monkeypatch):
     async def find_transaction_for_payment(_payment, *, status):
         return None
 
-    async def get_payment_link(payment_link_id):
+    async def get_payment_link(payment_link_id, *, profile=None):
         assert payment_link_id == "link-id"
         return True, {
             "id": "link-id",
