@@ -84,7 +84,11 @@ class StarsService:
         sale_mode: str = "subscription",
         hwid_quote: Optional[dict] = None,
     ) -> Optional[int]:
-        amounts = payment_record_amounts(months=months, sale_mode=sale_mode)
+        amounts = payment_record_amounts(
+            months=months,
+            sale_mode=sale_mode,
+            hwid_device_count=hwid_quote.get("device_count") if hwid_quote else None,
+        )
         sale_base = sale_mode_base(sale_mode)
         payment_record_data = {
             "user_id": user_id,

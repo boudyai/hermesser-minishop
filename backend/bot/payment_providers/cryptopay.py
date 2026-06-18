@@ -212,6 +212,8 @@ class CryptoPayService:
             return None
 
         sale_base = sale_mode_base(sale_mode)
+        if hwid_device_count is None and hwid_quote:
+            hwid_device_count = hwid_quote.get("device_count")
         amounts = payment_record_amounts(
             months=months,
             sale_mode=sale_mode,

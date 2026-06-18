@@ -900,7 +900,11 @@ async def pay_wata_callback_handler(
     currency_code = default_payment_currency_code_for_settings(settings)
     payment_description = describe_payment(translator, parts)
 
-    reuse_amounts = payment_record_amounts(months=parts.months, sale_mode=parts.sale_mode)
+    reuse_amounts = payment_record_amounts(
+        months=parts.months,
+        sale_mode=parts.sale_mode,
+        hwid_device_count=hwid_quote.get("device_count") if hwid_quote else None,
+    )
     reusable_payment = await payment_dal.find_recent_pending_provider_payment(
         session,
         user_id=callback.from_user.id,
