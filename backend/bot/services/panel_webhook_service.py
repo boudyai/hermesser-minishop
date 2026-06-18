@@ -194,6 +194,20 @@ class PanelWebhookService:
             markup = get_subscribe_only_markup(lang, self.i18n)
             end_date_text = self._payload_expire_date(user_payload)
 
+            # The panel may target a stale, expired subscription row while the
+            # user has already renewed into a newer active subscription. Sending
+            # expiry/expiring notices in that case is wrong (e.g. "your sub ended
+            # yesterday" right after a successful renewal), so skip them.
+            if await self._superseded_by_newer_subscription(session, sub):
+                logging.info(
+                    "Panel webhook event %s skipped: subscription %s is superseded by a "
+                    "newer active subscription for user %s.",
+                    event_name,
+                    getattr(sub, "subscription_id", None),
+                    internal_user_id,
+                )
+                return
+
             if event_name in EVENT_MAP:
                 stage = EVENT_MAP[event_name]
                 days_left = int(stage.days_left or 0)
@@ -374,6 +388,28 @@ class PanelWebhookService:
         if email:
             return await user_dal.get_user_by_email(session, email)
         return None
+
+    async def _superseded_by_newer_subscription(
+        self,
+        session: AsyncSession,
+        sub: Optional[Subscription],
+    ) -> bool:
+        if sub is None:
+            return False
+        user_id = getattr(sub, "user_id", None)
+        if user_id is None:
+            return False
+        now = datetime.now(timezone.utc)
+        sub_end = getattr(sub, "end_date", None)
+        if sub_end is not None and sub_end.tzinfo is None:
+            sub_end = sub_end.replace(tzinfo=timezone.utc)
+        after = max(now, sub_end) if sub_end is not None else now
+        return await subscription_dal.user_has_active_subscription_after(
+            session,
+            user_id,
+            after,
+            exclude_subscription_id=getattr(sub, "subscription_id", None),
+        )
 
     async def _subscription_for_payload(
         self,

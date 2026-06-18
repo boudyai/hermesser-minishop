@@ -38,6 +38,62 @@ async def get_active_subscription_by_user_id(
     return result.scalars().first()
 
 
+async def user_has_active_subscription_after(
+    session: AsyncSession,
+    user_id: int,
+    after: datetime,
+    *,
+    exclude_subscription_id: Optional[int] = None,
+) -> bool:
+    """Return True when the user has an active subscription ending after ``after``.
+
+    Used to suppress expiry/expiring notifications for a stale subscription row
+    once the user is already covered by a newer (e.g. renewed) subscription.
+    """
+    if after.tzinfo is None:
+        after = after.replace(tzinfo=timezone.utc)
+    stmt = select(Subscription.subscription_id).where(
+        Subscription.user_id == user_id,
+        Subscription.is_active == True,
+        Subscription.end_date > after,
+    )
+    if exclude_subscription_id is not None:
+        stmt = stmt.where(Subscription.subscription_id != exclude_subscription_id)
+    stmt = stmt.limit(1)
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none() is not None
+
+
+async def get_latest_active_end_dates(
+    session: AsyncSession,
+    user_ids: Any,
+    *,
+    now: Optional[datetime] = None,
+) -> Dict[int, datetime]:
+    """Map each user id to the latest end_date among their active live subscriptions.
+
+    Only subscriptions that are still active (``is_active`` and ``end_date`` in the
+    future) are considered, so callers can detect when a subscription row has been
+    superseded by a renewal and avoid sending stale expiry notifications.
+    """
+    unique_ids = [uid for uid in set(user_ids or []) if uid is not None]
+    if not unique_ids:
+        return {}
+    if now is None:
+        now = datetime.now(timezone.utc)
+    stmt = (
+        select(Subscription.user_id, func.max(Subscription.end_date))
+        .where(
+            Subscription.user_id.in_(unique_ids),
+            Subscription.is_active == True,
+            Subscription.end_date > now,
+        )
+        .group_by(Subscription.user_id)
+    )
+    result = await session.execute(stmt)
+    return {row[0]: row[1] for row in result.all()}
+
+
 async def get_subscription_by_panel_subscription_uuid(
     session: AsyncSession, panel_sub_uuid: str
 ) -> Optional[Subscription]:

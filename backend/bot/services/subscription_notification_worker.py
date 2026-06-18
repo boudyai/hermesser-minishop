@@ -123,9 +123,28 @@ class SubscriptionNotificationWorker:
             .options(selectinload(Subscription.user))
             .order_by(Subscription.end_date.asc())
         )
-        for sub in result.scalars().all():
+        subs = result.scalars().all()
+        latest_active = await subscription_dal.get_latest_active_end_dates(
+            session,
+            {getattr(sub, "user_id", None) for sub in subs},
+            now=now,
+        )
+        for sub in subs:
             stage = self.stage_for_subscription(sub, now)
             if stage is None:
+                continue
+            # A renewal can land in a separate subscription row (e.g. the panel
+            # user was recreated, or the old row was deactivated). The stale,
+            # expired row would otherwise keep nagging the user with
+            # expired/expiring notices even though they are already covered.
+            if self._superseded_by_active_subscription(sub, latest_active, now):
+                logging.info(
+                    "Skipping %s notification for subscription %s: user %s is already "
+                    "covered by a newer active subscription.",
+                    stage.key,
+                    getattr(sub, "subscription_id", None),
+                    getattr(sub, "user_id", None),
+                )
                 continue
             await self.lifecycle_notifications.send_stage(
                 session,
@@ -133,6 +152,24 @@ class SubscriptionNotificationWorker:
                 stage,
                 sent_at=now,
             )
+
+    def _superseded_by_active_subscription(
+        self,
+        sub: Subscription,
+        latest_active: dict,
+        now: datetime,
+    ) -> bool:
+        covered_until = latest_active.get(getattr(sub, "user_id", None))
+        if covered_until is None:
+            return False
+        covered_until = self._as_utc(covered_until)
+        sub_end = self._as_utc(getattr(sub, "end_date", None))
+        # The subscription is superseded only when another active subscription
+        # extends coverage beyond this row's own end date. Comparing against the
+        # row's own end date (rather than just "any active sub exists") keeps the
+        # legitimate "ending soon" reminder for the user's single live row.
+        threshold = sub_end if sub_end is not None else now
+        return covered_until is not None and covered_until > threshold
 
     def stage_for_subscription(
         self,

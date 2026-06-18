@@ -197,5 +197,50 @@ class HandleEventLoggingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("subscription was deleted or not synced", message)
 
 
+class HandleEventSupersessionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_expired_event_skipped_when_user_has_newer_active_subscription(self):
+        service = _make_service()
+        service.async_session_factory = _FakeSessionFactory()
+        service.i18n = SimpleNamespace(gettext=lambda lang, key, **kwargs: key)
+        sent: List[Any] = []
+
+        async def fake_user_for_payload(session, user_payload):
+            return SimpleNamespace(user_id=123, language_code="ru")
+
+        async def fake_subscription_for_payload(session, user_payload, db_user):
+            return SimpleNamespace(
+                subscription_id=244,
+                user_id=123,
+                end_date=None,
+            )
+
+        async def fake_send_stage(*args, **kwargs):
+            sent.append((args, kwargs))
+
+        async def fake_has_active(session, user_id, after, *, exclude_subscription_id=None):
+            # The user renewed into another active subscription row.
+            return True
+
+        with (
+            patch.object(service, "_user_for_payload", fake_user_for_payload),
+            patch.object(service, "_subscription_for_payload", fake_subscription_for_payload),
+            patch.object(service.lifecycle_notifications, "send_stage", fake_send_stage),
+            patch.object(
+                pws.subscription_dal,
+                "user_has_active_subscription_after",
+                fake_has_active,
+            ),
+            self.assertLogs(level="INFO") as logs,
+        ):
+            await service.handle_event(
+                "user.expired_24_hours_ago",
+                {"telegramId": 555, "uuid": "panel-user-3", "expireAt": "2026-06-16T00:00:00Z"},
+            )
+
+        self.assertEqual(sent, [])
+        message = "\n".join(logs.output)
+        self.assertIn("is superseded by a newer active subscription", message)
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

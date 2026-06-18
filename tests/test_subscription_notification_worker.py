@@ -23,10 +23,12 @@ def _worker(**overrides):
     )
 
 
-def _sub(end_date, *, suppress_early_expiry_notifications=False):
+def _sub(end_date, *, suppress_early_expiry_notifications=False, user_id=123, subscription_id=1):
     return SimpleNamespace(
         end_date=end_date,
         suppress_early_expiry_notifications=suppress_early_expiry_notifications,
+        user_id=user_id,
+        subscription_id=subscription_id,
     )
 
 
@@ -86,3 +88,29 @@ def test_promo_subscription_still_gets_expiry_notice():
 
     assert stage.key == "expired"
     assert stage.message_key == "subscription_expired_notification"
+
+
+def test_expired_row_superseded_when_user_has_newer_active_subscription():
+    now = datetime(2026, 5, 28, 12, tzinfo=timezone.utc)
+    sub = _sub(now - timedelta(hours=25), user_id=555, subscription_id=244)
+    # The user renewed into another active row that runs well into the future.
+    latest_active = {555: now + timedelta(days=29)}
+
+    assert _worker()._superseded_by_active_subscription(sub, latest_active, now) is True
+
+
+def test_single_live_row_is_not_treated_as_superseded():
+    now = datetime(2026, 5, 28, 12, tzinfo=timezone.utc)
+    sub = _sub(now + timedelta(hours=23), user_id=555, subscription_id=244)
+    # The only active coverage is this very row, so the "ending soon" reminder
+    # must still go out.
+    latest_active = {555: sub.end_date}
+
+    assert _worker()._superseded_by_active_subscription(sub, latest_active, now) is False
+
+
+def test_expired_row_without_other_coverage_is_not_superseded():
+    now = datetime(2026, 5, 28, 12, tzinfo=timezone.utc)
+    sub = _sub(now - timedelta(hours=25), user_id=555, subscription_id=244)
+
+    assert _worker()._superseded_by_active_subscription(sub, {}, now) is False
