@@ -5,6 +5,7 @@
   export let meta = "";
   export let prevLabel = "Back";
   export let nextLabel = "Next";
+  export let table = null;
   export let page = null;
   export let pageCount = null;
   export let total = null;
@@ -23,9 +24,13 @@
 
   let jumpValue = "";
 
-  $: normalizedPage = Number(page);
-  $: normalizedPageCount = Math.max(1, Math.ceil(Number(pageCount) || 1));
-  $: hasPageNavigation = Number.isFinite(normalizedPage) && typeof onPageChange === "function";
+  $: tablePage = table ? Number(table.currentPage || 1) - 1 : null;
+  $: tablePageCount = table ? Number(table.pageCount || 0) : null;
+  $: tableTotal = table ? table.rowCount?.total : total;
+  $: normalizedPage = Number(table ? tablePage : page);
+  $: normalizedPageCount = Math.max(1, Math.ceil(Number(table ? tablePageCount : pageCount) || 1));
+  $: hasPageNavigation =
+    Number.isFinite(normalizedPage) && (table || typeof onPageChange === "function");
   $: currentPage = hasPageNavigation
     ? Math.min(Math.max(0, Math.floor(normalizedPage)), normalizedPageCount - 1)
     : 0;
@@ -37,8 +42,8 @@
     paginationDisabled ||
     nextDisabled ||
     (hasPageNavigation ? currentPage >= normalizedPageCount - 1 : false);
-  $: hasTotal = total !== null && total !== undefined && total !== "";
-  $: totalValue = Number(total);
+  $: hasTotal = tableTotal !== null && tableTotal !== undefined && tableTotal !== "";
+  $: totalValue = Number(tableTotal);
   $: showTotal = hasTotal && Number.isFinite(totalValue) && totalValue >= 0;
   $: jumpTarget = Number(jumpValue);
   $: canJump =
@@ -84,7 +89,8 @@
       normalizedPageCount - 1
     );
     if (clamped === currentPage) return;
-    onPageChange(clamped);
+    if (table) table.setPage(clamped + 1);
+    if (typeof onPageChange === "function") onPageChange(clamped);
   }
 
   function handlePrev() {

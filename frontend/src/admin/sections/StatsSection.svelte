@@ -23,6 +23,7 @@
     inclusiveDaySpan,
     sliceLastDays,
   } from "../../lib/admin/revenueSeriesAgg.js";
+  import { createAdminDatatable, syncAdminDatatable } from "../../lib/admin/datatables.js";
 
   export let at;
   export let fmtDate = (value) => value;
@@ -52,6 +53,7 @@
   const REVENUE_CHART_MAX_CSS_HEIGHT = 204;
 
   const REVENUE_PRESET_DAYS = [7, 14, 30, 90, 180, 365];
+  const recentPaymentsTable = createAdminDatatable();
 
   /** @type {"preset" | "custom"} */
   let revenueRangeMode = "preset";
@@ -124,6 +126,7 @@
     at("status", {}, ""),
     at("date", {}, ""),
   ];
+  $: syncAdminDatatable(recentPaymentsTable, stats?.recent_payments || []);
 
   function parsePanelSystem(panel) {
     const system = panel?.system;
@@ -1123,7 +1126,7 @@
               rows={5}
               widths={["48px", "120px", "78px", "82px", "72px", "96px"]}
             />
-          {:else if (stats.recent_payments || []).length}
+          {:else if recentPaymentsTable.rows.length}
             <AdminTable>
               <thead>
                 <tr>
@@ -1136,7 +1139,7 @@
                 </tr>
               </thead>
               <tbody>
-                {#each stats.recent_payments as p}
+                {#each recentPaymentsTable.rows as p (p.payment_id)}
                   <tr>
                     <td class="admin-cell-id" data-label={at("id", {}, "")}>#{p.payment_id}</td>
                     <td data-label={at("user", {}, "")}>{p.user_label || p.user_id}</td>

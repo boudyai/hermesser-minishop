@@ -11,13 +11,16 @@
     AdminTable,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
+  import { createAdminDatatable, syncAdminDatatable } from "../../lib/admin/datatables.js";
 
   export let at;
   export let fmtMoney;
 
   const adsStore = getContext("adsStore");
+  const adsTable = createAdminDatatable();
 
   $: ({ ads, adsLoading, adCreateOpen, adDraft } = $adsStore);
+  $: syncAdminDatatable(adsTable, ads);
   $: adHeaders = [
     at("id", {}, "ID"),
     at("ads_col_source", {}, "Источник"),
@@ -61,7 +64,7 @@
         </tr>
       </thead>
       <tbody>
-        {#each ads as ad}
+        {#each adsTable.rows as ad (ad.id)}
           <tr>
             <td class="admin-cell-id" data-label={at("id", {}, "ID")}>#{ad.id}</td>
             <td data-label={at("ads_col_source", {}, "Источник")}>{ad.source}</td>

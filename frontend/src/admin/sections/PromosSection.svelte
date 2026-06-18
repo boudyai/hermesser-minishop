@@ -11,14 +11,17 @@
     AdminTable,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
+  import { createAdminDatatable, syncAdminDatatable } from "../../lib/admin/datatables.js";
 
   export let at;
   export let fmtDateShort;
 
   const promosStore = getContext("promosStore");
+  const promosTable = createAdminDatatable();
 
   $: ({ promos, promosTotal, promosPage, promosLoading, promoCreateOpen, promoDraft } =
     $promosStore);
+  $: syncAdminDatatable(promosTable, promos);
 
   $: promosHasMore = promos.length < promosTotal;
   $: promoHeaders = [
@@ -60,7 +63,7 @@
         </tr>
       </thead>
       <tbody>
-        {#each promos as p}
+        {#each promosTable.rows as p (p.id)}
           <tr>
             <td class="admin-cell-mono" data-label={at("promo_col_code", {}, "Код")}>{p.code}</td>
             <td data-label={at("promo_col_bonus", {}, "Бонус")}
