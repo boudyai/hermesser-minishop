@@ -24,6 +24,22 @@ def test_shell_installer_help_does_not_require_python():
     assert "LEGACY_TGSHOP_SOURCE_DSN" in result.stdout
 
 
+def test_shell_installer_exits_on_stdin_eof():
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+
+    result = subprocess.run(
+        ["sh", str(INSTALL_SCRIPT)],
+        input="",
+        text=True,
+        capture_output=True,
+        timeout=5,
+    )
+
+    assert result.returncode != 0
+    assert "Input ended while reading choice" in result.stderr
+
+
 def test_shell_installer_is_the_only_install_entrypoint():
     assert INSTALL_SCRIPT.exists()
     assert not (REPO_ROOT / "scripts" / "install.py").exists()

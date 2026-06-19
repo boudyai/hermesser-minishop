@@ -124,7 +124,10 @@ fail() {
 pause() {
     printf '%s' "${DIM}Press Enter to continue...${RESET}"
     # shellcheck disable=SC2034
-    read -r _
+    if ! read -r _; then
+        printf '\n'
+        return 1
+    fi
 }
 
 print_help() {
@@ -205,7 +208,13 @@ prompt_value() {
         else
             printf '%s: ' "$label"
         fi
-        read -r raw_value
+        if ! read -r raw_value; then
+            if [ "$required" = "1" ] && [ -z "$default_value" ]; then
+                fail "Input ended while reading required value: $label"
+                return 1
+            fi
+            raw_value=""
+        fi
         if [ -n "$raw_value" ]; then
             value="$raw_value"
         else
@@ -234,7 +243,11 @@ confirm() {
     fi
     while :; do
         printf '%s [%s]: ' "$label" "$suffix"
-        read -r answer
+        if ! read -r answer; then
+            printf '\n'
+            [ "$default" = "1" ]
+            return $?
+        fi
         answer=$(printf '%s' "$answer" | tr '[:upper:]' '[:lower:]')
         if [ -z "$answer" ]; then
             [ "$default" = "1" ]
@@ -265,7 +278,11 @@ choose() {
     done
     while :; do
         printf 'Choose [%s]: ' "$default"
-        read -r selected
+        if ! read -r selected; then
+            printf '\n'
+            fail "Input ended while reading choice: $title"
+            return 1
+        fi
         selected="${selected:-$default}"
         case "|$valid|" in
             *"|$selected|"*)
@@ -408,7 +425,7 @@ choose_profile() {
         "2. Nginx HTTPS - TLS certificates are managed manually." \
         "3. Pangolin / Newt - no inbound ports; public routes are configured in Pangolin." \
         "4. No proxy / external TLS - direct HTTP ports or an external TLS terminator." \
-        "5. Existing eGames Remnawave reverse proxy on this host - reuse its Nginx/TLS."
+        "5. Existing eGames Remnawave reverse proxy on this host - reuse its Nginx/TLS." || return 1
     case "$CHOICE_VALUE" in
         1) PROFILE_KEY="caddy" ;;
         2) PROFILE_KEY="nginx" ;;
@@ -1308,7 +1325,7 @@ choose_legacy_source() {
     choose "Source bot" "1" "1|2|3" \
         "1. Remnashop - import users, subscriptions, payments, provider settings and promo codes." \
         "2. Old remnawave-tg-shop - upgrade an old compatible database/volume." \
-        "3. Skip migration"
+        "3. Skip migration" || return 1
     case "$CHOICE_VALUE" in
         1) LEGACY_SOURCE="remnashop" ;;
         2) LEGACY_SOURCE="remnawave-tg-shop" ;;
@@ -1357,7 +1374,7 @@ run_remnashop_migration() {
 
     choose "Target database" "1" "1|2" \
         "1. This Docker Compose stack database (recommended)" \
-        "2. Manual target DSN"
+        "2. Manual target DSN" || return 1
     if [ "$CHOICE_VALUE" = "1" ]; then
         TARGET_DSN="$(local_target_dsn)"
         info "Target DSN points to the Compose postgres service."
@@ -1495,7 +1512,7 @@ run_remnawave_tg_shop_migration() {
     choose "Migration method" "1" "1|2|3" \
         "1. Copy old Docker volumes on this host (recommended for old compose installs)." \
         "2. Dump from a source PostgreSQL DSN and restore into this compose stack." \
-        "3. Skip migration"
+        "3. Skip migration" || return 1
     case "$CHOICE_VALUE" in
         1) run_tgshop_volume_migration ;;
         2) run_tgshop_dsn_migration ;;
@@ -1536,7 +1553,7 @@ install_flow() {
     LEGACY_SOURCE=""
     installation_directory || return 1
     github_source || return 1
-    choose_profile
+    choose_profile || return 1
     ENV_PATH="$TARGET_DIR/.env"
     if [ -f "$ENV_PATH" ]; then
         warn "Existing .env found at $ENV_PATH; wizard will preserve unknown values."
@@ -1548,9 +1565,9 @@ install_flow() {
     mkdir -p "$TARGET_DIR/$INSTALL_STATE_DIR"
     prepare_data_mount || return 1
     if [ "$with_migration" = "1" ]; then
-        choose_legacy_source
+        choose_legacy_source || return 1
     elif confirm "Run a migration from another bot now?" 0; then
-        choose_legacy_source
+        choose_legacy_source || return 1
     fi
 
     case "$LEGACY_SOURCE" in
@@ -1577,7 +1594,7 @@ install_flow() {
 migration_only_flow() {
     LEGACY_SOURCE=""
     installation_directory || return 1
-    choose_legacy_source
+    choose_legacy_source || return 1
     [ "$LEGACY_SOURCE" = "skip" ] && return 0
     prepare_data_mount || return 1
     case "$LEGACY_SOURCE" in
@@ -1591,7 +1608,7 @@ migration_only_flow() {
 download_only_flow() {
     installation_directory || return 1
     github_source || return 1
-    choose_profile
+    choose_profile || return 1
     download_profile_files
 }
 
@@ -1609,7 +1626,7 @@ main_menu() {
             "3. Run migration only" \
             "4. Download/update deployment files only" \
             "5. Validate current stack" \
-            "6. Exit"
+            "6. Exit" || return 1
         case "$CHOICE_VALUE" in
             1) install_flow 0 ;;
             2) install_flow 1 ;;
@@ -1622,7 +1639,7 @@ main_menu() {
         if [ "$status" -ne 0 ]; then
             fail "Step failed with status $status."
         fi
-        pause
+        pause || return 0
     done
 }
 
