@@ -4,7 +4,16 @@ from typing import Awaitable, Callable, Optional
 
 from aiogram import Bot, Dispatcher
 from aiogram.exceptions import TelegramNetworkError
-from aiogram.types import BotCommand, MenuButtonDefault, MenuButtonWebApp, WebAppInfo
+from aiogram.types import (
+    BotCommand,
+    BotCommandScopeAllChatAdministrators,
+    BotCommandScopeAllGroupChats,
+    BotCommandScopeAllPrivateChats,
+    BotCommandScopeDefault,
+    MenuButtonDefault,
+    MenuButtonWebApp,
+    WebAppInfo,
+)
 
 from bot.app.controllers.dispatcher_controller import build_dispatcher
 from bot.app.factories.build_services import build_core_services
@@ -20,6 +29,15 @@ from config.settings import Settings
 from db.database_setup import init_db, init_db_connection
 
 TELEGRAM_STARTUP_RETRY_DELAY_SECONDS = 2.0
+
+
+def _telegram_command_language_codes(settings: Settings) -> list[Optional[str]]:
+    language_codes: list[Optional[str]] = [None]
+    for code in (settings.DEFAULT_LANGUAGE, "ru", "en"):
+        normalized = str(code or "").strip().lower()
+        if normalized and normalized not in language_codes:
+            language_codes.append(normalized)
+    return language_codes
 
 
 def redact_token(value: str, token: Optional[str]) -> str:
@@ -194,7 +212,17 @@ async def on_startup_configured(dispatcher: Dispatcher):
                 0,
                 BotCommand(command="start", description=settings.START_COMMAND_DESCRIPTION),
             )
-        await bot.set_my_commands(bot_commands)
+        command_scopes_to_clear = [
+            BotCommandScopeDefault(),
+            BotCommandScopeAllPrivateChats(),
+            BotCommandScopeAllGroupChats(),
+            BotCommandScopeAllChatAdministrators(),
+        ]
+        for scope in command_scopes_to_clear:
+            for language_code in _telegram_command_language_codes(settings):
+                await bot.delete_my_commands(scope=scope, language_code=language_code)
+        await bot.set_my_commands(bot_commands, scope=BotCommandScopeDefault())
+        await bot.set_my_commands(bot_commands, scope=BotCommandScopeAllPrivateChats())
         logging.info("STARTUP: bot command descriptions set.")
 
     await _run_telegram_startup_step(

@@ -1,8 +1,12 @@
+from collections import defaultdict
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 import pytest
+
 from scripts.import_legacy import (
     _extract_panel_subscription_uuid,
+    RemnashopImporter,
     parse_remnashop_env_text,
     remnashop_build_tariff_catalog,
     remnashop_env_overrides,
@@ -17,6 +21,57 @@ from scripts.import_legacy import (
     remnashop_traffic_gb_to_bytes,
     remnashop_transaction_status,
 )
+
+
+def test_remnashop_existing_user_profile_is_preserved_on_merge():
+    importer = RemnashopImporter.__new__(RemnashopImporter)
+    importer.on_conflict = "merge"
+    importer.summary = {"users": defaultdict(int)}
+    user = SimpleNamespace(
+        username="current_admin",
+        first_name="Current",
+        last_name="Admin",
+        language_code="ru",
+    )
+
+    importer._merge_existing_user_profile(
+        user,
+        username="legacy_admin",
+        first_name="Legacy",
+        last_name="Name",
+        language="en",
+    )
+
+    assert user.username == "current_admin"
+    assert user.first_name == "Current"
+    assert user.last_name == "Admin"
+    assert user.language_code == "ru"
+    assert importer.summary["users"]["profile_preserved"] == 1
+
+
+def test_remnashop_existing_user_profile_can_be_overwritten_explicitly():
+    importer = RemnashopImporter.__new__(RemnashopImporter)
+    importer.on_conflict = "overwrite"
+    importer.summary = {"users": defaultdict(int)}
+    user = SimpleNamespace(
+        username="current_admin",
+        first_name="Current",
+        last_name="Admin",
+        language_code="ru",
+    )
+
+    importer._merge_existing_user_profile(
+        user,
+        username="legacy_admin",
+        first_name="Legacy",
+        last_name="Name",
+        language="en",
+    )
+
+    assert user.username == "legacy_admin"
+    assert user.first_name == "Legacy"
+    assert user.last_name == "Name"
+    assert user.language_code == "en"
 
 
 def test_remnashop_pricing_helpers_read_final_amount_and_currency():

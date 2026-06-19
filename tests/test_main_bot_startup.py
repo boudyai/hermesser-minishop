@@ -68,6 +68,23 @@ def test_telegram_webhook_configuration_is_deferred_until_site_start():
     )
 
 
+def test_telegram_startup_clears_legacy_command_scopes_before_setting_commands():
+    source = Path("backend/bot/main_bot.py").read_text(encoding="utf-8")
+
+    assert "ָםעונפויס" not in source
+    assert 'BotCommand(command="tg", description="Интерфейс в боте")' in source
+    assert "BotCommandScopeDefault" in source
+    assert "BotCommandScopeAllPrivateChats" in source
+    assert "BotCommandScopeAllGroupChats" in source
+    assert "BotCommandScopeAllChatAdministrators" in source
+    assert "await bot.delete_my_commands(scope=scope, language_code=language_code)" in source
+    assert "await bot.set_my_commands(bot_commands, scope=BotCommandScopeDefault())" in source
+    assert (
+        "await bot.set_my_commands(bot_commands, scope=BotCommandScopeAllPrivateChats())"
+        in source
+    )
+
+
 def test_telegram_startup_network_error_retries_until_success_without_traceback(caplog):
     calls = []
 

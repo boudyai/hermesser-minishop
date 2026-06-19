@@ -1362,6 +1362,24 @@ class RemnashopImporter:
             return True
         return False
 
+    def _merge_existing_user_profile(
+        self,
+        model: Any,
+        *,
+        username: Any,
+        first_name: Optional[str],
+        last_name: Optional[str],
+        language: Optional[str],
+    ) -> None:
+        if self._can_overwrite():
+            self._assign_if_allowed(model, "username", username)
+            self._assign_if_allowed(model, "first_name", first_name)
+            self._assign_if_allowed(model, "last_name", last_name)
+            self._assign_if_allowed(model, "language_code", language)
+            return
+        if any((username, first_name, last_name, language)):
+            self.summary["users"]["profile_preserved"] += 1
+
     async def _upsert_mapping(
         self,
         *,
@@ -1800,10 +1818,13 @@ class RemnashopImporter:
             elif existing:
                 target = existing
                 if self._can_merge_existing():
-                    self._assign_if_allowed(target, "username", row.get("username"))
-                    self._assign_if_allowed(target, "first_name", first_name)
-                    self._assign_if_allowed(target, "last_name", last_name)
-                    self._assign_if_allowed(target, "language_code", language)
+                    self._merge_existing_user_profile(
+                        target,
+                        username=row.get("username"),
+                        first_name=first_name,
+                        last_name=last_name,
+                        language=language,
+                    )
                     self._assign_if_allowed(target, "panel_user_uuid", panel_uuid)
                     if bool(row.get("is_blocked")):
                         target.is_banned = True
@@ -2299,6 +2320,10 @@ class RemnashopImporter:
             notification_import.get("overrides") or {},
             summary_key="settings",
         )
+        self.summary["settings"]["notification_route"] = notification_import.get("route")
+        self.summary["settings"]["notification_overrides"] = notification_import.get(
+            "overrides"
+        ) or {}
         if notification_override_keys:
             self.summary["settings"]["notification_overrides_written"] += 1
         for warning in notification_import.get("warnings") or []:
