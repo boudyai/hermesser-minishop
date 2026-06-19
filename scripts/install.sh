@@ -1211,7 +1211,7 @@ wait_target_postgres() {
 download_importer() {
     importer="$TARGET_DIR/$IMPORTER_CACHE_PATH"
     mkdir -p "$(dirname "$importer")"
-    if [ -f "$importer" ] && confirm "Use cached importer at $importer?" 1 >&2; then
+    if [ -f "$importer" ] && confirm "Use cached importer at $importer instead of downloading $SOURCE_REF?" 0 >&2; then
         printf '%s' "$importer"
         return 0
     fi
