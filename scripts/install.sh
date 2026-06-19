@@ -1019,12 +1019,19 @@ EOF
     fi
     rm -f "$tmp"
     if docker inspect "$nginx_container" >/dev/null 2>&1; then
+        if ! docker exec -i "$nginx_container" sh -c 'cat > /etc/nginx/conf.d/default.conf' < "$nginx_conf"; then
+            warn "Could not sync eGames config into $nginx_container; restoring $backup"
+            cp "$backup" "$nginx_conf"
+            docker exec -i "$nginx_container" sh -c 'cat > /etc/nginx/conf.d/default.conf' < "$backup" || true
+            return 1
+        fi
         if docker exec "$nginx_container" nginx -t; then
             docker exec "$nginx_container" nginx -s reload || docker restart "$nginx_container" >/dev/null
             ok "eGames Nginx routes now point $webhook_host -> 127.0.0.1:$backend_port and $miniapp_host -> 127.0.0.1:$frontend_port"
         else
             warn "Nginx config test failed; restoring $backup"
             cp "$backup" "$nginx_conf"
+            docker exec -i "$nginx_container" sh -c 'cat > /etc/nginx/conf.d/default.conf' < "$backup" || true
             return 1
         fi
     else

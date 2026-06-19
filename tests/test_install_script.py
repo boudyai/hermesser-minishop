@@ -85,6 +85,7 @@ def test_shell_installer_supports_egames_reverse_proxy_profile():
     assert "TELEGRAM_OAUTH_CLIENT_SECRET" in script
     assert 'cat "$tmp" > "$nginx_conf"' in script
     assert 'mv "$tmp" "$nginx_conf"' not in script
+    assert "docker exec -i \"$nginx_container\" sh -c 'cat > /etc/nginx/conf.d/default.conf'" in script
 
 
 def test_shell_installer_connects_local_remnashop_db_container_for_import():
