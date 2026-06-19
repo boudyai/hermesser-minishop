@@ -240,9 +240,12 @@ class WataConfig(ProviderEnvConfig):
     def profile_for_method(self, method: Any) -> WataTerminalProfile:
         provider = _wata_provider_from_method(method)
         if provider == WATA_CRYPTO_PROVIDER:
-            supported = parse_supported_currency_codes(
-                self.CRYPTO_SUPPORTED_CURRENCIES or self.SUPPORTED_CURRENCIES
-            ) or WATA_SUPPORTED_CURRENCIES
+            supported = (
+                parse_supported_currency_codes(
+                    self.CRYPTO_SUPPORTED_CURRENCIES or self.SUPPORTED_CURRENCIES
+                )
+                or WATA_SUPPORTED_CURRENCIES
+            )
             return WataTerminalProfile(
                 provider=WATA_CRYPTO_PROVIDER,
                 api_token=self.CRYPTO_API_TOKEN or "",
@@ -1369,6 +1372,7 @@ def create_service(ctx: ServiceFactoryContext) -> WataService:
         default_return_url=ctx.bot_username_for_default_return,
     )
 
+
 def _wata_presentation_manifest(default_icon: str, prefix: str) -> tuple:
     return tuple(
         ProviderManifestField(
@@ -1714,8 +1718,7 @@ CRYPTO_SPEC = PaymentProviderSpec(
     reuse_webapp_payment=reuse_webapp_payment,
     config_class=WataConfig,
     presentation_class=WataCryptoPresentation,
-    manifest_fields=_CRYPTO_CONFIG_MANIFEST
-    + _wata_presentation_manifest("Bitcoin", "WATA_CRYPTO"),
+    manifest_fields=_CRYPTO_CONFIG_MANIFEST + _wata_presentation_manifest("Bitcoin", "WATA_CRYPTO"),
     supported_currencies_resolver=lambda config: _wata_supported_currencies(
         config,
         WATA_CRYPTO_PROVIDER,

@@ -1,6 +1,6 @@
+import re
 import shutil
 import subprocess
-import re
 from pathlib import Path
 
 import pytest
@@ -131,11 +131,11 @@ def test_shell_installer_does_not_rename_bot_and_reports_migration_success():
     assert "Сообщение обрезано" not in script
     assert "split_telegram_messages" in script
     assert "Новые URL webhook:" in script
-    assert 'for action in payment_actions:' in script
+    assert "for action in payment_actions:" in script
     assert "payment_actions[:8]" not in script
     assert "run_compose restart backend worker frontend" in script
     assert (
-        'refresh_egames_nginx_after_migration\n'
+        "refresh_egames_nginx_after_migration\n"
         '    notify_remnashop_migration_success "$APPLY_SUMMARY_PATH"\n'
         '    ok "Миграция завершена."\n'
         "    remnashop_post_migration_next_steps"
@@ -151,14 +151,14 @@ def test_shell_installer_can_reset_target_database_before_remnashop_import():
     assert "backups/pre-${label}-migration" in script
     assert "restore.sh" in script
     assert "run_compose stop backend worker migrate" in script
-    assert "dropdb -U \"$POSTGRES_USER\" --if-exists \"$POSTGRES_DB\"" in script
+    assert 'dropdb -U "$POSTGRES_USER" --if-exists "$POSTGRES_DB"' in script
 
 
 def test_deployment_examples_scope_named_volumes_to_compose_project():
     for profile in ("caddy", "nginx", "newt", "no-proxy"):
-        compose = (
-            REPO_ROOT / "deploy" / "examples" / profile / "docker-compose.yml"
-        ).read_text(encoding="utf-8")
+        compose = (REPO_ROOT / "deploy" / "examples" / profile / "docker-compose.yml").read_text(
+            encoding="utf-8"
+        )
         assert "name: ${COMPOSE_PROJECT_NAME:-remnawave-minishop}-db-data" in compose
         assert "name: ${COMPOSE_PROJECT_NAME:-remnawave-minishop}-redis-data" in compose
         assert "name: remnawave-minishop-db-data" not in compose
@@ -201,7 +201,9 @@ def test_shell_installer_only_prepares_data_mount_not_runtime_content():
     assert 'chown -R "$APP_UID:$APP_GID" "$data_dir"' in script
     assert "Контейнеры Minishop пишут runtime-файлы" in script
     assert "Обновить владельца $data_dir на $APP_UID:$APP_GID" in script
-    assert 'confirm "Обновить владельца $data_dir на $APP_UID:$APP_GID для записи из контейнеров?" 1' in script
+    assert (
+        'confirm "Обновить владельца $data_dir на $APP_UID:$APP_GID для записи из контейнеров?" 1'
+    ) in script
     assert "Adjust $data_dir owner" not in script
     assert "already exists" not in script
     assert "data_dir/themes" not in script
@@ -281,14 +283,16 @@ def test_shell_installer_uses_default_source_without_prompting_for_repo_ref():
     assert 'SOURCE_REF="$DEFAULT_REF"' in script
     assert "install_source" in script
     assert "MINISHOP_INSTALL_REPO и MINISHOP_INSTALL_REF" in script
-    assert "GitHub репозиторий\"" not in script
+    assert 'GitHub репозиторий"' not in script
     assert "Git ref/ветка/тег для raw-файлов" not in script
 
 
 def test_shell_installer_hides_low_level_oauth_and_required_stack_prompts():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
-    assert 'TELEGRAM_OAUTH_REQUEST_ACCESS_VALUE="$(env_get TELEGRAM_OAUTH_REQUEST_ACCESS write)"' in script
+    assert (
+        'TELEGRAM_OAUTH_REQUEST_ACCESS_VALUE="$(env_get TELEGRAM_OAUTH_REQUEST_ACCESS write)"'
+    ) in script
     assert "Telegram OAuth request access (пусто/write/phone)" not in script
     assert "Запустить Docker Compose stack перед импортом из Remnashop?" not in script
     assert "Импорту из Remnashop нужна целевая база stack. Импорт пропущен." not in script

@@ -60,9 +60,7 @@ async def subscription_guides_route(request: web.Request) -> web.Response:
         payload["error"] = status["error"]
     return _subscription_guides_json_response(
         {"ok": True, **payload},
-        cache_control=SUBSCRIPTION_GUIDES_BROWSER_CACHE_CONTROL
-        if status.get("enabled")
-        else None,
+        cache_control=SUBSCRIPTION_GUIDES_BROWSER_CACHE_CONTROL if status.get("enabled") else None,
     )
 
 
@@ -105,9 +103,7 @@ async def public_subscription_guides_route(request: web.Request) -> web.Response
         payload["error"] = status["error"]
     return _subscription_guides_json_response(
         {"ok": True, **payload},
-        cache_control=SUBSCRIPTION_GUIDES_BROWSER_CACHE_CONTROL
-        if status.get("enabled")
-        else None,
+        cache_control=SUBSCRIPTION_GUIDES_BROWSER_CACHE_CONTROL if status.get("enabled") else None,
     )
 
 
@@ -560,9 +556,7 @@ async def _warm_panel_subscription_page_configs(app: web.Application) -> None:
             continue
         seen.add(config_uuid)
         warmed_uuids.append(config_uuid)
-        tasks.append(
-            _panel_subscription_page_config_by_uuid_cached(app, settings, config_uuid)
-        )
+        tasks.append(_panel_subscription_page_config_by_uuid_cached(app, settings, config_uuid))
     if tasks:
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for config_uuid, result in zip(warmed_uuids, results):

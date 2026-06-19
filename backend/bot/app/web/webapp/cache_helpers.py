@@ -21,9 +21,7 @@ def reset_subscription_guides_cache(app: Any) -> None:
     if isinstance(cache, dict):
         cache["fingerprint"] = None
         cache["status"] = None
-    panel_cache = (
-        app.get("subscription_guides_panel_config_cache") if hasattr(app, "get") else None
-    )
+    panel_cache = app.get("subscription_guides_panel_config_cache") if hasattr(app, "get") else None
     if isinstance(panel_cache, dict):
         panel_cache.clear()
     resolved_cache = (
@@ -32,9 +30,7 @@ def reset_subscription_guides_cache(app: Any) -> None:
     if isinstance(resolved_cache, dict):
         resolved_cache.clear()
     public_cache = (
-        app.get("subscription_guides_public_subscription_cache")
-        if hasattr(app, "get")
-        else None
+        app.get("subscription_guides_public_subscription_cache") if hasattr(app, "get") else None
     )
     if isinstance(public_cache, dict):
         public_cache.clear()

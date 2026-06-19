@@ -460,7 +460,8 @@ def remnashop_payment_gateway_overrides(
         _add_override(overrides, "YOOKASSA_VAT_CODE", settings.get("vat_code"))
         if currency and currency != "RUB":
             warnings.append(
-                f"YooKassa в Minishop поддерживает только RUB; в источнике указана валюта {currency}."
+                "YooKassa в Minishop поддерживает только RUB; "
+                f"в источнике указана валюта {currency}."
             )
         return _provider_mapping_result(gateway_type, ["yookassa"], overrides, warnings)
 
@@ -930,9 +931,7 @@ def remnashop_build_tariff_catalog(
         if plan_type == "TRAFFIC":
             traffic_gb = _to_float(plan.get("traffic_limit"))
             if traffic_gb is None or traffic_gb <= 0:
-                warnings.append(
-                    f"Пропущен traffic-тариф {plan_id or name}: traffic_limit пустой."
-                )
+                warnings.append(f"Пропущен traffic-тариф {plan_id or name}: traffic_limit пустой.")
                 continue
             packages: dict[str, list[dict[str, float]]] = defaultdict(list)
             seen_packages: set[tuple[str, float, float]] = set()
@@ -975,7 +974,8 @@ def remnashop_build_tariff_catalog(
                     period_prices[currency][str(months)] = price
             if not enabled_periods:
                 warnings.append(
-                    f"Пропущен периодический тариф {plan_id or name}: не найдены оплачиваемые сроки."
+                    f"Пропущен периодический тариф {plan_id or name}: "
+                    "не найдены оплачиваемые сроки."
                 )
                 continue
             tariff.update(
@@ -983,8 +983,7 @@ def remnashop_build_tariff_catalog(
                     "billing_model": "period",
                     "monthly_gb": monthly_gb,
                     "prices": {
-                        currency: dict(values)
-                        for currency, values in period_prices.items()
+                        currency: dict(values) for currency, values in period_prices.items()
                     },
                     "enabled_periods": enabled_periods,
                 }
@@ -1003,7 +1002,8 @@ def remnashop_build_tariff_catalog(
     )
     if default_tariff is None:
         warnings.append(
-            "Не удалось сгенерировать ни одного включенного тарифа Remnashop; каталог тарифов пропущен."
+            "Не удалось сгенерировать ни одного включенного тарифа Remnashop; "
+            "каталог тарифов пропущен."
         )
         return {"catalog": None, "tariff_map": tariff_map, "warnings": warnings}
 
@@ -1034,9 +1034,9 @@ def remnashop_notification_overrides(notifications: Any) -> dict[str, Any]:
         "SUBSCRIPTION",
         "PAYMENT",
     )
-    route_keys = [
-        key for key in preferred_order if key in routes
-    ] + sorted(key for key in routes if key not in preferred_order)
+    route_keys = [key for key in preferred_order if key in routes] + sorted(
+        key for key in routes if key not in preferred_order
+    )
     candidates: list[dict[str, Any]] = []
     for route_key in route_keys:
         route = routes.get(route_key)
@@ -1183,8 +1183,10 @@ class RemnashopImporter:
     async def run(self) -> dict[str, Any]:
         self.tables = await self._source_tables()
         await self._warn_missing_tables()
-        if self._should_run("subscriptions") or self._should_run("payments") or self._should_run(
-            "settings"
+        if (
+            self._should_run("subscriptions")
+            or self._should_run("payments")
+            or self._should_run("settings")
         ):
             await self.prepare_tariffs()
 
@@ -1319,7 +1321,7 @@ class RemnashopImporter:
             user_columns = await self._source_columns("users")
             if not {"id", "telegram_id"}.issubset(user_columns):
                 return {}
-            user_join = f'JOIN {_qtable(self.source_schema, "users")} u ON u.id = s.user_id'
+            user_join = f"JOIN {_qtable(self.source_schema, 'users')} u ON u.id = s.user_id"
             telegram_expr = "u.telegram_id"
         else:
             return {}
@@ -1443,9 +1445,7 @@ class RemnashopImporter:
 
         field = get_field_by_key(key)
         if field is None:
-            self.summary["warnings"].append(
-                f"Пропущена неизвестная админ-настройка: {key}"
-            )
+            self.summary["warnings"].append(f"Пропущена неизвестная админ-настройка: {key}")
             return False
         try:
             value = coerce_value(field, value)
@@ -2339,9 +2339,9 @@ class RemnashopImporter:
             summary_key="settings",
         )
         self.summary["settings"]["notification_route"] = notification_import.get("route")
-        self.summary["settings"]["notification_overrides"] = notification_import.get(
-            "overrides"
-        ) or {}
+        self.summary["settings"]["notification_overrides"] = (
+            notification_import.get("overrides") or {}
+        )
         if notification_override_keys:
             self.summary["settings"]["notification_overrides_written"] += 1
         for warning in notification_import.get("warnings") or []:

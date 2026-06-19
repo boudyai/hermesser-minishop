@@ -387,9 +387,7 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
     async def test_missing_subpage_config_uses_panel_default_config(self):
         default_uuid = "00000000-0000-0000-0000-000000000000"
         default_config = json.loads(default_subscription_guides_config_text())
-        windows_apps = json.loads(
-            json.dumps(default_config["platforms"]["windows"]["apps"][:3])
-        )
+        windows_apps = json.loads(json.dumps(default_config["platforms"]["windows"]["apps"][:3]))
         for app, name in zip(windows_apps, ("INCY", "Happ", "Throne")):
             app["name"] = name
         default_config["platforms"]["windows"]["apps"] = windows_apps

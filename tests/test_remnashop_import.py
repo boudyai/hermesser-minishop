@@ -3,10 +3,9 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
-
 from scripts.import_legacy import (
-    _extract_panel_subscription_uuid,
     RemnashopImporter,
+    _extract_panel_subscription_uuid,
     parse_remnashop_env_text,
     remnashop_build_tariff_catalog,
     remnashop_env_overrides,

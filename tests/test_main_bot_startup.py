@@ -82,8 +82,7 @@ def test_telegram_startup_clears_legacy_command_scopes_before_setting_commands()
     assert "await bot.delete_my_commands(scope=scope, language_code=language_code)" in source
     assert "await bot.set_my_commands(bot_commands, scope=BotCommandScopeDefault())" in source
     assert (
-        "await bot.set_my_commands(bot_commands, scope=BotCommandScopeAllPrivateChats())"
-        in source
+        "await bot.set_my_commands(bot_commands, scope=BotCommandScopeAllPrivateChats())" in source
     )
 
 
