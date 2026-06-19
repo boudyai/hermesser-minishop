@@ -89,6 +89,17 @@ def test_shell_installer_supports_egames_reverse_proxy_profile():
     assert 'docker restart "$nginx_container" >/dev/null' in script
 
 
+def test_shell_installer_does_not_rename_bot_and_reports_migration_success():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "setMyName" not in script
+    assert "setMyShortDescription" not in script
+    assert "telegram_bot_profile_checklist" in script
+    assert "notify_remnashop_migration_success" in script
+    assert "remnashop-apply-summary.json" in script
+    assert "remnashop-post-migration-message.txt" in script
+
+
 def test_shell_installer_connects_local_remnashop_db_container_for_import():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 

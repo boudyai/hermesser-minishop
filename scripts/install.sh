@@ -1092,22 +1092,15 @@ configure_egames_panel_webhook() {
     ok "Remnawave panel webhook points to $base_url/webhook/panel"
 }
 
-configure_telegram_bot_profile() {
+telegram_bot_profile_checklist() {
     bot_token=$(env_get BOT_TOKEN "")
     title=$(env_get WEBAPP_TITLE "remnawave-minishop")
     [ -n "$bot_token" ] || return 0
-    [ -n "$title" ] || return 0
-    command -v curl >/dev/null 2>&1 || {
-        warn "curl not found; skipping Telegram bot display-name update."
-        return 0
-    }
-    if ! confirm "Set Telegram bot display name and short description to '$title' via Bot API?" 1; then
-        return 0
+    section "Telegram bot profile"
+    info "The installer does not change the Telegram bot display name or short description."
+    if [ -n "$title" ]; then
+        info "Keep the current BotFather name/description, or update them manually if you want them to mention: $title"
     fi
-    curl -fsS -X POST "https://api.telegram.org/bot${bot_token}/setMyName" \
-        --data-urlencode "name=$title" >/dev/null || warn "Could not set Telegram bot display name."
-    curl -fsS -X POST "https://api.telegram.org/bot${bot_token}/setMyShortDescription" \
-        --data-urlencode "short_description=$title" >/dev/null || warn "Could not set Telegram bot short description."
 }
 
 telegram_oauth_checklist() {
@@ -1324,8 +1317,264 @@ remnashop_webhook_checklist() {
     printf '  Telegram webhook: %s/tg/webhook (configured automatically on bot startup)\n' "$base_url"
 }
 
+extract_import_summary() {
+    output_path="$1"
+    summary_path="$2"
+    command -v python3 >/dev/null 2>&1 || {
+        warn "python3 not found; could not save migration summary JSON."
+        return 1
+    }
+    python3 - "$output_path" "$summary_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+output_path = Path(sys.argv[1])
+summary_path = Path(sys.argv[2])
+summary = None
+for line in output_path.read_text(encoding="utf-8", errors="replace").splitlines():
+    candidate = line.strip()
+    if not (candidate.startswith("{") and candidate.endswith("}")):
+        continue
+    try:
+        decoded = json.loads(candidate)
+    except ValueError:
+        continue
+    if isinstance(decoded, dict) and decoded.get("source") == "remnashop":
+        summary = decoded
+if summary is None:
+    raise SystemExit("No Remnashop summary JSON found in importer output")
+summary_path.parent.mkdir(parents=True, exist_ok=True)
+summary_path.write_text(
+    json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+    encoding="utf-8",
+)
+PY
+}
+
+notify_remnashop_migration_success() {
+    summary_path="$1"
+    [ -f "$summary_path" ] || {
+        warn "Migration summary was not saved; skipping Telegram success notification."
+        return 0
+    }
+    command -v python3 >/dev/null 2>&1 || {
+        warn "python3 not found; skipping Telegram success notification."
+        return 0
+    }
+    bot_token=$(env_get BOT_TOKEN "")
+    [ -n "$bot_token" ] || {
+        warn "BOT_TOKEN is empty; skipping Telegram success notification."
+        return 0
+    }
+
+    message_path="$TARGET_DIR/$INSTALL_STATE_DIR/remnashop-post-migration-message.txt"
+    mkdir -p "$(dirname "$message_path")"
+    export BOT_TOKEN_VALUE="$bot_token"
+    export ADMIN_IDS_VALUE="$(env_get ADMIN_IDS "")"
+    export LOG_CHAT_ID_VALUE="$(env_get LOG_CHAT_ID "")"
+    export LOG_THREAD_ID_VALUE="$(env_get LOG_THREAD_ID "")"
+    export MINIAPP_PUBLIC_URL_VALUE="$(env_get MINIAPP_PUBLIC_URL "")"
+    export WEBHOOK_BASE_URL_VALUE="$(target_webhook_base_url)"
+    export TELEGRAM_OAUTH_CLIENT_SECRET_VALUE="$(env_get TELEGRAM_OAUTH_CLIENT_SECRET "")"
+    export REMNASHOP_MESSAGE_PATH="$message_path"
+
+    python3 - "$summary_path" <<'PY'
+import json
+import os
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+summary = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+message_path = Path(os.environ["REMNASHOP_MESSAGE_PATH"])
+miniapp_url = os.environ.get("MINIAPP_PUBLIC_URL_VALUE") or ""
+webhook_base_url = os.environ.get("WEBHOOK_BASE_URL_VALUE") or ""
+oauth_secret = os.environ.get("TELEGRAM_OAUTH_CLIENT_SECRET_VALUE") or ""
+
+
+def section(name):
+    value = summary.get(name)
+    return value if isinstance(value, dict) else {}
+
+
+def counter_line(title, key, fields):
+    data = section(key)
+    parts = [f"{label}: {int(data.get(field, 0) or 0)}" for field, label in fields]
+    return f"- {title}: " + ", ".join(parts)
+
+
+warnings = summary.get("warnings") if isinstance(summary.get("warnings"), list) else []
+post_actions = summary.get("post_migration_actions") or {}
+payment_actions = post_actions.get("payment_providers") or []
+settings = section("settings")
+notification_overrides = settings.get("notification_overrides") or {}
+
+lines = [
+    "Миграция Remnashop в remnawave-minishop успешно завершена.",
+    "",
+    "Статистика:",
+    counter_line(
+        "Пользователи",
+        "users",
+        [
+            ("created", "создано"),
+            ("updated", "обновлено"),
+            ("profile_preserved", "профиль сохранен"),
+            ("skipped", "пропущено"),
+        ],
+    ),
+    counter_line(
+        "Подписки",
+        "subscriptions",
+        [("created", "создано"), ("updated", "обновлено"), ("skipped", "пропущено")],
+    ),
+    counter_line(
+        "Платежи",
+        "payments",
+        [("created", "создано"), ("updated", "обновлено"), ("skipped", "пропущено")],
+    ),
+    counter_line(
+        "Промокоды",
+        "promocodes",
+        [
+            ("created", "создано"),
+            ("updated", "обновлено"),
+            ("activation_imported", "активаций"),
+            ("unsupported_reward", "неподдержано"),
+        ],
+    ),
+    counter_line(
+        "Тарифы",
+        "tariffs",
+        [
+            ("catalog_written", "каталог записан"),
+            ("generated", "сгенерировано"),
+            ("skipped", "пропущено"),
+        ],
+    ),
+    counter_line(
+        "Платежные настройки",
+        "payment_provider_settings",
+        [
+            ("mapped", "перенесено"),
+            ("unsupported", "неподдержано"),
+            ("skipped", "пропущено"),
+        ],
+    ),
+]
+
+if warnings:
+    lines.extend(["", f"Предупреждения: {len(warnings)}"])
+    for warning in warnings[:5]:
+        lines.append(f"- {warning}")
+    if len(warnings) > 5:
+        lines.append(f"- ... еще {len(warnings) - 5}")
+
+lines.extend(
+    [
+        "",
+        "Дальнейшие шаги:",
+        "- Имя и short description Telegram-бота installer не менял. Если нужно, меняйте их вручную в BotFather.",
+        "- Старые команды Remnashop очищаются при старте backend; Minishop оставляет только свои команды.",
+    ]
+)
+if miniapp_url:
+    callback_url = miniapp_url.rstrip("/") + "/auth/telegram/callback"
+    lines.append(f"- В BotFather укажите Mini App URL/domain: {miniapp_url}")
+    lines.append(f"- Для Web Login / OpenID Connect разрешите: {miniapp_url} и {callback_url}")
+else:
+    lines.append("- В BotFather укажите Mini App URL/domain из MINIAPP_PUBLIC_URL.")
+if oauth_secret:
+    lines.append("- TELEGRAM_OAUTH_CLIENT_SECRET заполнен; после BotFather-проверки перезапустите backend.")
+else:
+    lines.append(
+        "- TELEGRAM_OAUTH_CLIENT_SECRET пустой: если нужен browser OAuth, создайте Web Login/OIDC client в BotFather, заполните secret и перезапустите backend."
+    )
+if webhook_base_url:
+    lines.append(f"- Telegram webhook: {webhook_base_url.rstrip('/')}/tg/webhook, он ставится backend автоматически.")
+    lines.append(f"- Remnawave Panel webhook: {webhook_base_url.rstrip('/')}/webhook/panel.")
+if payment_actions:
+    lines.append("- Проверьте webhook URL у платежных провайдеров:")
+    for action in payment_actions[:8]:
+        provider = action.get("provider") or "provider"
+        new_url = action.get("new_url") or ""
+        if new_url:
+            lines.append(f"  {provider}: {new_url}")
+
+text = "\n".join(lines)
+if len(text) > 3900:
+    text = text[:3800].rstrip() + "\n\nСообщение обрезано; полный summary лежит на сервере."
+message_path.write_text(text + "\n", encoding="utf-8")
+print(text)
+
+
+def parse_int(value):
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+
+
+targets = []
+for raw_id in (os.environ.get("ADMIN_IDS_VALUE") or "").replace(";", ",").split(","):
+    chat_id = parse_int(raw_id)
+    if chat_id is not None:
+        targets.append({"chat_id": chat_id, "label": "admin"})
+
+log_chat_id = parse_int(os.environ.get("LOG_CHAT_ID_VALUE")) or parse_int(
+    notification_overrides.get("LOG_CHAT_ID")
+)
+log_thread_id = parse_int(os.environ.get("LOG_THREAD_ID_VALUE")) or parse_int(
+    notification_overrides.get("LOG_THREAD_ID")
+)
+if log_chat_id is not None:
+    targets.append({"chat_id": log_chat_id, "thread_id": log_thread_id, "label": "log chat"})
+
+unique_targets = []
+seen = set()
+for target in targets:
+    key = (target.get("chat_id"), target.get("thread_id"))
+    if key in seen:
+        continue
+    seen.add(key)
+    unique_targets.append(target)
+
+bot_token = os.environ.get("BOT_TOKEN_VALUE") or ""
+if not unique_targets:
+    print("No ADMIN_IDS or LOG_CHAT_ID targets found for migration success notification.")
+    raise SystemExit(0)
+
+for target in unique_targets:
+    payload = {
+        "chat_id": str(target["chat_id"]),
+        "text": text,
+        "disable_web_page_preview": "true",
+    }
+    if target.get("thread_id") is not None:
+        payload["message_thread_id"] = str(target["thread_id"])
+    data = urllib.parse.urlencode(payload).encode("utf-8")
+    request = urllib.request.Request(
+        f"https://api.telegram.org/bot{bot_token}/sendMessage",
+        data=data,
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            response.read()
+        print(f"Sent migration success notification to {target['label']} {target['chat_id']}.")
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        print(
+            f"Warning: could not send migration success notification to {target['label']} {target['chat_id']}: {exc}",
+            file=sys.stderr,
+        )
+PY
+}
+
 run_import_command() {
     dry="$1"
+    summary_output_path="${2:-}"
     set -- run --rm -T \
         --user 0:0 \
         -v "$IMPORTER_PATH:/app/backend/scripts/import_legacy.py:ro"
@@ -1348,6 +1597,18 @@ run_import_command() {
     fi
     if [ "$dry" = "1" ]; then
         set -- "$@" --dry-run
+    fi
+    if [ -n "$summary_output_path" ]; then
+        mkdir -p "$(dirname "$summary_output_path")"
+        raw_output="$summary_output_path.raw"
+        if (cd "$TARGET_DIR" && run_compose "$@" < /dev/null) > "$raw_output" 2>&1; then
+            cat "$raw_output"
+            extract_import_summary "$raw_output" "$summary_output_path" || true
+            return 0
+        fi
+        status=$?
+        cat "$raw_output"
+        return "$status"
     fi
     (cd "$TARGET_DIR" && run_compose "$@" < /dev/null)
 }
@@ -1443,14 +1704,17 @@ run_remnashop_migration() {
     fi
 
     section "Apply import"
-    run_import_command 0 || return 1
+    mkdir -p "$TARGET_DIR/$INSTALL_STATE_DIR"
+    APPLY_SUMMARY_PATH="$TARGET_DIR/$INSTALL_STATE_DIR/remnashop-apply-summary.json"
+    run_import_command 0 "$APPLY_SUMMARY_PATH" || return 1
     configure_egames_panel_webhook || return 1
-    configure_telegram_bot_profile
+    telegram_bot_profile_checklist
     telegram_oauth_checklist
     remnashop_webhook_checklist
     if confirm "Restart backend and worker so setting overrides are reloaded?" 1; then
         (cd "$TARGET_DIR" && run_compose restart backend worker) || true
     fi
+    notify_remnashop_migration_success "$APPLY_SUMMARY_PATH"
     ok "Migration completed."
 }
 
