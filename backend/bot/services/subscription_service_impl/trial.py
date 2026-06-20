@@ -96,7 +96,7 @@ class TrialSubscriptionMixin:
             traffic_limit_strategy=self.settings.TRIAL_TRAFFIC_STRATEGY,
             include_default_squads=False,
         )
-        trial_squads = self._trial_panel_squad_uuids()
+        trial_squads = self._trial_all_panel_squad_uuids()
         if trial_squads:
             panel_update_payload["activeInternalSquads"] = trial_squads
         if self.settings.parsed_user_external_squad_uuid:

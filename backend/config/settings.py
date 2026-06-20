@@ -503,6 +503,13 @@ class Settings(BaseSettings):
     TRIAL_ENABLED: bool = Field(default=True)
     TRIAL_DURATION_DAYS: int = Field(default=3)
     TRIAL_TRAFFIC_LIMIT_GB: Optional[float] = Field(default=5.0)
+    TRIAL_PREMIUM_TRAFFIC_LIMIT_GB: Optional[float] = Field(
+        default=0.0,
+        description=(
+            "Separate premium traffic limit for trial subscriptions. "
+            "0 disables premium traffic enforcement for trials."
+        ),
+    )
     TRIAL_TRAFFIC_STRATEGY: str = Field(default="NO_RESET")
     TRIAL_WITHOUT_TELEGRAM_ENABLED: bool = Field(
         default=True,
@@ -516,6 +523,13 @@ class Settings(BaseSettings):
         description=(
             "Comma-separated UUIDs of internal squads to assign during trial activation. "
             "Falls back to USER_SQUAD_UUIDS when empty."
+        ),
+    )
+    TRIAL_PREMIUM_SQUAD_UUIDS: Optional[str] = Field(
+        default=None,
+        description=(
+            "Comma-separated premium internal squad UUIDs to assign during trial activation. "
+            "Empty value disables premium squads for trials."
         ),
     )
 
@@ -782,6 +796,16 @@ class Settings(BaseSettings):
 
     @computed_field
     @property
+    def trial_premium_traffic_limit_bytes(self) -> int:
+        if (
+            self.TRIAL_PREMIUM_TRAFFIC_LIMIT_GB is None
+            or self.TRIAL_PREMIUM_TRAFFIC_LIMIT_GB <= 0
+        ):
+            return 0
+        return int(self.TRIAL_PREMIUM_TRAFFIC_LIMIT_GB * (1024**3))
+
+    @computed_field
+    @property
     def user_traffic_limit_bytes(self) -> int:
         if self.USER_TRAFFIC_LIMIT_GB is None or self.USER_TRAFFIC_LIMIT_GB <= 0:
             return 0
@@ -804,6 +828,19 @@ class Settings(BaseSettings):
             if trial_squads:
                 return trial_squads
         return self.parsed_user_squad_uuids
+
+    @computed_field
+    @property
+    def parsed_trial_premium_squad_uuids(self) -> Optional[List[str]]:
+        if self.TRIAL_PREMIUM_SQUAD_UUIDS:
+            premium_squads = [
+                uuid.strip()
+                for uuid in self.TRIAL_PREMIUM_SQUAD_UUIDS.split(",")
+                if uuid.strip()
+            ]
+            if premium_squads:
+                return premium_squads
+        return None
 
     @computed_field
     @property

@@ -101,31 +101,36 @@ class SubscriptionServiceCalculationTests(unittest.TestCase):
                 ["fallback-a", "fallback-b"],
             )
 
-    def test_trial_premium_baseline_uses_trial_limit_for_catalog_premium_squads(self):
+    def test_trial_premium_baseline_uses_separate_trial_premium_limit(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(
                 _tariffs_config_payload(),
                 tmpdir,
                 TRIAL_TRAFFIC_LIMIT_GB=7,
-                TRIAL_SQUAD_UUIDS="main-squad,premium-squad",
+                TRIAL_PREMIUM_TRAFFIC_LIMIT_GB=3,
+                TRIAL_SQUAD_UUIDS="main-squad",
+                TRIAL_PREMIUM_SQUAD_UUIDS="premium-squad",
             )
             service = _make_service(settings)
 
             self.assertEqual(service._trial_premium_squad_uuids(), ["premium-squad"])
-            self.assertEqual(service._trial_premium_baseline_bytes(), 7 * GIB)
-            self.assertEqual(_trial_premium_baseline_bytes(settings), 7 * GIB)
+            self.assertEqual(service._trial_premium_baseline_bytes(), 3 * GIB)
+            self.assertEqual(_trial_premium_baseline_bytes(settings), 3 * GIB)
 
-    def test_trial_premium_baseline_is_zero_without_trial_premium_squad(self):
+    def test_trial_premium_baseline_is_zero_without_configured_premium_squad(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(
                 _tariffs_config_payload(),
                 tmpdir,
                 TRIAL_TRAFFIC_LIMIT_GB=7,
-                TRIAL_SQUAD_UUIDS="main-squad",
+                TRIAL_PREMIUM_TRAFFIC_LIMIT_GB=3,
+                TRIAL_SQUAD_UUIDS="main-squad,premium-squad",
             )
             service = _make_service(settings)
 
             self.assertEqual(service._trial_premium_squad_uuids(), [])
+            self.assertEqual(service._trial_panel_squad_uuids(), ["main-squad"])
+            self.assertEqual(service._trial_all_panel_squad_uuids(), ["main-squad"])
             self.assertEqual(service._trial_premium_baseline_bytes(), 0)
 
     def test_main_traffic_limit_includes_topup_bonus_and_unlimited_zero(self):
@@ -276,7 +281,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             self.assertEqual(panel_payload["trafficLimitStrategy"], "MONTH")
             self.assertEqual(panel_payload["activeInternalSquads"], ["trial-squad"])
 
-    async def test_activate_trial_records_premium_baseline_from_trial_limit(self):
+    async def test_activate_trial_records_premium_baseline_from_trial_premium_limit(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(
                 _tariffs_config_payload(),
@@ -284,7 +289,9 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 TRIAL_ENABLED=True,
                 TRIAL_DURATION_DAYS=3,
                 TRIAL_TRAFFIC_LIMIT_GB=7,
-                TRIAL_SQUAD_UUIDS="main-squad,premium-squad",
+                TRIAL_PREMIUM_TRAFFIC_LIMIT_GB=3,
+                TRIAL_SQUAD_UUIDS="main-squad",
+                TRIAL_PREMIUM_SQUAD_UUIDS="premium-squad",
             )
             service = _make_service(settings)
             service.has_trial_blocking_subscription = AsyncMock(return_value=False)
@@ -324,7 +331,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             sub_payload = upsert_subscription.await_args.args[1]
             self.assertIsNone(sub_payload.get("tariff_key"))
             self.assertEqual(sub_payload["traffic_limit_bytes"], 7 * GIB)
-            self.assertEqual(sub_payload["premium_baseline_bytes"], 7 * GIB)
+            self.assertEqual(sub_payload["premium_baseline_bytes"], 3 * GIB)
             self.assertEqual(sub_payload["premium_topup_balance_bytes"], 0)
             self.assertEqual(sub_payload["premium_used_bytes"], 0)
 

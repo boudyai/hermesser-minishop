@@ -280,7 +280,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             payload = panel_service.update_user_details_on_panel.await_args.args[1]
             self.assertEqual(payload["activeInternalSquads"], ["squad-1"])
 
-    async def test_trial_premium_limit_uses_trial_traffic_limit(self):
+    async def test_trial_premium_limit_uses_trial_premium_traffic_limit(self):
         payload = _tariffs_config_payload()
         payload["tariffs"][0]["premium_squad_uuids"] = ["premium-squad"]
         payload["tariffs"][0]["premium_monthly_gb"] = 25
@@ -294,8 +294,10 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 POSTGRES_USER="app_user",
                 POSTGRES_PASSWORD="app_password",
                 TARIFFS_CONFIG_PATH=str(config_path),
-                TRIAL_TRAFFIC_LIMIT_GB=3,
-                TRIAL_SQUAD_UUIDS="squad-1,premium-squad",
+                TRIAL_TRAFFIC_LIMIT_GB=9,
+                TRIAL_PREMIUM_TRAFFIC_LIMIT_GB=3,
+                TRIAL_SQUAD_UUIDS="squad-1",
+                TRIAL_PREMIUM_SQUAD_UUIDS="premium-squad",
                 TARIFF_TRAFFIC_WARNING_LEVELS="101",
             )
             panel_service = AsyncMock(spec=PanelApiService)

@@ -75,18 +75,28 @@ class TariffMixin:
         squads = self.settings.parsed_trial_squad_uuids
         if not squads:
             squads = self.settings.parsed_user_squad_uuids or []
+        premium_squads = set(self._trial_premium_squad_uuids())
+        premium_squads.update(self._catalog_premium_squad_uuid_set())
+        return list(
+            dict.fromkeys(
+                str(uuid)
+                for uuid in squads
+                if str(uuid or "").strip() and str(uuid) not in premium_squads
+            )
+        )
+
+    def _trial_all_panel_squad_uuids(self) -> List[str]:
+        squads = [*self._trial_panel_squad_uuids(), *self._trial_premium_squad_uuids()]
         return list(dict.fromkeys(str(uuid) for uuid in squads if str(uuid or "").strip()))
 
     def _trial_premium_squad_uuids(self) -> List[str]:
-        premium_squads = self._catalog_premium_squad_uuid_set()
-        if not premium_squads:
-            return []
-        return [uuid for uuid in self._trial_panel_squad_uuids() if uuid in premium_squads]
+        squads = self.settings.parsed_trial_premium_squad_uuids or []
+        return list(dict.fromkeys(str(uuid) for uuid in squads if str(uuid or "").strip()))
 
     def _trial_premium_baseline_bytes(self) -> int:
         if not self._trial_premium_squad_uuids():
             return 0
-        return int(self.settings.trial_traffic_limit_bytes or 0)
+        return int(self.settings.trial_premium_traffic_limit_bytes or 0)
 
     def _traffic_limit_for_period_tariff(
         self,

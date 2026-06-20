@@ -74,10 +74,14 @@ ADMIN_TARIFF_SETTINGS_PAGE_KEYS = {
     "admin_tariffs_trial_without_telegram_enabled",
     "admin_tariffs_trial_days",
     "admin_tariffs_trial_traffic",
+    "admin_tariffs_trial_premium_traffic",
     "admin_tariffs_trial_strategy",
     "admin_tariffs_trial_squads",
     "admin_tariffs_trial_squads_hint",
+    "admin_tariffs_trial_premium_squads",
+    "admin_tariffs_trial_premium_squads_hint",
     "admin_tariffs_trial_add_squad",
+    "admin_tariffs_trial_add_premium_squad",
     "admin_tariffs_trial_group_switch",
     "admin_tariffs_trial_group_switch_hint",
     "admin_tariffs_trial_group_general",
@@ -415,6 +419,13 @@ def test_legacy_tariff_settings_are_separated_from_payment_settings():
     assert manifest["TRIAL_WITHOUT_TELEGRAM_ENABLED"]["subsection"] == "trial"
     assert manifest["TRIAL_SQUAD_UUIDS"]["section"] == "pricing"
     assert manifest["TRIAL_SQUAD_UUIDS"]["subsection"] == "trial"
+    assert manifest["TRIAL_PREMIUM_TRAFFIC_LIMIT_GB"]["section"] == "pricing"
+    assert manifest["TRIAL_PREMIUM_TRAFFIC_LIMIT_GB"]["subsection"] == "trial"
+    assert manifest["TRIAL_PREMIUM_TRAFFIC_LIMIT_GB"]["type"] == "float"
+    assert manifest["TRIAL_PREMIUM_TRAFFIC_LIMIT_GB"]["optional"] is True
+    assert manifest["TRIAL_PREMIUM_TRAFFIC_LIMIT_GB"]["min"] == 0
+    assert manifest["TRIAL_PREMIUM_SQUAD_UUIDS"]["section"] == "pricing"
+    assert manifest["TRIAL_PREMIUM_SQUAD_UUIDS"]["subsection"] == "trial"
     assert manifest["REFERRAL_WELCOME_BONUS_DAYS"]["section"] == "pricing"
     assert manifest["REFERRAL_WELCOME_BONUS_DAYS"]["subsection"] == "referral"
     assert manifest["REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED"]["section"] == "pricing"

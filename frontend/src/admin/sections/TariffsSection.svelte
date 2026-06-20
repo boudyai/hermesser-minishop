@@ -31,14 +31,20 @@
     "TRIAL_ENABLED",
     "TRIAL_DURATION_DAYS",
     "TRIAL_TRAFFIC_LIMIT_GB",
+    "TRIAL_PREMIUM_TRAFFIC_LIMIT_GB",
     "TRIAL_TRAFFIC_STRATEGY",
     "TRIAL_WITHOUT_TELEGRAM_ENABLED",
     "TRIAL_SQUAD_UUIDS",
+    "TRIAL_PREMIUM_SQUAD_UUIDS",
   ];
   const TRIAL_SWITCH_KEYS = ["TRIAL_ENABLED", "TRIAL_WITHOUT_TELEGRAM_ENABLED"];
-  const TRIAL_GENERAL_KEYS = ["TRIAL_DURATION_DAYS", "TRIAL_TRAFFIC_LIMIT_GB"];
+  const TRIAL_GENERAL_KEYS = [
+    "TRIAL_DURATION_DAYS",
+    "TRIAL_TRAFFIC_LIMIT_GB",
+    "TRIAL_PREMIUM_TRAFFIC_LIMIT_GB",
+  ];
   const TRIAL_RESET_KEYS = ["TRIAL_TRAFFIC_STRATEGY"];
-  const TRIAL_SQUAD_KEYS = ["TRIAL_SQUAD_UUIDS"];
+  const TRIAL_SQUAD_KEYS = ["TRIAL_SQUAD_UUIDS", "TRIAL_PREMIUM_SQUAD_UUIDS"];
   const REFERRAL_SETTING_KEYS = [
     "REFERRAL_WELCOME_BONUS_DAYS",
     "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
@@ -162,7 +168,9 @@
   }));
 
   let selectedTrialSquad = "";
+  let selectedTrialPremiumSquad = "";
   let trialSquadSelectKey = 0;
+  let trialPremiumSquadSelectKey = 0;
   let tariffSettingsOpen = [];
   let defaultCurrencyDraft = "RUB";
 
@@ -261,6 +269,22 @@
     trialSquadSelectKey += 1;
   }
 
+  function addTrialPremiumSquad(uuid) {
+    const next = String(uuid || "").trim();
+    if (!next) return;
+    const current = csvList("TRIAL_PREMIUM_SQUAD_UUIDS");
+    if (!current.includes(next)) {
+      setCsvList("TRIAL_PREMIUM_SQUAD_UUIDS", [...current, next]);
+    }
+    selectedTrialPremiumSquad = "";
+  }
+
+  function handleTrialPremiumSquadSelect(uuid) {
+    addTrialPremiumSquad(uuid);
+    selectedTrialPremiumSquad = "";
+    trialPremiumSquadSelectKey += 1;
+  }
+
   $: catalogCurrencyKey = normalizeCurrencyKey(tariffsCatalog.default_currency || "rub");
   $: catalogCurrencyCode = catalogCurrencyKey.toUpperCase();
   $: defaultCurrencyDraft = catalogCurrencyCode;
@@ -350,6 +374,13 @@
     setCsvList(
       "TRIAL_SQUAD_UUIDS",
       csvList("TRIAL_SQUAD_UUIDS").filter((item) => item !== uuid)
+    );
+  }
+
+  function removeTrialPremiumSquad(uuid) {
+    setCsvList(
+      "TRIAL_PREMIUM_SQUAD_UUIDS",
+      csvList("TRIAL_PREMIUM_SQUAD_UUIDS").filter((item) => item !== uuid)
     );
   }
 
@@ -651,6 +682,47 @@
                 {/if}
               </div>
             </div>
+            <div
+              class="admin-setting admin-trial-setting-row"
+              class:is-dirty={isSettingDirty("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB", settingsDirty)}
+            >
+              <div class="admin-setting-meta">
+                <strong>
+                  {at("tariffs_trial_premium_traffic", {}, "Лимит premium-трафика, GB")}
+                  {#if isSettingDirty("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB", settingsDirty)}
+                    <AdminBadge variant="warning"
+                      >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                    >
+                  {/if}
+                </strong>
+                <code>TRIAL_PREMIUM_TRAFFIC_LIMIT_GB</code>
+              </div>
+              <div class="admin-setting-control">
+                <Input
+                  class="input"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={valueForKey(
+                    "TRIAL_PREMIUM_TRAFFIC_LIMIT_GB",
+                    settingsDirty,
+                    settingsFieldMap
+                  )}
+                  oninput={(event) =>
+                    setSetting("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB", event.currentTarget.value)}
+                />
+                {#if isSettingDirty("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB", settingsDirty)}
+                  <AdminButton
+                    size="sm"
+                    variant="ghost"
+                    onclick={() => resetSetting("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB")}
+                  >
+                    <X size={12} />
+                    {at("reset", {}, "Сбросить")}
+                  </AdminButton>
+                {/if}
+              </div>
+            </div>
           </div>
         </section>
 
@@ -753,7 +825,7 @@
             >
               <div class="admin-setting-meta">
                 <strong>
-                  {at("tariffs_trial_squads", {}, "Internal Squads для триала")}
+                  {at("tariffs_trial_squads", {}, "Обычные Internal Squads для триала")}
                   {#if isSettingDirty("TRIAL_SQUAD_UUIDS", settingsDirty)}
                     <AdminBadge variant="warning"
                       >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
@@ -765,7 +837,7 @@
                   {at(
                     "tariffs_trial_squads_hint",
                     {},
-                    "Эти сквады применяются при активации триала. Если поле пустое, используются USER_SQUAD_UUIDS."
+                    "Эти сквады применяются при активации триала как обычный доступ. Если поле пустое, используются USER_SQUAD_UUIDS."
                   )}
                 </small>
               </div>
@@ -795,6 +867,73 @@
                 <div class="admin-chip-list">
                   {#each csvList("TRIAL_SQUAD_UUIDS", settingsDirty, settingsFieldMap) as uuid}
                     <button type="button" class="admin-chip" onclick={() => removeTrialSquad(uuid)}>
+                      {trialSquadLabel(uuid)}
+                      <X size={12} />
+                    </button>
+                  {/each}
+                </div>
+              </div>
+            </div>
+            <div
+              class="admin-setting admin-trial-setting-row"
+              class:is-dirty={isSettingDirty("TRIAL_PREMIUM_SQUAD_UUIDS", settingsDirty)}
+            >
+              <div class="admin-setting-meta">
+                <strong>
+                  {at("tariffs_trial_premium_squads", {}, "Premium Internal Squads для триала")}
+                  {#if isSettingDirty("TRIAL_PREMIUM_SQUAD_UUIDS", settingsDirty)}
+                    <AdminBadge variant="warning"
+                      >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                    >
+                  {/if}
+                </strong>
+                <code>TRIAL_PREMIUM_SQUAD_UUIDS</code>
+                <small>
+                  {at(
+                    "tariffs_trial_premium_squads_hint",
+                    {},
+                    "Эти сквады добавляются к обычным сквадам триала. Если поле пустое, premium-доступ не выдаётся."
+                  )}
+                </small>
+              </div>
+              <div class="admin-setting-control admin-trial-squad-control">
+                {#key trialPremiumSquadSelectKey}
+                  <AdminSelect
+                    value={selectedTrialPremiumSquad}
+                    items={panelSquadOptions}
+                    disabled={panelSquadsLoading || !panelSquadOptions.length}
+                    placeholder={panelSquadsLoading
+                      ? at("loading", {}, "Загрузка...")
+                      : at(
+                          "tariffs_trial_add_premium_squad",
+                          {},
+                          "Добавить premium-сквад из панели"
+                        )}
+                    ariaLabel={at(
+                      "tariffs_trial_add_premium_squad",
+                      {},
+                      "Добавить premium-сквад из панели"
+                    )}
+                    onValueChange={handleTrialPremiumSquadSelect}
+                  />
+                {/key}
+                {#if isSettingDirty("TRIAL_PREMIUM_SQUAD_UUIDS", settingsDirty)}
+                  <AdminButton
+                    size="sm"
+                    variant="ghost"
+                    onclick={() => resetSetting("TRIAL_PREMIUM_SQUAD_UUIDS")}
+                  >
+                    <X size={12} />
+                    {at("reset", {}, "Сбросить")}
+                  </AdminButton>
+                {/if}
+                <div class="admin-chip-list">
+                  {#each csvList("TRIAL_PREMIUM_SQUAD_UUIDS", settingsDirty, settingsFieldMap) as uuid}
+                    <button
+                      type="button"
+                      class="admin-chip"
+                      onclick={() => removeTrialPremiumSquad(uuid)}
+                    >
                       {trialSquadLabel(uuid)}
                       <X size={12} />
                     </button>

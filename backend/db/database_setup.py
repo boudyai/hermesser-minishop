@@ -15,19 +15,9 @@ DB_INIT_ADVISORY_LOCK_ID = 817512404897421337
 
 
 def _trial_premium_baseline_bytes(settings: Settings) -> int:
-    if not settings.tariffs_config:
+    if not settings.parsed_trial_premium_squad_uuids:
         return 0
-    premium_squads = {
-        str(uuid)
-        for tariff in settings.tariffs_config.tariffs
-        for uuid in (tariff.premium_squad_uuids or [])
-    }
-    if not premium_squads:
-        return 0
-    trial_squads = settings.parsed_trial_squad_uuids or settings.parsed_user_squad_uuids or []
-    if not any(str(uuid) in premium_squads for uuid in trial_squads):
-        return 0
-    return int(settings.trial_traffic_limit_bytes or 0)
+    return int(settings.trial_premium_traffic_limit_bytes or 0)
 
 
 def redacted_database_url(database_url: str) -> str:

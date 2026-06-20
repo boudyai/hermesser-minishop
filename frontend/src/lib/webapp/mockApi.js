@@ -1050,6 +1050,9 @@ function applyDemoSettingToMock(key, value) {
     DEV_MOCK.config.trialTrafficLimitGb = value;
     DEV_MOCK.data.settings.trial_traffic_limit_gb = Number(value || 0);
   }
+  if (key === "TRIAL_PREMIUM_TRAFFIC_LIMIT_GB") {
+    DEV_MOCK.config.trialPremiumTrafficLimitGb = value;
+  }
   if (key === "TRIAL_TRAFFIC_STRATEGY") {
     DEV_MOCK.config.trialTrafficStrategy = value || "NO_RESET";
     DEV_MOCK.data.settings.trial_traffic_strategy = value || "NO_RESET";
@@ -1059,6 +1062,9 @@ function applyDemoSettingToMock(key, value) {
     DEV_MOCK.data.settings.trial_without_telegram_enabled = Boolean(value);
   }
   if (key === "TRIAL_SQUAD_UUIDS") DEV_MOCK.config.trialSquadUuids = value || "";
+  if (key === "TRIAL_PREMIUM_SQUAD_UUIDS") {
+    DEV_MOCK.config.trialPremiumSquadUuids = value || "";
+  }
   if (key === "REFERRAL_WELCOME_BONUS_DAYS") {
     DEV_MOCK.config.referralWelcomeBonusDays = Number(value || 0);
     DEV_MOCK.data.referral.welcome_bonus_days = Number(value || 0);
@@ -2073,6 +2079,9 @@ export async function mockApi(path, options = {}, context = {}) {
       if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_TRAFFIC_LIMIT_GB")) {
         DEV_MOCK.config.trialTrafficLimitGb = updates.TRIAL_TRAFFIC_LIMIT_GB;
       }
+      if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_PREMIUM_TRAFFIC_LIMIT_GB")) {
+        DEV_MOCK.config.trialPremiumTrafficLimitGb = updates.TRIAL_PREMIUM_TRAFFIC_LIMIT_GB;
+      }
       if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_TRAFFIC_STRATEGY")) {
         DEV_MOCK.config.trialTrafficStrategy = updates.TRIAL_TRAFFIC_STRATEGY || "NO_RESET";
       }
@@ -2086,6 +2095,9 @@ export async function mockApi(path, options = {}, context = {}) {
       }
       if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_SQUAD_UUIDS")) {
         DEV_MOCK.config.trialSquadUuids = updates.TRIAL_SQUAD_UUIDS || "";
+      }
+      if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_PREMIUM_SQUAD_UUIDS")) {
+        DEV_MOCK.config.trialPremiumSquadUuids = updates.TRIAL_PREMIUM_SQUAD_UUIDS || "";
       }
       if (Object.prototype.hasOwnProperty.call(updates, "REFERRAL_WELCOME_BONUS_DAYS")) {
         DEV_MOCK.config.referralWelcomeBonusDays = Number(updates.REFERRAL_WELCOME_BONUS_DAYS || 0);
@@ -2281,6 +2293,14 @@ export async function mockApi(path, options = {}, context = {}) {
               value: DEV_MOCK.config.trialTrafficLimitGb ?? 5,
             },
             {
+              key: "TRIAL_PREMIUM_TRAFFIC_LIMIT_GB",
+              type: "float",
+              section: "pricing",
+              subsection: "trial",
+              label: "Trial premium traffic limit (GB)",
+              value: DEV_MOCK.config.trialPremiumTrafficLimitGb ?? 0,
+            },
+            {
               key: "TRIAL_TRAFFIC_STRATEGY",
               type: "string",
               section: "pricing",
@@ -2303,6 +2323,14 @@ export async function mockApi(path, options = {}, context = {}) {
               subsection: "trial",
               label: "Internal Squads для триала",
               value: DEV_MOCK.config.trialSquadUuids || "",
+            },
+            {
+              key: "TRIAL_PREMIUM_SQUAD_UUIDS",
+              type: "string",
+              section: "pricing",
+              subsection: "trial",
+              label: "Premium Internal Squads for trial",
+              value: DEV_MOCK.config.trialPremiumSquadUuids || "",
             },
             {
               key: "REFERRAL_WELCOME_BONUS_DAYS",

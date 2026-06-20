@@ -427,6 +427,18 @@ SETTINGS_MANIFEST: List[SettingField] = [
         subsection="trial",
     ),
     SettingField(
+        "TRIAL_PREMIUM_TRAFFIC_LIMIT_GB",
+        "float",
+        "pricing",
+        "Trial premium traffic limit (GB)",
+        (
+            "Separate premium traffic limit for trial subscriptions. "
+            "0 disables premium traffic enforcement."
+        ),
+        min=0,
+        subsection="trial",
+    ),
+    SettingField(
         "TRIAL_TRAFFIC_STRATEGY",
         "string",
         "pricing",
@@ -456,6 +468,17 @@ SETTINGS_MANIFEST: List[SettingField] = [
         subsection="trial",
     ),
     # ─── Referral program ──────────────────────────────────────────
+    SettingField(
+        "TRIAL_PREMIUM_SQUAD_UUIDS",
+        "string",
+        "pricing",
+        "Premium Internal Squads for trial",
+        (
+            "Comma-separated premium internal squad UUIDs. "
+            "Empty value disables premium squads for trials."
+        ),
+        subsection="trial",
+    ),
     SettingField(
         "REFERRAL_ONE_BONUS_PER_REFEREE",
         "bool",
