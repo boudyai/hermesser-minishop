@@ -28,6 +28,15 @@ class _I18n:
         return key
 
 
+class _TemplateI18n:
+    def __init__(self, templates):
+        self.templates = templates
+
+    def gettext(self, _language, key, **kwargs):
+        template = self.templates.get(key, key)
+        return template.format(**kwargs)
+
+
 def _settings():
     return SimpleNamespace(
         DEFAULT_LANGUAGE="en",
@@ -37,11 +46,20 @@ def _settings():
 
 
 def _context(*, notification_service=None, email_auth_service=None, bot=None):
+    return _context_with_i18n(
+        _I18n(),
+        notification_service=notification_service,
+        email_auth_service=email_auth_service,
+        bot=bot,
+    )
+
+
+def _context_with_i18n(i18n, *, notification_service=None, email_auth_service=None, bot=None):
     return PluginContext(
         settings=_settings(),
         session_factory=_SessionFactory(),
         bot=bot or SimpleNamespace(send_message=AsyncMock()),
-        i18n=_I18n(),
+        i18n=i18n,
         services={
             "notification_service": notification_service
             or SimpleNamespace(
@@ -467,6 +485,146 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
             dashboard_url="https://mini.example.test",
         )
 
+    async def test_payment_canceled_event_includes_attempt_details(self):
+        templates = {
+            "payment_failed": "payment failed",
+            "payment_failed_with_details": "{message}\n\nDetails:\n{details}",
+            "payment_failed_detail_item": "- {item}",
+            "payment_failed_detail_subscription_with_tariff": "{tariff} for {months} months",
+            "payment_failed_detail_purchase_hwid_devices": "{count} extra devices",
+            "payment_failed_detail_amount": "- Amount: {amount} {currency}",
+            "payment_failed_detail_provider": "- Provider: {provider}",
+            "payment_failed_detail_payment_id": "- Payment ID: {payment_id}",
+        }
+        bot = SimpleNamespace(send_message=AsyncMock())
+        email = AsyncMock()
+        ctx = _context_with_i18n(_TemplateI18n(templates), bot=bot)
+        ctx.settings.tariffs_config = SimpleNamespace(
+            require=lambda _key: SimpleNamespace(name=lambda _language: "Standard")
+        )
+        user = SimpleNamespace(language_code="en", email="alice@example.test")
+        payment = SimpleNamespace(
+            payment_id=42,
+            user_id=42,
+            status="failed",
+            amount=1500.0,
+            currency="RUB",
+            provider="platega",
+            sale_mode="subscription@standard",
+            tariff_key="standard",
+            subscription_duration_months=3,
+            purchased_hwid_devices=2,
+            created_at=datetime(2026, 1, 9, 12, 0, tzinfo=timezone.utc),
+        )
+
+        with (
+            patch.object(event_reactions.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
+            patch.object(
+                event_reactions.payment_dal,
+                "get_payment_by_db_id",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(
+                event_reactions.payment_dal,
+                "get_user_succeeded_payments_after",
+                AsyncMock(return_value=[]),
+            ),
+            patch.object(event_reactions, "send_user_notification_email", email),
+        ):
+            register_core_reactions(ctx)
+            await events.emit(
+                events.PAYMENT_CANCELED,
+                {
+                    "user_id": 42,
+                    "payment_db_id": 42,
+                    "provider": "platega",
+                    "message_key": "payment_failed",
+                },
+            )
+
+        expected = (
+            "payment failed\n\n"
+            "Details:\n"
+            "- Standard for 3 months\n"
+            "- 2 extra devices\n"
+            "- Amount: 1500 RUB\n"
+            "- Provider: Platega (platega)\n"
+            "- Payment ID: 42"
+        )
+        bot.send_message.assert_awaited_once_with(42, expected)
+        email.assert_awaited_once_with(
+            settings=ctx.settings,
+            i18n=ctx.i18n,
+            user=user,
+            subject_key="email_payment_failed_subject",
+            message_text=expected,
+            dashboard_url="https://mini.example.test",
+        )
+
+    async def test_payment_canceled_event_includes_traffic_attempt_details(self):
+        templates = {
+            "payment_failed": "payment failed",
+            "payment_failed_with_details": "{message}\n\nDetails:\n{details}",
+            "payment_failed_detail_item": "- {item}",
+            "payment_failed_detail_purchase_traffic": "{gb} GB - {kind}",
+            "payment_failed_traffic_kind_premium": "premium traffic",
+            "payment_failed_detail_amount": "- Amount: {amount} {currency}",
+            "payment_failed_detail_provider": "- Provider: {provider}",
+            "payment_failed_detail_payment_id": "- Payment ID: {payment_id}",
+        }
+        bot = SimpleNamespace(send_message=AsyncMock())
+        email = AsyncMock()
+        ctx = _context_with_i18n(_TemplateI18n(templates), bot=bot)
+        user = SimpleNamespace(language_code="en", email="alice@example.test")
+        payment = SimpleNamespace(
+            payment_id=43,
+            user_id=42,
+            status="failed",
+            amount=250.5,
+            currency="RUB",
+            provider="platega",
+            sale_mode="premium_topup@standard",
+            tariff_key="standard",
+            purchased_gb=10.0,
+            created_at=datetime(2026, 1, 9, 12, 0, tzinfo=timezone.utc),
+        )
+
+        with (
+            patch.object(event_reactions.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
+            patch.object(
+                event_reactions.payment_dal,
+                "get_payment_by_db_id",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(
+                event_reactions.payment_dal,
+                "get_user_succeeded_payments_after",
+                AsyncMock(return_value=[]),
+            ),
+            patch.object(event_reactions, "send_user_notification_email", email),
+        ):
+            register_core_reactions(ctx)
+            await events.emit(
+                events.PAYMENT_CANCELED,
+                {
+                    "user_id": 42,
+                    "payment_db_id": 43,
+                    "provider": "platega",
+                    "message_key": "payment_failed",
+                },
+            )
+
+        expected = (
+            "payment failed\n\n"
+            "Details:\n"
+            "- 10 GB - premium traffic\n"
+            "- Amount: 250.5 RUB\n"
+            "- Provider: Platega (platega)\n"
+            "- Payment ID: 43"
+        )
+        bot.send_message.assert_awaited_once_with(42, expected)
+        email.assert_awaited_once()
+
     async def test_payment_canceled_event_skips_stale_platega_failure_after_later_success(self):
         bot = SimpleNamespace(send_message=AsyncMock())
         email = AsyncMock()
@@ -564,7 +722,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
                 {"user_id": 42, "payment_db_id": 20, "message_key": "payment_failed"},
             )
 
-        bot.send_message.assert_awaited_once_with(42, "payment_failed")
+        bot.send_message.assert_awaited_once_with(42, "payment_failed_with_details")
         email.assert_awaited_once()
 
     async def test_payment_canceled_event_skips_when_payment_already_succeeded(self):
