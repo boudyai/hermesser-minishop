@@ -2428,7 +2428,7 @@
     invalidateWebappTariffOptionCaches(billingStore);
     installGuidesStore.reset();
     try {
-      await loadData();
+      await loadData({ fresh: true, preserveView: true });
     } catch {
       // Admin save already succeeded; a later full refresh will pick up new settings or catalog.
     }
