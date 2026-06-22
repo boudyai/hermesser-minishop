@@ -47,11 +47,15 @@ def _build_core_webapp() -> web.Application:
 
 def _route_path(route: web.AbstractRoute) -> str:
     resource = route.resource
+    if resource is None:
+        return ""
     info = resource.get_info()
     return str(info.get("formatter") or getattr(resource, "canonical", ""))
 
 
 def _group_pattern(route: web.AbstractRoute, name: str) -> str | None:
+    if route.resource is None:
+        return None
     pattern = route.resource.get_info().get("pattern")
     if pattern is None:
         return None

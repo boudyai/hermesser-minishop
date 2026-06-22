@@ -80,6 +80,90 @@ jobs:
       - name: Check demo settings manifest is in sync
         run: python -m pytest tests/test_settings_manifest_demo_sync.py -q
 
+  test:
+    name: Python tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: app_user
+          POSTGRES_PASSWORD: app_password
+          POSTGRES_DB: vpn_shop_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app_user -d vpn_shop_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: app_password
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: vpn_shop_db
+      REDIS_URL: redis://127.0.0.1:6379/0
+      BOT_TOKEN: "1234567890:AA_secret_bot_token_value"
+      ADMIN_IDS: "1"
+      WEBAPP_SESSION_SECRET: "test-webapp-session-secret"
+      WEBHOOK_SECRET_TOKEN: "test-webhook-secret"
+      PANEL_API_URL: "https://panel.example.test"
+      PANEL_API_KEY: "test-panel-api-key"
+      PANEL_WEBHOOK_SECRET: "test-panel-webhook-secret"
+      SUBSCRIPTION_MINI_APP_URL: "https://miniapp.example.test"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend deps + pytest
+        run: pip install -r backend/requirements.txt pytest
+
+      - name: Run full pytest suite
+        run: python -m pytest -q
+
+  typecheck:
+    name: Python typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend deps + mypy
+        run: pip install -r backend/requirements.txt "mypy>=1.15,<2"
+
+      - name: Mypy scoped typed API modules
+        run: >-
+          python -m mypy
+          backend/bot/infra/event_payloads.py
+          backend/bot/app/web/admin_api_impl/schemas.py
+          backend/bot/app/web/http_contracts.py
+          backend/bot/app/web/route_contracts.py
+          backend/bot/app/web/openapi.py
+
   build:
     name: Docker build
     uses: ./.github/workflows/_docker-build-push.yml
