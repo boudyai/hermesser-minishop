@@ -6,6 +6,8 @@ MYPY_PATHS := \
 	backend/bot/infra \
 	backend/bot/middlewares \
 	backend/bot/utils \
+	backend/bot/plugins \
+	backend/bot/keyboards \
 	backend/bot/payment_providers \
 	backend/bot/services \
 	backend/bot/handlers \
