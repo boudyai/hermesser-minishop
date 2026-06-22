@@ -25,9 +25,8 @@ from .assets import (
 from .common import (
     _coerce_int_or_none,
     _json_error,
-    _read_json,
+    _parse_model_payload,
     _require_user_id,
-    _validate_model_payload,
 )
 from .payloads import (
     WebAppDeviceDisconnectPayload,
@@ -164,12 +163,7 @@ async def disconnect_device_route(request: web.Request) -> web.Response:
     if not settings.MY_DEVICES_SECTION_ENABLED:
         return _json_error(404, "devices_disabled", "Devices section is disabled")
 
-    payload = await _read_json(request)
-    disconnect_payload, validation_error = _validate_model_payload(
-        WebAppDeviceDisconnectPayload, payload
-    )
-    if validation_error:
-        return validation_error
+    disconnect_payload = await _parse_model_payload(request, WebAppDeviceDisconnectPayload)
     token = str(disconnect_payload.token or "").strip()
 
     async_session_factory: sessionmaker = request.app["async_session_factory"]

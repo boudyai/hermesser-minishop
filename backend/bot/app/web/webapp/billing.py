@@ -4,12 +4,12 @@ from bot.app.web.webapp.common import (
     _invalidate_webapp_user_caches,
     _json_error,
     _normalize_language,
-    _read_json,
-    _validate_model_payload,
+    _parse_model_payload,
 )
 from bot.app.web.webapp.payloads import (
     WebAppAutoRenewPayload,
     WebAppPaymentCreatePayload,
+    WebAppPromoApplyPayload,
     WebAppTariffChangePayload,
 )
 from bot.infra import events
@@ -120,8 +120,8 @@ def _parse_positive_int_units(value: Any) -> Optional[int]:
 
 async def apply_promo_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    payload = await _read_json(request)
-    code = str(payload.get("code") or "").strip()
+    promo_payload = await _parse_model_payload(request, WebAppPromoApplyPayload)
+    code = str(promo_payload.code or "").strip()
     if not code:
         return _json_error(400, "empty_code", "Promo code is empty")
 
@@ -164,13 +164,7 @@ async def apply_promo_route(request: web.Request) -> web.Response:
 
 async def subscription_auto_renew_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    payload = await _read_json(request)
-    auto_renew_payload, validation_error = _validate_model_payload(
-        WebAppAutoRenewPayload,
-        payload,
-    )
-    if validation_error:
-        return validation_error
+    auto_renew_payload = await _parse_model_payload(request, WebAppAutoRenewPayload)
 
     enabled = bool(auto_renew_payload.enabled)
     settings: Settings = request.app["settings"]
@@ -268,10 +262,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
     if rate_limit_response:
         return rate_limit_response
 
-    payload = await _read_json(request)
-    payment_payload, validation_error = _validate_model_payload(WebAppPaymentCreatePayload, payload)
-    if validation_error:
-        return validation_error
+    payment_payload = await _parse_model_payload(request, WebAppPaymentCreatePayload)
     method = str(payment_payload.method or "").strip().lower()
     settings: Settings = request.app["settings"]
     subscription_service: SubscriptionService = request.app["subscription_service"]
@@ -284,6 +275,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
     traffic_gb_for_payment: Optional[float] = None
     hwid_quote: Optional[Dict[str, Any]] = None
     requested_sale_mode = _sale_mode_base(str(payment_payload.sale_mode or ""))
+    payment_units: int | float
 
     if tariffs_config and requested_sale_mode == "hwid_devices_renewal":
         return _json_error(400, "invalid_plan", "Device renewal is part of subscription renewal")
@@ -758,10 +750,7 @@ async def tariff_change_options_route(request: web.Request) -> web.Response:
 
 async def tariff_change_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    payload = await _read_json(request)
-    change_payload, validation_error = _validate_model_payload(WebAppTariffChangePayload, payload)
-    if validation_error:
-        return validation_error
+    change_payload = await _parse_model_payload(request, WebAppTariffChangePayload)
     mode = str(change_payload.mode or "").strip()
     if mode not in {"recalc_days", "convert_days_to_gb"}:
         return _json_error(400, "invalid_change_mode", "This tariff change requires payment")
@@ -790,10 +779,7 @@ async def tariff_change_route(request: web.Request) -> web.Response:
 
 async def tariff_change_payment_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    payload = await _read_json(request)
-    payment_payload, validation_error = _validate_model_payload(WebAppPaymentCreatePayload, payload)
-    if validation_error:
-        return validation_error
+    payment_payload = await _parse_model_payload(request, WebAppPaymentCreatePayload)
     method = str(payment_payload.method or "").strip().lower()
     tariff_key = str(payment_payload.tariff_key or "").strip()
     settings: Settings = request.app["settings"]
@@ -909,6 +895,7 @@ async def device_topup_options_route(request: web.Request) -> web.Response:
             if not currency_quote and not stars_quote:
                 continue
             quote = currency_quote or stars_quote
+            assert quote is not None
             valid_from = quote.get("valid_from")
             valid_until = quote.get("valid_until")
             plan = {

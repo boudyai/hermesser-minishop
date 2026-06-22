@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from aiohttp import web
+
 import bot.app.web.admin_api  # noqa: F401 - populates admin_api_impl module namespaces
 from bot.app.web.admin_api_impl import ads as ads_module
 from bot.app.web.admin_api_impl import common as common_module
@@ -27,6 +29,13 @@ class _FakeRequest:
 
 def _json_body(response):
     return json.loads(response.text)
+
+
+def _run_direct_bad_request(coro):
+    try:
+        return asyncio.run(coro)
+    except web.HTTPBadRequest as exc:
+        return exc
 
 
 def _payment(**overrides):
@@ -138,7 +147,7 @@ def test_ad_create_rejects_malformed_typed_body():
         with patch.object(ads_module, "_require_admin_user_id", return_value=100):
             return await ads_module.admin_ad_create_route(request)
 
-    response = asyncio.run(run())
+    response = _run_direct_bad_request(run())
 
     assert response.status == 400
     assert _json_body(response)["error"] == "invalid_payload"

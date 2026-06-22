@@ -38,14 +38,6 @@ def _error(status: int, code: str, message: str = "") -> web.Response:
     )
 
 
-async def _read_json(request: web.Request) -> Dict[str, Any]:
-    try:
-        data = await request.json()
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
-
-
 _PANEL_LAST_CONNECTED_KEYS = (
     "onlineAt",
     "online_at",

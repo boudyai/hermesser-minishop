@@ -10,9 +10,8 @@ from ._runtime import (
 )
 from .common import (
     _json_error,
-    _read_json,
+    _parse_model_payload,
     _require_user_id,
-    _validate_model_payload,
 )
 from .payloads import (
     CreateTicketPayload,
@@ -86,9 +85,7 @@ async def support_tickets_route(request: web.Request) -> web.Response:
 
 async def support_create_ticket_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    payload, error = _validate_model_payload(CreateTicketPayload, await _read_json(request))
-    if error:
-        return error
+    payload = await _parse_model_payload(request, CreateTicketPayload)
     service = request.app["support_service"]
     try:
         ticket = await service.create_ticket(
@@ -125,9 +122,7 @@ async def support_ticket_detail_route(request: web.Request) -> web.Response:
 async def support_ticket_reply_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     ticket_id = int(request.match_info["id"])
-    payload, error = _validate_model_payload(TicketReplyPayload, await _read_json(request))
-    if error:
-        return error
+    payload = await _parse_model_payload(request, TicketReplyPayload)
     service = request.app["support_service"]
     try:
         ticket, message = await service.reply_as_user(user_id, ticket_id, payload.body)

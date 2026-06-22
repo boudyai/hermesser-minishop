@@ -6,7 +6,7 @@ from ._runtime import (
     RouteContract,
     ad_dal,
     ok_envelope_for,
-    parse_body,
+    parse_body_or_400,
     register_contract,
     sessionmaker,
     web,
@@ -66,9 +66,7 @@ async def admin_ads_list_route(request: web.Request) -> web.Response:
 
 async def admin_ad_create_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    body, error = await parse_body(request, AdCreateBody)
-    if error:
-        return error
+    body = await parse_body_or_400(request, AdCreateBody)
     source = body.source
     start_param = body.start_param
     cost = body.cost
@@ -92,9 +90,7 @@ async def admin_ad_create_route(request: web.Request) -> web.Response:
 async def admin_ad_toggle_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     campaign_id = int(request.match_info["campaign_id"])
-    body, error = await parse_body(request, AdToggleBody)
-    if error:
-        return error
+    body = await parse_body_or_400(request, AdToggleBody)
     is_active = bool(body.is_active)
     async_session_factory: sessionmaker = request.app["async_session_factory"]
     async with async_session_factory() as session:

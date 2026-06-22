@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+from aiohttp import web
+
 import bot.app.web.admin_api  # noqa: F401 - populates admin_api_impl module namespaces
 from bot.app.web.admin_api_impl import common as common_module
 from bot.app.web.admin_api_impl import promos as promos_module
@@ -57,6 +59,13 @@ def _json_body(response):
     return json.loads(response.text)
 
 
+def _run_direct_bad_request(coro):
+    try:
+        return asyncio.run(coro)
+    except web.HTTPBadRequest as exc:
+        return exc
+
+
 def test_promo_response_model_matches_legacy_serializer():
     promo = _promo(created_by_admin_id=None)
 
@@ -72,7 +81,7 @@ def test_promo_create_rejects_malformed_json():
         with patch.object(promos_module, "_require_admin_user_id", return_value=100):
             return await promos_module.admin_promo_create_route(request)
 
-    response = asyncio.run(run())
+    response = _run_direct_bad_request(run())
 
     assert response.status == 400
     assert _json_body(response)["error"] == "invalid_payload"

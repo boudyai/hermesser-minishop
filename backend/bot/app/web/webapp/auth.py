@@ -56,18 +56,18 @@ from .common import (
     _invalidate_webapp_user_caches,
     _json_error,
     _normalize_language,
-    _read_json,
+    _parse_model_payload,
     _require_user_id,
     _resolve_telegram_oauth_client_id,
     _resolve_telegram_oauth_request_access,
     _telegram_id_for_user,
-    _validate_model_payload,
 )
 from .payloads import (
-    WebAppEmailCodePayload,
-    WebAppEmailMagicPayload,
+    WebAppEmailCodeAuthPayload,
+    WebAppEmailMagicAuthPayload,
     WebAppEmailPasswordPayload,
-    WebAppEmailPayload,
+    WebAppEmailRequestPayload,
+    WebAppTelegramAuthPayload,
 )
 from .telegram_notifications import _probe_telegram_notifications_for_user_id
 
@@ -515,8 +515,9 @@ async def _validate_telegram_auth_payload(
 
 async def auth_token_route(request: web.Request) -> web.Response:
     settings: Settings = request.app["settings"]
-    payload = await _read_json(request)
-    referral_param = str(payload.get("referral_code") or payload.get("start_param") or "")
+    auth_payload = await _parse_model_payload(request, WebAppTelegramAuthPayload)
+    payload = auth_payload.model_dump(mode="json", exclude_none=True)
+    referral_param = str(auth_payload.referral_code or auth_payload.start_param or "")
     telegram_user = await _validate_telegram_auth_payload(request, payload)
 
     if not telegram_user:
@@ -596,13 +597,7 @@ async def email_password_auth_route(request: web.Request) -> web.Response:
     if not settings.email_auth_configured:
         return _json_error(503, "email_auth_not_configured", "Email auth is not configured")
 
-    payload = await _read_json(request)
-    password_payload, validation_error = _validate_model_payload(
-        WebAppEmailPasswordPayload,
-        payload,
-    )
-    if validation_error:
-        return validation_error
+    password_payload = await _parse_model_payload(request, WebAppEmailPasswordPayload)
 
     email = password_payload.email
     password = str(password_payload.password or "")
@@ -685,12 +680,9 @@ async def email_password_auth_route(request: web.Request) -> web.Response:
 
 async def email_auth_request_route(request: web.Request) -> web.Response:
     settings: Settings = request.app["settings"]
-    payload = await _read_json(request)
-    email_payload, validation_error = _validate_model_payload(WebAppEmailPayload, payload)
-    if validation_error:
-        return validation_error
+    email_payload = await _parse_model_payload(request, WebAppEmailRequestPayload)
     email = email_payload.email
-    lang = _normalize_language(str(payload.get("language") or settings.DEFAULT_LANGUAGE))
+    lang = _normalize_language(str(email_payload.language or settings.DEFAULT_LANGUAGE))
     return await _request_email_code(
         request,
         email=email,
@@ -702,13 +694,10 @@ async def email_auth_request_route(request: web.Request) -> web.Response:
 
 async def email_auth_verify_route(request: web.Request) -> web.Response:
     settings: Settings = request.app["settings"]
-    payload = await _read_json(request)
-    email_payload, validation_error = _validate_model_payload(WebAppEmailCodePayload, payload)
-    if validation_error:
-        return validation_error
+    email_payload = await _parse_model_payload(request, WebAppEmailCodeAuthPayload)
     email = email_payload.email
     code = str(email_payload.code or "")
-    referral_param = str(payload.get("referral_code") or payload.get("start_param") or "")
+    referral_param = str(email_payload.referral_code or email_payload.start_param or "")
     email_service: EmailAuthService = request.app["email_auth_service"]
     async_session_factory: sessionmaker = request.app["async_session_factory"]
     created_user = False
@@ -794,12 +783,9 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
 
 async def email_auth_magic_route(request: web.Request) -> web.Response:
     settings: Settings = request.app["settings"]
-    payload = await _read_json(request)
-    magic_payload, validation_error = _validate_model_payload(WebAppEmailMagicPayload, payload)
-    if validation_error:
-        return validation_error
+    magic_payload = await _parse_model_payload(request, WebAppEmailMagicAuthPayload)
     token_value = str(magic_payload.token).strip()
-    referral_param = str(payload.get("referral_code") or payload.get("start_param") or "")
+    referral_param = str(magic_payload.referral_code or magic_payload.start_param or "")
     email_service: EmailAuthService = request.app["email_auth_service"]
     async_session_factory: sessionmaker = request.app["async_session_factory"]
     created_user = False

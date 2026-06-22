@@ -7,12 +7,14 @@ from ._runtime import (
     RouteContract,
     Settings,
     TariffsConfig,
+    TariffsSaveBody,
     ValidationError,
     default_payment_currency_code_for_settings,
     logger,
     loose_array_schema,
     loose_object_schema,
     ok_envelope_with,
+    parse_body_or_400,
     register_contract,
     web,
 )
@@ -22,25 +24,12 @@ from .auth import (
 from .common import (
     _error,
     _ok,
-    _read_json,
     _tariffs_config_path,
     _tariffs_config_payload,
     _write_tariffs_config_file,
 )
 from .webapp_runtime import refresh_webapp_runtime_after_settings_change
 
-_TARIFFS_CONFIG_REF = {"$ref": "#/components/schemas/TariffsConfig"}
-_TARIFFS_SAVE_BODY_SCHEMA = {
-    "oneOf": [
-        _TARIFFS_CONFIG_REF,
-        {
-            "type": "object",
-            "additionalProperties": True,
-            "required": ["catalog"],
-            "properties": {"catalog": _TARIFFS_CONFIG_REF},
-        },
-    ]
-}
 _TARIFFS_RESPONSE_SCHEMA = ok_envelope_with(
     {
         "exists": BOOLEAN_SCHEMA,
@@ -57,7 +46,7 @@ register_contract(
 register_contract(
     "admin_tariffs_save_route",
     RouteContract(
-        request_schema=_TARIFFS_SAVE_BODY_SCHEMA,
+        request_model=TariffsSaveBody,
         response_schema=_TARIFFS_RESPONSE_SCHEMA,
         models=(TariffsConfig,),
     ),
@@ -106,8 +95,8 @@ async def admin_tariffs_get_route(request: web.Request) -> web.Response:
 async def admin_tariffs_save_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     settings: Settings = request.app["settings"]
-    payload = await _read_json(request)
-    catalog = payload.get("catalog") if "catalog" in payload else payload
+    body = await parse_body_or_400(request, TariffsSaveBody)
+    catalog = body.catalog_payload()
     if not isinstance(catalog, dict):
         return _error(400, "invalid_payload", "catalog must be an object")
 

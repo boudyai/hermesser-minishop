@@ -7,7 +7,7 @@ from ._runtime import (
     RouteContract,
     datetime,
     ok_envelope_for,
-    parse_body,
+    parse_body_or_400,
     promo_code_dal,
     register_contract,
     sessionmaker,
@@ -83,9 +83,7 @@ async def admin_promos_list_route(request: web.Request) -> web.Response:
 
 async def admin_promo_create_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
-    body, error = await parse_body(request, PromoCreateBody)
-    if error:
-        return error
+    body = await parse_body_or_400(request, PromoCreateBody)
     code = body.code
     bonus_days = body.bonus_days
     max_activations = body.max_activations
@@ -120,9 +118,7 @@ async def admin_promo_create_route(request: web.Request) -> web.Response:
 async def admin_promo_update_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     promo_id = int(request.match_info["promo_id"])
-    body, error = await parse_body(request, PromoUpdateBody)
-    if error:
-        return error
+    body = await parse_body_or_400(request, PromoUpdateBody)
     update_data: Dict[str, Any] = {}
     fields_set = body.model_fields_set
     if "is_active" in fields_set:

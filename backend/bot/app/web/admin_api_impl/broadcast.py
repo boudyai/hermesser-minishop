@@ -6,6 +6,7 @@ from bot.utils.ttl_cache import AsyncTTLCache
 from ._runtime import (
     INTEGER_SCHEMA,
     STRING_SCHEMA,
+    AdminBroadcastBody,
     Any,
     AsyncSession,
     Dict,
@@ -22,6 +23,7 @@ from ._runtime import (
     loose_object_schema,
     message_log_dal,
     ok_envelope_with,
+    parse_body_or_400,
     register_contract,
     select,
     send_message_via_queue,
@@ -37,7 +39,6 @@ from .common import (
     _error,
     _ok,
     _panel_user_connection_activity,
-    _read_json,
 )
 
 BROADCAST_TARGET_ACTIVE_NEVER_CONNECTED = "active_never_connected"
@@ -55,15 +56,7 @@ _ADMIN_BROADCAST_AUDIENCE_COUNT_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {
 register_contract(
     "admin_broadcast_route",
     RouteContract(
-        request_schema={
-            "type": "object",
-            "additionalProperties": True,
-            "required": ["text"],
-            "properties": {
-                "text": STRING_SCHEMA,
-                "target": {"type": "string", "enum": sorted(BROADCAST_TARGETS)},
-            },
-        },
+        request_model=AdminBroadcastBody,
         response_schema=ok_envelope_with(
             {"queued": INTEGER_SCHEMA, "failed": INTEGER_SCHEMA, "target": STRING_SCHEMA}
         ),
@@ -218,9 +211,9 @@ async def _load_broadcast_audience_counts_uncached(
 
 async def admin_broadcast_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
-    payload = await _read_json(request)
-    text = str(payload.get("text") or "").strip()
-    target = str(payload.get("target") or "all").strip().lower()
+    body = await parse_body_or_400(request, AdminBroadcastBody)
+    text = str(body.text or "").strip()
+    target = str(body.target or "all").strip().lower()
     if not text:
         return _error(400, "empty_text")
     if target not in BROADCAST_TARGETS:

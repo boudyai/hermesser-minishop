@@ -395,7 +395,8 @@ async def webapp_logo_route(request: web.Request) -> web.Response:
         raise web.HTTPNotFound(text="webapp_logo_not_proxied")
 
     parsed_logo_url = urlsplit(raw_logo_url)
-    if not await _hostname_resolves_to_public_address(parsed_logo_url.hostname):
+    logo_hostname = parsed_logo_url.hostname
+    if not logo_hostname or not await _hostname_resolves_to_public_address(logo_hostname):
         raise web.HTTPNotFound(text="webapp_logo_not_proxied")
 
     source_logo_url = raw_logo_url
@@ -1355,13 +1356,14 @@ async def app_deeplink_route(request: web.Request) -> web.Response:
 
 def _app_deeplink_i18n_payload(request: web.Request, lang: str) -> Dict[str, str]:
     i18n_instance: Optional[object] = request.app.get("i18n")
+    gettext = getattr(i18n_instance, "gettext", None)
     payload: Dict[str, str] = {}
     for payload_key, i18n_key in APP_DEEPLINK_I18N_KEYS.items():
         fallback = APP_DEEPLINK_I18N_FALLBACKS[i18n_key]
         value = ""
-        if i18n_instance is not None:
+        if callable(gettext):
             try:
-                value = str(i18n_instance.gettext(lang, i18n_key) or "")
+                value = str(gettext(lang, i18n_key) or "")
             except Exception as exc:
                 logger.debug("Failed to resolve open-app i18n key %s: %s", i18n_key, exc)
         payload[payload_key] = value if value and value != i18n_key else fallback

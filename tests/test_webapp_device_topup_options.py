@@ -19,6 +19,15 @@ class _SessionFactory:
         return False
 
 
+class _JsonRequest(SimpleNamespace):
+    def __init__(self, payload, **kwargs):
+        super().__init__(**kwargs)
+        self._payload = payload
+
+    async def json(self):
+        return self._payload
+
+
 class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
     async def test_serializes_active_hwid_validity_window(self):
         active_until = datetime(2099, 1, 2, 3, 4, tzinfo=timezone.utc)
@@ -56,12 +65,19 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
                 }
             ),
         )
-        request = SimpleNamespace(
+        request = _JsonRequest(
+            {
+                "method": "yookassa",
+                "months": 1,
+                "device_count": 1,
+                "tariff_key": "standard",
+                "sale_mode": "hwid_devices",
+            },
             app={
                 "settings": settings,
                 "async_session_factory": _SessionFactory(),
                 "subscription_service": subscription_service,
-            }
+            },
         )
         db_user = SimpleNamespace(
             is_banned=False,
@@ -141,12 +157,19 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
             ),
             quote_hwid_device_topup=AsyncMock(side_effect=quote_hwid_device_topup),
         )
-        request = SimpleNamespace(
+        request = _JsonRequest(
+            {
+                "method": "yookassa",
+                "months": 1,
+                "device_count": 1,
+                "tariff_key": "standard",
+                "sale_mode": "hwid_devices",
+            },
             app={
                 "settings": settings,
                 "async_session_factory": _SessionFactory(),
                 "subscription_service": subscription_service,
-            }
+            },
         )
         db_user = SimpleNamespace(
             is_banned=False,
@@ -218,12 +241,19 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
         subscription_service = SimpleNamespace(
             quote_hwid_device_topup=AsyncMock(return_value=quote)
         )
-        request = SimpleNamespace(
+        request = _JsonRequest(
+            {
+                "method": "yookassa",
+                "months": 1,
+                "device_count": 1,
+                "tariff_key": "standard",
+                "sale_mode": "hwid_devices",
+            },
             app={
                 "settings": settings,
                 "async_session_factory": _SessionFactory(),
                 "subscription_service": subscription_service,
-            }
+            },
         )
         db_user = SimpleNamespace(
             is_banned=False,
@@ -248,19 +278,6 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
                 billing_module,
                 "_enforce_webapp_rate_limit",
                 AsyncMock(return_value=None),
-            ),
-            patch.object(
-                billing_module,
-                "_read_json",
-                AsyncMock(
-                    return_value={
-                        "method": "yookassa",
-                        "months": 1,
-                        "device_count": 1,
-                        "tariff_key": "standard",
-                        "sale_mode": "hwid_devices",
-                    }
-                ),
             ),
             patch.object(
                 billing_module,
@@ -322,12 +339,19 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
         subscription_service = SimpleNamespace(
             quote_hwid_device_renewal_for_subscription=AsyncMock(return_value=hwid_quote)
         )
-        request = SimpleNamespace(
+        request = _JsonRequest(
+            {
+                "method": "yookassa",
+                "months": 1,
+                "tariff_key": "standard",
+                "sale_mode": "subscription",
+                "renew_hwid_devices": True,
+            },
             app={
                 "settings": settings,
                 "async_session_factory": _SessionFactory(),
                 "subscription_service": subscription_service,
-            }
+            },
         )
         db_user = SimpleNamespace(
             is_banned=False,
@@ -351,19 +375,6 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
                 billing_module,
                 "_enforce_webapp_rate_limit",
                 AsyncMock(return_value=None),
-            ),
-            patch.object(
-                billing_module,
-                "_read_json",
-                AsyncMock(
-                    return_value={
-                        "method": "yookassa",
-                        "months": 1,
-                        "tariff_key": "standard",
-                        "sale_mode": "subscription",
-                        "renew_hwid_devices": True,
-                    }
-                ),
             ),
             patch.object(
                 billing_module,
@@ -413,12 +424,19 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
             DEFAULT_CURRENCY_SYMBOL="RUB",
         )
         subscription_service = SimpleNamespace(quote_hwid_device_topup=AsyncMock())
-        request = SimpleNamespace(
+        request = _JsonRequest(
+            {
+                "method": "yookassa",
+                "months": 1.9,
+                "device_count": 1.9,
+                "tariff_key": "standard",
+                "sale_mode": "hwid_devices",
+            },
             app={
                 "settings": settings,
                 "async_session_factory": _SessionFactory(),
                 "subscription_service": subscription_service,
-            }
+            },
         )
 
         with (
@@ -427,19 +445,6 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
                 billing_module,
                 "_enforce_webapp_rate_limit",
                 AsyncMock(return_value=None),
-            ),
-            patch.object(
-                billing_module,
-                "_read_json",
-                AsyncMock(
-                    return_value={
-                        "method": "yookassa",
-                        "months": 1.9,
-                        "device_count": 1.9,
-                        "tariff_key": "standard",
-                        "sale_mode": "hwid_devices",
-                    }
-                ),
             ),
             patch.object(
                 billing_module,

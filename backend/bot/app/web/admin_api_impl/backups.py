@@ -1,6 +1,8 @@
 import secrets
 import subprocess
 
+from aiohttp.multipart import BodyPartReader
+
 from bot.infra.redis import redis_lock
 from bot.services.backup_restore_service import (
     BACKUP_UPLOAD_MAX_BYTES,
@@ -13,8 +15,8 @@ from bot.services.backup_worker import BackupWorker
 
 from ._runtime import (
     BINARY_RESPONSE_SCHEMA,
-    BOOLEAN_SCHEMA,
     STRING_SCHEMA,
+    AdminBackupRestoreBody,
     Any,
     Dict,
     Optional,
@@ -25,6 +27,7 @@ from ._runtime import (
     loose_array_schema,
     loose_object_schema,
     ok_envelope_with,
+    parse_body_or_400,
     register_contract,
     web,
 )
@@ -34,7 +37,6 @@ from .auth import (
 from .common import (
     _error,
     _ok,
-    _read_json,
 )
 
 _BACKUP_UPLOAD_BODY_SCHEMA = {
@@ -42,18 +44,6 @@ _BACKUP_UPLOAD_BODY_SCHEMA = {
     "required": ["file"],
     "properties": {"file": BINARY_RESPONSE_SCHEMA},
 }
-_BACKUP_RESTORE_BODY_SCHEMA = {
-    "type": "object",
-    "additionalProperties": True,
-    "required": ["archive_name", "confirm"],
-    "properties": {
-        "archive_name": STRING_SCHEMA,
-        "restore_database": BOOLEAN_SCHEMA,
-        "restore_compose": BOOLEAN_SCHEMA,
-        "confirm": BOOLEAN_SCHEMA,
-    },
-}
-
 register_contract(
     "admin_backups_list_route",
     RouteContract(
@@ -80,7 +70,7 @@ register_contract(
 register_contract(
     "admin_backups_restore_route",
     RouteContract(
-        request_schema=_BACKUP_RESTORE_BODY_SCHEMA,
+        request_model=AdminBackupRestoreBody,
         response_schema=ok_envelope_with({"result": loose_object_schema()}),
     ),
 )
@@ -99,6 +89,8 @@ async def _read_uploaded_backup_file(request: web.Request) -> BackupArchiveInfo:
     reader = await request.multipart()
     try:
         async for part in reader:
+            if not isinstance(part, BodyPartReader):
+                continue
             if part.name != "file":
                 continue
 
@@ -204,12 +196,12 @@ async def admin_backups_create_route(request: web.Request) -> web.Response:
 async def admin_backups_restore_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     settings: Settings = request.app["settings"]
-    payload = await _read_json(request)
+    body = await parse_body_or_400(request, AdminBackupRestoreBody)
 
-    archive_name = str(payload.get("archive_name") or "").strip()
-    restore_database = bool(payload.get("restore_database"))
-    restore_compose = bool(payload.get("restore_compose"))
-    confirm = bool(payload.get("confirm"))
+    archive_name = str(body.archive_name or "").strip()
+    restore_database = bool(body.restore_database)
+    restore_compose = bool(body.restore_compose)
+    confirm = bool(body.confirm)
     if not confirm:
         return _error(400, "restore_confirmation_required")
 

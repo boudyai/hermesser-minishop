@@ -22,7 +22,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
 from bot.app.web.http_contracts import HttpBodyModel, HttpResponseModel
 
@@ -46,6 +46,117 @@ class PromoUpdateBody(HttpBodyModel):
     is_active: Any = None
     bonus_days: int | None = Field(default=None, gt=0)
     max_activations: int | None = Field(default=None, gt=0)
+
+
+def _strip_text(value: Any) -> str:
+    return str(value or "").strip()
+
+
+class AdminSettingsPatchBody(HttpBodyModel):
+    updates: Any = Field(default_factory=dict)
+    deletes: Any = Field(default_factory=list)
+
+
+class AdminTranslationsPatchBody(HttpBodyModel):
+    updates: Any = Field(default_factory=dict)
+    deletes: Any = Field(default_factory=list)
+
+
+class TariffsSaveBody(HttpBodyModel):
+    model_config = ConfigDict(extra="allow")
+
+    catalog: Any = None
+
+    def catalog_payload(self) -> Any:
+        if "catalog" in self.model_fields_set:
+            return self.catalog
+        return self.model_extra or {}
+
+
+class ThemesSaveBody(HttpBodyModel):
+    model_config = ConfigDict(extra="allow")
+
+    catalog: Any = None
+
+    def catalog_payload(self) -> Any:
+        if "catalog" in self.model_fields_set:
+            return self.catalog
+        return self.model_extra or {}
+
+
+class ImageUrlUploadBody(HttpBodyModel):
+    url: Any = ""
+
+
+class AdminBackupRestoreBody(HttpBodyModel):
+    archive_name: Any = ""
+    restore_database: Any = False
+    restore_compose: Any = False
+    confirm: Any = False
+
+
+class AdminBroadcastBody(HttpBodyModel):
+    text: Any = ""
+    target: Any = "all"
+
+    @field_validator("text", "target", mode="before")
+    @classmethod
+    def _normalize_text_fields(cls, value: Any) -> str:
+        return _strip_text(value)
+
+
+class AdminUserBanBody(HttpBodyModel):
+    banned: Any = False
+
+
+class AdminUserMessageBody(HttpBodyModel):
+    text: Any = ""
+
+    @field_validator("text", mode="before")
+    @classmethod
+    def _normalize_text(cls, value: Any) -> str:
+        return _strip_text(value)
+
+
+class AdminUserPremiumOverrideBody(HttpBodyModel):
+    unlimited: Any = False
+    bonus_bytes: Any = None
+    bonus_gb: Any = None
+
+
+class AdminUserRegularTrafficOverrideBody(HttpBodyModel):
+    unlimited: Any = False
+    regular_bonus_bytes: Any = None
+    regular_bonus_gb: Any = None
+
+
+class AdminUserHwidDeviceLimitBody(HttpBodyModel):
+    unlimited: Any = False
+    use_default: Any = False
+    reset_to_default: Any = False
+    hwid_device_limit: Any = None
+    limit: Any = None
+
+
+class AdminUserTrafficGrantBody(HttpBodyModel):
+    kind: Any = "regular"
+    bytes: Any = None
+    gb: Any = None
+
+    @field_validator("kind", mode="before")
+    @classmethod
+    def _normalize_kind(cls, value: Any) -> str:
+        return _strip_text(value).lower() or "regular"
+
+
+class AdminUserExtendBody(HttpBodyModel):
+    days: Any = None
+    tariff_key: Any = None
+    extend_hwid_devices: Any = None
+
+
+class AdminUserTariffBody(HttpBodyModel):
+    tariff_key: Any = None
 
 
 class PromoOut(HttpResponseModel):

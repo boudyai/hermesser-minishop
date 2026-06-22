@@ -677,7 +677,7 @@ def _serialize_plans(
     if tariffs_config:
         default_currency = default_currency_key_for_settings(settings)
         default_currency_code = payment_currency_code(default_currency)
-        plans: List[Dict[str, Any]] = []
+        plans = []
         for tariff in tariffs_config.enabled_tariffs:
             common = {
                 "tariff_key": tariff.key,
@@ -768,7 +768,7 @@ def _serialize_plans(
         active_traffic_packages = traffic_packages or settings.traffic_packages
         active_stars_traffic_packages = stars_traffic_packages or settings.stars_traffic_packages
         traffic_units = sorted(set(active_traffic_packages) | set(active_stars_traffic_packages))
-        plans: List[Dict[str, Any]] = []
+        plans = []
         for traffic_gb in traffic_units:
             price = active_traffic_packages.get(traffic_gb)
             stars_price = active_stars_traffic_packages.get(traffic_gb)
@@ -792,7 +792,7 @@ def _serialize_plans(
     active_stars_subscription_options = (
         stars_subscription_options or settings.stars_subscription_options
     )
-    plans: List[Dict[str, Any]] = []
+    plans = []
     for months in sorted(set(active_subscription_options) | set(active_stars_subscription_options)):
         price = active_subscription_options.get(months)
         stars_price = active_stars_subscription_options.get(months)

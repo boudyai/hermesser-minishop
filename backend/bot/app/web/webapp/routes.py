@@ -83,14 +83,18 @@ from .payloads import (
     TicketReplyPayload,
     WebAppAutoRenewPayload,
     WebAppDeviceDisconnectPayload,
+    WebAppEmailCodeAuthPayload,
     WebAppEmailCodePayload,
-    WebAppEmailMagicPayload,
+    WebAppEmailMagicAuthPayload,
     WebAppEmailPasswordPayload,
     WebAppEmailPayload,
+    WebAppEmailRequestPayload,
     WebAppLanguagePayload,
     WebAppPaymentCreatePayload,
+    WebAppPromoApplyPayload,
     WebAppSetPasswordPayload,
     WebAppTariffChangePayload,
+    WebAppTelegramAuthPayload,
 )
 from .support import (
     support_create_ticket_route,
@@ -179,19 +183,19 @@ _ROUTE_CONTRACTS = {
         )
     ),
     "auth_token_route": _public_contract(
-        request_schema=_TELEGRAM_AUTH_BODY_SCHEMA,
+        request_model=WebAppTelegramAuthPayload,
         response_schema=_AUTH_RESPONSE_SCHEMA,
     ),
     "email_auth_request_route": _public_contract(
-        request_model=WebAppEmailPayload,
+        request_model=WebAppEmailRequestPayload,
         response_schema=ok_envelope_with({"retry_after": _NULLABLE_INTEGER_SCHEMA}, required=[]),
     ),
     "email_auth_verify_route": _public_contract(
-        request_model=WebAppEmailCodePayload,
+        request_model=WebAppEmailCodeAuthPayload,
         response_schema=_AUTH_RESPONSE_SCHEMA,
     ),
     "email_auth_magic_route": _public_contract(
-        request_model=WebAppEmailMagicPayload,
+        request_model=WebAppEmailMagicAuthPayload,
         response_schema=_AUTH_RESPONSE_SCHEMA,
     ),
     "email_password_auth_route": _public_contract(
@@ -258,7 +262,7 @@ _ROUTE_CONTRACTS = {
         response_schema=ok_envelope_with({"password_auth_enabled": _BOOLEAN_SCHEMA}),
     ),
     "account_telegram_link_route": _user_contract(
-        request_schema=_TELEGRAM_AUTH_BODY_SCHEMA,
+        request_model=WebAppTelegramAuthPayload,
         response_schema=_AUTH_RESPONSE_SCHEMA,
     ),
     "account_telegram_notifications_probe_route": _user_contract(
@@ -274,7 +278,7 @@ _ROUTE_CONTRACTS = {
         )
     ),
     "apply_promo_route": _user_contract(
-        request_schema=_PROMO_APPLY_BODY_SCHEMA,
+        request_model=WebAppPromoApplyPayload,
         response_schema=ok_envelope_with(
             {
                 "end_date": _NULLABLE_STRING_SCHEMA,

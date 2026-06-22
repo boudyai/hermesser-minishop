@@ -7,6 +7,7 @@ from config.subscription_guides_config import (
 from ._runtime import (
     INTEGER_SCHEMA,
     STRING_SCHEMA,
+    AdminSettingsPatchBody,
     Any,
     Dict,
     RouteContract,
@@ -14,9 +15,9 @@ from ._runtime import (
     app_settings_dal,
     current_value,
     loose_array_schema,
-    loose_object_schema,
     manifest_payload,
     ok_envelope_with,
+    parse_body_or_400,
     register_contract,
     sessionmaker,
     update_overrides,
@@ -28,18 +29,8 @@ from .auth import (
 from .common import (
     _error,
     _ok,
-    _read_json,
 )
 from .webapp_runtime import refresh_webapp_runtime_after_settings_change
-
-_SETTINGS_PATCH_BODY_SCHEMA = {
-    "type": "object",
-    "additionalProperties": True,
-    "properties": {
-        "updates": loose_object_schema(),
-        "deletes": {"type": "array", "items": STRING_SCHEMA},
-    },
-}
 
 register_contract(
     "admin_settings_get_route",
@@ -55,7 +46,7 @@ register_contract(
 register_contract(
     "admin_settings_patch_route",
     RouteContract(
-        request_schema=_SETTINGS_PATCH_BODY_SCHEMA,
+        request_model=AdminSettingsPatchBody,
         response_schema=ok_envelope_with({"applied": INTEGER_SCHEMA, "reverted": INTEGER_SCHEMA}),
     ),
 )
@@ -125,9 +116,9 @@ async def admin_settings_patch_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
     settings: Settings = request.app["settings"]
     async_session_factory: sessionmaker = request.app["async_session_factory"]
-    payload = await _read_json(request)
-    updates = payload.get("updates") or {}
-    deletes = payload.get("deletes") or []
+    body = await parse_body_or_400(request, AdminSettingsPatchBody)
+    updates = body.updates or {}
+    deletes = body.deletes or []
     if not isinstance(updates, dict):
         return _error(400, "invalid_updates")
     if not isinstance(deletes, list):

@@ -37,22 +37,22 @@ from .common import (
     _invalidate_webapp_user_caches,
     _json_error,
     _normalize_language,
-    _read_json,
+    _parse_model_payload,
     _require_user_id,
     _telegram_id_for_user,
-    _validate_model_payload,
 )
 from .payloads import (
     WebAppEmailCodePayload,
     WebAppEmailPayload,
     WebAppLanguagePayload,
     WebAppSetPasswordPayload,
+    WebAppTelegramAuthPayload,
 )
 from .serializers import _build_user_payload
 from .telegram_notifications import _probe_telegram_notifications_for_user_id
 
 
-def _email_auth_enabled(settings: Settings) -> bool:
+def _email_auth_enabled(settings: Any) -> bool:
     return bool(getattr(settings, "email_auth_configured", True))
 
 
@@ -66,10 +66,7 @@ async def account_email_request_route(request: web.Request) -> web.Response:
     if not _email_auth_enabled(settings):
         return _email_auth_not_configured_response()
 
-    payload = await _read_json(request)
-    email_payload, validation_error = _validate_model_payload(WebAppEmailPayload, payload)
-    if validation_error:
-        return validation_error
+    email_payload = await _parse_model_payload(request, WebAppEmailPayload)
     email = email_payload.email
     async_session_factory: sessionmaker = request.app["async_session_factory"]
 
@@ -104,10 +101,7 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
     if rate_limit_response:
         return rate_limit_response
 
-    payload = await _read_json(request)
-    email_payload, validation_error = _validate_model_payload(WebAppEmailCodePayload, payload)
-    if validation_error:
-        return validation_error
+    email_payload = await _parse_model_payload(request, WebAppEmailCodePayload)
     email = email_payload.email
     code = str(email_payload.code or "")
     email_service: EmailAuthService = request.app["email_auth_service"]
@@ -249,14 +243,11 @@ async def account_password_request_route(request: web.Request) -> web.Response:
 
 async def account_password_confirm_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    settings = request.app.get("settings")
-    if not _email_auth_enabled(settings):
+    settings_for_gate = request.app.get("settings")
+    if not _email_auth_enabled(settings_for_gate):
         return _email_auth_not_configured_response()
 
-    payload = await _read_json(request)
-    password_payload, validation_error = _validate_model_payload(WebAppSetPasswordPayload, payload)
-    if validation_error:
-        return validation_error
+    password_payload = await _parse_model_payload(request, WebAppSetPasswordPayload)
     if password_payload.password != password_payload.password_confirm:
         return _json_error(400, "password_mismatch", "Passwords do not match")
 
@@ -309,7 +300,8 @@ async def account_password_confirm_route(request: web.Request) -> web.Response:
 async def account_telegram_link_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     settings: Settings = request.app["settings"]
-    payload = await _read_json(request)
+    auth_payload = await _parse_model_payload(request, WebAppTelegramAuthPayload)
+    payload = auth_payload.model_dump(mode="json", exclude_none=True)
     telegram_user = await _validate_telegram_auth_payload(request, payload)
     if not telegram_user:
         return _json_error(401, "invalid_auth", "Invalid Telegram auth data")
@@ -466,10 +458,7 @@ async def account_avatar_route(request: web.Request) -> web.Response:
 async def account_language_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     settings: Settings = request.app["settings"]
-    payload = await _read_json(request)
-    language_payload, validation_error = _validate_model_payload(WebAppLanguagePayload, payload)
-    if validation_error:
-        return validation_error
+    language_payload = await _parse_model_payload(request, WebAppLanguagePayload)
 
     language = _normalize_language(str(language_payload.language or ""))
     i18n = request.app.get("i18n")

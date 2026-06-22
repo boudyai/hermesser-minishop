@@ -17,6 +17,14 @@ from ._runtime import (
     NULLABLE_STRING_SCHEMA,
     NUMBER_SCHEMA,
     STRING_SCHEMA,
+    AdminUserBanBody,
+    AdminUserExtendBody,
+    AdminUserHwidDeviceLimitBody,
+    AdminUserMessageBody,
+    AdminUserPremiumOverrideBody,
+    AdminUserRegularTrafficOverrideBody,
+    AdminUserTariffBody,
+    AdminUserTrafficGrantBody,
     Any,
     AsyncSession,
     Dict,
@@ -44,6 +52,7 @@ from ._runtime import (
     message_log_dal,
     ok_envelope_with,
     or_,
+    parse_body_or_400,
     payment_dal,
     register_contract,
     sa_func,
@@ -62,7 +71,6 @@ from .common import (
     _ok,
     _panel_user_connection_activity,
     _premium_traffic_list_payload,
-    _read_json,
     _serialize_payment,
     _serialize_subscription,
     _serialize_user,
@@ -195,21 +203,21 @@ register_contract(
 register_contract(
     "admin_user_ban_route",
     RouteContract(
-        request_schema=_ADMIN_USER_BAN_BODY_SCHEMA,
+        request_model=AdminUserBanBody,
         response_schema=_ADMIN_USER_RESPONSE_SCHEMA,
     ),
 )
 register_contract(
     "admin_user_message_route",
     RouteContract(
-        request_schema=_ADMIN_USER_MESSAGE_BODY_SCHEMA,
+        request_model=AdminUserMessageBody,
         response_schema=ok_envelope_with(),
     ),
 )
 register_contract(
     "admin_user_message_preview_route",
     RouteContract(
-        request_schema=_ADMIN_USER_MESSAGE_BODY_SCHEMA,
+        request_model=AdminUserMessageBody,
         response_schema=ok_envelope_with(),
     ),
 )
@@ -222,28 +230,28 @@ register_contract("admin_user_reset_trial_route", RouteContract(response_schema=
 register_contract(
     "admin_user_premium_override_route",
     RouteContract(
-        request_schema=_ADMIN_USER_PREMIUM_OVERRIDE_BODY_SCHEMA,
+        request_model=AdminUserPremiumOverrideBody,
         response_schema=_ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
     ),
 )
 register_contract(
     "admin_user_regular_traffic_override_route",
     RouteContract(
-        request_schema=_ADMIN_USER_REGULAR_TRAFFIC_OVERRIDE_BODY_SCHEMA,
+        request_model=AdminUserRegularTrafficOverrideBody,
         response_schema=_ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
     ),
 )
 register_contract(
     "admin_user_hwid_device_limit_route",
     RouteContract(
-        request_schema=_ADMIN_USER_HWID_LIMIT_BODY_SCHEMA,
+        request_model=AdminUserHwidDeviceLimitBody,
         response_schema=_ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
     ),
 )
 register_contract(
     "admin_user_traffic_grant_route",
     RouteContract(
-        request_schema=_ADMIN_USER_TRAFFIC_GRANT_BODY_SCHEMA,
+        request_model=AdminUserTrafficGrantBody,
         response_schema=ok_envelope_with(
             {"subscription": loose_object_schema(), "grant": loose_object_schema()},
             required=["grant"],
@@ -253,14 +261,14 @@ register_contract(
 register_contract(
     "admin_user_extend_route",
     RouteContract(
-        request_schema=_ADMIN_USER_EXTEND_BODY_SCHEMA,
+        request_model=AdminUserExtendBody,
         response_schema=_ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
     ),
 )
 register_contract(
     "admin_user_tariff_route",
     RouteContract(
-        request_schema=_ADMIN_USER_TARIFF_BODY_SCHEMA,
+        request_model=AdminUserTariffBody,
         response_schema=_ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
     ),
 )
@@ -956,7 +964,7 @@ async def _filter_and_sort_users(
 
     users = (await session.execute(stmt)).scalars().all()
     total = (await session.execute(count_stmt)).scalar_one()
-    return users, int(total)
+    return list(users), int(total)
 
 
 def _user_panel_status_condition(panel_status: str):
@@ -1220,8 +1228,8 @@ async def admin_user_referrals_route(request: web.Request) -> web.Response:
 async def admin_user_ban_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
-    payload = await _read_json(request)
-    desired = bool(payload.get("banned"))
+    body = await parse_body_or_400(request, AdminUserBanBody)
+    desired = bool(body.banned)
 
     settings: Settings = request.app["settings"]
     async_session_factory: sessionmaker = request.app["async_session_factory"]
@@ -1239,8 +1247,8 @@ async def admin_user_ban_route(request: web.Request) -> web.Response:
 async def admin_user_message_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
-    payload = await _read_json(request)
-    text = str(payload.get("text") or "").strip()
+    body = await parse_body_or_400(request, AdminUserMessageBody)
+    text = str(body.text or "").strip()
     if not text:
         return _error(400, "empty_text")
 
@@ -1284,8 +1292,8 @@ async def admin_user_message_preview_route(request: web.Request) -> web.Response
     actor_id = _require_admin_user_id(request)
     admin_telegram_id = request.get("admin_telegram_id")
     target_id = int(request.match_info["user_id"])
-    payload = await _read_json(request)
-    text = str(payload.get("text") or "").strip()
+    body = await parse_body_or_400(request, AdminUserMessageBody)
+    text = str(body.text or "").strip()
     if not text:
         return _error(400, "empty_text")
     if not admin_telegram_id:
@@ -1529,12 +1537,12 @@ async def admin_user_premium_override_route(request: web.Request) -> web.Respons
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
     settings: Settings = request.app["settings"]
-    payload = await _read_json(request)
+    body = await parse_body_or_400(request, AdminUserPremiumOverrideBody)
     subscription_service = request.app.get("subscription_service")
 
-    unlimited = bool(payload.get("unlimited"))
-    bonus_bytes_raw = payload.get("bonus_bytes")
-    bonus_gb_raw = payload.get("bonus_gb")
+    unlimited = bool(body.unlimited)
+    bonus_bytes_raw = body.bonus_bytes
+    bonus_gb_raw = body.bonus_gb
     if bonus_bytes_raw is None and bonus_gb_raw is None:
         bonus_bytes = 0
     elif bonus_bytes_raw is not None:
@@ -1589,11 +1597,11 @@ async def admin_user_regular_traffic_override_route(request: web.Request) -> web
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
     settings: Settings = request.app["settings"]
-    payload = await _read_json(request)
+    body = await parse_body_or_400(request, AdminUserRegularTrafficOverrideBody)
 
-    unlimited = bool(payload.get("unlimited"))
-    regular_bonus_bytes_raw = payload.get("regular_bonus_bytes")
-    regular_bonus_gb_raw = payload.get("regular_bonus_gb")
+    unlimited = bool(body.unlimited)
+    regular_bonus_bytes_raw = body.regular_bonus_bytes
+    regular_bonus_gb_raw = body.regular_bonus_gb
     if regular_bonus_bytes_raw is None and regular_bonus_gb_raw is None:
         regular_bonus_bytes = 0
     elif regular_bonus_bytes_raw is not None:
@@ -1653,11 +1661,11 @@ async def admin_user_hwid_device_limit_route(request: web.Request) -> web.Respon
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
     settings: Settings = request.app["settings"]
-    payload = await _read_json(request)
+    body = await parse_body_or_400(request, AdminUserHwidDeviceLimitBody)
 
-    unlimited = bool(payload.get("unlimited"))
-    use_default = bool(payload.get("use_default") or payload.get("reset_to_default"))
-    limit_raw = payload.get("hwid_device_limit", payload.get("limit"))
+    unlimited = bool(body.unlimited)
+    use_default = bool(body.use_default or body.reset_to_default)
+    limit_raw = body.hwid_device_limit if body.hwid_device_limit is not None else body.limit
 
     if unlimited:
         hwid_device_limit: Optional[int] = 0
@@ -1727,14 +1735,14 @@ async def admin_user_traffic_grant_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
     settings: Settings = request.app["settings"]
-    payload = await _read_json(request)
+    body = await parse_body_or_400(request, AdminUserTrafficGrantBody)
 
-    kind = str(payload.get("kind") or "regular").strip().lower()
+    kind = str(body.kind or "regular").strip().lower()
     if kind not in {"regular", "premium"}:
         return _error(400, "invalid_kind", "kind must be 'regular' or 'premium'")
 
-    bytes_raw = payload.get("bytes")
-    gb_raw = payload.get("gb")
+    bytes_raw = body.bytes
+    gb_raw = body.gb
     if bytes_raw is None and gb_raw is None:
         return _error(400, "missing_amount", "either 'gb' or 'bytes' is required")
     try:
@@ -1804,18 +1812,18 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
     settings: Settings = request.app["settings"]
-    payload = await _read_json(request)
+    body = await parse_body_or_400(request, AdminUserExtendBody)
     try:
-        days = int(payload.get("days") or 0)
+        days = int(body.days or 0)
     except (TypeError, ValueError):
         return _error(400, "invalid_days")
     if days <= 0:
         return _error(400, "invalid_days")
-    extend_hwid_devices = payload.get("extend_hwid_devices")
+    extend_hwid_devices = body.extend_hwid_devices
     extend_hwid_devices = True if extend_hwid_devices is None else bool(extend_hwid_devices)
     tariff_key, tariff_error = _resolve_admin_period_tariff_key(
         settings,
-        payload.get("tariff_key"),
+        body.tariff_key,
         allow_legacy_without_tariffs=True,
     )
     if tariff_error:
@@ -1869,10 +1877,10 @@ async def admin_user_tariff_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
     settings: Settings = request.app["settings"]
-    payload = await _read_json(request)
+    body = await parse_body_or_400(request, AdminUserTariffBody)
     tariff_key, tariff_error = _resolve_admin_period_tariff_key(
         settings,
-        payload.get("tariff_key"),
+        body.tariff_key,
     )
     if tariff_error:
         return _error(400, tariff_error)

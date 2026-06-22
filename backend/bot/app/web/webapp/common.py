@@ -1,3 +1,6 @@
+from typing import TypeVar
+
+from bot.app.web.request_parsing import parse_body_or_400
 from bot.app.web.webapp.cache_helpers import (
     invalidate_webapp_user_caches as _invalidate_user_payload_caches,
 )
@@ -33,13 +36,7 @@ from ._runtime import (
     web,
 )
 
-
-async def _read_json(request: web.Request) -> Dict[str, Any]:
-    try:
-        data = await request.json()
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
+BodyModelT = TypeVar("BodyModelT", bound=BaseModel)
 
 
 def _json_error(status: int, code: str, message: str) -> web.Response:
@@ -98,6 +95,17 @@ def _validate_model_payload(
         return model_cls.model_validate(payload), None
     except ValidationError as exc:
         return None, _validation_error_response(exc)
+
+
+async def _parse_model_payload(
+    request: web.Request,
+    model_cls: type[BodyModelT],
+) -> BodyModelT:
+    return await parse_body_or_400(
+        request,
+        model_cls,
+        validation_error_response_factory=_validation_error_response,
+    )
 
 
 def _resolve_telegram_bot_id(bot_token: str) -> Optional[int]:
@@ -230,14 +238,17 @@ async def _fetch_compact_telegram_avatar(
         return None
 
     file_info = await bot.get_file(photo_size.file_id)
+    file_path = file_info.file_path
+    if not file_path:
+        return None
     destination = io.BytesIO()
-    await bot.download_file(file_info.file_path, destination=destination)
+    await bot.download_file(file_path, destination=destination)
     body = destination.getvalue()
     if not body or len(body) > WEBAPP_TELEGRAM_AVATAR_MAX_BYTES:
         return None
     return (
         body,
-        _telegram_file_content_type(file_info.file_path),
+        _telegram_file_content_type(file_path),
         getattr(photo_size, "file_unique_id", None),
     )
 

@@ -79,18 +79,31 @@ from bot.app.web.route_contracts import (
     register_contract,
 )
 
-from .request_parsing import parse_body
+from .request_parsing import parse_body, parse_body_or_400
 from .schemas import (
     AdCreateBody,
     AdOut,
     AdToggleBody,
+    AdminBackupRestoreBody,
     AdminAdsListOut,
+    AdminBroadcastBody,
     AdminHealthOut,
     AdminLogsListOut,
     AdminMeOut,
     AdminPanelSyncOut,
     AdminPaymentsListOut,
+    AdminSettingsPatchBody,
     AdminStatsOut,
+    AdminTranslationsPatchBody,
+    AdminUserBanBody,
+    AdminUserExtendBody,
+    AdminUserHwidDeviceLimitBody,
+    AdminUserMessageBody,
+    AdminUserPremiumOverrideBody,
+    AdminUserRegularTrafficOverrideBody,
+    AdminUserTariffBody,
+    AdminUserTrafficGrantBody,
+    ImageUrlUploadBody,
     HttpBodyModel,
     HttpResponseModel,
     LogOut,
@@ -99,6 +112,8 @@ from .schemas import (
     PromoCreateBody,
     PromoOut,
     PromoUpdateBody,
+    TariffsSaveBody,
+    ThemesSaveBody,
 )
 
 logger = logging.getLogger(__name__)

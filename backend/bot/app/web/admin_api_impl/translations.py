@@ -12,6 +12,7 @@ from ._runtime import (
     BOOLEAN_SCHEMA,
     INTEGER_SCHEMA,
     STRING_SCHEMA,
+    AdminTranslationsPatchBody,
     Any,
     Dict,
     List,
@@ -20,8 +21,8 @@ from ._runtime import (
     Tuple,
     locale_overrides_dal,
     loose_array_schema,
-    loose_object_schema,
     ok_envelope_with,
+    parse_body_or_400,
     register_contract,
     sessionmaker,
     web,
@@ -32,17 +33,7 @@ from .auth import (
 from .common import (
     _error,
     _ok,
-    _read_json,
 )
-
-_TRANSLATIONS_PATCH_BODY_SCHEMA = {
-    "type": "object",
-    "additionalProperties": True,
-    "properties": {
-        "updates": loose_object_schema(),
-        "deletes": {"type": "array", "items": loose_object_schema()},
-    },
-}
 
 register_contract(
     "admin_translations_get_route",
@@ -60,7 +51,7 @@ register_contract(
 register_contract(
     "admin_translations_patch_route",
     RouteContract(
-        request_schema=_TRANSLATIONS_PATCH_BODY_SCHEMA,
+        request_model=AdminTranslationsPatchBody,
         response_schema=ok_envelope_with(
             {
                 "applied": INTEGER_SCHEMA,
@@ -176,9 +167,9 @@ async def admin_translations_patch_route(request: web.Request) -> web.Response:
     if i18n is None:
         return _error(503, "i18n_unavailable")
     async_session_factory: sessionmaker = request.app["async_session_factory"]
-    payload = await _read_json(request)
-    updates = payload.get("updates") or {}
-    deletes = payload.get("deletes") or []
+    body = await parse_body_or_400(request, AdminTranslationsPatchBody)
+    updates = body.updates or {}
+    deletes = body.deletes or []
     if not isinstance(updates, dict):
         return _error(400, "invalid_updates")
     if not isinstance(deletes, list):

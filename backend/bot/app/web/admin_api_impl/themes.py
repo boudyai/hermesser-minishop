@@ -6,6 +6,7 @@ import shutil
 import socket
 
 from aiohttp import ClientSession, ClientTimeout
+from aiohttp.multipart import BodyPartReader
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from config.webapp_themes_config import (
@@ -21,15 +22,18 @@ from ._runtime import (
     STRING_SCHEMA,
     Any,
     Dict,
+    ImageUrlUploadBody,
     Optional,
     Path,
     RouteContract,
     Settings,
+    ThemesSaveBody,
     ValidationError,
     io,
     logger,
     loose_object_schema,
     ok_envelope_with,
+    parse_body_or_400,
     register_contract,
     sessionmaker,
     update_overrides,
@@ -42,23 +46,10 @@ from .auth import (
 from .common import (
     _error,
     _ok,
-    _read_json,
     _webapp_themes_catalog_payload,
 )
 from .webapp_runtime import refresh_webapp_runtime_after_settings_change
 
-_WEBAPP_THEMES_CONFIG_REF = {"$ref": "#/components/schemas/WebappThemesConfig"}
-_THEMES_SAVE_BODY_SCHEMA = {
-    "oneOf": [
-        _WEBAPP_THEMES_CONFIG_REF,
-        {
-            "type": "object",
-            "additionalProperties": True,
-            "required": ["catalog"],
-            "properties": {"catalog": _WEBAPP_THEMES_CONFIG_REF},
-        },
-    ]
-}
 _IMAGE_URL_UPLOAD_SCHEMA = {
     "type": "object",
     "additionalProperties": True,
@@ -81,7 +72,7 @@ register_contract(
 register_contract(
     "admin_themes_save_route",
     RouteContract(
-        request_schema=_THEMES_SAVE_BODY_SCHEMA,
+        request_model=ThemesSaveBody,
         response_schema=_THEMES_RESPONSE_SCHEMA,
         models=(WebappThemesConfig,),
     ),
@@ -354,6 +345,8 @@ def _write_favicon_set(body: bytes, content_type: str = "", filename: str = "") 
 async def _read_uploaded_logo_file(request: web.Request) -> tuple[bytes, str, str]:
     reader = await request.multipart()
     async for part in reader:
+        if not isinstance(part, BodyPartReader):
+            continue
         if part.name != "file":
             continue
         body = bytearray()
@@ -445,8 +438,8 @@ async def admin_appearance_logo_upload_route(request: web.Request) -> web.Respon
         if content_type.startswith("multipart/form-data"):
             body, detected_content_type, filename = await _read_uploaded_logo_file(request)
         else:
-            payload = await _read_json(request)
-            source_url = str(payload.get("url") or "").strip()
+            upload = await parse_body_or_400(request, ImageUrlUploadBody)
+            source_url = str(upload.url or "").strip()
             if not source_url:
                 return _error(400, "invalid_payload", "url or file is required")
             body, detected_content_type, filename = await _fetch_logo_from_url(source_url)
@@ -483,8 +476,8 @@ async def admin_appearance_favicon_upload_route(request: web.Request) -> web.Res
         if content_type.startswith("multipart/form-data"):
             body, detected_content_type, filename = await _read_uploaded_logo_file(request)
         else:
-            payload = await _read_json(request)
-            source_url = str(payload.get("url") or "").strip()
+            upload = await parse_body_or_400(request, ImageUrlUploadBody)
+            source_url = str(upload.url or "").strip()
             if not source_url:
                 return _error(400, "invalid_payload", "url or file is required")
             body, detected_content_type, filename = await _fetch_logo_from_url(source_url)
@@ -533,8 +526,8 @@ async def admin_themes_save_route(request: web.Request) -> web.Response:
         env_default_theme=settings.WEBAPP_DEFAULT_THEME,
         theme_dir=settings.WEBAPP_THEMES_DIR,
     )
-    payload = await _read_json(request)
-    catalog = payload.get("catalog") if "catalog" in payload else payload
+    body = await parse_body_or_400(request, ThemesSaveBody)
+    catalog = body.catalog_payload()
     if not isinstance(catalog, dict):
         return _error(400, "invalid_payload", "catalog must be an object")
 
