@@ -1502,36 +1502,6 @@ export interface components {
       totals: {
         [key: string]: number;
       };
-      $defs: {
-        /** AdOut */
-        AdOut: {
-          /** Cost */
-          cost: number;
-          /**
-           * Created At
-           * @default null
-           */
-          created_at: string | null;
-          /** Id */
-          id: number;
-          /** Is Active */
-          is_active: boolean;
-          /**
-           * Source
-           * @default null
-           */
-          source: string | null;
-          /**
-           * Start Param
-           * @default null
-           */
-          start_param: string | null;
-          /** Stats */
-          stats?: {
-            [key: string]: unknown;
-          };
-        };
-      };
     };
     /** AdminHealthOut */
     AdminHealthOut: {
@@ -1555,65 +1525,6 @@ export interface components {
       page_size: number;
       /** Total */
       total: number;
-      $defs: {
-        /** LogOut */
-        LogOut: {
-          /**
-           * Content
-           * @default null
-           */
-          content: string | null;
-          /**
-           * Email
-           * @default null
-           */
-          email: string | null;
-          /**
-           * Event Type
-           * @default null
-           */
-          event_type: string | null;
-          /** Is Admin Event */
-          is_admin_event: boolean;
-          /** Log Id */
-          log_id: number;
-          /**
-           * Target User Id
-           * @default null
-           */
-          target_user_id: number | null;
-          /**
-           * Target User Label
-           * @default null
-           */
-          target_user_label: string | null;
-          /**
-           * Telegram First Name
-           * @default null
-           */
-          telegram_first_name: string | null;
-          /**
-           * Telegram Username
-           * @default null
-           */
-          telegram_username: string | null;
-          /**
-           * Timestamp
-           * @default null
-           */
-          timestamp: string | null;
-          /**
-           * User Id
-           * @default null
-           */
-          user_id: number | null;
-          /**
-           * User Label
-           * @default null
-           */
-          user_label: string | null;
-        };
-      };
     };
     /** AdminMeOut */
     AdminMeOut: {
@@ -1651,89 +1562,6 @@ export interface components {
       payments: components["schemas"]["PaymentOut"][];
       /** Total */
       total: number;
-      $defs: {
-        /** PaymentOut */
-        PaymentOut: {
-          /** Amount */
-          amount: number;
-          /**
-           * Created At
-           * @default null
-           */
-          created_at: string | null;
-          /**
-           * Currency
-           * @default null
-           */
-          currency: string | null;
-          /**
-           * Description
-           * @default null
-           */
-          description: string | null;
-          /** Payment Id */
-          payment_id: number;
-          /**
-           * Provider
-           * @default null
-           */
-          provider: string | null;
-          /**
-           * Provider Payment Id
-           * @default null
-           */
-          provider_payment_id: string | null;
-          /**
-           * Purchased Gb
-           * @default null
-           */
-          purchased_gb: unknown;
-          /**
-           * Purchased Hwid Devices
-           * @default null
-           */
-          purchased_hwid_devices: number | null;
-          /**
-           * Sale Mode
-           * @default null
-           */
-          sale_mode: string | null;
-          /**
-           * Status
-           * @default null
-           */
-          status: string | null;
-          /**
-           * Subscription Duration Months
-           * @default null
-           */
-          subscription_duration_months: number | null;
-          /**
-           * Tariff Key
-           * @default null
-           */
-          tariff_key: string | null;
-          /**
-           * Telegram Id
-           * @default null
-           */
-          telegram_id: number | null;
-          /**
-           * Traffic Premium Gb
-           * @default null
-           */
-          traffic_premium_gb: number | null;
-          /**
-           * Traffic Regular Gb
-           * @default null
-           */
-          traffic_regular_gb: number | null;
-          /** User Id */
-          user_id: number;
-          /** User Label */
-          user_label: string;
-        };
-      };
     };
     /** AdminStatsOut */
     AdminStatsOut: {
@@ -1764,108 +1592,78 @@ export interface components {
       users: {
         [key: string]: unknown;
       };
-      $defs: {
-        /** AdminPanelSyncOut */
-        AdminPanelSyncOut: {
-          /**
-           * Details
-           * @default null
-           */
-          details: unknown;
-          /**
-           * Last Sync Time
-           * @default null
-           */
-          last_sync_time: string | null;
-          /** Status */
-          status: string;
-          /** Subscriptions Synced */
-          subscriptions_synced: number;
-          /** Users Processed */
-          users_processed: number;
-        };
-        /** PaymentOut */
-        PaymentOut: {
-          /** Amount */
-          amount: number;
-          /**
-           * Created At
-           * @default null
-           */
-          created_at: string | null;
-          /**
-           * Currency
-           * @default null
-           */
-          currency: string | null;
-          /**
-           * Description
-           * @default null
-           */
-          description: string | null;
-          /** Payment Id */
-          payment_id: number;
-          /**
-           * Provider
-           * @default null
-           */
-          provider: string | null;
-          /**
-           * Provider Payment Id
-           * @default null
-           */
-          provider_payment_id: string | null;
-          /**
-           * Purchased Gb
-           * @default null
-           */
-          purchased_gb: unknown;
-          /**
-           * Purchased Hwid Devices
-           * @default null
-           */
-          purchased_hwid_devices: number | null;
-          /**
-           * Sale Mode
-           * @default null
-           */
-          sale_mode: string | null;
-          /**
-           * Status
-           * @default null
-           */
-          status: string | null;
-          /**
-           * Subscription Duration Months
-           * @default null
-           */
-          subscription_duration_months: number | null;
-          /**
-           * Tariff Key
-           * @default null
-           */
-          tariff_key: string | null;
-          /**
-           * Telegram Id
-           * @default null
-           */
-          telegram_id: number | null;
-          /**
-           * Traffic Premium Gb
-           * @default null
-           */
-          traffic_premium_gb: number | null;
-          /**
-           * Traffic Regular Gb
-           * @default null
-           */
-          traffic_regular_gb: number | null;
-          /** User Id */
-          user_id: number;
-          /** User Label */
-          user_label: string;
-        };
+    };
+    /** AdminTicketPatchPayload */
+    AdminTicketPatchPayload: {
+      /**
+       * Assigned Admin Id
+       * @default null
+       */
+      assigned_admin_id: number | null;
+      /**
+       * Category
+       * @default null
+       */
+      category: ("billing" | "technical" | "account" | "other") | null;
+      /**
+       * Priority
+       * @default null
+       */
+      priority: ("low" | "normal" | "high" | "urgent") | null;
+      /**
+       * Status
+       * @default null
+       */
+      status: ("open" | "awaiting_user" | "awaiting_admin" | "resolved" | "closed") | null;
+    };
+    /** AdminTicketReplyPayload */
+    AdminTicketReplyPayload: {
+      /** Body */
+      body: string;
+      /**
+       * Is Internal Note
+       * @default false
+       */
+      is_internal_note: boolean;
+    };
+    /** CreateTicketPayload */
+    CreateTicketPayload: {
+      /** Body */
+      body: string;
+      /**
+       * Category
+       * @default other
+       * @enum {string}
+       */
+      category: "billing" | "technical" | "account" | "other";
+      /**
+       * Priority
+       * @default normal
+       * @enum {string}
+       */
+      priority: "normal" | "high";
+      /** Subject */
+      subject: string;
+    };
+    /** HwidDevicePackage */
+    HwidDevicePackage: {
+      /** Count */
+      count: number;
+      /**
+       * Min Price
+       * @default null
+       */
+      min_price: number | null;
+      /** Price */
+      price: number;
+      /** Prices */
+      prices?: {
+        [key: string]: number;
       };
+    };
+    /** HwidDevicePackageSet */
+    HwidDevicePackageSet: {
+      [key: string]: components["schemas"]["HwidDevicePackage"][];
     };
     /** LogOut */
     LogOut: {
@@ -1923,6 +1721,10 @@ export interface components {
        * @default null
        */
       user_label: string | null;
+    };
+    /** PackageSet */
+    PackageSet: {
+      [key: string]: components["schemas"]["TrafficPackage"][];
     };
     /** PaymentDetailOut */
     PaymentDetailOut: {
@@ -2168,6 +1970,627 @@ export interface components {
        */
       max_activations: number | null;
     };
+    /** Tariff */
+    Tariff: {
+      /**
+       * Billing Model
+       * @enum {string}
+       */
+      billing_model: "period" | "traffic";
+      /**
+       * Conversion Rate Per Gb
+       * @default null
+       */
+      conversion_rate_per_gb: number | null;
+      /**
+       * Conversion Rate Rub Per Gb
+       * @default null
+       */
+      conversion_rate_rub_per_gb: number | null;
+      /** Descriptions */
+      descriptions?: {
+        [key: string]: string;
+      };
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled: boolean;
+      /** Enabled Periods */
+      enabled_periods?: number[];
+      /**
+       * Hwid Device Limit
+       * @default null
+       */
+      hwid_device_limit: number | null;
+      /** @default null */
+      hwid_device_packages: components["schemas"]["HwidDevicePackageSet"] | null;
+      /** Key */
+      key: string;
+      /**
+       * Monthly Gb
+       * @default null
+       */
+      monthly_gb: number | null;
+      /** Names */
+      names?: {
+        [key: string]: string;
+      };
+      /**
+       * Premium Monthly Gb
+       * @default null
+       */
+      premium_monthly_gb: number | null;
+      /** Premium Names */
+      premium_names?: {
+        [key: string]: string;
+      };
+      /** Premium Squad Uuids */
+      premium_squad_uuids?: string[];
+      /** @default null */
+      premium_topup_packages: components["schemas"]["PackageSet"] | null;
+      /** Prices */
+      prices?: {
+        [key: string]: {
+          [key: string]: number;
+        };
+      };
+      /** Prices Rub */
+      prices_rub?: {
+        [key: string]: number;
+      };
+      /** Prices Stars */
+      prices_stars?: {
+        [key: string]: number;
+      };
+      /** Referral Bonus Days Inviter */
+      referral_bonus_days_inviter?: {
+        [key: string]: number;
+      };
+      /** Referral Bonus Days Referee */
+      referral_bonus_days_referee?: {
+        [key: string]: number;
+      };
+      /** Squad Uuids */
+      squad_uuids?: string[];
+      /** @default null */
+      topup_packages: components["schemas"]["PackageSet"] | null;
+      /** @default null */
+      traffic_packages: components["schemas"]["PackageSet"] | null;
+    };
+    /** TariffsConfig */
+    TariffsConfig: {
+      /**
+       * Default Currency
+       * @default rub
+       */
+      default_currency: string;
+      /** Default Tariff */
+      default_tariff: string;
+      /** Tariffs */
+      tariffs: components["schemas"]["Tariff"][];
+      /** @default null */
+      topup_packages_default: components["schemas"]["PackageSet"] | null;
+    };
+    /**
+     * ThemeTokens
+     * @description CSS design tokens for the subscription Mini App shell.
+     */
+    ThemeTokens: {
+      /**
+       * Accent
+       * @default null
+       */
+      accent: string | null;
+      /**
+       * Accent Contrast
+       * @default null
+       */
+      accent_contrast: string | null;
+      /**
+       * Admin Bg
+       * @default null
+       */
+      admin_bg: string | null;
+      /**
+       * Admin Border
+       * @default null
+       */
+      admin_border: string | null;
+      /**
+       * Admin Border Strong
+       * @default null
+       */
+      admin_border_strong: string | null;
+      /**
+       * Admin Chart Fill
+       * @default null
+       */
+      admin_chart_fill: string | null;
+      /**
+       * Admin Chart Stroke
+       * @default null
+       */
+      admin_chart_stroke: string | null;
+      /**
+       * Admin Dim
+       * @default null
+       */
+      admin_dim: string | null;
+      /**
+       * Admin Elev
+       * @default null
+       */
+      admin_elev: string | null;
+      /**
+       * Admin Muted
+       * @default null
+       */
+      admin_muted: string | null;
+      /**
+       * Admin Surface
+       * @default null
+       */
+      admin_surface: string | null;
+      /**
+       * Admin Surface 2
+       * @default null
+       */
+      admin_surface_2: string | null;
+      /**
+       * Admin Text
+       * @default null
+       */
+      admin_text: string | null;
+      /**
+       * Bg
+       * @default null
+       */
+      bg: string | null;
+      /**
+       * Blue
+       * @default null
+       */
+      blue: string | null;
+      /**
+       * Border
+       * @default null
+       */
+      border: string | null;
+      /**
+       * Border Strong
+       * @default null
+       */
+      border_strong: string | null;
+      /**
+       * Color Scheme
+       * @default dark
+       * @enum {string}
+       */
+      color_scheme: "light" | "dark";
+      /**
+       * Danger
+       * @default null
+       */
+      danger: string | null;
+      /**
+       * Danger Border
+       * @default null
+       */
+      danger_border: string | null;
+      /**
+       * Danger Soft
+       * @default null
+       */
+      danger_soft: string | null;
+      /**
+       * Danger Text
+       * @default null
+       */
+      danger_text: string | null;
+      /**
+       * Dim
+       * @default null
+       */
+      dim: string | null;
+      /**
+       * Font Logo
+       * @default null
+       */
+      font_logo: string | null;
+      /**
+       * Font Mono
+       * @default null
+       */
+      font_mono: string | null;
+      /**
+       * Font Sans
+       * @default null
+       */
+      font_sans: string | null;
+      /**
+       * Home Logo Scale
+       * @default null
+       */
+      home_logo_scale: number | null;
+      /**
+       * Home Logo Scale Desktop
+       * @default null
+       */
+      home_logo_scale_desktop: number | null;
+      /**
+       * Home Logo Scale Mobile
+       * @default null
+       */
+      home_logo_scale_mobile: number | null;
+      /**
+       * Info
+       * @default null
+       */
+      info: string | null;
+      /**
+       * Info Border
+       * @default null
+       */
+      info_border: string | null;
+      /**
+       * Info Soft
+       * @default null
+       */
+      info_soft: string | null;
+      /**
+       * Info Text
+       * @default null
+       */
+      info_text: string | null;
+      /**
+       * Inset Highlight
+       * @default null
+       */
+      inset_highlight: string | null;
+      /**
+       * Muted
+       * @default null
+       */
+      muted: string | null;
+      /**
+       * Nav Bg
+       * @default null
+       */
+      nav_bg: string | null;
+      /**
+       * Overlay Scrim
+       * @default null
+       */
+      overlay_scrim: string | null;
+      /**
+       * Panel
+       * @default null
+       */
+      panel: string | null;
+      /**
+       * Panel 2
+       * @default null
+       */
+      panel_2: string | null;
+      /**
+       * Panel 3
+       * @default null
+       */
+      panel_3: string | null;
+      /**
+       * Radius
+       * @default null
+       */
+      radius: string | null;
+      /**
+       * Rail Bg
+       * @default null
+       */
+      rail_bg: string | null;
+      /**
+       * Shadow Popover
+       * @default null
+       */
+      shadow_popover: string | null;
+      /**
+       * Shadow Soft
+       * @default null
+       */
+      shadow_soft: string | null;
+      /**
+       * Shadow Strong
+       * @default null
+       */
+      shadow_strong: string | null;
+      /**
+       * Style Preset
+       * @default null
+       */
+      style_preset: string | null;
+      /**
+       * Success
+       * @default null
+       */
+      success: string | null;
+      /**
+       * Success Border
+       * @default null
+       */
+      success_border: string | null;
+      /**
+       * Success Soft
+       * @default null
+       */
+      success_soft: string | null;
+      /**
+       * Success Text
+       * @default null
+       */
+      success_text: string | null;
+      /**
+       * Surface Hover
+       * @default null
+       */
+      surface_hover: string | null;
+      /**
+       * Surface Muted
+       * @default null
+       */
+      surface_muted: string | null;
+      /**
+       * Surface Sheen
+       * @default null
+       */
+      surface_sheen: string | null;
+      /**
+       * Surface Sheen Soft
+       * @default null
+       */
+      surface_sheen_soft: string | null;
+      /**
+       * Surface Subtle
+       * @default null
+       */
+      surface_subtle: string | null;
+      /**
+       * Surface Subtle Border
+       * @default null
+       */
+      surface_subtle_border: string | null;
+      /**
+       * Text
+       * @default null
+       */
+      text: string | null;
+      /**
+       * Warning
+       * @default null
+       */
+      warning: string | null;
+      /**
+       * Warning Border
+       * @default null
+       */
+      warning_border: string | null;
+      /**
+       * Warning Soft
+       * @default null
+       */
+      warning_soft: string | null;
+      /**
+       * Warning Text
+       * @default null
+       */
+      warning_text: string | null;
+    };
+    /** TicketReplyPayload */
+    TicketReplyPayload: {
+      /** Body */
+      body: string;
+    };
+    /** TrafficPackage */
+    TrafficPackage: {
+      /** Gb */
+      gb: number;
+      /** Price */
+      price: number;
+    };
+    /** WebAppAutoRenewPayload */
+    WebAppAutoRenewPayload: {
+      /** Enabled */
+      enabled: boolean;
+    };
+    /** WebAppDeviceDisconnectPayload */
+    WebAppDeviceDisconnectPayload: {
+      /** Token */
+      token: string;
+    };
+    /** WebAppEmailCodePayload */
+    WebAppEmailCodePayload: {
+      /**
+       * Code
+       * @default
+       */
+      code: string;
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+    };
+    /** WebAppEmailMagicPayload */
+    WebAppEmailMagicPayload: {
+      /** Token */
+      token: string;
+    };
+    /** WebAppEmailPasswordPayload */
+    WebAppEmailPasswordPayload: {
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+      /** Password */
+      password: string;
+    };
+    /** WebAppEmailPayload */
+    WebAppEmailPayload: {
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+    };
+    /** WebAppLanguagePayload */
+    WebAppLanguagePayload: {
+      /** Language */
+      language: string;
+    };
+    /** WebAppPaymentCreatePayload */
+    WebAppPaymentCreatePayload: {
+      /**
+       * Comment
+       * @default null
+       */
+      comment: string | null;
+      /**
+       * Description
+       * @default null
+       */
+      description: string | null;
+      /**
+       * Device Count
+       * @default null
+       */
+      device_count: unknown;
+      /**
+       * Method
+       * @default
+       */
+      method: string;
+      /**
+       * Months
+       * @default null
+       */
+      months: unknown;
+      /**
+       * Note
+       * @default null
+       */
+      note: string | null;
+      /**
+       * Renew Hwid Devices
+       * @default null
+       */
+      renew_hwid_devices: boolean | null;
+      /**
+       * Sale Mode
+       * @default null
+       */
+      sale_mode: string | null;
+      /**
+       * Tariff Key
+       * @default null
+       */
+      tariff_key: string | null;
+      /**
+       * Traffic Gb
+       * @default null
+       */
+      traffic_gb: unknown;
+    };
+    /** WebAppSetPasswordPayload */
+    WebAppSetPasswordPayload: {
+      /** Code */
+      code: string;
+      /** Password */
+      password: string;
+      /** Password Confirm */
+      password_confirm: string;
+    };
+    /** WebAppTariffChangePayload */
+    WebAppTariffChangePayload: {
+      /** Mode */
+      mode: string;
+      /** Tariff Key */
+      tariff_key: string;
+    };
+    /**
+     * WebappTheme
+     * @description Single theme descriptor loaded from WEBAPP_THEMES_DIR/<key>/theme.json.
+     */
+    WebappTheme: {
+      /**
+       * Active Variant
+       * @default null
+       */
+      active_variant: ("light" | "dark") | null;
+      /**
+       * Assets Version
+       * @default 1
+       */
+      assets_version: number;
+      /**
+       * Css File
+       * @default null
+       */
+      css_file: string | null;
+      /**
+       * Default
+       * @default false
+       */
+      default: boolean;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled: boolean;
+      /**
+       * Hidden
+       * @default false
+       */
+      hidden: boolean;
+      /** Key */
+      key: string;
+      /** Names */
+      names?: {
+        [key: string]: string;
+      };
+      tokens?: components["schemas"]["ThemeTokens"];
+      /**
+       * Use In Admin
+       * @default true
+       */
+      use_in_admin: boolean;
+      /**
+       * Use Primary Accent
+       * @default true
+       */
+      use_primary_accent: boolean;
+      /**
+       * Variant Alias For
+       * @default null
+       */
+      variant_alias_for: string | null;
+      /** Variants */
+      variants?: {
+        [key: string]: components["schemas"]["ThemeTokens"];
+      };
+    };
+    /**
+     * WebappThemesConfig
+     * @description Runtime catalog assembled from individual theme descriptor files.
+     */
+    WebappThemesConfig: {
+      /**
+       * Default Theme
+       * @default dark
+       */
+      default_theme: string;
+      /** Themes */
+      themes?: components["schemas"]["WebappTheme"][];
+    };
   };
   responses: never;
   parameters: never;
@@ -2186,18 +2609,13 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description JSON response */
+      /** @description Response */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": {
-            /** @constant */
-            ok: true;
-          } & {
-            [key: string]: unknown;
-          };
+          "image/jpeg": string;
         };
       };
     };
@@ -2209,7 +2627,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailPayload"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -2218,8 +2640,10 @@ export interface operations {
         };
         content: {
           "application/json": {
+            already_linked?: boolean;
             /** @constant */
             ok: true;
+            retry_after?: number | null;
           } & {
             [key: string]: unknown;
           };
@@ -2234,7 +2658,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailCodePayload"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -2243,8 +2671,13 @@ export interface operations {
         };
         content: {
           "application/json": {
+            account_merge?: {
+              [key: string]: unknown;
+            };
             /** @constant */
             ok: true;
+            telegram_id?: number | null;
+            user_id?: number | null;
           } & {
             [key: string]: unknown;
           };
@@ -2259,7 +2692,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppLanguagePayload"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -2268,6 +2705,7 @@ export interface operations {
         };
         content: {
           "application/json": {
+            language: string;
             /** @constant */
             ok: true;
           } & {
@@ -2284,7 +2722,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppSetPasswordPayload"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -2295,6 +2737,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            password_auth_enabled: boolean;
           } & {
             [key: string]: unknown;
           };
@@ -2320,6 +2763,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            retry_after?: number | null;
           } & {
             [key: string]: unknown;
           };
@@ -2334,7 +2778,22 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          auth_data?: {
+            [key: string]: unknown;
+          };
+          id_token?: string;
+          init_data?: string;
+          nonce?: string;
+          referral_code?: string;
+          start_param?: string;
+        } & {
+          [key: string]: unknown;
+        };
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -2343,8 +2802,13 @@ export interface operations {
         };
         content: {
           "application/json": {
+            account_merge?: {
+              [key: string]: unknown;
+            };
             /** @constant */
             ok: true;
+            telegram_id?: number | null;
+            user_id?: number | null;
           } & {
             [key: string]: unknown;
           };
@@ -2370,6 +2834,9 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            telegram_notifications: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -2498,7 +2965,19 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          url: string;
+        } & {
+          [key: string]: unknown;
+        };
+        "multipart/form-data": {
+          /** Format: binary */
+          file: string;
+        };
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -2507,8 +2986,10 @@ export interface operations {
         };
         content: {
           "application/json": {
+            favicon_url?: string;
             /** @constant */
             ok: true;
+            persisted: boolean;
           } & {
             [key: string]: unknown;
           };
@@ -2523,7 +3004,19 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          url: string;
+        } & {
+          [key: string]: unknown;
+        };
+        "multipart/form-data": {
+          /** Format: binary */
+          file: string;
+        };
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -2532,8 +3025,11 @@ export interface operations {
         };
         content: {
           "application/json": {
+            favicon_url?: string;
+            logo_url: string;
             /** @constant */
             ok: true;
+            persisted: boolean;
           } & {
             [key: string]: unknown;
           };
@@ -2557,6 +3053,10 @@ export interface operations {
         };
         content: {
           "application/json": {
+            archives: {
+              [key: string]: unknown;
+            }[];
+            backup_dir: string;
             /** @constant */
             ok: true;
           } & {
@@ -2582,8 +3082,14 @@ export interface operations {
         };
         content: {
           "application/json": {
+            archive: {
+              [key: string]: unknown;
+            };
             /** @constant */
             ok: true;
+            result: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -2598,7 +3104,18 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          archive_name: string;
+          confirm: boolean;
+          restore_compose?: boolean;
+          restore_database?: boolean;
+        } & {
+          [key: string]: unknown;
+        };
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -2609,6 +3126,9 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            result: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -2623,7 +3143,14 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "multipart/form-data": {
+          /** Format: binary */
+          file: string;
+        };
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -2632,6 +3159,9 @@ export interface operations {
         };
         content: {
           "application/json": {
+            archive: {
+              [key: string]: unknown;
+            };
             /** @constant */
             ok: true;
           } & {
@@ -2648,7 +3178,17 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @enum {string} */
+          target?: "active" | "active_never_connected" | "all" | "expired" | "inactive" | "never";
+          text: string;
+        } & {
+          [key: string]: unknown;
+        };
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -2657,8 +3197,11 @@ export interface operations {
         };
         content: {
           "application/json": {
+            failed: number;
             /** @constant */
             ok: true;
+            queued: number;
+            target: string;
           } & {
             [key: string]: unknown;
           };
@@ -2682,6 +3225,9 @@ export interface operations {
         };
         content: {
           "application/json": {
+            counts: {
+              [key: string]: unknown;
+            };
             /** @constant */
             ok: true;
           } & {
@@ -2787,6 +3333,9 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            squads: {
+              [key: string]: unknown;
+            }[];
           } & {
             [key: string]: unknown;
           };
@@ -2829,7 +3378,7 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description CSV response */
+      /** @description Response */
       200: {
         headers: {
           [name: string]: unknown;
@@ -3002,8 +3551,12 @@ export interface operations {
         };
         content: {
           "application/json": {
+            features: string[];
             /** @constant */
             ok: true;
+            sections: {
+              [key: string]: unknown;
+            }[];
           } & {
             [key: string]: unknown;
           };
@@ -3018,7 +3571,18 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          deletes?: string[];
+          updates?: {
+            [key: string]: unknown;
+          };
+        } & {
+          [key: string]: unknown;
+        };
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -3027,8 +3591,10 @@ export interface operations {
         };
         content: {
           "application/json": {
+            applied: number;
             /** @constant */
             ok: true;
+            reverted: number;
           } & {
             [key: string]: unknown;
           };
@@ -3080,6 +3646,9 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            stats: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -3105,6 +3674,9 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            tickets: {
+              [key: string]: unknown;
+            }[];
           } & {
             [key: string]: unknown;
           };
@@ -3130,8 +3702,17 @@ export interface operations {
         };
         content: {
           "application/json": {
+            messages: {
+              [key: string]: unknown;
+            }[];
             /** @constant */
             ok: true;
+            ticket: {
+              [key: string]: unknown;
+            };
+            user_snapshot: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -3148,7 +3729,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminTicketPatchPayload"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -3159,6 +3744,9 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            ticket: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -3175,7 +3763,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminTicketReplyPayload"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -3184,8 +3776,14 @@ export interface operations {
         };
         content: {
           "application/json": {
+            message: {
+              [key: string]: unknown;
+            };
             /** @constant */
             ok: true;
+            ticket: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -3238,6 +3836,9 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            result: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -3261,8 +3862,16 @@ export interface operations {
         };
         content: {
           "application/json": {
+            catalog: {
+              [key: string]: unknown;
+            };
+            exists: boolean;
             /** @constant */
             ok: true;
+            path: string;
+            provider_currency_support: {
+              [key: string]: unknown;
+            }[];
           } & {
             [key: string]: unknown;
           };
@@ -3277,7 +3886,17 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json":
+          | components["schemas"]["TariffsConfig"]
+          | ({
+              catalog: components["schemas"]["TariffsConfig"];
+            } & {
+              [key: string]: unknown;
+            });
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -3286,8 +3905,16 @@ export interface operations {
         };
         content: {
           "application/json": {
+            catalog: {
+              [key: string]: unknown;
+            };
+            exists: boolean;
             /** @constant */
             ok: true;
+            path: string;
+            provider_currency_support: {
+              [key: string]: unknown;
+            }[];
           } & {
             [key: string]: unknown;
           };
@@ -3311,8 +3938,13 @@ export interface operations {
         };
         content: {
           "application/json": {
+            catalog: {
+              [key: string]: unknown;
+            };
+            exists: boolean;
             /** @constant */
             ok: true;
+            themes_dir: string;
           } & {
             [key: string]: unknown;
           };
@@ -3327,7 +3959,17 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json":
+          | components["schemas"]["WebappThemesConfig"]
+          | ({
+              catalog: components["schemas"]["WebappThemesConfig"];
+            } & {
+              [key: string]: unknown;
+            });
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -3336,8 +3978,13 @@ export interface operations {
         };
         content: {
           "application/json": {
+            catalog: {
+              [key: string]: unknown;
+            };
+            exists: boolean;
             /** @constant */
             ok: true;
+            themes_dir: string;
           } & {
             [key: string]: unknown;
           };
@@ -3361,8 +4008,16 @@ export interface operations {
         };
         content: {
           "application/json": {
+            groups: {
+              [key: string]: unknown;
+            }[];
+            languages: {
+              [key: string]: unknown;
+            }[];
             /** @constant */
             ok: true;
+            override_count: number;
+            path: string;
           } & {
             [key: string]: unknown;
           };
@@ -3377,7 +4032,20 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          deletes?: {
+            [key: string]: unknown;
+          }[];
+          updates?: {
+            [key: string]: unknown;
+          };
+        } & {
+          [key: string]: unknown;
+        };
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -3386,8 +4054,11 @@ export interface operations {
         };
         content: {
           "application/json": {
+            applied: number;
+            file_written: boolean;
             /** @constant */
             ok: true;
+            reverted: number;
           } & {
             [key: string]: unknown;
           };
@@ -3413,6 +4084,12 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            page: number;
+            page_size: number;
+            total: number;
+            users: {
+              [key: string]: unknown;
+            }[];
           } & {
             [key: string]: unknown;
           };
@@ -3438,8 +4115,31 @@ export interface operations {
         };
         content: {
           "application/json": {
+            active_subscription: {
+              [key: string]: unknown;
+            };
+            last_vpn_connected_at: string | null;
+            log_count: number;
             /** @constant */
             ok: true;
+            recent_payments: {
+              [key: string]: unknown;
+            }[];
+            referral: {
+              [key: string]: unknown;
+            };
+            subscription_url: string | null;
+            subscriptions: {
+              [key: string]: unknown;
+            }[];
+            total_paid: number;
+            trial: {
+              [key: string]: unknown;
+            };
+            user: {
+              [key: string]: unknown;
+            };
+            vpn_connection_status: string;
           } & {
             [key: string]: unknown;
           };
@@ -3485,18 +4185,13 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description JSON response */
+      /** @description Response */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": {
-            /** @constant */
-            ok: true;
-          } & {
-            [key: string]: unknown;
-          };
+          "image/jpeg": string;
         };
       };
     };
@@ -3510,7 +4205,15 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          banned: boolean;
+        } & {
+          [key: string]: unknown;
+        };
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -3521,6 +4224,9 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            user: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -3537,7 +4243,17 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          days: number;
+          extend_hwid_devices?: boolean;
+          tariff_key?: string | null;
+        } & {
+          [key: string]: unknown;
+        };
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -3548,6 +4264,9 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            subscription?: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -3564,7 +4283,19 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          hwid_device_limit?: number | null;
+          limit?: number | null;
+          reset_to_default?: boolean;
+          unlimited?: boolean;
+          use_default?: boolean;
+        } & {
+          [key: string]: unknown;
+        };
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -3575,6 +4306,9 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            subscription?: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -3591,7 +4325,15 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          text: string;
+        } & {
+          [key: string]: unknown;
+        };
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -3618,7 +4360,15 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          text: string;
+        } & {
+          [key: string]: unknown;
+        };
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -3645,7 +4395,17 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          bonus_bytes?: number | null;
+          bonus_gb?: number | null;
+          unlimited?: boolean;
+        } & {
+          [key: string]: unknown;
+        };
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -3656,6 +4416,9 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            subscription?: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -3681,8 +4444,20 @@ export interface operations {
         };
         content: {
           "application/json": {
+            invitees: {
+              [key: string]: unknown;
+            }[];
+            inviter: {
+              [key: string]: unknown;
+            };
             /** @constant */
             ok: true;
+            page: number;
+            page_size: number;
+            total: number;
+            user: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -3699,7 +4474,17 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          regular_bonus_bytes?: number | null;
+          regular_bonus_gb?: number | null;
+          unlimited?: boolean;
+        } & {
+          [key: string]: unknown;
+        };
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -3710,6 +4495,9 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            subscription?: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -3753,7 +4541,15 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          tariff_key: string;
+        } & {
+          [key: string]: unknown;
+        };
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -3764,6 +4560,9 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            subscription?: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -3791,6 +4590,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            queued: boolean;
           } & {
             [key: string]: unknown;
           };
@@ -3807,7 +4607,18 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          bytes?: number | null;
+          gb?: number | null;
+          /** @enum {string} */
+          kind?: "regular" | "premium";
+        } & {
+          [key: string]: unknown;
+        };
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -3816,8 +4627,14 @@ export interface operations {
         };
         content: {
           "application/json": {
+            grant: {
+              [key: string]: unknown;
+            };
             /** @constant */
             ok: true;
+            subscription?: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -3832,7 +4649,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailMagicPayload"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -3841,8 +4662,13 @@ export interface operations {
         };
         content: {
           "application/json": {
+            account_merge?: {
+              [key: string]: unknown;
+            };
             /** @constant */
             ok: true;
+            telegram_id?: number | null;
+            user_id?: number | null;
           } & {
             [key: string]: unknown;
           };
@@ -3857,7 +4683,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailPasswordPayload"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -3866,8 +4696,13 @@ export interface operations {
         };
         content: {
           "application/json": {
+            account_merge?: {
+              [key: string]: unknown;
+            };
             /** @constant */
             ok: true;
+            telegram_id?: number | null;
+            user_id?: number | null;
           } & {
             [key: string]: unknown;
           };
@@ -3882,7 +4717,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailPayload"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -3893,6 +4732,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            retry_after?: number | null;
           } & {
             [key: string]: unknown;
           };
@@ -3907,7 +4747,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailCodePayload"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -3916,8 +4760,13 @@ export interface operations {
         };
         content: {
           "application/json": {
+            account_merge?: {
+              [key: string]: unknown;
+            };
             /** @constant */
             ok: true;
+            telegram_id?: number | null;
+            user_id?: number | null;
           } & {
             [key: string]: unknown;
           };
@@ -3966,8 +4815,11 @@ export interface operations {
         };
         content: {
           "application/json": {
+            client_id: string;
+            nonce: string;
             /** @constant */
             ok: true;
+            request_access: string;
           } & {
             [key: string]: unknown;
           };
@@ -3982,7 +4834,22 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          auth_data?: {
+            [key: string]: unknown;
+          };
+          id_token?: string;
+          init_data?: string;
+          nonce?: string;
+          referral_code?: string;
+          start_param?: string;
+        } & {
+          [key: string]: unknown;
+        };
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -3991,8 +4858,13 @@ export interface operations {
         };
         content: {
           "application/json": {
+            account_merge?: {
+              [key: string]: unknown;
+            };
             /** @constant */
             ok: true;
+            telegram_id?: number | null;
+            user_id?: number | null;
           } & {
             [key: string]: unknown;
           };
@@ -4016,6 +4888,12 @@ export interface operations {
         };
         content: {
           "application/json": {
+            config: {
+              [key: string]: unknown;
+            };
+            i18n: {
+              [key: string]: unknown;
+            };
             /** @constant */
             ok: true;
           } & {
@@ -4041,8 +4919,14 @@ export interface operations {
         };
         content: {
           "application/json": {
+            devices?: {
+              [key: string]: unknown;
+            }[];
             /** @constant */
             ok: true;
+            subscription?: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -4057,7 +4941,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppDeviceDisconnectPayload"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -4093,6 +4981,11 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            plans?: {
+              [key: string]: unknown;
+            }[];
+            tariff_key?: string;
+            tariff_name?: string;
           } & {
             [key: string]: unknown;
           };
@@ -4116,8 +5009,12 @@ export interface operations {
         };
         content: {
           "application/json": {
+            i18n: {
+              [key: string]: unknown;
+            };
             /** @constant */
             ok: true;
+            scope: string;
           } & {
             [key: string]: unknown;
           };
@@ -4157,7 +5054,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppPaymentCreatePayload"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -4166,8 +5067,16 @@ export interface operations {
         };
         content: {
           "application/json": {
+            confirmation_url?: string | null;
             /** @constant */
             ok: true;
+            paid?: boolean;
+            payment?: {
+              [key: string]: unknown;
+            };
+            payment_id?: number;
+            payment_url?: string | null;
+            status?: string;
           } & {
             [key: string]: unknown;
           };
@@ -4193,8 +5102,16 @@ export interface operations {
         };
         content: {
           "application/json": {
+            confirmation_url?: string | null;
             /** @constant */
             ok: true;
+            paid?: boolean;
+            payment?: {
+              [key: string]: unknown;
+            };
+            payment_id?: number;
+            payment_url?: string | null;
+            status?: string;
           } & {
             [key: string]: unknown;
           };
@@ -4209,7 +5126,15 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          code: string;
+        } & {
+          [key: string]: unknown;
+        };
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -4218,6 +5143,8 @@ export interface operations {
         };
         content: {
           "application/json": {
+            end_date?: string | null;
+            end_date_text?: string | null;
             /** @constant */
             ok: true;
           } & {
@@ -4243,6 +5170,9 @@ export interface operations {
         };
         content: {
           "application/json": {
+            claimed: boolean;
+            end_date: string | null;
+            end_date_text: string | null;
             /** @constant */
             ok: true;
           } & {
@@ -4268,8 +5198,13 @@ export interface operations {
         };
         content: {
           "application/json": {
+            config?: {
+              [key: string]: unknown;
+            };
+            enabled: boolean;
             /** @constant */
             ok: true;
+            source?: string | null;
           } & {
             [key: string]: unknown;
           };
@@ -4295,8 +5230,16 @@ export interface operations {
         };
         content: {
           "application/json": {
+            config?: {
+              [key: string]: unknown;
+            };
+            enabled: boolean;
             /** @constant */
             ok: true;
+            source?: string | null;
+            subscription?: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -4311,7 +5254,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppAutoRenewPayload"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -4320,8 +5267,11 @@ export interface operations {
         };
         content: {
           "application/json": {
+            auto_renew_enabled: boolean;
             /** @constant */
             ok: true;
+            provider: string;
+            provider_label: string;
           } & {
             [key: string]: unknown;
           };
@@ -4347,6 +5297,9 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            tickets: {
+              [key: string]: unknown;
+            }[];
           } & {
             [key: string]: unknown;
           };
@@ -4361,7 +5314,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateTicketPayload"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -4372,6 +5329,9 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            ticket: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -4399,6 +5359,9 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            ticket: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -4415,7 +5378,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TicketReplyPayload"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -4426,6 +5393,9 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            ticket: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -4478,6 +5448,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            unread: number;
           } & {
             [key: string]: unknown;
           };
@@ -4492,7 +5463,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppTariffChangePayload"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -4503,6 +5478,9 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            subscription?: {
+              [key: string]: unknown;
+            };
           } & {
             [key: string]: unknown;
           };
@@ -4526,8 +5504,14 @@ export interface operations {
         };
         content: {
           "application/json": {
+            current: {
+              [key: string]: unknown;
+            };
             /** @constant */
             ok: true;
+            targets: {
+              [key: string]: unknown;
+            }[];
           } & {
             [key: string]: unknown;
           };
@@ -4542,7 +5526,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppPaymentCreatePayload"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -4551,8 +5539,16 @@ export interface operations {
         };
         content: {
           "application/json": {
+            confirmation_url?: string | null;
             /** @constant */
             ok: true;
+            paid?: boolean;
+            payment?: {
+              [key: string]: unknown;
+            };
+            payment_id?: number;
+            payment_url?: string | null;
+            status?: string;
           } & {
             [key: string]: unknown;
           };
@@ -4578,6 +5574,11 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+            plans?: {
+              [key: string]: unknown;
+            }[];
+            tariff_key?: string;
+            tariff_name?: string;
           } & {
             [key: string]: unknown;
           };
@@ -4601,8 +5602,15 @@ export interface operations {
         };
         content: {
           "application/json": {
+            activated: boolean;
+            config_link: string | null;
+            connect_url: string | null;
+            days: number;
+            end_date: string | null;
+            end_date_text: string | null;
             /** @constant */
             ok: true;
+            traffic_gb: number | null;
           } & {
             [key: string]: unknown;
           };

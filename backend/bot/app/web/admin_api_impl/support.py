@@ -36,6 +36,48 @@ class AdminTicketPatchPayload(BaseModel):
     assigned_admin_id: Optional[int] = None
 
 
+register_contract(
+    "admin_support_tickets_route",
+    RouteContract(response_schema=ok_envelope_with({"tickets": loose_array_schema()})),
+)
+register_contract(
+    "admin_support_ticket_detail_route",
+    RouteContract(
+        response_schema=ok_envelope_with(
+            {
+                "ticket": loose_object_schema(),
+                "messages": loose_array_schema(),
+                "user_snapshot": loose_object_schema(),
+            }
+        )
+    ),
+)
+register_contract(
+    "admin_support_ticket_reply_route",
+    RouteContract(
+        request_model=AdminTicketReplyPayload,
+        response_schema=ok_envelope_with(
+            {"ticket": loose_object_schema(), "message": loose_object_schema()}
+        ),
+    ),
+)
+register_contract(
+    "admin_support_ticket_patch_route",
+    RouteContract(
+        request_model=AdminTicketPatchPayload,
+        response_schema=ok_envelope_with({"ticket": loose_object_schema()}),
+    ),
+)
+register_contract(
+    "admin_support_ticket_read_route",
+    RouteContract(response_schema=ok_envelope_with()),
+)
+register_contract(
+    "admin_support_stats_route",
+    RouteContract(response_schema=ok_envelope_with({"stats": loose_object_schema()})),
+)
+
+
 def _validate_model_payload(model_cls, payload: Dict[str, Any]):
     try:
         return model_cls.model_validate(payload), None

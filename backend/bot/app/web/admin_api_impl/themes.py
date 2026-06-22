@@ -19,6 +19,76 @@ from config.webapp_themes_config import (
     write_webapp_theme_dir,
 )
 
+_WEBAPP_THEMES_CONFIG_REF = {"$ref": "#/components/schemas/WebappThemesConfig"}
+_THEMES_SAVE_BODY_SCHEMA = {
+    "oneOf": [
+        _WEBAPP_THEMES_CONFIG_REF,
+        {
+            "type": "object",
+            "additionalProperties": True,
+            "required": ["catalog"],
+            "properties": {"catalog": _WEBAPP_THEMES_CONFIG_REF},
+        },
+    ]
+}
+_IMAGE_URL_UPLOAD_SCHEMA = {
+    "type": "object",
+    "additionalProperties": True,
+    "required": ["url"],
+    "properties": {"url": STRING_SCHEMA},
+}
+_IMAGE_MULTIPART_UPLOAD_SCHEMA = {
+    "type": "object",
+    "required": ["file"],
+    "properties": {"file": BINARY_RESPONSE_SCHEMA},
+}
+_THEMES_RESPONSE_SCHEMA = ok_envelope_with(
+    {"exists": BOOLEAN_SCHEMA, "themes_dir": STRING_SCHEMA, "catalog": loose_object_schema()}
+)
+
+register_contract(
+    "admin_themes_get_route",
+    RouteContract(response_schema=_THEMES_RESPONSE_SCHEMA, models=(WebappThemesConfig,)),
+)
+register_contract(
+    "admin_themes_save_route",
+    RouteContract(
+        request_schema=_THEMES_SAVE_BODY_SCHEMA,
+        response_schema=_THEMES_RESPONSE_SCHEMA,
+        models=(WebappThemesConfig,),
+    ),
+)
+register_contract(
+    "admin_appearance_logo_upload_route",
+    RouteContract(
+        request_content={
+            "application/json": _IMAGE_URL_UPLOAD_SCHEMA,
+            "multipart/form-data": _IMAGE_MULTIPART_UPLOAD_SCHEMA,
+        },
+        response_schema=ok_envelope_with(
+            {
+                "logo_url": STRING_SCHEMA,
+                "persisted": BOOLEAN_SCHEMA,
+                "favicon_url": STRING_SCHEMA,
+            },
+            required=["logo_url", "persisted"],
+        ),
+    ),
+)
+register_contract(
+    "admin_appearance_favicon_upload_route",
+    RouteContract(
+        request_content={
+            "application/json": _IMAGE_URL_UPLOAD_SCHEMA,
+            "multipart/form-data": _IMAGE_MULTIPART_UPLOAD_SCHEMA,
+        },
+        response_schema=ok_envelope_with(
+            {"persisted": BOOLEAN_SCHEMA, "favicon_url": STRING_SCHEMA},
+            required=["persisted"],
+        ),
+    ),
+)
+
 
 WEBAPP_LOGO_MAX_BYTES = 2 * 1024 * 1024
 WEBAPP_UPLOADED_LOGO_DIR = Path(__file__).resolve().parents[5] / "data" / "webapp-logo" / "uploads"

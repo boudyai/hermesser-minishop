@@ -2,6 +2,40 @@
 from ._runtime import *  # noqa: F403,F405
 from .webapp_runtime import refresh_webapp_runtime_after_settings_change
 
+_TARIFFS_CONFIG_REF = {"$ref": "#/components/schemas/TariffsConfig"}
+_TARIFFS_SAVE_BODY_SCHEMA = {
+    "oneOf": [
+        _TARIFFS_CONFIG_REF,
+        {
+            "type": "object",
+            "additionalProperties": True,
+            "required": ["catalog"],
+            "properties": {"catalog": _TARIFFS_CONFIG_REF},
+        },
+    ]
+}
+_TARIFFS_RESPONSE_SCHEMA = ok_envelope_with(
+    {
+        "exists": BOOLEAN_SCHEMA,
+        "path": STRING_SCHEMA,
+        "catalog": loose_object_schema(),
+        "provider_currency_support": loose_array_schema(),
+    }
+)
+
+register_contract(
+    "admin_tariffs_get_route",
+    RouteContract(response_schema=_TARIFFS_RESPONSE_SCHEMA, models=(TariffsConfig,)),
+)
+register_contract(
+    "admin_tariffs_save_route",
+    RouteContract(
+        request_schema=_TARIFFS_SAVE_BODY_SCHEMA,
+        response_schema=_TARIFFS_RESPONSE_SCHEMA,
+        models=(TariffsConfig,),
+    ),
+)
+
 
 async def admin_tariffs_get_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)

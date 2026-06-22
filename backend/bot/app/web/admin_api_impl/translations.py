@@ -11,6 +11,42 @@ from bot.services.locale_override_service import (
     update_locale_overrides,
 )
 
+_TRANSLATIONS_PATCH_BODY_SCHEMA = {
+    "type": "object",
+    "additionalProperties": True,
+    "properties": {
+        "updates": loose_object_schema(),
+        "deletes": {"type": "array", "items": loose_object_schema()},
+    },
+}
+
+register_contract(
+    "admin_translations_get_route",
+    RouteContract(
+        response_schema=ok_envelope_with(
+            {
+                "languages": loose_array_schema(),
+                "groups": loose_array_schema(),
+                "path": STRING_SCHEMA,
+                "override_count": INTEGER_SCHEMA,
+            }
+        )
+    ),
+)
+register_contract(
+    "admin_translations_patch_route",
+    RouteContract(
+        request_schema=_TRANSLATIONS_PATCH_BODY_SCHEMA,
+        response_schema=ok_envelope_with(
+            {
+                "applied": INTEGER_SCHEMA,
+                "reverted": INTEGER_SCHEMA,
+                "file_written": BOOLEAN_SCHEMA,
+            }
+        ),
+    ),
+)
+
 
 def _locale_languages(
     i18n: JsonI18n,

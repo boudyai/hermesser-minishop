@@ -1,9 +1,9 @@
 """OpenAPI generation from the live aiohttp router.
 
 The generator intentionally walks the same router objects the application uses,
-then enriches routes with typed request/response schemas as domains migrate to
-pydantic contracts. Routes without typed models still appear with method, path,
-parameters, and a generic JSON response envelope.
+then enriches routes with typed request/response schemas. Routes without typed
+models still appear with method, path, parameters, and a generic JSON response
+envelope.
 """
 
 from __future__ import annotations
@@ -113,10 +113,14 @@ def _operation_id(method: str, handler_name: str) -> str:
 
 
 def _json_response(contract: RouteContract | None) -> dict[str, Any]:
-    if contract is not None and contract.response_content_type == "text/csv":
+    if contract is not None and contract.response_content_type != "application/json":
         return {
-            "description": "CSV response",
-            "content": {"text/csv": {"schema": contract.response_schema}},
+            "description": "Response",
+            "content": {
+                contract.response_content_type: {
+                    "schema": contract.response_schema or {"type": "string"}
+                }
+            },
         }
     schema = (
         contract.response_schema
@@ -150,16 +154,28 @@ def _operation_for_route(
         operation["security"] = contract.security
     elif path.startswith("/api/admin/"):
         operation["security"] = ADMIN_SECURITY
+    request_content: dict[str, dict[str, Any]] | None = None
     request_schema: dict[str, Any] | None = None
     request_content_type = "application/json"
     if contract is not None:
-        request_schema = (
-            schema_ref(contract.request_model)
-            if contract.request_model is not None
-            else contract.request_schema
-        )
-        request_content_type = contract.request_content_type
-    if request_schema is not None:
+        if contract.request_content is not None:
+            request_content = contract.request_content
+        else:
+            request_schema = (
+                schema_ref(contract.request_model)
+                if contract.request_model is not None
+                else contract.request_schema
+            )
+            request_content_type = contract.request_content_type
+    if request_content is not None:
+        operation["requestBody"] = {
+            "required": True,
+            "content": {
+                content_type: {"schema": schema}
+                for content_type, schema in sorted(request_content.items())
+            },
+        }
+    elif request_schema is not None:
         operation["requestBody"] = {
             "required": True,
             "content": {
@@ -171,17 +187,40 @@ def _operation_for_route(
     return operation
 
 
+def _pop_json_schema_defs(schema: Any) -> dict[str, Any]:
+    if isinstance(schema, list):
+        defs: dict[str, Any] = {}
+        for item in schema:
+            defs.update(_pop_json_schema_defs(item))
+        return defs
+    if not isinstance(schema, dict):
+        return {}
+
+    defs = {
+        str(name): nested_schema
+        for name, nested_schema in (schema.pop("$defs", {}) or {}).items()
+        if isinstance(nested_schema, dict)
+    }
+    for nested_schema in list(defs.values()):
+        defs.update(_pop_json_schema_defs(nested_schema))
+    for value in list(schema.values()):
+        defs.update(_pop_json_schema_defs(value))
+    return defs
+
+
 def _components(contracts: dict[str, RouteContract]) -> dict[str, Any]:
     models: set[type[BaseModel]] = set()
     for contract in contracts.values():
         if contract.request_model is not None:
             models.add(contract.request_model)
         models.update(contract.models)
+    schemas: dict[str, Any] = {}
+    for model in sorted(models, key=lambda item: item.__name__):
+        schema = model.model_json_schema(ref_template="#/components/schemas/{model}")
+        schemas.update(_pop_json_schema_defs(schema))
+        schemas[model.__name__] = schema
     return {
-        "schemas": {
-            model.__name__: model.model_json_schema(ref_template="#/components/schemas/{model}")
-            for model in sorted(models, key=lambda item: item.__name__)
-        },
+        "schemas": {name: schemas[name] for name in sorted(schemas)},
         "securitySchemes": {
             "AdminSession": {
                 "type": "apiKey",

@@ -3,7 +3,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from bot.app.web.openapi import DEFAULT_OUTPUT_PATH, generate_openapi, serialize_openapi
+from bot.app.web.openapi import (
+    DEFAULT_OUTPUT_PATH,
+    _build_core_webapp,
+    _route_path,
+    generate_openapi,
+    serialize_openapi,
+)
+from bot.app.web.route_contracts import get_contracts
 
 
 def test_openapi_artifact_is_current():
@@ -31,6 +38,9 @@ def test_openapi_includes_typed_promos_contracts():
     export_operation = document["paths"]["/api/admin/payments/export.csv"]["get"]
     assert "text/csv" in export_operation["responses"]["200"]["content"]
 
+    avatar_operation = document["paths"]["/api/admin/users/{user_id}/avatar"]["get"]
+    assert "image/jpeg" in avatar_operation["responses"]["200"]["content"]
+
 
 def test_openapi_marks_user_session_security():
     document = json.loads(DEFAULT_OUTPUT_PATH.read_text(encoding="utf-8"))
@@ -56,3 +66,24 @@ def test_openapi_lists_every_live_api_route():
 
     assert set(document["paths"]) == set(generated["paths"])
     assert Path("docs/openapi.json") == DEFAULT_OUTPUT_PATH.relative_to(Path.cwd())
+
+
+def test_live_api_routes_have_response_contracts():
+    app = _build_core_webapp()
+    contracts = get_contracts()
+    missing = []
+
+    for route in app.router.routes():
+        if route.method.upper() == "HEAD":
+            continue
+
+        path = _route_path(route)
+        if not path.startswith("/api/"):
+            continue
+
+        handler_name = getattr(route.handler, "__name__", "")
+        contract = contracts.get(handler_name)
+        if contract is None or contract.response_schema is None:
+            missing.append(f"{route.method} {path} ({handler_name})")
+
+    assert missing == []

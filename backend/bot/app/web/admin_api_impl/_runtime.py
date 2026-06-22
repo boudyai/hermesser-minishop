@@ -59,7 +59,25 @@ from db.models import (
     UserTelegramAvatar,
 )
 
-from bot.app.web.route_contracts import RouteContract, ok_envelope_for, register_contract
+from bot.app.web.route_contracts import (
+    BINARY_RESPONSE_SCHEMA,
+    BOOLEAN_SCHEMA,
+    GENERIC_OK_RESPONSE,
+    INTEGER_SCHEMA,
+    JSON_ARRAY_SCHEMA,
+    JSON_OBJECT_SCHEMA,
+    NULLABLE_INTEGER_SCHEMA,
+    NULLABLE_NUMBER_SCHEMA,
+    NULLABLE_STRING_SCHEMA,
+    NUMBER_SCHEMA,
+    RouteContract,
+    STRING_SCHEMA,
+    loose_array_schema,
+    loose_object_schema,
+    ok_envelope_for,
+    ok_envelope_with,
+    register_contract,
+)
 
 from .request_parsing import parse_body
 from .schemas import (

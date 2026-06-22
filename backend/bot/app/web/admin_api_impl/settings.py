@@ -8,6 +8,34 @@ from config.subscription_guides_config import (
 )
 from bot.services.entitlements import features as entitlement_features
 
+_SETTINGS_PATCH_BODY_SCHEMA = {
+    "type": "object",
+    "additionalProperties": True,
+    "properties": {
+        "updates": loose_object_schema(),
+        "deletes": {"type": "array", "items": STRING_SCHEMA},
+    },
+}
+
+register_contract(
+    "admin_settings_get_route",
+    RouteContract(
+        response_schema=ok_envelope_with(
+            {
+                "sections": loose_array_schema(),
+                "features": {"type": "array", "items": STRING_SCHEMA},
+            }
+        )
+    ),
+)
+register_contract(
+    "admin_settings_patch_route",
+    RouteContract(
+        request_schema=_SETTINGS_PATCH_BODY_SCHEMA,
+        response_schema=ok_envelope_with({"applied": INTEGER_SCHEMA, "reverted": INTEGER_SCHEMA}),
+    ),
+)
+
 
 async def admin_settings_get_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)

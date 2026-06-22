@@ -14,6 +14,54 @@ from bot.services.backup_restore_service import (
 )
 from bot.services.backup_worker import BackupWorker
 
+_BACKUP_UPLOAD_BODY_SCHEMA = {
+    "type": "object",
+    "required": ["file"],
+    "properties": {"file": BINARY_RESPONSE_SCHEMA},
+}
+_BACKUP_RESTORE_BODY_SCHEMA = {
+    "type": "object",
+    "additionalProperties": True,
+    "required": ["archive_name", "confirm"],
+    "properties": {
+        "archive_name": STRING_SCHEMA,
+        "restore_database": BOOLEAN_SCHEMA,
+        "restore_compose": BOOLEAN_SCHEMA,
+        "confirm": BOOLEAN_SCHEMA,
+    },
+}
+
+register_contract(
+    "admin_backups_list_route",
+    RouteContract(
+        response_schema=ok_envelope_with(
+            {"backup_dir": STRING_SCHEMA, "archives": loose_array_schema()}
+        )
+    ),
+)
+register_contract(
+    "admin_backups_create_route",
+    RouteContract(
+        response_schema=ok_envelope_with(
+            {"result": loose_object_schema(), "archive": loose_object_schema()}
+        )
+    ),
+)
+register_contract(
+    "admin_backups_upload_route",
+    RouteContract(
+        request_content={"multipart/form-data": _BACKUP_UPLOAD_BODY_SCHEMA},
+        response_schema=ok_envelope_with({"archive": loose_object_schema()}),
+    ),
+)
+register_contract(
+    "admin_backups_restore_route",
+    RouteContract(
+        request_schema=_BACKUP_RESTORE_BODY_SCHEMA,
+        response_schema=ok_envelope_with({"result": loose_object_schema()}),
+    ),
+)
+
 
 def _backup_archive_payload(archive) -> Dict[str, Any]:
     return archive.to_payload()

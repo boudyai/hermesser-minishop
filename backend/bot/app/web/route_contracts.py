@@ -9,6 +9,27 @@ from pydantic import BaseModel
 
 ADMIN_SECURITY: list[dict[str, list[Any]]] = [{"AdminSession": []}, {"AdminBearer": []}]
 USER_SECURITY: list[dict[str, list[Any]]] = [{"UserSession": []}, {"UserBearer": []}]
+STRING_SCHEMA: dict[str, str] = {"type": "string"}
+INTEGER_SCHEMA: dict[str, str] = {"type": "integer"}
+NUMBER_SCHEMA: dict[str, str] = {"type": "number"}
+BOOLEAN_SCHEMA: dict[str, str] = {"type": "boolean"}
+NULLABLE_STRING_SCHEMA: dict[str, list[str]] = {"type": ["string", "null"]}
+NULLABLE_INTEGER_SCHEMA: dict[str, list[str]] = {"type": ["integer", "null"]}
+NULLABLE_NUMBER_SCHEMA: dict[str, list[str]] = {"type": ["number", "null"]}
+JSON_OBJECT_SCHEMA: dict[str, Any] = {"type": "object", "additionalProperties": True}
+JSON_ARRAY_SCHEMA: dict[str, Any] = {
+    "type": "array",
+    "items": JSON_OBJECT_SCHEMA,
+}
+BINARY_RESPONSE_SCHEMA: dict[str, str] = {"type": "string", "format": "binary"}
+GENERIC_OK_RESPONSE: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": True,
+    "required": ["ok"],
+    "properties": {
+        "ok": {"type": "boolean", "const": True},
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -16,6 +37,7 @@ class RouteContract:
     request_model: type[BaseModel] | None = None
     request_schema: dict[str, Any] | None = None
     request_content_type: str = "application/json"
+    request_content: dict[str, dict[str, Any]] | None = None
     response_schema: dict[str, Any] | None = None
     response_content_type: str = "application/json"
     models: tuple[type[BaseModel], ...] = field(default_factory=tuple)
@@ -53,6 +75,29 @@ def ok_envelope(properties: dict[str, Any], required: list[str]) -> dict[str, An
             **properties,
         },
     }
+
+
+def loose_object_schema(description: str | None = None) -> dict[str, Any]:
+    schema = dict(JSON_OBJECT_SCHEMA)
+    if description:
+        schema["description"] = description
+    return schema
+
+
+def loose_array_schema(description: str | None = None) -> dict[str, Any]:
+    schema = dict(JSON_ARRAY_SCHEMA)
+    if description:
+        schema["description"] = description
+    return schema
+
+
+def ok_envelope_with(
+    properties: dict[str, Any] | None = None,
+    *,
+    required: list[str] | None = None,
+) -> dict[str, Any]:
+    properties = properties or {}
+    return ok_envelope(properties, required if required is not None else list(properties))
 
 
 def ok_envelope_for(

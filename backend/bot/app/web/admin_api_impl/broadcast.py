@@ -20,6 +20,28 @@ BROADCAST_TARGETS = {
 PANEL_ACTIVITY_LOOKUP_CONCURRENCY = 10
 _ADMIN_BROADCAST_AUDIENCE_COUNT_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {}
 
+register_contract(
+    "admin_broadcast_route",
+    RouteContract(
+        request_schema={
+            "type": "object",
+            "additionalProperties": True,
+            "required": ["text"],
+            "properties": {
+                "text": STRING_SCHEMA,
+                "target": {"type": "string", "enum": sorted(BROADCAST_TARGETS)},
+            },
+        },
+        response_schema=ok_envelope_with(
+            {"queued": INTEGER_SCHEMA, "failed": INTEGER_SCHEMA, "target": STRING_SCHEMA}
+        ),
+    ),
+)
+register_contract(
+    "admin_broadcast_audience_counts_route",
+    RouteContract(response_schema=ok_envelope_with({"counts": loose_object_schema()})),
+)
+
 
 def _resolve_panel_service(request: web.Request) -> Any:
     subscription_service = request.app.get("subscription_service")
