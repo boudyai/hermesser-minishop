@@ -3,7 +3,7 @@ import { adminErrorMessage } from "../errors.js";
 import { withRoutePrefix } from "../../webapp/routes.js";
 
 type AdminStoreState = Record<string, any>;
-type AdminUser = Record<string, any> & { user_id?: number | string };
+export type AdminUser = Record<string, any> & { user_id?: number | string };
 type AdminApi = (path: string, options?: RequestInit) => Promise<any>;
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -940,3 +940,5 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
     setUserReferralsPage,
   };
 }
+
+export type UsersStore = ReturnType<typeof createUsersStore>;
