@@ -100,73 +100,6 @@
         "type": "object"
       },
       "AdminAdsListOut": {
-        "$defs": {
-          "AdOut": {
-            "properties": {
-              "cost": {
-                "title": "Cost",
-                "type": "number"
-              },
-              "created_at": {
-                "anyOf": [
-                  {
-                    "format": "date-time",
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Created At"
-              },
-              "id": {
-                "title": "Id",
-                "type": "integer"
-              },
-              "is_active": {
-                "title": "Is Active",
-                "type": "boolean"
-              },
-              "source": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Source"
-              },
-              "start_param": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Start Param"
-              },
-              "stats": {
-                "additionalProperties": true,
-                "title": "Stats",
-                "type": "object"
-              }
-            },
-            "required": [
-              "id",
-              "cost",
-              "is_active"
-            ],
-            "title": "AdOut",
-            "type": "object"
-          }
-        },
         "properties": {
           "campaigns": {
             "items": {
@@ -214,147 +147,6 @@
         "type": "object"
       },
       "AdminLogsListOut": {
-        "$defs": {
-          "LogOut": {
-            "properties": {
-              "content": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Content"
-              },
-              "email": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Email"
-              },
-              "event_type": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Event Type"
-              },
-              "is_admin_event": {
-                "title": "Is Admin Event",
-                "type": "boolean"
-              },
-              "log_id": {
-                "title": "Log Id",
-                "type": "integer"
-              },
-              "target_user_id": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Target User Id"
-              },
-              "target_user_label": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Target User Label"
-              },
-              "telegram_first_name": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Telegram First Name"
-              },
-              "telegram_username": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Telegram Username"
-              },
-              "timestamp": {
-                "anyOf": [
-                  {
-                    "format": "date-time",
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Timestamp"
-              },
-              "user_id": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "User Id"
-              },
-              "user_label": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "User Label"
-              }
-            },
-            "required": [
-              "log_id",
-              "is_admin_event"
-            ],
-            "title": "LogOut",
-            "type": "object"
-          }
-        },
         "properties": {
           "logs": {
             "items": {
@@ -447,197 +239,6 @@
         "type": "object"
       },
       "AdminPaymentsListOut": {
-        "$defs": {
-          "PaymentOut": {
-            "properties": {
-              "amount": {
-                "title": "Amount",
-                "type": "number"
-              },
-              "created_at": {
-                "anyOf": [
-                  {
-                    "format": "date-time",
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Created At"
-              },
-              "currency": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Currency"
-              },
-              "description": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Description"
-              },
-              "payment_id": {
-                "title": "Payment Id",
-                "type": "integer"
-              },
-              "provider": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Provider"
-              },
-              "provider_payment_id": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Provider Payment Id"
-              },
-              "purchased_gb": {
-                "default": null,
-                "title": "Purchased Gb"
-              },
-              "purchased_hwid_devices": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Purchased Hwid Devices"
-              },
-              "sale_mode": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Sale Mode"
-              },
-              "status": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Status"
-              },
-              "subscription_duration_months": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Subscription Duration Months"
-              },
-              "tariff_key": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Tariff Key"
-              },
-              "telegram_id": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Telegram Id"
-              },
-              "traffic_premium_gb": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Traffic Premium Gb"
-              },
-              "traffic_regular_gb": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Traffic Regular Gb"
-              },
-              "user_id": {
-                "title": "User Id",
-                "type": "integer"
-              },
-              "user_label": {
-                "title": "User Label",
-                "type": "string"
-              }
-            },
-            "required": [
-              "payment_id",
-              "user_id",
-              "user_label",
-              "amount"
-            ],
-            "title": "PaymentOut",
-            "type": "object"
-          }
-        },
         "properties": {
           "page": {
             "title": "Page",
@@ -669,237 +270,6 @@
         "type": "object"
       },
       "AdminStatsOut": {
-        "$defs": {
-          "AdminPanelSyncOut": {
-            "properties": {
-              "details": {
-                "default": null,
-                "title": "Details"
-              },
-              "last_sync_time": {
-                "anyOf": [
-                  {
-                    "format": "date-time",
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Last Sync Time"
-              },
-              "status": {
-                "title": "Status",
-                "type": "string"
-              },
-              "subscriptions_synced": {
-                "title": "Subscriptions Synced",
-                "type": "integer"
-              },
-              "users_processed": {
-                "title": "Users Processed",
-                "type": "integer"
-              }
-            },
-            "required": [
-              "status",
-              "users_processed",
-              "subscriptions_synced"
-            ],
-            "title": "AdminPanelSyncOut",
-            "type": "object"
-          },
-          "PaymentOut": {
-            "properties": {
-              "amount": {
-                "title": "Amount",
-                "type": "number"
-              },
-              "created_at": {
-                "anyOf": [
-                  {
-                    "format": "date-time",
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Created At"
-              },
-              "currency": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Currency"
-              },
-              "description": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Description"
-              },
-              "payment_id": {
-                "title": "Payment Id",
-                "type": "integer"
-              },
-              "provider": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Provider"
-              },
-              "provider_payment_id": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Provider Payment Id"
-              },
-              "purchased_gb": {
-                "default": null,
-                "title": "Purchased Gb"
-              },
-              "purchased_hwid_devices": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Purchased Hwid Devices"
-              },
-              "sale_mode": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Sale Mode"
-              },
-              "status": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Status"
-              },
-              "subscription_duration_months": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Subscription Duration Months"
-              },
-              "tariff_key": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Tariff Key"
-              },
-              "telegram_id": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Telegram Id"
-              },
-              "traffic_premium_gb": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Traffic Premium Gb"
-              },
-              "traffic_regular_gb": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Traffic Regular Gb"
-              },
-              "user_id": {
-                "title": "User Id",
-                "type": "integer"
-              },
-              "user_label": {
-                "title": "User Label",
-                "type": "string"
-              }
-            },
-            "required": [
-              "payment_id",
-              "user_id",
-              "user_label",
-              "amount"
-            ],
-            "title": "PaymentOut",
-            "type": "object"
-          }
-        },
         "properties": {
           "currency_symbol": {
             "title": "Currency Symbol",
@@ -960,6 +330,188 @@
           "currency_symbol"
         ],
         "title": "AdminStatsOut",
+        "type": "object"
+      },
+      "AdminTicketPatchPayload": {
+        "properties": {
+          "assigned_admin_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Assigned Admin Id"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "enum": [
+                  "billing",
+                  "technical",
+                  "account",
+                  "other"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Category"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "enum": [
+                  "low",
+                  "normal",
+                  "high",
+                  "urgent"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Priority"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "open",
+                  "awaiting_user",
+                  "awaiting_admin",
+                  "resolved",
+                  "closed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status"
+          }
+        },
+        "title": "AdminTicketPatchPayload",
+        "type": "object"
+      },
+      "AdminTicketReplyPayload": {
+        "properties": {
+          "body": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "is_internal_note": {
+            "default": false,
+            "title": "Is Internal Note",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "title": "AdminTicketReplyPayload",
+        "type": "object"
+      },
+      "CreateTicketPayload": {
+        "properties": {
+          "body": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "category": {
+            "default": "other",
+            "enum": [
+              "billing",
+              "technical",
+              "account",
+              "other"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "priority": {
+            "default": "normal",
+            "enum": [
+              "normal",
+              "high"
+            ],
+            "title": "Priority",
+            "type": "string"
+          },
+          "subject": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "body"
+        ],
+        "title": "CreateTicketPayload",
+        "type": "object"
+      },
+      "HwidDevicePackage": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "min_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Min Price"
+          },
+          "price": {
+            "title": "Price",
+            "type": "number"
+          },
+          "prices": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Prices",
+            "type": "object"
+          }
+        },
+        "required": [
+          "count",
+          "price"
+        ],
+        "title": "HwidDevicePackage",
+        "type": "object"
+      },
+      "HwidDevicePackageSet": {
+        "additionalProperties": {
+          "items": {
+            "$ref": "#/components/schemas/HwidDevicePackage"
+          },
+          "type": "array"
+        },
+        "title": "HwidDevicePackageSet",
         "type": "object"
       },
       "LogOut": {
@@ -1099,6 +651,16 @@
           "is_admin_event"
         ],
         "title": "LogOut",
+        "type": "object"
+      },
+      "PackageSet": {
+        "additionalProperties": {
+          "items": {
+            "$ref": "#/components/schemas/TrafficPackage"
+          },
+          "type": "array"
+        },
+        "title": "PackageSet",
         "type": "object"
       },
       "PaymentDetailOut": {
@@ -1668,6 +1230,1408 @@
         },
         "title": "PromoUpdateBody",
         "type": "object"
+      },
+      "Tariff": {
+        "properties": {
+          "billing_model": {
+            "enum": [
+              "period",
+              "traffic"
+            ],
+            "title": "Billing Model",
+            "type": "string"
+          },
+          "conversion_rate_per_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Conversion Rate Per Gb"
+          },
+          "conversion_rate_rub_per_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Conversion Rate Rub Per Gb"
+          },
+          "descriptions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Descriptions",
+            "type": "object"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "enabled_periods": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Enabled Periods",
+            "type": "array"
+          },
+          "hwid_device_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Hwid Device Limit"
+          },
+          "hwid_device_packages": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HwidDevicePackageSet"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "monthly_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Monthly Gb"
+          },
+          "names": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Names",
+            "type": "object"
+          },
+          "premium_monthly_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Premium Monthly Gb"
+          },
+          "premium_names": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Premium Names",
+            "type": "object"
+          },
+          "premium_squad_uuids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Premium Squad Uuids",
+            "type": "array"
+          },
+          "premium_topup_packages": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PackageSet"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "prices": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            "title": "Prices",
+            "type": "object"
+          },
+          "prices_rub": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Prices Rub",
+            "type": "object"
+          },
+          "prices_stars": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Prices Stars",
+            "type": "object"
+          },
+          "referral_bonus_days_inviter": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Referral Bonus Days Inviter",
+            "type": "object"
+          },
+          "referral_bonus_days_referee": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Referral Bonus Days Referee",
+            "type": "object"
+          },
+          "squad_uuids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Squad Uuids",
+            "type": "array"
+          },
+          "topup_packages": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PackageSet"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "traffic_packages": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PackageSet"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "key",
+          "billing_model"
+        ],
+        "title": "Tariff",
+        "type": "object"
+      },
+      "TariffsConfig": {
+        "properties": {
+          "default_currency": {
+            "default": "rub",
+            "title": "Default Currency",
+            "type": "string"
+          },
+          "default_tariff": {
+            "title": "Default Tariff",
+            "type": "string"
+          },
+          "tariffs": {
+            "items": {
+              "$ref": "#/components/schemas/Tariff"
+            },
+            "title": "Tariffs",
+            "type": "array"
+          },
+          "topup_packages_default": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PackageSet"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "default_tariff",
+          "tariffs"
+        ],
+        "title": "TariffsConfig",
+        "type": "object"
+      },
+      "ThemeTokens": {
+        "description": "CSS design tokens for the subscription Mini App shell.",
+        "properties": {
+          "accent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Accent"
+          },
+          "accent_contrast": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Accent Contrast"
+          },
+          "admin_bg": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Admin Bg"
+          },
+          "admin_border": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Admin Border"
+          },
+          "admin_border_strong": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Admin Border Strong"
+          },
+          "admin_chart_fill": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Admin Chart Fill"
+          },
+          "admin_chart_stroke": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Admin Chart Stroke"
+          },
+          "admin_dim": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Admin Dim"
+          },
+          "admin_elev": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Admin Elev"
+          },
+          "admin_muted": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Admin Muted"
+          },
+          "admin_surface": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Admin Surface"
+          },
+          "admin_surface_2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Admin Surface 2"
+          },
+          "admin_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Admin Text"
+          },
+          "bg": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bg"
+          },
+          "blue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Blue"
+          },
+          "border": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Border"
+          },
+          "border_strong": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Border Strong"
+          },
+          "color_scheme": {
+            "default": "dark",
+            "enum": [
+              "light",
+              "dark"
+            ],
+            "title": "Color Scheme",
+            "type": "string"
+          },
+          "danger": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Danger"
+          },
+          "danger_border": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Danger Border"
+          },
+          "danger_soft": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Danger Soft"
+          },
+          "danger_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Danger Text"
+          },
+          "dim": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Dim"
+          },
+          "font_logo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Font Logo"
+          },
+          "font_mono": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Font Mono"
+          },
+          "font_sans": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Font Sans"
+          },
+          "home_logo_scale": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Home Logo Scale"
+          },
+          "home_logo_scale_desktop": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Home Logo Scale Desktop"
+          },
+          "home_logo_scale_mobile": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Home Logo Scale Mobile"
+          },
+          "info": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Info"
+          },
+          "info_border": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Info Border"
+          },
+          "info_soft": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Info Soft"
+          },
+          "info_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Info Text"
+          },
+          "inset_highlight": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Inset Highlight"
+          },
+          "muted": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Muted"
+          },
+          "nav_bg": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Nav Bg"
+          },
+          "overlay_scrim": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Overlay Scrim"
+          },
+          "panel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel"
+          },
+          "panel_2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel 2"
+          },
+          "panel_3": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel 3"
+          },
+          "radius": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Radius"
+          },
+          "rail_bg": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rail Bg"
+          },
+          "shadow_popover": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Shadow Popover"
+          },
+          "shadow_soft": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Shadow Soft"
+          },
+          "shadow_strong": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Shadow Strong"
+          },
+          "style_preset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Style Preset"
+          },
+          "success": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Success"
+          },
+          "success_border": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Success Border"
+          },
+          "success_soft": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Success Soft"
+          },
+          "success_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Success Text"
+          },
+          "surface_hover": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Surface Hover"
+          },
+          "surface_muted": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Surface Muted"
+          },
+          "surface_sheen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Surface Sheen"
+          },
+          "surface_sheen_soft": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Surface Sheen Soft"
+          },
+          "surface_subtle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Surface Subtle"
+          },
+          "surface_subtle_border": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Surface Subtle Border"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          },
+          "warning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Warning"
+          },
+          "warning_border": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Warning Border"
+          },
+          "warning_soft": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Warning Soft"
+          },
+          "warning_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Warning Text"
+          }
+        },
+        "title": "ThemeTokens",
+        "type": "object"
+      },
+      "TicketReplyPayload": {
+        "properties": {
+          "body": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "title": "TicketReplyPayload",
+        "type": "object"
+      },
+      "TrafficPackage": {
+        "properties": {
+          "gb": {
+            "title": "Gb",
+            "type": "number"
+          },
+          "price": {
+            "title": "Price",
+            "type": "number"
+          }
+        },
+        "required": [
+          "gb",
+          "price"
+        ],
+        "title": "TrafficPackage",
+        "type": "object"
+      },
+      "WebAppAutoRenewPayload": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "WebAppAutoRenewPayload",
+        "type": "object"
+      },
+      "WebAppDeviceDisconnectPayload": {
+        "properties": {
+          "token": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "WebAppDeviceDisconnectPayload",
+        "type": "object"
+      },
+      "WebAppEmailCodePayload": {
+        "properties": {
+          "code": {
+            "default": "",
+            "title": "Code",
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "WebAppEmailCodePayload",
+        "type": "object"
+      },
+      "WebAppEmailMagicPayload": {
+        "properties": {
+          "token": {
+            "maxLength": 512,
+            "minLength": 8,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "WebAppEmailMagicPayload",
+        "type": "object"
+      },
+      "WebAppEmailPasswordPayload": {
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "WebAppEmailPasswordPayload",
+        "type": "object"
+      },
+      "WebAppEmailPayload": {
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "WebAppEmailPayload",
+        "type": "object"
+      },
+      "WebAppLanguagePayload": {
+        "properties": {
+          "language": {
+            "maxLength": 16,
+            "minLength": 2,
+            "title": "Language",
+            "type": "string"
+          }
+        },
+        "required": [
+          "language"
+        ],
+        "title": "WebAppLanguagePayload",
+        "type": "object"
+      },
+      "WebAppPaymentCreatePayload": {
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Comment"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "device_count": {
+            "default": null,
+            "title": "Device Count"
+          },
+          "method": {
+            "default": "",
+            "title": "Method",
+            "type": "string"
+          },
+          "months": {
+            "default": null,
+            "title": "Months"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Note"
+          },
+          "renew_hwid_devices": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Renew Hwid Devices"
+          },
+          "sale_mode": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sale Mode"
+          },
+          "tariff_key": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tariff Key"
+          },
+          "traffic_gb": {
+            "default": null,
+            "title": "Traffic Gb"
+          }
+        },
+        "title": "WebAppPaymentCreatePayload",
+        "type": "object"
+      },
+      "WebAppSetPasswordPayload": {
+        "properties": {
+          "code": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password",
+            "type": "string"
+          },
+          "password_confirm": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password Confirm",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password",
+          "password_confirm",
+          "code"
+        ],
+        "title": "WebAppSetPasswordPayload",
+        "type": "object"
+      },
+      "WebAppTariffChangePayload": {
+        "properties": {
+          "mode": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Mode",
+            "type": "string"
+          },
+          "tariff_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Tariff Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tariff_key",
+          "mode"
+        ],
+        "title": "WebAppTariffChangePayload",
+        "type": "object"
+      },
+      "WebappTheme": {
+        "description": "Single theme descriptor loaded from WEBAPP_THEMES_DIR/<key>/theme.json.",
+        "properties": {
+          "active_variant": {
+            "anyOf": [
+              {
+                "enum": [
+                  "light",
+                  "dark"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Active Variant"
+          },
+          "assets_version": {
+            "default": 1,
+            "title": "Assets Version",
+            "type": "integer"
+          },
+          "css_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Css File"
+          },
+          "default": {
+            "default": false,
+            "title": "Default",
+            "type": "boolean"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "hidden": {
+            "default": false,
+            "title": "Hidden",
+            "type": "boolean"
+          },
+          "key": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Key",
+            "type": "string"
+          },
+          "names": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Names",
+            "type": "object"
+          },
+          "tokens": {
+            "$ref": "#/components/schemas/ThemeTokens"
+          },
+          "use_in_admin": {
+            "default": true,
+            "title": "Use In Admin",
+            "type": "boolean"
+          },
+          "use_primary_accent": {
+            "default": true,
+            "title": "Use Primary Accent",
+            "type": "boolean"
+          },
+          "variant_alias_for": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Variant Alias For"
+          },
+          "variants": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ThemeTokens"
+            },
+            "title": "Variants",
+            "type": "object"
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "title": "WebappTheme",
+        "type": "object"
+      },
+      "WebappThemesConfig": {
+        "description": "Runtime catalog assembled from individual theme descriptor files.",
+        "properties": {
+          "default_theme": {
+            "default": "dark",
+            "title": "Default Theme",
+            "type": "string"
+          },
+          "themes": {
+            "items": {
+              "$ref": "#/components/schemas/WebappTheme"
+            },
+            "title": "Themes",
+            "type": "array"
+          }
+        },
+        "title": "WebappThemesConfig",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -1708,23 +2672,14 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
+              "image/jpeg": {
                 "schema": {
-                  "additionalProperties": true,
-                  "properties": {
-                    "ok": {
-                      "const": true,
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [
-                    "ok"
-                  ],
-                  "type": "object"
+                  "format": "binary",
+                  "type": "string"
                 }
               }
             },
-            "description": "JSON response"
+            "description": "Response"
           }
         },
         "security": [
@@ -1744,6 +2699,16 @@
     "/api/account/email/request": {
       "post": {
         "operationId": "post_account_email_request_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppEmailPayload"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -1751,9 +2716,18 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "already_linked": {
+                      "type": "boolean"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "retry_after": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -1783,6 +2757,16 @@
     "/api/account/email/verify": {
       "post": {
         "operationId": "post_account_email_verify_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppEmailCodePayload"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -1790,9 +2774,25 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "account_merge": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "telegram_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "user_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -1822,6 +2822,16 @@
     "/api/account/language": {
       "post": {
         "operationId": "post_account_language_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppLanguagePayload"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -1829,13 +2839,17 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "language": {
+                      "type": "string"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "language"
                   ],
                   "type": "object"
                 }
@@ -1861,6 +2875,16 @@
     "/api/account/password/confirm": {
       "post": {
         "operationId": "post_account_password_confirm_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppSetPasswordPayload"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -1871,10 +2895,14 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "password_auth_enabled": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "password_auth_enabled"
                   ],
                   "type": "object"
                 }
@@ -1910,6 +2938,12 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "retry_after": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -1939,6 +2973,38 @@
     "/api/account/telegram/link": {
       "post": {
         "operationId": "post_account_telegram_link_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "auth_data": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "id_token": {
+                    "type": "string"
+                  },
+                  "init_data": {
+                    "type": "string"
+                  },
+                  "nonce": {
+                    "type": "string"
+                  },
+                  "referral_code": {
+                    "type": "string"
+                  },
+                  "start_param": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -1946,9 +3012,25 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "account_merge": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "telegram_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "user_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -1988,10 +3070,15 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "telegram_notifications": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "telegram_notifications"
                   ],
                   "type": "object"
                 }
@@ -2222,6 +3309,39 @@
     "/api/admin/appearance/favicon": {
       "post": {
         "operationId": "post_admin_appearance_favicon_upload_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "url": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "url"
+                ],
+                "type": "object"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -2229,13 +3349,20 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "favicon_url": {
+                      "type": "string"
+                    },
                     "ok": {
                       "const": true,
+                      "type": "boolean"
+                    },
+                    "persisted": {
                       "type": "boolean"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "persisted"
                   ],
                   "type": "object"
                 }
@@ -2261,6 +3388,39 @@
     "/api/admin/appearance/logo": {
       "post": {
         "operationId": "post_admin_appearance_logo_upload_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "url": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "url"
+                ],
+                "type": "object"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -2268,13 +3428,24 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "favicon_url": {
+                      "type": "string"
+                    },
+                    "logo_url": {
+                      "type": "string"
+                    },
                     "ok": {
                       "const": true,
+                      "type": "boolean"
+                    },
+                    "persisted": {
                       "type": "boolean"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "logo_url",
+                    "persisted"
                   ],
                   "type": "object"
                 }
@@ -2307,13 +3478,25 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "archives": {
+                      "items": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "backup_dir": {
+                      "type": "string"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "backup_dir",
+                    "archives"
                   ],
                   "type": "object"
                 }
@@ -2346,13 +3529,23 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "archive": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "result": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "result",
+                    "archive"
                   ],
                   "type": "object"
                 }
@@ -2378,6 +3571,35 @@
     "/api/admin/backups/restore": {
       "post": {
         "operationId": "post_admin_backups_restore_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "archive_name": {
+                    "type": "string"
+                  },
+                  "confirm": {
+                    "type": "boolean"
+                  },
+                  "restore_compose": {
+                    "type": "boolean"
+                  },
+                  "restore_database": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "archive_name",
+                  "confirm"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -2388,10 +3610,15 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "result": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "result"
                   ],
                   "type": "object"
                 }
@@ -2417,6 +3644,25 @@
     "/api/admin/backups/upload": {
       "post": {
         "operationId": "post_admin_backups_upload_route",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -2424,13 +3670,18 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "archive": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "archive"
                   ],
                   "type": "object"
                 }
@@ -2456,6 +3707,36 @@
     "/api/admin/broadcast": {
       "post": {
         "operationId": "post_admin_broadcast_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "target": {
+                    "enum": [
+                      "active",
+                      "active_never_connected",
+                      "all",
+                      "expired",
+                      "inactive",
+                      "never"
+                    ],
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "text"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -2463,13 +3744,25 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "failed": {
+                      "type": "integer"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "queued": {
+                      "type": "integer"
+                    },
+                    "target": {
+                      "type": "string"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "queued",
+                    "failed",
+                    "target"
                   ],
                   "type": "object"
                 }
@@ -2502,13 +3795,18 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "counts": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "counts"
                   ],
                   "type": "object"
                 }
@@ -2682,10 +3980,18 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "squads": {
+                      "items": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "type": "array"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "squads"
                   ],
                   "type": "object"
                 }
@@ -2767,7 +4073,7 @@
                 }
               }
             },
-            "description": "CSV response"
+            "description": "Response"
           }
         },
         "security": [
@@ -3070,13 +4376,28 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "features": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "sections": {
+                      "items": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "type": "array"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "sections",
+                    "features"
                   ],
                   "type": "object"
                 }
@@ -3100,6 +4421,29 @@
       },
       "patch": {
         "operationId": "patch_admin_settings_patch_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "deletes": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "updates": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -3107,13 +4451,21 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "applied": {
+                      "type": "integer"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "reverted": {
+                      "type": "integer"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "applied",
+                    "reverted"
                   ],
                   "type": "object"
                 }
@@ -3195,10 +4547,15 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "stats": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "stats"
                   ],
                   "type": "object"
                 }
@@ -3234,10 +4591,18 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "tickets": {
+                      "items": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "type": "array"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "tickets"
                   ],
                   "type": "object"
                 }
@@ -3280,13 +4645,31 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "messages": {
+                      "items": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "ticket": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "user_snapshot": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "ticket",
+                    "messages",
+                    "user_snapshot"
                   ],
                   "type": "object"
                 }
@@ -3320,6 +4703,16 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminTicketPatchPayload"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -3330,10 +4723,15 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "ticket": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "ticket"
                   ],
                   "type": "object"
                 }
@@ -3369,6 +4767,16 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminTicketReplyPayload"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -3376,13 +4784,23 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "message": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "ticket": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "ticket",
+                    "message"
                   ],
                   "type": "object"
                 }
@@ -3467,10 +4885,15 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "result": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "result"
                   ],
                   "type": "object"
                 }
@@ -3503,13 +4926,34 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "catalog": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "exists": {
+                      "type": "boolean"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "provider_currency_support": {
+                      "items": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "type": "array"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "exists",
+                    "path",
+                    "catalog",
+                    "provider_currency_support"
                   ],
                   "type": "object"
                 }
@@ -3533,6 +4977,32 @@
       },
       "put": {
         "operationId": "put_admin_tariffs_save_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/TariffsConfig"
+                  },
+                  {
+                    "additionalProperties": true,
+                    "properties": {
+                      "catalog": {
+                        "$ref": "#/components/schemas/TariffsConfig"
+                      }
+                    },
+                    "required": [
+                      "catalog"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -3540,13 +5010,34 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "catalog": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "exists": {
+                      "type": "boolean"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "provider_currency_support": {
+                      "items": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "type": "array"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "exists",
+                    "path",
+                    "catalog",
+                    "provider_currency_support"
                   ],
                   "type": "object"
                 }
@@ -3579,13 +5070,26 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "catalog": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "exists": {
+                      "type": "boolean"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "themes_dir": {
+                      "type": "string"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "exists",
+                    "themes_dir",
+                    "catalog"
                   ],
                   "type": "object"
                 }
@@ -3609,6 +5113,32 @@
       },
       "put": {
         "operationId": "put_admin_themes_save_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/WebappThemesConfig"
+                  },
+                  {
+                    "additionalProperties": true,
+                    "properties": {
+                      "catalog": {
+                        "$ref": "#/components/schemas/WebappThemesConfig"
+                      }
+                    },
+                    "required": [
+                      "catalog"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -3616,13 +5146,26 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "catalog": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "exists": {
+                      "type": "boolean"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "themes_dir": {
+                      "type": "string"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "exists",
+                    "themes_dir",
+                    "catalog"
                   ],
                   "type": "object"
                 }
@@ -3655,13 +5198,37 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "groups": {
+                      "items": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "languages": {
+                      "items": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "override_count": {
+                      "type": "integer"
+                    },
+                    "path": {
+                      "type": "string"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "languages",
+                    "groups",
+                    "path",
+                    "override_count"
                   ],
                   "type": "object"
                 }
@@ -3685,6 +5252,30 @@
       },
       "patch": {
         "operationId": "patch_admin_translations_patch_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "deletes": {
+                    "items": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "updates": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -3692,13 +5283,25 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "applied": {
+                      "type": "integer"
+                    },
+                    "file_written": {
+                      "type": "boolean"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "reverted": {
+                      "type": "integer"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "applied",
+                    "reverted",
+                    "file_written"
                   ],
                   "type": "object"
                 }
@@ -3734,10 +5337,30 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "page": {
+                      "type": "integer"
+                    },
+                    "page_size": {
+                      "type": "integer"
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "users": {
+                      "items": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "type": "array"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "users",
+                    "page",
+                    "page_size",
+                    "total"
                   ],
                   "type": "object"
                 }
@@ -3827,13 +5450,75 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "active_subscription": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "last_vpn_connected_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "log_count": {
+                      "type": "integer"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "recent_payments": {
+                      "items": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "referral": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "subscription_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "subscriptions": {
+                      "items": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "total_paid": {
+                      "type": "number"
+                    },
+                    "trial": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "user": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "vpn_connection_status": {
+                      "type": "string"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "user",
+                    "active_subscription",
+                    "subscriptions",
+                    "trial",
+                    "total_paid",
+                    "recent_payments",
+                    "log_count",
+                    "subscription_url",
+                    "last_vpn_connected_at",
+                    "vpn_connection_status",
+                    "referral"
                   ],
                   "type": "object"
                 }
@@ -3872,23 +5557,14 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
+              "image/jpeg": {
                 "schema": {
-                  "additionalProperties": true,
-                  "properties": {
-                    "ok": {
-                      "const": true,
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [
-                    "ok"
-                  ],
-                  "type": "object"
+                  "format": "binary",
+                  "type": "string"
                 }
               }
             },
-            "description": "JSON response"
+            "description": "Response"
           }
         },
         "security": [
@@ -3918,6 +5594,25 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "banned": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "banned"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -3928,10 +5623,15 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "user": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "user"
                   ],
                   "type": "object"
                 }
@@ -3967,6 +5667,34 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "days": {
+                    "type": "integer"
+                  },
+                  "extend_hwid_devices": {
+                    "type": "boolean"
+                  },
+                  "tariff_key": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "days"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -3977,6 +5705,10 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "subscription": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
@@ -4016,6 +5748,40 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "hwid_device_limit": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "limit": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "reset_to_default": {
+                    "type": "boolean"
+                  },
+                  "unlimited": {
+                    "type": "boolean"
+                  },
+                  "use_default": {
+                    "type": "boolean"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -4026,6 +5792,10 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "subscription": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
@@ -4065,6 +5835,25 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "text"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -4114,6 +5903,25 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "text"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -4163,6 +5971,34 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "bonus_bytes": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "bonus_gb": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "unlimited": {
+                    "type": "boolean"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -4173,6 +6009,10 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "subscription": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
@@ -4219,13 +6059,43 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "invitees": {
+                      "items": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "inviter": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "page": {
+                      "type": "integer"
+                    },
+                    "page_size": {
+                      "type": "integer"
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "user": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "user",
+                    "inviter",
+                    "invitees",
+                    "total",
+                    "page",
+                    "page_size"
                   ],
                   "type": "object"
                 }
@@ -4261,6 +6131,34 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "regular_bonus_bytes": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "regular_bonus_gb": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "unlimited": {
+                    "type": "boolean"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -4271,6 +6169,10 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "subscription": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
@@ -4359,6 +6261,25 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "tariff_key": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "tariff_key"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -4369,6 +6290,10 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "subscription": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
@@ -4418,10 +6343,14 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "queued": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "queued"
                   ],
                   "type": "object"
                 }
@@ -4457,6 +6386,38 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "bytes": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "gb": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "kind": {
+                    "enum": [
+                      "regular",
+                      "premium"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -4464,13 +6425,22 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "grant": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "subscription": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "grant"
                   ],
                   "type": "object"
                 }
@@ -4496,6 +6466,16 @@
     "/api/auth/email/magic": {
       "post": {
         "operationId": "post_email_auth_magic_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppEmailMagicPayload"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -4503,9 +6483,25 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "account_merge": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "telegram_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "user_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -4527,6 +6523,16 @@
     "/api/auth/email/password": {
       "post": {
         "operationId": "post_email_password_auth_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppEmailPasswordPayload"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -4534,9 +6540,25 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "account_merge": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "telegram_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "user_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -4558,6 +6580,16 @@
     "/api/auth/email/request": {
       "post": {
         "operationId": "post_email_auth_request_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppEmailPayload"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -4568,6 +6600,12 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "retry_after": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -4589,6 +6627,16 @@
     "/api/auth/email/verify": {
       "post": {
         "operationId": "post_email_auth_verify_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppEmailCodePayload"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -4596,9 +6644,25 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "account_merge": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "telegram_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "user_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -4658,13 +6722,25 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "client_id": {
+                      "type": "string"
+                    },
+                    "nonce": {
+                      "type": "string"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "request_access": {
+                      "type": "string"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "nonce",
+                    "client_id",
+                    "request_access"
                   ],
                   "type": "object"
                 }
@@ -4682,6 +6758,38 @@
     "/api/auth/token": {
       "post": {
         "operationId": "post_auth_token_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "auth_data": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "id_token": {
+                    "type": "string"
+                  },
+                  "init_data": {
+                    "type": "string"
+                  },
+                  "nonce": {
+                    "type": "string"
+                  },
+                  "referral_code": {
+                    "type": "string"
+                  },
+                  "start_param": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -4689,9 +6797,25 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "account_merge": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "telegram_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "user_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -4720,13 +6844,23 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "config": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "i18n": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "config",
+                    "i18n"
                   ],
                   "type": "object"
                 }
@@ -4751,9 +6885,20 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "devices": {
+                      "items": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "subscription": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
@@ -4783,6 +6928,16 @@
     "/api/devices/disconnect": {
       "post": {
         "operationId": "post_disconnect_device_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppDeviceDisconnectPayload"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -4832,6 +6987,19 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "plans": {
+                      "items": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "tariff_key": {
+                      "type": "string"
+                    },
+                    "tariff_name": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -4868,13 +7036,22 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "i18n": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "scope": {
+                      "type": "string"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "scope",
+                    "i18n"
                   ],
                   "type": "object"
                 }
@@ -4931,6 +7108,16 @@
     "/api/payments": {
       "post": {
         "operationId": "post_create_payment_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppPaymentCreatePayload"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -4938,9 +7125,34 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "confirmation_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "paid": {
+                      "type": "boolean"
+                    },
+                    "payment": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "payment_id": {
+                      "type": "integer"
+                    },
+                    "payment_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -4988,9 +7200,34 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "confirmation_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "paid": {
+                      "type": "boolean"
+                    },
+                    "payment": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "payment_id": {
+                      "type": "integer"
+                    },
+                    "payment_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -5020,6 +7257,25 @@
     "/api/promo/apply": {
       "post": {
         "operationId": "post_apply_promo_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "code"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -5027,6 +7283,18 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "end_date": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "end_date_text": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
@@ -5066,13 +7334,31 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "claimed": {
+                      "type": "boolean"
+                    },
+                    "end_date": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "end_date_text": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "claimed",
+                    "end_date",
+                    "end_date_text"
                   ],
                   "type": "object"
                 }
@@ -5105,13 +7391,27 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "config": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "source": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "enabled"
                   ],
                   "type": "object"
                 }
@@ -5155,13 +7455,31 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "config": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "source": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "subscription": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "enabled"
                   ],
                   "type": "object"
                 }
@@ -5179,6 +7497,16 @@
     "/api/subscription/auto-renew": {
       "post": {
         "operationId": "post_subscription_auto_renew_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppAutoRenewPayload"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -5186,13 +7514,25 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "auto_renew_enabled": {
+                      "type": "boolean"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "provider": {
+                      "type": "string"
+                    },
+                    "provider_label": {
+                      "type": "string"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "auto_renew_enabled",
+                    "provider",
+                    "provider_label"
                   ],
                   "type": "object"
                 }
@@ -5228,10 +7568,18 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "tickets": {
+                      "items": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "type": "array"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "tickets"
                   ],
                   "type": "object"
                 }
@@ -5255,6 +7603,16 @@
       },
       "post": {
         "operationId": "post_support_create_ticket_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTicketPayload"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -5265,10 +7623,15 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "ticket": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "ticket"
                   ],
                   "type": "object"
                 }
@@ -5314,10 +7677,15 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "ticket": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "ticket"
                   ],
                   "type": "object"
                 }
@@ -5353,6 +7721,16 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketReplyPayload"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -5363,10 +7741,15 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "ticket": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "ticket"
                   ],
                   "type": "object"
                 }
@@ -5451,10 +7834,14 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "unread": {
+                      "type": "integer"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "unread"
                   ],
                   "type": "object"
                 }
@@ -5480,6 +7867,16 @@
     "/api/tariffs/change": {
       "post": {
         "operationId": "post_tariff_change_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppTariffChangePayload"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -5490,6 +7887,10 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "subscription": {
+                      "additionalProperties": true,
+                      "type": "object"
                     }
                   },
                   "required": [
@@ -5526,13 +7927,26 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "current": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "targets": {
+                      "items": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "type": "array"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "current",
+                    "targets"
                   ],
                   "type": "object"
                 }
@@ -5558,6 +7972,16 @@
     "/api/tariffs/change-payment": {
       "post": {
         "operationId": "post_tariff_change_payment_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppPaymentCreatePayload"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -5565,9 +7989,34 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "confirmation_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "paid": {
+                      "type": "boolean"
+                    },
+                    "payment": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "payment_id": {
+                      "type": "integer"
+                    },
+                    "payment_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -5607,6 +8056,19 @@
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "plans": {
+                      "items": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "tariff_key": {
+                      "type": "string"
+                    },
+                    "tariff_name": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -5643,13 +8105,56 @@
                 "schema": {
                   "additionalProperties": true,
                   "properties": {
+                    "activated": {
+                      "type": "boolean"
+                    },
+                    "config_link": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "connect_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "days": {
+                      "type": "integer"
+                    },
+                    "end_date": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "end_date_text": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
+                    },
+                    "traffic_gb": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "activated",
+                    "days",
+                    "end_date",
+                    "end_date_text",
+                    "traffic_gb",
+                    "config_link",
+                    "connect_url"
                   ],
                   "type": "object"
                 }
