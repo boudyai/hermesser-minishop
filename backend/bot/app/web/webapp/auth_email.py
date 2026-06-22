@@ -1,3 +1,9 @@
+from bot.app.web.context import (
+    get_email_auth_service,
+    get_session_factory,
+    get_settings,
+)
+
 from ._runtime import (
     Any,
     Dict,
@@ -55,7 +61,7 @@ def _password_login_failure_response(
 
 
 async def email_password_auth_route(request: web.Request) -> web.Response:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not settings.email_auth_configured:
         return _json_error(503, "email_auth_not_configured", "Email auth is not configured")
 
@@ -65,7 +71,7 @@ async def email_password_auth_route(request: web.Request) -> web.Response:
     password = str(password_payload.password or "")
     now = datetime.now(timezone.utc)
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     authenticated_user_id: Optional[int] = None
     authenticated_telegram_id: Optional[int] = None
     async with async_session_factory() as session:
@@ -141,7 +147,7 @@ async def email_password_auth_route(request: web.Request) -> web.Response:
 
 
 async def email_auth_request_route(request: web.Request) -> web.Response:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     email_payload = await _parse_model_payload(request, WebAppEmailRequestPayload)
     email = email_payload.email
     lang = _normalize_language(str(email_payload.language or settings.DEFAULT_LANGUAGE))
@@ -155,13 +161,13 @@ async def email_auth_request_route(request: web.Request) -> web.Response:
 
 
 async def email_auth_verify_route(request: web.Request) -> web.Response:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     email_payload = await _parse_model_payload(request, WebAppEmailCodeAuthPayload)
     email = email_payload.email
     code = str(email_payload.code or "")
     referral_param = str(email_payload.referral_code or email_payload.start_param or "")
-    email_service: EmailAuthService = request.app["email_auth_service"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    email_service: EmailAuthService = get_email_auth_service(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
     created_user = False
 
     async with async_session_factory() as session:
@@ -244,12 +250,12 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
 
 
 async def email_auth_magic_route(request: web.Request) -> web.Response:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     magic_payload = await _parse_model_payload(request, WebAppEmailMagicAuthPayload)
     token_value = str(magic_payload.token).strip()
     referral_param = str(magic_payload.referral_code or magic_payload.start_param or "")
-    email_service: EmailAuthService = request.app["email_auth_service"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    email_service: EmailAuthService = get_email_auth_service(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
     created_user = False
     verified_email: Optional[str] = None
 
@@ -338,8 +344,8 @@ async def _request_email_code(
     language_code: str,
     target_user_id: Optional[int],
 ) -> web.Response:
-    email_service: EmailAuthService = request.app["email_auth_service"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    email_service: EmailAuthService = get_email_auth_service(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         try:
             result = await email_service.request_code(

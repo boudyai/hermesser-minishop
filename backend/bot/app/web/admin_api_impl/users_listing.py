@@ -1,5 +1,9 @@
 import hashlib
 
+from bot.app.web.context import (
+    get_session_factory,
+    get_settings,
+)
 from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
 from bot.infra.redis import cache_delete_pattern, redis_key
 from bot.utils.ttl_cache import AsyncTTLCache
@@ -38,8 +42,8 @@ from .users_detail import (
 
 async def admin_users_list_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    settings: Settings = get_settings(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
 
     page = max(0, int(request.query.get("page", 0) or 0))
     page_size = min(100, max(1, int(request.query.get("page_size", 25) or 25)))

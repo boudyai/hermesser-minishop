@@ -1,3 +1,11 @@
+from bot.app.web.context import (
+    get_bot_username,
+    get_optional_subscription_service,
+    get_referral_service,
+    get_session_factory,
+    get_settings,
+    get_subscription_service,
+)
 from bot.app.web.webapp.auth import (
     _referral_welcome_telegram_required_reason,
     _trial_telegram_required_reason,
@@ -56,9 +64,9 @@ from .common import (
 
 
 async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, Any]:
-    settings: Settings = request.app["settings"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
-    subscription_service: SubscriptionService = request.app["subscription_service"]
+    settings: Settings = get_settings(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
+    subscription_service: SubscriptionService = get_subscription_service(request)
     cached = _get_cached_webapp_settings(request)
 
     async with async_session_factory() as session:
@@ -71,8 +79,8 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
 
         active = await subscription_service.get_active_subscription_details(session, user_id)
         referral_code = await user_dal.ensure_referral_code(session, db_user)
-        referral_service: Optional[ReferralService] = request.app.get("referral_service")
-        bot_username = request.app.get("bot_username") or ""
+        referral_service: Optional[ReferralService] = get_referral_service(request)
+        bot_username = get_bot_username(request)
         referral_link = None
         if referral_service and bot_username:
             referral_link = await referral_service.generate_referral_link(
@@ -81,7 +89,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
                 user_id,
             )
         webapp_referral_link = _build_webapp_referral_link(
-            request.app["settings"].SUBSCRIPTION_MINI_APP_URL,
+            get_settings(request).SUBSCRIPTION_MINI_APP_URL,
             referral_code,
         )
         referral_stats = (
@@ -153,9 +161,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
     telegram_notifications_status = normalize_telegram_notification_status(
         getattr(db_user, "telegram_notifications_status", None)
     )
-    telegram_notifications_link = telegram_notifications_start_link(
-        request.app.get("bot_username") or ""
-    )
+    telegram_notifications_link = telegram_notifications_start_link(get_bot_username(request))
     return {
         "user": {
             "id": user_id,
@@ -460,7 +466,7 @@ def _serialize_subscription(
 
             auto_renew_supported = provider_supports_recurring(provider)
             if request is not None:
-                subscription_service = request.app.get("subscription_service")
+                subscription_service = get_optional_subscription_service(request)
                 recurring_service_for = getattr(subscription_service, "recurring_service_for", None)
                 service = (
                     recurring_service_for(provider) if callable(recurring_service_for) else None

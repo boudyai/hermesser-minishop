@@ -1,3 +1,8 @@
+from bot.app.web.context import (
+    get_session_factory,
+    get_settings,
+)
+
 from ._runtime import (
     Settings,
     json,
@@ -12,7 +17,7 @@ def _require_admin_user_id(request: web.Request) -> int:
 
     from bot.app.web.session import extract_authenticated_user_id
 
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     user_id = extract_authenticated_user_id(request)
     if not user_id:
         raise web.HTTPUnauthorized(
@@ -51,7 +56,7 @@ async def admin_auth_middleware(request: web.Request, handler):
 
     user_id = extract_authenticated_user_id(request)
     if user_id:
-        async_session_factory: sessionmaker = request.app["async_session_factory"]
+        async_session_factory: sessionmaker = get_session_factory(request)
         async with async_session_factory() as session:
             db_user = await user_dal.get_user_by_id(session, user_id)
         if db_user and db_user.telegram_id:

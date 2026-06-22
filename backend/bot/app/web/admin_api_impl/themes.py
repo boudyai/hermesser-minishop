@@ -9,6 +9,10 @@ from aiohttp import ClientSession, ClientTimeout
 from aiohttp.multipart import BodyPartReader
 from PIL import Image, ImageOps, UnidentifiedImageError
 
+from bot.app.web.context import (
+    get_session_factory,
+    get_settings,
+)
 from config.webapp_themes_config import (
     WebappThemesConfig,
     ensure_webapp_core_themes,
@@ -265,8 +269,8 @@ async def _persist_appearance_upload(
     updates: Dict[str, Any],
     actor_id: int,
 ) -> bool:
-    settings: Settings = request.app["settings"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    settings: Settings = get_settings(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
     result = await update_overrides(
         settings,
         async_session_factory,
@@ -501,7 +505,7 @@ async def admin_appearance_favicon_upload_route(request: web.Request) -> web.Res
 
 async def admin_themes_get_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     primary = settings.WEBAPP_PRIMARY_COLOR or "#00fe7a"
     catalog = resolved_webapp_themes_catalog(
         primary_accent=primary,
@@ -520,7 +524,7 @@ async def admin_themes_get_route(request: web.Request) -> web.Response:
 
 async def admin_themes_save_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     previous_config = resolved_webapp_themes_catalog(
         primary_accent=settings.WEBAPP_PRIMARY_COLOR or "#00fe7a",
         env_default_theme=settings.WEBAPP_DEFAULT_THEME,

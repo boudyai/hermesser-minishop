@@ -1,3 +1,14 @@
+from bot.app.web.context import (
+    get_bot,
+    get_i18n,
+    get_lknpd_service,
+    get_payment_service,
+    get_required_panel_service,
+    get_required_referral_service,
+    get_session_factory,
+    get_settings,
+    get_subscription_service,
+)
 from bot.app.web.webapp.auth import _require_user_id
 from bot.app.web.webapp.common import (
     _json_error,
@@ -50,7 +61,7 @@ async def _refresh_yookassa_payment_status(
         return payment
 
     yookassa_payment_id = payment.yookassa_payment_id or payment.provider_payment_id
-    yookassa_service = request.app.get("yookassa_service")
+    yookassa_service = get_payment_service(request, "yookassa_service")
     if (
         not yookassa_payment_id
         or not yookassa_service
@@ -86,14 +97,14 @@ async def _refresh_yookassa_payment_status(
             try:
                 event_payload = await process_successful_payment(
                     session,
-                    request.app["bot"],
+                    get_bot(request),
                     provider_payload,
-                    request.app["i18n"],
-                    request.app["settings"],
-                    request.app["panel_service"],
-                    request.app["subscription_service"],
-                    request.app["referral_service"],
-                    request.app.get("lknpd_service"),
+                    get_i18n(request),
+                    get_settings(request),
+                    get_required_panel_service(request),
+                    get_subscription_service(request),
+                    get_required_referral_service(request),
+                    get_lknpd_service(request),
                 )
                 await session.commit()
                 if event_payload:
@@ -122,10 +133,10 @@ async def _refresh_yookassa_payment_status(
             try:
                 event_payload = await process_cancelled_payment(
                     session,
-                    request.app["bot"],
+                    get_bot(request),
                     provider_payload,
-                    request.app["i18n"],
-                    request.app["settings"],
+                    get_i18n(request),
+                    get_settings(request),
                 )
                 await session.commit()
                 if event_payload:
@@ -156,7 +167,7 @@ async def _refresh_wata_payment_status(
     if not _payment_status_can_be_refreshed(payment):
         return payment
 
-    wata_service = request.app.get("wata_service")
+    wata_service = get_payment_service(request, "wata_service")
     if (
         not wata_service
         or not getattr(wata_service, "configured", False)
@@ -178,7 +189,7 @@ async def payment_status_route(request: web.Request) -> web.Response:
     except (TypeError, ValueError):
         return _json_error(400, "invalid_payment", "Invalid payment id")
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         payment = await payment_dal.get_payment_by_db_id(session, payment_id)
         if not payment or payment.user_id != user_id:

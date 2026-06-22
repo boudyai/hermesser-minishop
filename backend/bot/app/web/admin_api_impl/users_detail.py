@@ -1,5 +1,13 @@
 from sqlalchemy.orm import aliased
 
+from bot.app.web.context import (
+    get_bot_username,
+    get_optional_subscription_service,
+    get_referral_service,
+    get_session_factory,
+    get_settings,
+)
+
 from ._runtime import (
     Any,
     AsyncSession,
@@ -53,7 +61,7 @@ async def admin_user_avatar_route(request: web.Request) -> web.Response:
 
     _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         avatar = await session.get(UserTelegramAvatar, target_id)
 
@@ -532,8 +540,8 @@ def _serialize_trial_summary(user: User, trial_subs: List[Subscription]) -> Dict
 async def admin_user_detail_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
-    settings: Settings = request.app["settings"]
+    async_session_factory: sessionmaker = get_session_factory(request)
+    settings: Settings = get_settings(request)
 
     async with async_session_factory() as session:
         user = await user_dal.get_user_by_id(session, target_id)
@@ -582,8 +590,8 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
             logger.warning("Failed to ensure referral code for user %s: %s", target_id, exc_ref)
             await session.rollback()
 
-    referral_service: Optional[ReferralService] = request.app.get("referral_service")
-    bot_username = request.app.get("bot_username") or ""
+    referral_service: Optional[ReferralService] = get_referral_service(request)
+    bot_username = get_bot_username(request)
     referral_bot_link: Optional[str] = None
     if referral_service and bot_username and referral_code:
         try:
@@ -610,7 +618,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
         None,
     )
     if panel_uuid:
-        subscription_service = request.app.get("subscription_service")
+        subscription_service = get_optional_subscription_service(request)
         panel_service = getattr(subscription_service, "panel_service", None)
         if panel_service is not None:
             try:
@@ -662,7 +670,7 @@ async def admin_user_referrals_route(request: web.Request) -> web.Response:
     target_id = int(request.match_info["user_id"])
     page = max(0, int(request.query.get("page", 0) or 0))
     page_size = min(100, max(1, int(request.query.get("page_size", 25) or 25)))
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
 
     async with async_session_factory() as session:
         user = await user_dal.get_user_by_id(session, target_id)

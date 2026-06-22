@@ -10,6 +10,7 @@ from aiohttp import web
 from aiohttp.web_log import AccessLogger, KeyMethod
 from sqlalchemy.orm import sessionmaker
 
+from bot.app.web.context import set_core_context, set_service_context, workflow_data_for
 from bot.payment_providers import iter_provider_specs, iter_service_keys
 from bot.plugins import (
     WEB_SCOPE_WEBAPP,
@@ -68,11 +69,14 @@ def _inject_shared_instances(
     settings: Settings,
     async_session_factory: sessionmaker,
 ) -> None:
-    app["bot"] = bot
-    app["dp"] = dp
-    app["settings"] = settings
-    app["async_session_factory"] = async_session_factory
-    app["i18n"] = dp.get("i18n_instance")
+    set_core_context(
+        app,
+        bot=bot,
+        dp=dp,
+        settings=settings,
+        async_session_factory=async_session_factory,
+    )
+    workflow_data = workflow_data_for(dp)
     shared_keys = [
         "subscription_service",
         "referral_service",
@@ -82,8 +86,8 @@ def _inject_shared_instances(
         *iter_service_keys(),
     ]
     for key in shared_keys:
-        if hasattr(dp, "workflow_data") and key in dp.workflow_data:  # type: ignore
-            app[key] = dp.workflow_data[key]  # type: ignore
+        if key in workflow_data:
+            set_service_context(app, key, workflow_data[key])
 
 
 async def build_and_start_web_app(

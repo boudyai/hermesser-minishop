@@ -1,3 +1,9 @@
+from bot.app.web.context import (
+    get_email_auth_service,
+    get_i18n,
+    get_session_factory,
+    get_settings,
+)
 from bot.app.web.webapp.cache_helpers import webapp_cached_user_payload
 from bot.infra import events
 from bot.infra.event_payloads import AccountEmailLinkedPayload, AccountTelegramLinkedPayload
@@ -62,13 +68,13 @@ def _email_auth_not_configured_response() -> web.Response:
 
 async def account_email_request_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not _email_auth_enabled(settings):
         return _email_auth_not_configured_response()
 
     email_payload = await _parse_model_payload(request, WebAppEmailPayload)
     email = email_payload.email
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
 
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
@@ -89,7 +95,7 @@ async def account_email_request_route(request: web.Request) -> web.Response:
 
 async def account_email_verify_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not _email_auth_enabled(settings):
         return _email_auth_not_configured_response()
 
@@ -104,8 +110,8 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
     email_payload = await _parse_model_payload(request, WebAppEmailCodePayload)
     email = email_payload.email
     code = str(email_payload.code or "")
-    email_service: EmailAuthService = request.app["email_auth_service"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    email_service: EmailAuthService = get_email_auth_service(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
     merge_notice: Optional[Dict[str, Any]] = None
     source_panel_uuid: Optional[str] = None
     final_user_id = user_id
@@ -217,11 +223,11 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
 
 async def account_password_request_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not _email_auth_enabled(settings):
         return _email_auth_not_configured_response()
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
 
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
@@ -251,9 +257,9 @@ async def account_password_confirm_route(request: web.Request) -> web.Response:
     if password_payload.password != password_payload.password_confirm:
         return _json_error(400, "password_mismatch", "Passwords do not match")
 
-    settings: Settings = request.app["settings"]
-    email_service: EmailAuthService = request.app["email_auth_service"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    settings: Settings = get_settings(request)
+    email_service: EmailAuthService = get_email_auth_service(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         try:
             db_user = await user_dal.get_user_by_id(session, user_id)
@@ -299,14 +305,14 @@ async def account_password_confirm_route(request: web.Request) -> web.Response:
 
 async def account_telegram_link_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     auth_payload = await _parse_model_payload(request, WebAppTelegramAuthPayload)
     payload = auth_payload.model_dump(mode="json", exclude_none=True)
     telegram_user = await _validate_telegram_auth_payload(request, payload)
     if not telegram_user:
         return _json_error(401, "invalid_auth", "Invalid Telegram auth data")
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     merge_notice: Optional[Dict[str, Any]] = None
     source_panel_uuid: Optional[str] = None
     final_user_id = user_id
@@ -404,7 +410,7 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
 
 async def me_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     fresh = str(request.query.get("fresh") or "").strip().lower() in {
         "1",
         "true",
@@ -428,7 +434,7 @@ async def me_route(request: web.Request) -> web.Response:
 
 async def account_avatar_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
@@ -457,16 +463,16 @@ async def account_avatar_route(request: web.Request) -> web.Response:
 
 async def account_language_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     language_payload = await _parse_model_payload(request, WebAppLanguagePayload)
 
     language = _normalize_language(str(language_payload.language or ""))
-    i18n = request.app.get("i18n")
+    i18n = get_i18n(request)
     if i18n and hasattr(i18n, "reload_overrides_from_file"):
         i18n.reload_overrides_from_file()
     if i18n and language not in getattr(i18n, "locales_data", {}):
         return _json_error(400, "unsupported_language", "Unsupported language")
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:

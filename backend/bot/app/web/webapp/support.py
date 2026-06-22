@@ -1,3 +1,7 @@
+from bot.app.web.context import (
+    get_session_factory,
+    get_support_service,
+)
 from bot.services.support_service import TicketForbidden, TicketNotFound, TicketRateLimited
 from db.dal import support_dal, user_dal
 from db.models import SupportTicket, SupportTicketMessage
@@ -64,7 +68,7 @@ async def support_tickets_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     limit, offset = _support_limit_offset(request)
     status_filter = request.query.get("status") or None
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         tickets = await support_dal.list_user_tickets(
             session,
@@ -86,7 +90,7 @@ async def support_tickets_route(request: web.Request) -> web.Response:
 async def support_create_ticket_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     payload = await _parse_model_payload(request, CreateTicketPayload)
-    service = request.app["support_service"]
+    service = get_support_service(request)
     try:
         ticket = await service.create_ticket(
             user_id,
@@ -105,7 +109,7 @@ async def support_create_ticket_route(request: web.Request) -> web.Response:
 async def support_ticket_detail_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     ticket_id = int(request.match_info["id"])
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         ticket, messages = await support_dal.get_ticket(session, ticket_id, include_internal=False)
         if not ticket or ticket.user_id != user_id:
@@ -123,7 +127,7 @@ async def support_ticket_reply_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     ticket_id = int(request.match_info["id"])
     payload = await _parse_model_payload(request, TicketReplyPayload)
-    service = request.app["support_service"]
+    service = get_support_service(request)
     try:
         ticket, message = await service.reply_as_user(user_id, ticket_id, payload.body)
     except TicketForbidden:
@@ -142,7 +146,7 @@ async def support_ticket_reply_route(request: web.Request) -> web.Response:
 async def support_ticket_read_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     ticket_id = int(request.match_info["id"])
-    service = request.app["support_service"]
+    service = get_support_service(request)
     try:
         await service.mark_read_as_user(user_id, ticket_id)
     except TicketNotFound:
@@ -152,7 +156,7 @@ async def support_ticket_read_route(request: web.Request) -> web.Response:
 
 async def support_unread_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         user = await user_dal.get_user_by_id(session, user_id)
         if user and user.is_banned:

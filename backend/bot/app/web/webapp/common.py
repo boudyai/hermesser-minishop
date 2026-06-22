@@ -1,5 +1,8 @@
 from typing import TypeVar
 
+from bot.app.web.context import (
+    get_bot,
+)
 from bot.app.web.request_parsing import parse_body_or_400
 from bot.app.web.webapp.cache_helpers import (
     invalidate_webapp_user_caches as _invalidate_user_payload_caches,
@@ -265,7 +268,7 @@ async def _ensure_cached_telegram_avatar(
     if avatar and not _telegram_avatar_is_stale(avatar):
         return avatar
 
-    bot: Bot = request.app["bot"]
+    bot: Bot = get_bot(request)
     try:
         fetched = await asyncio.wait_for(
             _fetch_compact_telegram_avatar(bot, int(telegram_id)),

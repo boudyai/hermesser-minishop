@@ -1,3 +1,10 @@
+from bot.app.web.context import (
+    get_app_optional_subscription_service,
+    get_app_panel_service,
+    get_app_settings,
+    get_session_factory,
+    get_settings,
+)
 from config.subscription_guides_config import (
     SubscriptionGuidesConfigError,
     subscription_guides_status,
@@ -132,7 +139,7 @@ async def public_subscription_guides_route(request: web.Request) -> web.Response
 
 
 async def _subscription_guides_status_shared(app: web.Application) -> Dict[str, Any]:
-    settings: Settings = app["settings"]
+    settings: Settings = get_app_settings(app)
     cache = app.setdefault("subscription_guides_config_cache", {})
     lock: asyncio.Lock = app.setdefault("subscription_guides_config_lock", asyncio.Lock())
     fingerprint = _subscription_guides_settings_fingerprint(settings)
@@ -167,7 +174,7 @@ async def _subscription_guides_status_for_request(
     panel_short_uuid: Optional[str] = None,
     panel_user_uuid: Optional[str] = None,
 ) -> Dict[str, Any]:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not _subscription_guides_should_try_resolved_panel_config(settings):
         return await _subscription_guides_status_shared(request.app)
 
@@ -553,7 +560,7 @@ async def _default_panel_subscription_page_config_uuid(panel_service: Any) -> st
 
 
 async def _warm_panel_subscription_page_configs(app: web.Application) -> None:
-    settings: Settings = app["settings"]
+    settings: Settings = get_app_settings(app)
     if not _subscription_guides_should_try_resolved_panel_config(settings):
         return
 
@@ -617,7 +624,7 @@ async def _active_panel_subscription_context_for_user(
     if not callable(get_user):
         return {}
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         panel_user_uuid = str(getattr(db_user, "panel_user_uuid", "") or "").strip()
@@ -653,7 +660,7 @@ async def _public_subscription_payload_cached(
     request: web.Request,
     share_token: str,
 ) -> Dict[str, Any]:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     ttl_seconds = max(
         0,
         int(
@@ -700,13 +707,13 @@ async def _public_subscription_payload_uncached(
     request: web.Request,
     share_token: str,
 ) -> Dict[str, Any]:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     panel_service = _panel_service_from_app(request.app)
     raw_link = ""
     username = ""
     resolved_short_uuid = ""
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         local_sub = await subscription_dal.get_subscription_by_install_share_token(
             session,
@@ -741,7 +748,7 @@ async def _public_subscription_payload_uncached(
 
 
 def _public_subscription_payload_fingerprint(request: web.Request) -> Tuple[str, ...]:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     headers = request.headers
     host = headers.get("X-Forwarded-Host") or headers.get("Host") or request.host
     proto = headers.get("X-Forwarded-Proto") or request.scheme or "https"
@@ -756,11 +763,11 @@ def _public_subscription_payload_fingerprint(request: web.Request) -> Tuple[str,
 
 
 def _panel_service_from_app(app: web.Application) -> Any:
-    subscription_service: Optional[SubscriptionService] = app.get("subscription_service")
+    subscription_service: Optional[SubscriptionService] = get_app_optional_subscription_service(app)
     panel_service = (
         getattr(subscription_service, "panel_service", None) if subscription_service else None
     )
-    return panel_service or app.get("panel_service")
+    return panel_service or get_app_panel_service(app)
 
 
 def _panel_short_uuid_from_user(panel_user: Any) -> str:
@@ -894,7 +901,7 @@ def _local_subscription_is_publicly_active(subscription: Any) -> bool:
 
 
 def _public_install_url(request: web.Request, share_token: str) -> str:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     configured_base = str(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", "") or "").strip()
     if configured_base:
         parts = urlsplit(configured_base)

@@ -1,3 +1,8 @@
+from bot.app.web.context import (
+    get_bot_username,
+    get_i18n,
+    get_settings,
+)
 from bot.middlewares.i18n import locale_language_options
 from config.webapp_themes_config import (
     public_theme_payload,
@@ -179,7 +184,7 @@ async def _security_headers_middleware(request: web.Request, handler):
 
 @web.middleware
 async def _csrf_protection_middleware(request: web.Request, handler):
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     header = request.headers.get("Authorization", "")
     prefix = "Bearer "
     if header.startswith(prefix):
@@ -200,7 +205,7 @@ async def _csrf_protection_middleware(request: web.Request, handler):
 
 
 def _get_cached_webapp_settings(request: web.Request) -> Dict[str, Any]:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     cache = request.app["webapp_settings_cache"]
     now = time.monotonic()
     if now - float(cache.get("ts", 0.0)) >= 60 or not cache.get("data"):
@@ -260,7 +265,7 @@ async def _enforce_webapp_rate_limit(
     user_id: int,
     action: str,
 ) -> Optional[web.Response]:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     ip_address = (
         request_client_ip(request, trusted_proxies=settings.trusted_proxies)
         or request.remote
@@ -377,7 +382,7 @@ def _filter_webapp_i18n_payload(locales_data: object, scope: str = "webapp") -> 
 
 
 def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     cached = _get_cached_webapp_settings(request)
     themes_catalog = settings.webapp_themes_catalog
     primary_color = settings.WEBAPP_PRIMARY_COLOR or "#00fe7a"
@@ -409,7 +414,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
                     break
             if not replaced:
                 payload_themes.insert(0, preview_payload)
-    i18n_instance: Optional[object] = request.app.get("i18n")
+    i18n_instance: Optional[object] = get_i18n(request)
     i18n_scope = _normalize_i18n_scope(request.query.get("i18n_scope") or "webapp")
     if i18n_instance and hasattr(i18n_instance, "reload_overrides_from_file"):
         i18n_instance.reload_overrides_from_file()
@@ -428,7 +433,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
             "apiBase": "/api",
             "adminJsAsset": f"/{_resolve_webapp_admin_js_asset_name()}",
             "adminCssAsset": f"/{_resolve_webapp_admin_css_asset_name()}",
-            "telegramLoginBotUsername": request.app.get("bot_username") or "",
+            "telegramLoginBotUsername": get_bot_username(request),
             "telegramLoginBotId": _resolve_telegram_bot_id(settings.BOT_TOKEN) or 0,
             "telegramOAuthClientId": _resolve_telegram_oauth_client_id(settings) or 0,
             "telegramOAuthRequestAccess": _resolve_telegram_oauth_request_access(settings),
@@ -457,7 +462,7 @@ async def bootstrap_route(request: web.Request) -> web.Response:
 
 
 async def i18n_route(request: web.Request) -> web.Response:
-    i18n_instance: Optional[object] = request.app.get("i18n")
+    i18n_instance: Optional[object] = get_i18n(request)
     if i18n_instance and hasattr(i18n_instance, "reload_overrides_from_file"):
         i18n_instance.reload_overrides_from_file()
     scope = _normalize_i18n_scope(request.query.get("scope") or "webapp")
@@ -553,7 +558,7 @@ def _webapp_shell_preload_markup(js_asset_name: str, share_token: str = "") -> s
 
 
 async def index_route(request: web.Request) -> web.Response:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not settings.WEBAPP_ENABLED:
         raise web.HTTPNotFound(text="webapp_disabled")
 
@@ -622,7 +627,7 @@ async def index_route(request: web.Request) -> web.Response:
 
 
 async def app_deeplink_route(request: web.Request) -> web.Response:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not getattr(settings, "WEBAPP_ENABLED", True):
         raise web.HTTPNotFound(text="webapp_disabled")
 
@@ -664,7 +669,7 @@ async def app_deeplink_route(request: web.Request) -> web.Response:
 
 
 def _app_deeplink_i18n_payload(request: web.Request, lang: str) -> Dict[str, str]:
-    i18n_instance: Optional[object] = request.app.get("i18n")
+    i18n_instance: Optional[object] = get_i18n(request)
     gettext = getattr(i18n_instance, "gettext", None)
     payload: Dict[str, str] = {}
     for payload_key, i18n_key in APP_DEEPLINK_I18N_KEYS.items():

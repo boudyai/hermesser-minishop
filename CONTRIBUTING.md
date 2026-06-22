@@ -29,9 +29,7 @@ python -m pytest -q                 # полный прогон (в CI подн�
 python -m ruff check .              # линт
 python -m ruff format --check .     # формат
 python -m mypy backend/db backend/bot/infra backend/bot/payment_providers \
-  backend/bot/services backend/bot/handlers backend/bot/app/web/admin_api_impl \
-  backend/bot/app/web/webapp backend/bot/app/web/http_contracts.py \
-  backend/bot/app/web/route_contracts.py backend/bot/app/web/openapi.py   # весь бэкенд, зелёный
+  backend/bot/services backend/bot/handlers backend/bot/app/web   # текущий CI scope, зелёный
 ```
 
 **Фронтенд** (`frontend/`):

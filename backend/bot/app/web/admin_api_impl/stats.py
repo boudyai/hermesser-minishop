@@ -1,4 +1,10 @@
 # ruff: noqa: F401,F403,F405,I001
+from bot.app.web.context import (
+    get_panel_service,
+    get_session_factory,
+    get_settings,
+)
+
 import asyncio
 
 from ._runtime import (
@@ -55,18 +61,18 @@ register_contract(
 
 async def admin_me_route(request: web.Request) -> web.Response:
     user_id = _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     return _ok(AdminMeOut(user_id=user_id, admin_ids=list(settings.ADMIN_IDS or [])).model_dump())
 
 
 async def admin_stats_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    settings: Settings = get_settings(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
 
     payload = dict(await _load_admin_db_stats(settings, async_session_factory))
 
-    panel_service = request.app.get("panel_service")
+    panel_service = get_panel_service(request)
     if panel_service is not None:
         payload["panel"] = await _load_admin_panel_stats(request, settings, panel_service)
 

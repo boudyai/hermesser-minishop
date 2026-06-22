@@ -1,5 +1,9 @@
 import gzip
 
+from bot.app.web.context import (
+    get_settings,
+)
+
 from ._runtime import (
     ASSET_DIR,
     ROBOTS_TX,
@@ -118,7 +122,7 @@ async def _serve_template_asset(
     allow_precompressed: bool = False,
     strip_dev_mock: bool = False,
 ) -> web.Response:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not settings.WEBAPP_ENABLED:
         raise web.HTTPNotFound(text="webapp_disabled")
 

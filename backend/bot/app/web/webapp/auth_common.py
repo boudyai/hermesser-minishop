@@ -1,3 +1,7 @@
+from bot.app.web.context import (
+    get_settings,
+)
+
 from ._runtime import (
     WEBAPP_CSRF_COOKIE_NAME,
     WEBAPP_SESSION_COOKIE_NAME,
@@ -106,7 +110,7 @@ def _read_telegram_oauth_state_payload(
     request: web.Request,
     state_token: str,
 ) -> Optional[Dict[str, Any]]:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     signed_payload = request.cookies.get(WEBAPP_TELEGRAM_OAUTH_STATE_COOKIE_NAME, "")
     payload = verify_signed_telegram_oauth_state(settings, signed_payload)
     if not payload:
