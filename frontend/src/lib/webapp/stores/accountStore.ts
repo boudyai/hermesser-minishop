@@ -4,11 +4,19 @@ import type { LoadDataOptions } from "../dataClient";
 import type { ApiClient, PostPayload } from "../publicApi";
 import { unwrap } from "../publicApi";
 
+const TELEGRAM_LINK_PENDING_ACTION_STORAGE_KEY = "rw_webapp_telegram_link_pending_action_v1";
+const TELEGRAM_LINK_PENDING_TTL_MS = 10 * 60 * 1000;
+const TELEGRAM_LINK_ACTION_TRIAL = "trial";
+const TELEGRAM_LINK_ACTION_REFERRAL_WELCOME = "referral_welcome";
+
 type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type TelegramSdk = {
   hasLaunchParams(): boolean;
   ensureForAction(): Promise<unknown>;
 };
+type TelegramLinkPendingAction =
+  | typeof TELEGRAM_LINK_ACTION_TRIAL
+  | typeof TELEGRAM_LINK_ACTION_REFERRAL_WELCOME;
 type AccountStoreDeps = {
   api: ApiClient["api"];
   publicApi: ApiClient["publicApi"];
@@ -21,10 +29,16 @@ type AccountStoreDeps = {
   showLogin: () => void;
   telegramSdk: TelegramSdk;
   getTg: () => unknown;
+  getCurrentUser: () => unknown;
+  getTelegramMiniAppInitData: () => string;
+  isDemoAuthLogin: () => boolean;
+  getDemoTelegramAuthPayload: () => unknown;
   telegramOAuthClientId: number | string | (() => number | string);
   currentLang: () => string;
   normalizeLangCode: (value: string) => string;
   updateLocalData: (updatedLanguage: string) => void;
+  activateTrial: () => Promise<unknown>;
+  claimReferralWelcomeBonus: () => Promise<unknown>;
 };
 type AccountState = {
   linkEmailOpen: boolean;
@@ -74,10 +88,16 @@ export function createAccountStore({
   showLogin,
   telegramSdk,
   getTg,
+  getCurrentUser,
+  getTelegramMiniAppInitData,
+  isDemoAuthLogin,
+  getDemoTelegramAuthPayload,
   telegramOAuthClientId,
   currentLang,
   normalizeLangCode,
   updateLocalData,
+  activateTrial,
+  claimReferralWelcomeBonus,
 }: AccountStoreDeps) {
   const state = writable<AccountState>({
     linkEmailOpen: false,
@@ -104,6 +124,7 @@ export function createAccountStore({
 
   let linkEmailResendTimer: number | null = null;
   let setPasswordResendTimer: number | null = null;
+  let telegramLinkPendingActionBusy = false;
 
   function setLinkEmailStatus(message: string, isError = false) {
     state.update((s) => ({ ...s, linkEmailStatus: message, linkEmailIsError: isError }));
@@ -210,6 +231,85 @@ export function createAccountStore({
     const value =
       typeof telegramOAuthClientId === "function" ? telegramOAuthClientId() : telegramOAuthClientId;
     return Number(value || 0);
+  }
+
+  function currentUserRecord() {
+    return asRecord(getCurrentUser());
+  }
+
+  function currentTelegramLinkPendingUserId() {
+    const currentUser = currentUserRecord();
+    const id = currentUser.user_id ?? currentUser.id;
+    return id == null ? "" : String(id);
+  }
+
+  function isTelegramLinkPendingAction(action: unknown): action is TelegramLinkPendingAction {
+    return [TELEGRAM_LINK_ACTION_TRIAL, TELEGRAM_LINK_ACTION_REFERRAL_WELCOME].includes(
+      String(action)
+    );
+  }
+
+  function rememberTelegramLinkPendingAction(action: TelegramLinkPendingAction) {
+    if (typeof window === "undefined" || !isTelegramLinkPendingAction(action)) return;
+    try {
+      window.sessionStorage.setItem(
+        TELEGRAM_LINK_PENDING_ACTION_STORAGE_KEY,
+        JSON.stringify({
+          action,
+          userId: currentTelegramLinkPendingUserId(),
+          createdAt: Date.now(),
+        })
+      );
+    } catch (_error) {
+      void _error;
+    }
+  }
+
+  function clearTelegramLinkPendingAction() {
+    if (typeof window === "undefined") return;
+    try {
+      window.sessionStorage.removeItem(TELEGRAM_LINK_PENDING_ACTION_STORAGE_KEY);
+    } catch (_error) {
+      void _error;
+    }
+  }
+
+  function readTelegramLinkPendingAction(): TelegramLinkPendingAction | null {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = window.sessionStorage.getItem(TELEGRAM_LINK_PENDING_ACTION_STORAGE_KEY);
+      if (!raw) return null;
+      const payload = JSON.parse(raw);
+      const action = String(payload?.action || "");
+      const createdAt = Number(payload?.createdAt || 0);
+      const pendingUserId = String(payload?.userId || "");
+      const currentUserId = currentTelegramLinkPendingUserId();
+      if (
+        !isTelegramLinkPendingAction(action) ||
+        !createdAt ||
+        Date.now() - createdAt > TELEGRAM_LINK_PENDING_TTL_MS ||
+        (pendingUserId && currentUserId && pendingUserId !== currentUserId)
+      ) {
+        clearTelegramLinkPendingAction();
+        return null;
+      }
+      return action;
+    } catch (_error) {
+      clearTelegramLinkPendingAction();
+      return null;
+    }
+  }
+
+  async function runTelegramLinkedAction(action: TelegramLinkPendingAction) {
+    if (action === TELEGRAM_LINK_ACTION_TRIAL) {
+      await activateTrial();
+      return true;
+    }
+    if (action === TELEGRAM_LINK_ACTION_REFERRAL_WELCOME) {
+      await claimReferralWelcomeBonus();
+      return true;
+    }
+    return false;
   }
 
   function closeSetPasswordDialog() {
@@ -434,6 +534,123 @@ export function createAccountStore({
     window.location.assign(buildTelegramOAuthUrl("link", getTg()));
   }
 
+  async function linkTelegramFromSettings() {
+    if (!isDemoAuthLogin()) {
+      await linkTelegramAccount(getTelegramMiniAppInitData);
+      return;
+    }
+    state.update((s) => ({ ...s, linkTelegramBusy: true }));
+    try {
+      const payload: PostPayload<"/api/account/telegram/link"> = {
+        auth_data: getDemoTelegramAuthPayload(),
+      } as PostPayload<"/api/account/telegram/link">;
+      const response = await api("/account/telegram/link", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!response?.ok) throw response;
+      const csrfToken = stringField(unwrap(response).csrf_token);
+      if (csrfToken) setToken("", csrfToken);
+      await loadData({ fresh: true, preserveView: true });
+      showToast(t("wa_settings_linked"));
+    } catch (error: unknown) {
+      showToast(stringField(asRecord(error).message) || t("wa_auth_telegram_not_confirmed"));
+    } finally {
+      state.update((s) => ({ ...s, linkTelegramBusy: false }));
+    }
+  }
+
+  async function continueTelegramLinkPendingAction() {
+    if (telegramLinkPendingActionBusy) return false;
+    const currentUser = currentUserRecord();
+    if (!currentUser.telegram_linked) return false;
+    const action = readTelegramLinkPendingAction();
+    if (!action) return false;
+    telegramLinkPendingActionBusy = true;
+    clearTelegramLinkPendingAction();
+    try {
+      return await runTelegramLinkedAction(action);
+    } finally {
+      telegramLinkPendingActionBusy = false;
+    }
+  }
+
+  async function linkTelegramWithPayloadForPendingAction(
+    payload: PostPayload<"/api/account/telegram/link">
+  ) {
+    state.update((s) => ({ ...s, linkTelegramBusy: true }));
+    try {
+      const response = await api("/account/telegram/link", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!response?.ok) throw response;
+      const csrfToken = stringField(unwrap(response).csrf_token);
+      if (csrfToken) setToken("", csrfToken);
+      await loadData({ fresh: true, preserveView: true });
+      const handled = await continueTelegramLinkPendingAction();
+      if (!handled) {
+        clearTelegramLinkPendingAction();
+        showToast(t("wa_settings_linked"));
+      }
+    } catch (error: unknown) {
+      clearTelegramLinkPendingAction();
+      showToast(stringField(asRecord(error).message) || t("wa_auth_telegram_not_confirmed"));
+    } finally {
+      state.update((s) => ({ ...s, linkTelegramBusy: false }));
+    }
+  }
+
+  async function linkTelegramForPendingAction(action: TelegramLinkPendingAction) {
+    const s = get(state);
+    if (
+      !isTelegramLinkPendingAction(action) ||
+      s.linkTelegramBusy ||
+      telegramLinkPendingActionBusy
+    ) {
+      return;
+    }
+    const currentUser = currentUserRecord();
+    if (currentUser.telegram_linked) {
+      await runTelegramLinkedAction(action);
+      return;
+    }
+
+    rememberTelegramLinkPendingAction(action);
+    if (isDemoAuthLogin()) {
+      await linkTelegramWithPayloadForPendingAction({
+        auth_data: getDemoTelegramAuthPayload(),
+      } as PostPayload<"/api/account/telegram/link">);
+      return;
+    }
+
+    const isTelegramMiniAppAttempt = telegramSdk.hasLaunchParams();
+    if (isTelegramMiniAppAttempt) {
+      await telegramSdk.ensureForAction();
+    }
+    const initData = getTelegramMiniAppInitData();
+    if (initData) {
+      await linkTelegramWithPayloadForPendingAction({
+        init_data: initData,
+      } as PostPayload<"/api/account/telegram/link">);
+      return;
+    }
+    if (!getTelegramOAuthClientId()) {
+      clearTelegramLinkPendingAction();
+      showToast(t("wa_auth_telegram_not_configured"));
+      return;
+    }
+    await linkTelegramAccount(getTelegramMiniAppInitData);
+  }
+
+  function linkTelegramAndActivateTrial() {
+    return linkTelegramForPendingAction(TELEGRAM_LINK_ACTION_TRIAL);
+  }
+
+  function linkTelegramAndClaimReferralWelcome() {
+    return linkTelegramForPendingAction(TELEGRAM_LINK_ACTION_REFERRAL_WELCOME);
+  }
+
   async function updateAccountLanguage(nextValue: string, options: Record<string, unknown> = {}) {
     const s = get(state);
     const normalize = normalizeLangCode;
@@ -482,6 +699,10 @@ export function createAccountStore({
     requestSetPasswordCode,
     confirmSetPassword,
     linkTelegramAccount,
+    linkTelegramFromSettings,
+    continueTelegramLinkPendingAction,
+    linkTelegramAndActivateTrial,
+    linkTelegramAndClaimReferralWelcome,
     updateAccountLanguage,
     logout,
     clearLinkEmailResendTimer: clearCooldownTimer,
