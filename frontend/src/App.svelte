@@ -67,6 +67,7 @@
     stripRenewalLoginQueryFromUrl,
     stripTopupQueryFromUrl,
   } from "./lib/webapp/deeplinks";
+  import { createDemoAuth } from "./lib/webapp/demoAuth";
   import { createTelegramLaunch } from "./lib/webapp/telegramLaunch";
   import { normalizedEmail, telegramName } from "./lib/webapp/formatters.js";
   import { activeTariffName, buildTariffCatalog } from "./lib/webapp/tariffs.js";
@@ -298,6 +299,13 @@
     currentLang: () => currentLang,
     clearManualLogoutFlag,
   });
+  const demoAuth = createDemoAuth({
+    authStore,
+    getCurrentSearchParams: currentSearchParams,
+    getMockSource: () => MOCK_SOURCE,
+    getParentSearchParams: docsDemoParentSearchParams,
+    isMockEnabled: () => Boolean(MOCK),
+  });
   const billingStore = createBillingStore({
     billing,
     loadData,
@@ -336,7 +344,7 @@
     getTelegramMiniAppInitData: () =>
       telegramMiniAppInitData || tg?.initData || readTelegramMiniAppInitDataFromLocation(),
     isDemoAuthLogin: () => Boolean(demoAuthLogin),
-    getDemoTelegramAuthPayload: demoTelegramAuthPayload,
+    getDemoTelegramAuthPayload: () => demoAuth.telegramAuthPayload(),
     telegramOAuthClientId: () => telegramOAuthClientId,
     currentLang: () => currentLang,
     normalizeLangCode,
@@ -575,7 +583,7 @@
   $: telegramMiniAppInitData = tg?.initData || readTelegramMiniAppInitDataFromLocation();
   $: telegramMiniAppAuthAvailable = Boolean(telegramMiniAppInitData);
   $: telegramMiniAppContext = hasTelegramLaunchParams();
-  $: demoAuthLogin = MOCK && isDemoAuthMock();
+  $: demoAuthLogin = MOCK && demoAuth.isDemoAuthMock();
   $: telegramLoginUnavailable =
     !demoAuthLogin &&
     !telegramMiniAppAuthAvailable &&
@@ -968,72 +976,17 @@
     adminBundle.destroyMount();
   }
 
-  function currentMockMode() {
-    if (!MOCK) return "";
-    const currentMock = currentSearchParams().get("mock");
-    if (currentMock) return String(currentMock).trim().toLowerCase();
-    const parentMock = docsDemoParentSearchParams()?.get("mock");
-    return String(parentMock || "")
-      .trim()
-      .toLowerCase();
-  }
-
-  function isDemoAuthMock() {
-    return ["auth", "login", "register"].includes(currentMockMode());
-  }
-
-  function prepareDemoAuthState() {
-    const authDemo = MOCK_SOURCE.data?.auth_demo || {};
-    const email = String(authDemo.email || "3252a8@proton.me").trim();
-    authStore.update((s) => ({
-      ...s,
-      authStatus: "",
-      authIsError: false,
-      authBusy: false,
-      authResendCooldown: 0,
-      email,
-      emailPassword: String(authDemo.password || ""),
-      pendingEmail: "",
-      emailCode: "",
-      passwordLoginMode: false,
-      passwordLoginFallback: false,
-      loginEmailFieldError: "",
-      loginEmailTooltipOpen: false,
-      telegramLoginBusy: false,
-    }));
-  }
-
   async function openLoginTelegram() {
     if (demoAuthLogin) {
-      const authDemo = MOCK_SOURCE.data?.auth_demo || {};
-      await authStore.finalizeTelegramAuth(
-        {
-          id: Number(authDemo.telegram_id || 7410865527),
-          username: authDemo.telegram_username || "u3252a8",
-          first_name: authDemo.telegram_first_name || "3252a8",
-          last_name: authDemo.telegram_last_name || "",
-        },
-        "auth_data"
-      );
+      await authStore.finalizeTelegramAuth(demoAuth.telegramAuthPayload(), "auth_data");
       return;
     }
     await authStore.openTelegramLogin(telegramOAuthClientId, () => telegramMiniAppInitData);
   }
 
-  function demoTelegramAuthPayload() {
-    const authDemo = MOCK_SOURCE.data?.auth_demo || {};
-    return {
-      id: Number(authDemo.telegram_id || 7410865527),
-      username: authDemo.telegram_username || "u3252a8",
-      first_name: authDemo.telegram_first_name || "3252a8",
-      last_name: authDemo.telegram_last_name || "",
-    };
-  }
-
   function openSettingsLinkEmailDialog() {
     if (!emailAuthEnabled) return;
-    const authDemo = MOCK_SOURCE.data?.auth_demo || {};
-    accountStore.openLinkEmailDialog(demoAuthLogin ? authDemo.email || "3252a8@proton.me" : "");
+    accountStore.openLinkEmailDialog(demoAuthLogin ? demoAuth.demoEmail() : "");
   }
 
   function openSettingsSetPasswordDialog() {
@@ -1235,8 +1188,8 @@
       await loadPublicInstall(shareToken);
       return;
     }
-    if (MOCK && isDemoAuthMock()) {
-      prepareDemoAuthState();
+    if (MOCK && demoAuth.isDemoAuthMock()) {
+      demoAuth.prepareAuthState();
       showLogin();
       return;
     }
