@@ -15,6 +15,7 @@ from ._runtime import (
     SubscriptionService,
     User,
     datetime,
+    json_response,
     logger,
     sanitize_display_name,
     sanitize_username,
@@ -236,7 +237,7 @@ async def referral_welcome_bonus_claim_route(request: web.Request) -> web.Respon
             return _json_error(500, "referral_welcome_failed", "Referral welcome bonus failed")
 
     await _invalidate_webapp_user_caches(settings, user_id, include_devices=True)
-    return web.json_response(
+    return json_response(
         {
             "ok": True,
             "claimed": True,

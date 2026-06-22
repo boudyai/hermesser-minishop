@@ -17,6 +17,7 @@ from ._runtime import (
     datetime,
     hashlib,
     hmac,
+    json_response,
     logger,
     redis_key,
     sessionmaker,
@@ -65,11 +66,11 @@ async def devices_route(request: web.Request) -> web.Response:
             ),
         )
     if isinstance(result, dict) and result.get("ok") is True:
-        return web.json_response({"ok": True, **(result.get("payload") or {})})
+        return json_response({"ok": True, **(result.get("payload") or {})})
     if isinstance(result, dict) and not result.get("error"):
         # Backward-compatible with payloads written by older versions under
         # the same Redis cache key.
-        return web.json_response({"ok": True, **result})
+        return json_response({"ok": True, **result})
     if not isinstance(result, dict):
         result = {}
     if not result.get("ok"):
@@ -78,7 +79,7 @@ async def devices_route(request: web.Request) -> web.Response:
             str(result.get("error") or "devices_load_failed"),
             str(result.get("message") or "Failed to load devices"),
         )
-    return web.json_response({"ok": True, **(result.get("payload") or {})})
+    return json_response({"ok": True, **(result.get("payload") or {})})
 
 
 async def _load_devices_payload(
@@ -209,7 +210,7 @@ async def disconnect_device_route(request: web.Request) -> web.Response:
         await cache_delete(settings, redis_key(settings, "cache", "webapp", "devices", user_id))
         await session.commit()
 
-    return web.json_response({"ok": True})
+    return json_response({"ok": True})
 
 
 def _device_hwid_token(hwid: str) -> str:

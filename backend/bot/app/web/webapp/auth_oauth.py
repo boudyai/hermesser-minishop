@@ -15,6 +15,7 @@ from ._runtime import (
     create_telegram_oauth_nonce,
     create_webapp_session_token,
     datetime,
+    json_response,
     logger,
     secrets,
     sessionmaker,
@@ -120,7 +121,7 @@ async def telegram_oauth_nonce_route(request: web.Request) -> web.Response:
         settings,
         ttl_seconds=settings.WEBAPP_LOGIN_TOKEN_TTL_SECONDS,
     )
-    return web.json_response(
+    return json_response(
         {
             "ok": True,
             "nonce": nonce,
@@ -413,6 +414,6 @@ async def auth_token_route(request: web.Request) -> web.Response:
 
 
 async def logout_route(request: web.Request) -> web.Response:
-    response = web.json_response({"ok": True})
+    response = json_response({"ok": True})
     _clear_webapp_auth_cookies(response)
     return response

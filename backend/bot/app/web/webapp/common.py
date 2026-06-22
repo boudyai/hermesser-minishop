@@ -33,6 +33,7 @@ from ._runtime import (
     hashlib,
     io,
     json,
+    json_response,
     logger,
     timezone,
     user_dal,
@@ -45,7 +46,7 @@ BodyModelT = TypeVar("BodyModelT", bound=BaseModel)
 def _json_error(status: int, code: str, message: str) -> web.Response:
     return cast(
         web.Response,
-        web.json_response(
+        json_response(
             {"ok": False, "error": code, "message": message},
             status=status,
         ),

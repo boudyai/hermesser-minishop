@@ -23,6 +23,7 @@ from ._runtime import (
     Settings,
     SubscriptionService,
     datetime,
+    json_response,
     logger,
     prepare_config_links,
     sessionmaker,
@@ -72,7 +73,7 @@ async def apply_promo_route(request: web.Request) -> web.Response:
                 return _json_error(400, "promo_apply_failed", _plain_text_message(result))
             await session.commit()
             end_date = result if isinstance(result, datetime) else None
-            return web.json_response(
+            return json_response(
                 {
                     "ok": True,
                     "end_date": end_date.isoformat() if end_date else None,
@@ -161,7 +162,7 @@ async def subscription_auto_renew_route(request: web.Request) -> web.Response:
 
             lang = _normalize_language(db_user.language_code or settings.DEFAULT_LANGUAGE)
             provider_label = provider_label_map(settings, language=lang).get(provider, provider)
-            return web.json_response(
+            return json_response(
                 {
                     "ok": True,
                     "auto_renew_enabled": enabled,
@@ -255,7 +256,7 @@ async def activate_trial_route(request: web.Request) -> web.Response:
             await session.rollback()
             logger.exception("Failed to mark WebApp trial activation for ad attribution")
 
-        return web.json_response(
+        return json_response(
             {
                 "ok": True,
                 "activated": True,

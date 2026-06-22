@@ -15,6 +15,7 @@ from ._runtime import (
     Any,
     Dict,
     Settings,
+    json_response,
     logger,
     sessionmaker,
     user_dal,
@@ -81,4 +82,4 @@ async def account_telegram_notifications_probe_route(request: web.Request) -> we
     result = await _probe_telegram_notifications_for_user_id(request, user_id, force=force)
     if result.get("status") == "access_denied":
         return _json_error(403, "access_denied", "Access denied")
-    return web.json_response({"ok": True, "telegram_notifications": result})
+    return json_response({"ok": True, "telegram_notifications": result})

@@ -22,6 +22,7 @@ from ._runtime import (
     datetime,
     hashlib,
     json,
+    json_response,
     logger,
     prepare_config_links,
     quote,
@@ -60,7 +61,7 @@ def _subscription_guides_json_response(
     status: int = 200,
     cache_control: Optional[str] = None,
 ) -> web.Response:
-    response = web.json_response(payload, status=status, dumps=_subscription_guides_json_dumps)
+    response = json_response(payload, status=status, dumps=_subscription_guides_json_dumps)
     if cache_control:
         response.headers["Cache-Control"] = cache_control
     return response
@@ -100,7 +101,7 @@ async def public_subscription_guides_route(request: web.Request) -> web.Response
         request.match_info.get("share_token")
     )
     if not share_token:
-        return web.json_response({"ok": False, "error": "invalid_share_token"}, status=404)
+        return json_response({"ok": False, "error": "invalid_share_token"}, status=404)
 
     subscription = await _public_subscription_payload_cached(request, share_token)
     if not subscription.get("active"):

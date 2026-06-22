@@ -21,6 +21,7 @@ from ._runtime import (
     AsyncSession,
     Dict,
     Payment,
+    json_response,
     logger,
     payment_dal,
     sessionmaker,
@@ -196,7 +197,7 @@ async def payment_status_route(request: web.Request) -> web.Response:
             return _json_error(404, "not_found", "Payment not found")
         payment = await _refresh_yookassa_payment_status(request, session, payment)
         payment = await _refresh_wata_payment_status(request, session, payment)
-        return web.json_response(
+        return json_response(
             {
                 "ok": True,
                 "payment_id": payment.payment_id,

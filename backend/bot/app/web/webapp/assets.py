@@ -38,6 +38,7 @@ from ._runtime import (
     hmac,
     html,
     json,
+    json_response,
     logger,
     quote,
     re,
@@ -284,7 +285,7 @@ async def _enforce_webapp_rate_limit(
                 retry_after = max(
                     1, int(ttl if ttl and ttl > 0 else WEBAPP_RATE_LIMIT_WINDOW_SECONDS)
                 )
-                return web.json_response(
+                return json_response(
                     {
                         "ok": False,
                         "error": "rate_limited",
@@ -317,7 +318,7 @@ async def _enforce_webapp_rate_limit(
                 if bucket
                 else WEBAPP_RATE_LIMIT_WINDOW_SECONDS
             )
-            return web.json_response(
+            return json_response(
                 {
                     "ok": False,
                     "error": "rate_limited",
@@ -456,7 +457,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
 
 
 async def bootstrap_route(request: web.Request) -> web.Response:
-    response = web.json_response({"ok": True, **_build_webapp_bootstrap_payload(request)})
+    response = json_response({"ok": True, **_build_webapp_bootstrap_payload(request)})
     response.headers["Cache-Control"] = "no-cache"
     return response
 
@@ -467,7 +468,7 @@ async def i18n_route(request: web.Request) -> web.Response:
         i18n_instance.reload_overrides_from_file()
     scope = _normalize_i18n_scope(request.query.get("scope") or "webapp")
     locales_data = getattr(i18n_instance, "locales_data", {}) if i18n_instance else {}
-    response = web.json_response(
+    response = json_response(
         {
             "ok": True,
             "scope": scope,

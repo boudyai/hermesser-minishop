@@ -18,6 +18,7 @@ from ._runtime import (
     hmac,
     ipaddress,
     is_disposable_email,
+    json_response,
     panel_description_from_profile,
     parse_ip_entries,
     re,
@@ -238,7 +239,7 @@ def _build_webapp_auth_response(
     response_payload["ok"] = True
     csrf_value = csrf_token or secrets.token_hex(32)
     response_payload["csrf_token"] = csrf_value
-    response = web.json_response(response_payload)
+    response = json_response(response_payload)
     _set_webapp_auth_cookies(response, settings, token, csrf_value)
     return response
 

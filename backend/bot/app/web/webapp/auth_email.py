@@ -13,6 +13,7 @@ from ._runtime import (
     User,
     create_webapp_session_token,
     datetime,
+    json_response,
     logger,
     security_dal,
     sessionmaker,
@@ -57,7 +58,7 @@ def _password_login_failure_response(
     }
     if retry_after is not None:
         payload["retry_after"] = retry_after
-    return web.json_response(payload, status=status)
+    return json_response(payload, status=status)
 
 
 async def email_password_auth_route(request: web.Request) -> web.Response:
@@ -182,7 +183,7 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
             if not verify_result.ok:
                 await session.commit()
                 status = 429 if verify_result.error == "rate_limited" else 400
-                return web.json_response(
+                return json_response(
                     {
                         "ok": False,
                         "error": verify_result.error or "invalid_code",
@@ -269,7 +270,7 @@ async def email_auth_magic_route(request: web.Request) -> web.Response:
             )
             if not magic_result.ok:
                 await session.commit()
-                return web.json_response(
+                return json_response(
                     {
                         "ok": False,
                         "error": magic_result.error or "invalid_token",
@@ -360,7 +361,7 @@ async def _request_email_code(
                 status = 429 if result.error == "rate_limited" else 400
                 if result.error == "email_auth_not_configured":
                     status = 503
-                return web.json_response(
+                return json_response(
                     {
                         "ok": False,
                         "error": result.error,
@@ -369,7 +370,7 @@ async def _request_email_code(
                     status=status,
                 )
             await session.commit()
-            return web.json_response({"ok": True})
+            return json_response({"ok": True})
         except Exception:
             await session.rollback()
             logger.exception("Failed to send email verification code")

@@ -18,6 +18,7 @@ from ._runtime import (
     SubscriptionService,
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
+    json_response,
     payment_currency_code,
     sessionmaker,
     subscription_dal,
@@ -86,7 +87,7 @@ async def tariff_topup_options_route(request: web.Request) -> web.Response:
             + premium_bonus_bytes
         )
         premium_access = await get_subscription_service(request).premium_access_for_tariff(tariff)
-        return web.json_response(
+        return json_response(
             {
                 "ok": True,
                 "tariff_key": tariff.key,
@@ -148,7 +149,7 @@ async def tariff_change_options_route(request: web.Request) -> web.Response:
                 session, sub, tariff
             )
             targets.append(_serialize_tariff_change_target(settings, config, tariff, options, lang))
-        return web.json_response(
+        return json_response(
             {
                 "ok": True,
                 "current": {
@@ -188,7 +189,7 @@ async def tariff_change_route(request: web.Request) -> web.Response:
             await session.rollback()
             return _json_error(400, "change_failed", "Tariff change failed")
         await session.commit()
-        return web.json_response({"ok": True, **result})
+        return json_response({"ok": True, **result})
 
 
 async def tariff_change_payment_route(request: web.Request) -> web.Response:
@@ -334,7 +335,7 @@ async def device_topup_options_route(request: web.Request) -> web.Response:
             if stars_quote and int(stars_quote.get("price") or 0) > 0:
                 plan["stars_price"] = int(stars_quote["price"])
             plans.append(plan)
-        return web.json_response(
+        return json_response(
             {
                 "ok": True,
                 "tariff_key": tariff.key,

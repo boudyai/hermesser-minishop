@@ -19,6 +19,7 @@ from ._runtime import (
     create_webapp_session_token,
     datetime,
     hashlib,
+    json_response,
     logger,
     sessionmaker,
     timezone,
@@ -81,7 +82,7 @@ async def account_email_request_route(request: web.Request) -> web.Response:
         if not db_user or db_user.is_banned:
             return _json_error(403, "access_denied", "Access denied")
         if db_user.email == email and db_user.email_verified_at:
-            return web.json_response({"ok": True, "already_linked": True})
+            return json_response({"ok": True, "already_linked": True})
         lang = _normalize_language(db_user.language_code or settings.DEFAULT_LANGUAGE)
 
     return await _request_email_code(
@@ -133,7 +134,7 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
             if not verify_result.ok:
                 await session.commit()
                 status = 429 if verify_result.error == "rate_limited" else 400
-                return web.json_response(
+                return json_response(
                     {
                         "ok": False,
                         "error": verify_result.error or "invalid_code",
@@ -280,7 +281,7 @@ async def account_password_confirm_route(request: web.Request) -> web.Response:
             if not verify_result.ok:
                 await session.commit()
                 status = 429 if verify_result.error == "rate_limited" else 400
-                return web.json_response(
+                return json_response(
                     {
                         "ok": False,
                         "error": verify_result.error or "invalid_code",
@@ -300,7 +301,7 @@ async def account_password_confirm_route(request: web.Request) -> web.Response:
             return _json_error(500, "password_setup_failed", "Password setup failed")
 
     await _invalidate_webapp_user_caches(settings, user_id)
-    return web.json_response({"ok": True, "password_auth_enabled": True})
+    return json_response({"ok": True, "password_auth_enabled": True})
 
 
 async def account_telegram_link_route(request: web.Request) -> web.Response:
@@ -420,7 +421,7 @@ async def me_route(request: web.Request) -> web.Response:
     if fresh:
         await _invalidate_webapp_user_caches(settings, user_id)
         data = await _build_user_payload(request, user_id)
-        return web.json_response({"ok": True, **data})
+        return json_response({"ok": True, **data})
 
     data = await webapp_cached_user_payload(
         settings,
@@ -429,7 +430,7 @@ async def me_route(request: web.Request) -> web.Response:
         int(getattr(settings, "WEBAPP_ME_CACHE_TTL_SECONDS", 15) or 0),
         lambda: _build_user_payload(request, user_id),
     )
-    return web.json_response({"ok": True, **data})
+    return json_response({"ok": True, **data})
 
 
 async def account_avatar_route(request: web.Request) -> web.Response:
@@ -485,7 +486,7 @@ async def account_language_route(request: web.Request) -> web.Response:
         await session.commit()
 
     await _invalidate_webapp_user_caches(settings, user_id)
-    return web.json_response({"ok": True, "language": language})
+    return json_response({"ok": True, "language": language})
 
 
 def _telegram_photo_url_value(telegram_user: Dict[str, Any]) -> Optional[str]:

@@ -13,6 +13,7 @@ from ._runtime import (
     Path,
     Settings,
     hashlib,
+    json_response,
     re,
     time,
     web,
@@ -29,7 +30,7 @@ WEBAPP_LEGACY_ASSET_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-ag
 
 
 async def health_route(request: web.Request) -> web.Response:
-    return web.json_response({"ok": True})
+    return json_response({"ok": True})
 
 
 async def robots_txt_route(request: web.Request) -> web.Response:

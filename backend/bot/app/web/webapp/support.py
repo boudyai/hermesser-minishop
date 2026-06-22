@@ -9,6 +9,7 @@ from db.models import SupportTicket, SupportTicketMessage
 from ._runtime import (
     Any,
     Dict,
+    json_response,
     sessionmaker,
     web,
 )
@@ -78,7 +79,7 @@ async def support_tickets_route(request: web.Request) -> web.Response:
             status_filter=status_filter,
         )
         counts = await support_dal.user_ticket_counts(session, user_id)
-    return web.json_response(
+    return json_response(
         {
             "ok": True,
             "tickets": [_support_ticket_payload(t) for t in tickets],
@@ -103,7 +104,7 @@ async def support_create_ticket_route(request: web.Request) -> web.Response:
         return _json_error(403, "ticket_forbidden", "Support ticket action is forbidden")
     except TicketRateLimited:
         return _json_error(429, "ticket_rate_limited", "Too many support tickets")
-    return web.json_response({"ok": True, "ticket": _support_ticket_payload(ticket)})
+    return json_response({"ok": True, "ticket": _support_ticket_payload(ticket)})
 
 
 async def support_ticket_detail_route(request: web.Request) -> web.Response:
@@ -114,7 +115,7 @@ async def support_ticket_detail_route(request: web.Request) -> web.Response:
         ticket, messages = await support_dal.get_ticket(session, ticket_id, include_internal=False)
         if not ticket or ticket.user_id != user_id:
             return _json_error(404, "not_found", "Ticket not found")
-    return web.json_response(
+    return json_response(
         {
             "ok": True,
             "ticket": _support_ticket_payload(ticket),
@@ -134,7 +135,7 @@ async def support_ticket_reply_route(request: web.Request) -> web.Response:
         return _json_error(403, "ticket_forbidden", "Support ticket action is forbidden")
     except TicketNotFound:
         return _json_error(404, "not_found", "Ticket not found")
-    return web.json_response(
+    return json_response(
         {
             "ok": True,
             "ticket": _support_ticket_payload(ticket),
@@ -151,7 +152,7 @@ async def support_ticket_read_route(request: web.Request) -> web.Response:
         await service.mark_read_as_user(user_id, ticket_id)
     except TicketNotFound:
         return _json_error(404, "not_found", "Ticket not found")
-    return web.json_response({"ok": True})
+    return json_response({"ok": True})
 
 
 async def support_unread_route(request: web.Request) -> web.Response:
@@ -162,4 +163,4 @@ async def support_unread_route(request: web.Request) -> web.Response:
         if user and user.is_banned:
             return _json_error(403, "ticket_forbidden", "Support ticket action is forbidden")
         unread = await support_dal.count_user_unread(session, user_id)
-    return web.json_response({"ok": True, "unread": unread})
+    return json_response({"ok": True, "unread": unread})
