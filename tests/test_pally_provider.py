@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 
 from bot.payment_providers import pally
 from bot.payment_providers.pally import PallyConfig, PallyService
+from bot.payment_providers.pally import service as pally_service
 
 
 def _md5_upper(value: str) -> str:
@@ -201,9 +202,9 @@ def test_webhook_success_accepts_commission_adjusted_amount(monkeypatch):
 
     update_mock = AsyncMock()
     finalize_mock = AsyncMock(return_value=SimpleNamespace())
-    monkeypatch.setattr(pally, "lookup_payment_by_order_or_provider_id", lookup_payment)
+    monkeypatch.setattr(pally_service, "lookup_payment_by_order_or_provider_id", lookup_payment)
     monkeypatch.setattr(pally.payment_dal, "update_provider_payment_and_status", update_mock)
-    monkeypatch.setattr(pally, "finalize_successful_payment", finalize_mock)
+    monkeypatch.setattr(pally_service, "finalize_successful_payment", finalize_mock)
 
     signature = service.calculate_signature("102.50", "77")
     response = asyncio.run(

@@ -1,8 +1,23 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+from ._runtime import (
+    Any,
+    AsyncSession,
+    Dict,
+    List,
+    Optional,
+    Subscription,
+    SubscriptionServiceMixinContract,
+    Tariff,
+    Tuple,
+    datetime,
+    default_currency_key_for_settings,
+    logging,
+    math,
+    tariff_dal,
+    timezone,
+)
 
 
-class TariffMixin:
+class TariffMixin(SubscriptionServiceMixinContract):
     @staticmethod
     def gb_to_bytes(gb: float) -> int:
         return int(float(gb) * (1024**3))
@@ -233,7 +248,8 @@ class TariffMixin:
             for host in hosts:
                 if not isinstance(host, dict):
                     continue
-                inbound_field = host.get("inbound") if isinstance(host.get("inbound"), dict) else {}
+                inbound_raw = host.get("inbound")
+                inbound_field: Dict[str, Any] = inbound_raw if isinstance(inbound_raw, dict) else {}
                 inbound_uuid = (
                     host.get("inboundUuid")
                     or host.get("inbound_uuid")
@@ -328,7 +344,7 @@ class TariffMixin:
             squad_name_map.get(str(uuid), f"{str(uuid)[:8]}...")
             for uuid in tariff.premium_squad_uuids
         ]
-        payload = {
+        payload: Dict[str, Any] = {
             "ts": now_ts,
             "squad_uuids": list(tariff.premium_squad_uuids),
             "squad_labels": list(dict.fromkeys(squad_labels)),

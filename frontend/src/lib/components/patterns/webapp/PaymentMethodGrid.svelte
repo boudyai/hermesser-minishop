@@ -1,21 +1,24 @@
-<script>
+<script lang="ts">
   import * as Icons from "$components/ui/icons.js";
 
-  export let methods = [];
-  export let selectedMethod = "";
-  export let t = (key) => key;
-  export let onSelect = () => {};
+  type AnyRecord = Record<string, any>;
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
-  function methodTitle(method) {
+  export let methods: AnyRecord[] = [];
+  export let selectedMethod = "";
+  export let t: Translate = (key) => key;
+  export let onSelect: (id: string) => void = () => {};
+
+  function methodTitle(method: AnyRecord) {
     return method?.name || t("wa_method_other_title");
   }
 
-  function methodIcon(method) {
+  function methodIcon(method: AnyRecord) {
     const iconName = String(method?.icon || "").trim();
-    return iconName ? Icons[iconName] || null : null;
+    return iconName ? (Icons as AnyRecord)[iconName] || null : null;
   }
 
-  function disabledTitle(method) {
+  function disabledTitle(method: AnyRecord) {
     if (!method?.disabled || !method?.min_amount || !method?.min_currency) return "";
     return `Minimum ${method.min_amount} ${method.min_currency}`;
   }

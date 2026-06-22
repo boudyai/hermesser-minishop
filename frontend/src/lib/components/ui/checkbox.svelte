@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Checkbox as CheckboxPrimitive } from "bits-ui";
   import { cn } from "$lib/utils.js";
   import { Check } from "./icons.js";
@@ -7,11 +7,11 @@
   export let disabled = false;
   export let indeterminate = false;
   export let ariaLabel = "";
-  export let onCheckedChange = () => {};
+  export let onCheckedChange: (checked: boolean) => void = () => {};
   let className = "";
   export { className as class };
 
-  function handleCheckedChange(next) {
+  function handleCheckedChange(next: unknown) {
     checked = Boolean(next);
     onCheckedChange(checked);
   }

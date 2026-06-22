@@ -1,7 +1,23 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+from ._runtime import (
+    AdminLogsListOut,
+    LogOut,
+    RouteContract,
+    message_log_dal,
+    ok_envelope_for,
+    register_contract,
+    sessionmaker,
+    web,
+)
 from .auth import _require_admin_user_id
 from .common import _error, _ok, _serialize_log
+
+register_contract(
+    "admin_logs_route",
+    RouteContract(
+        response_schema=ok_envelope_for(AdminLogsListOut),
+        models=(AdminLogsListOut, LogOut),
+    ),
+)
 
 
 async def admin_logs_route(request: web.Request) -> web.Response:

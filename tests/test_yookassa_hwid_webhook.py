@@ -4,6 +4,8 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
 from bot.payment_providers import yookassa
+from bot.payment_providers.yookassa import payments as yookassa_payments
+from bot.payment_providers.yookassa import success as yookassa_success
 
 
 class _I18n:
@@ -127,7 +129,7 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
 
         with (
             patch.object(
-                yookassa,
+                yookassa_payments,
                 "create_webapp_payment_record",
                 AsyncMock(return_value=payment),
             ),
@@ -204,16 +206,18 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
             ) as update_status,
             patch.object(yookassa.user_dal, "get_user_by_id", AsyncMock(return_value=db_user)),
             patch.object(
-                yookassa,
+                yookassa_success,
                 "prepare_config_links",
                 AsyncMock(return_value=("link", "https://example.test/sub")),
             ),
             patch.object(
-                yookassa,
+                yookassa_success,
                 "ensure_user_install_guide_links",
                 AsyncMock(return_value=SimpleNamespace(public_share_url=None)),
             ),
-            patch.object(yookassa, "send_success_message_to_user", AsyncMock()) as send_success,
+            patch.object(
+                yookassa_success, "send_success_message_to_user", AsyncMock()
+            ) as send_success,
         ):
             event_payload = await yookassa.process_successful_payment(
                 AsyncMock(),
@@ -314,16 +318,18 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
             ),
             patch.object(yookassa.user_dal, "get_user_by_id", AsyncMock(return_value=db_user)),
             patch.object(
-                yookassa,
+                yookassa_success,
                 "prepare_config_links",
                 AsyncMock(return_value=("link", "https://example.test/sub")),
             ),
             patch.object(
-                yookassa,
+                yookassa_success,
                 "ensure_user_install_guide_links",
                 AsyncMock(return_value=SimpleNamespace(public_share_url=None)),
             ),
-            patch.object(yookassa, "send_success_message_to_user", AsyncMock()) as send_success,
+            patch.object(
+                yookassa_success, "send_success_message_to_user", AsyncMock()
+            ) as send_success,
         ):
             event_payload = await yookassa.process_successful_payment(
                 AsyncMock(),
@@ -378,6 +384,7 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
                         "referee_user_id": 42,
                         "inviter_bonus_applied": True,
                         "inviter_user_id": 1,
+                        "reason": "payment",
                     },
                 }
             )
@@ -418,16 +425,18 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
             ),
             patch.object(yookassa.user_dal, "get_user_by_id", AsyncMock(return_value=db_user)),
             patch.object(
-                yookassa,
+                yookassa_success,
                 "prepare_config_links",
                 AsyncMock(return_value=("link", "https://example.test/sub")),
             ),
             patch.object(
-                yookassa,
+                yookassa_success,
                 "ensure_user_install_guide_links",
                 AsyncMock(return_value=SimpleNamespace(public_share_url=None)),
             ),
-            patch.object(yookassa, "send_success_message_to_user", AsyncMock()) as send_success,
+            patch.object(
+                yookassa_success, "send_success_message_to_user", AsyncMock()
+            ) as send_success,
         ):
             event_payload = await yookassa.process_successful_payment(
                 AsyncMock(),
@@ -454,7 +463,7 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
 
         with (
             patch.object(yookassa.events, "emit", AsyncMock()) as emit_event,
-            patch.object(yookassa, "send_success_message_to_user", send_success),
+            patch.object(yookassa_success, "send_success_message_to_user", send_success),
         ):
             await yookassa.emit_yookassa_success_events(event_payload)
 
@@ -543,11 +552,13 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
             ),
             patch.object(yookassa.user_dal, "get_user_by_id", AsyncMock(return_value=db_user)),
             patch.object(
-                yookassa,
+                yookassa_success,
                 "prepare_config_links",
                 AsyncMock(return_value=("link", "https://example.test/sub")),
             ),
-            patch.object(yookassa, "send_success_message_to_user", AsyncMock()) as send_success,
+            patch.object(
+                yookassa_success, "send_success_message_to_user", AsyncMock()
+            ) as send_success,
         ):
             event_payload = await yookassa.process_successful_payment(
                 AsyncMock(),

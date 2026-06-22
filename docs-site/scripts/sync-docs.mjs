@@ -35,6 +35,8 @@ const descriptions = {
   'troubleshooting/logs.md': 'Какие логи смотреть при диагностике backend, worker, frontend, миграций и вебхуков.',
   'troubleshooting/maintenance.md': 'Обновления, миграции, резервные копии и проверки продакшен-стека.',
   'architecture.md': 'Краткая архитектура backend, frontend, worker и инфраструктурных сервисов.',
+  'architecture/http-api.md': 'Контракты HTTP API, envelope ответов, security-схемы, OpenAPI-артефакт и правила typed-маршрутов.',
+  'architecture/events.md': 'Каталог доменных событий, payload-моделей, emitters и core-реакций.',
 };
 
 const imageExtensions = new Set(['.avif', '.gif', '.jpeg', '.jpg', '.png', '.svg', '.webp']);
@@ -185,11 +187,16 @@ async function syncAssets(files) {
   }
 }
 
+async function syncOpenApiArtifact() {
+  await copyFile(path.join(sourceDir, 'openapi.json'), path.join(siteRoot, 'public', 'openapi.json'));
+}
+
 await rm(outputDir, { recursive: true, force: true });
 await mkdir(outputDir, { recursive: true });
 
 const files = await walk(sourceDir);
 await syncMarkdown(files);
 await syncAssets(files);
+await syncOpenApiArtifact();
 
 console.log(`Synced documentation from ${path.relative(repoRoot, sourceDir)} to ${path.relative(repoRoot, outputDir)}`);

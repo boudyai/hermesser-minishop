@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import HwidDevicePurchase, Payment, TariffChange, TrafficTopup, TrafficWarning
 
+from ._sqlalchemy import rowcount
+
 
 async def create_traffic_topup(
     session: AsyncSession,
@@ -33,7 +35,7 @@ async def sum_traffic_topups(
     *,
     subscription_id: int,
     kinds: Optional[List[str]] = None,
-    created_at_gte=None,
+    created_at_gte: Optional[datetime] = None,
 ) -> int:
     conditions = [TrafficTopup.subscription_id == subscription_id]
     if kinds:
@@ -186,7 +188,7 @@ async def expire_hwid_device_purchases(
         .where(HwidDevicePurchase.purchase_id.in_(ids))
         .values(valid_until=at)
     )
-    return result.rowcount or 0
+    return rowcount(result)
 
 
 def _normalize_aware_utc(value: datetime) -> datetime:
@@ -261,7 +263,7 @@ async def get_warning(
     session: AsyncSession,
     *,
     subscription_id: int,
-    period_start_at,
+    period_start_at: Optional[datetime],
     level: int,
     traffic_limit_bytes: Optional[int] = None,
 ) -> Optional[TrafficWarning]:
@@ -290,7 +292,7 @@ async def create_warning(
     session: AsyncSession,
     *,
     subscription_id: int,
-    period_start_at,
+    period_start_at: Optional[datetime],
     level: int,
     traffic_limit_bytes: Optional[int],
 ) -> TrafficWarning:
@@ -310,7 +312,7 @@ async def clear_period_warnings(session: AsyncSession, subscription_id: int) -> 
     result = await session.execute(
         delete(TrafficWarning).where(TrafficWarning.subscription_id == subscription_id)
     )
-    return result.rowcount or 0
+    return rowcount(result)
 
 
 async def get_tariff_changes_for_subscription(

@@ -1,5 +1,24 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+from ._runtime import (
+    RouteContract,
+    Settings,
+    enqueue_webhook_event,
+    loose_object_schema,
+    ok_envelope_with,
+    register_contract,
+    web,
+)
+from .auth import (
+    _require_admin_user_id,
+)
+from .common import (
+    _error,
+    _ok,
+)
+
+register_contract(
+    "admin_sync_route",
+    RouteContract(response_schema=ok_envelope_with({"result": loose_object_schema()})),
+)
 
 
 async def admin_sync_route(request: web.Request) -> web.Response:

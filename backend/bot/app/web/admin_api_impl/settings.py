@@ -1,12 +1,55 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
-from .webapp_runtime import refresh_webapp_runtime_after_settings_change
-
+from bot.services.entitlements import features as entitlement_features
 from config.subscription_guides_config import (
     SubscriptionGuidesConfigError,
     subscription_guides_admin_config_json,
 )
-from bot.services.entitlements import features as entitlement_features
+
+from ._runtime import (
+    INTEGER_SCHEMA,
+    STRING_SCHEMA,
+    AdminSettingsPatchBody,
+    Any,
+    Dict,
+    RouteContract,
+    Settings,
+    app_settings_dal,
+    current_value,
+    loose_array_schema,
+    manifest_payload,
+    ok_envelope_with,
+    parse_body_or_400,
+    register_contract,
+    sessionmaker,
+    update_overrides,
+    web,
+)
+from .auth import (
+    _require_admin_user_id,
+)
+from .common import (
+    _error,
+    _ok,
+)
+from .webapp_runtime import refresh_webapp_runtime_after_settings_change
+
+register_contract(
+    "admin_settings_get_route",
+    RouteContract(
+        response_schema=ok_envelope_with(
+            {
+                "sections": loose_array_schema(),
+                "features": {"type": "array", "items": STRING_SCHEMA},
+            }
+        )
+    ),
+)
+register_contract(
+    "admin_settings_patch_route",
+    RouteContract(
+        request_model=AdminSettingsPatchBody,
+        response_schema=ok_envelope_with({"applied": INTEGER_SCHEMA, "reverted": INTEGER_SCHEMA}),
+    ),
+)
 
 
 async def admin_settings_get_route(request: web.Request) -> web.Response:
@@ -73,9 +116,9 @@ async def admin_settings_patch_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
     settings: Settings = request.app["settings"]
     async_session_factory: sessionmaker = request.app["async_session_factory"]
-    payload = await _read_json(request)
-    updates = payload.get("updates") or {}
-    deletes = payload.get("deletes") or []
+    body = await parse_body_or_400(request, AdminSettingsPatchBody)
+    updates = body.updates or {}
+    deletes = body.deletes or []
     if not isinstance(updates, dict):
         return _error(400, "invalid_updates")
     if not isinstance(deletes, list):

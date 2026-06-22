@@ -107,6 +107,7 @@ export default defineConfig({
             { label: 'Логи', slug: 'troubleshooting/logs' },
             { label: 'Обслуживание', slug: 'troubleshooting/maintenance' },
             { label: 'Архитектура', slug: 'reference/architecture' },
+            { label: 'HTTP API', slug: 'architecture/http-api' },
           ],
         },
       ],

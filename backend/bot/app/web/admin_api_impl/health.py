@@ -1,10 +1,25 @@
 # ruff: noqa: F401,F403,F405,I001
 from datetime import datetime, timezone
 
-from ._runtime import *  # noqa: F403,F405
+from ._runtime import (
+    AdminHealthOut,
+    RouteContract,
+    ok_envelope_for,
+    register_contract,
+    web,
+)
 from .auth import _require_admin_user_id
 from .common import _ok
 from bot.services.config_health_service import collect_config_alerts
+
+
+register_contract(
+    "admin_health_route",
+    RouteContract(
+        response_schema=ok_envelope_for(AdminHealthOut),
+        models=(AdminHealthOut,),
+    ),
+)
 
 
 async def admin_health_route(request: web.Request) -> web.Response:
@@ -12,8 +27,5 @@ async def admin_health_route(request: web.Request) -> web.Response:
     refresh = str(request.query.get("refresh", "")).strip().lower() in {"1", "true", "yes"}
     alerts = await collect_config_alerts(request, refresh=refresh)
     return _ok(
-        {
-            "alerts": alerts,
-            "checked_at": datetime.now(timezone.utc).isoformat(),
-        }
+        AdminHealthOut(alerts=alerts, checked_at=datetime.now(timezone.utc)).model_dump(mode="json")
     )

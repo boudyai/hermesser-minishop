@@ -1,5 +1,23 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+from ._runtime import (
+    RouteContract,
+    logger,
+    loose_array_schema,
+    ok_envelope_with,
+    register_contract,
+    web,
+)
+from .auth import (
+    _require_admin_user_id,
+)
+from .common import (
+    _error,
+    _ok,
+)
+
+register_contract(
+    "admin_panel_internal_squads_route",
+    RouteContract(response_schema=ok_envelope_with({"squads": loose_array_schema()})),
+)
 
 
 async def admin_panel_internal_squads_route(request: web.Request) -> web.Response:

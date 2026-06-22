@@ -11,6 +11,7 @@ from aiogram.types import (
     BotCommandScopeAllPrivateChats,
     BotCommandScopeChat,
     BotCommandScopeDefault,
+    BotCommandScopeUnion,
     MenuButtonDefault,
     MenuButtonWebApp,
     WebAppInfo,
@@ -212,7 +213,7 @@ async def on_startup_configured(dispatcher: Dispatcher):
         ]
         bot_menu_disabled = bool(getattr(settings, "TELEGRAM_BOT_MENU_DISABLED", False))
         public_bot_commands = [bot_commands[0]] if bot_menu_disabled else bot_commands
-        command_scopes_to_clear = [
+        command_scopes_to_clear: list[BotCommandScopeUnion] = [
             BotCommandScopeDefault(),
             BotCommandScopeAllPrivateChats(),
             BotCommandScopeAllGroupChats(),

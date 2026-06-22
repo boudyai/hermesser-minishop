@@ -1,3 +1,7 @@
+# SQLAlchemy legacy Column declarations expose instance attributes as Column[T]
+# to mypy; this DAL intentionally mutates loaded ORM instances.
+# mypy: disable-error-code="assignment,arg-type,operator"
+
 import logging
 import secrets
 import string
@@ -11,6 +15,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import aliased
 
 from bot.infra import events
+from bot.infra.event_payloads import AccountMergedPayload, UserRegisteredPayload
 
 from ..models import (
     AdAttribution,
@@ -33,6 +38,7 @@ from ..models import (
     UserPaymentMethod,
     UserTelegramAvatar,
 )
+from ._sqlalchemy import rowcount
 
 REFERRAL_CODE_ALPHABET = string.ascii_uppercase + string.digits
 REFERRAL_CODE_LENGTH = 9
@@ -80,17 +86,18 @@ async def ensure_referral_code(session: AsyncSession, user: User) -> str:
     Returns the existing or newly generated code.
     """
     if user.referral_code:
-        normalized = user.referral_code.strip()
+        normalized = str(user.referral_code).strip()
         if normalized != user.referral_code:
             user.referral_code = normalized
             await session.flush()
             await session.refresh(user)
-        return user.referral_code
+        return normalized
 
-    user.referral_code = await generate_unique_referral_code(session)
+    referral_code = await generate_unique_referral_code(session)
+    user.referral_code = referral_code
     await session.flush()
     await session.refresh(user)
-    return user.referral_code
+    return referral_code
 
 
 async def get_user_by_id(session: AsyncSession, user_id: int) -> Optional[User]:
@@ -123,7 +130,7 @@ async def get_users_referred_by(
         .limit(safe_limit)
     )
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def count_users_referred_by(session: AsyncSession, user_id: int) -> int:
@@ -244,8 +251,10 @@ async def create_user(
     # Fetch the user (inserted just now or pre-existing)
     user_id: int = user_data["user_id"]
     user = await get_user_by_id(session, user_id)
+    if user is None:
+        raise RuntimeError(f"Failed to load user {user_id} after upsert.")
 
-    if created and user is not None:
+    if created:
         logging.info(
             f"New user {user.user_id} created in DAL. Referred by: {user.referred_by_id or 'N/A'}."
         )
@@ -257,20 +266,19 @@ async def create_user(
             else:
                 registered_via = "unknown"
         if registered_via:
-            await events.emit(
-                events.USER_REGISTERED,
-                {
-                    "user_id": int(user.user_id),
-                    "language": user_data.get("language_code"),
-                    "referred_by_id": user_data.get("referred_by_id"),
-                    "registered_via": registered_via,
-                    "telegram_id": user_data.get("telegram_id"),
-                    "username": user_data.get("username"),
-                    "first_name": user_data.get("first_name"),
-                    "email": user_data.get("email"),
-                },
+            await events.emit_model(
+                UserRegisteredPayload(
+                    user_id=int(user.user_id),
+                    language=user_data.get("language_code"),
+                    referred_by_id=user_data.get("referred_by_id"),
+                    registered_via=registered_via,
+                    telegram_id=user_data.get("telegram_id"),
+                    username=user_data.get("username"),
+                    first_name=user_data.get("first_name"),
+                    email=user_data.get("email"),
+                )
             )
-    elif user is not None:
+    else:
         logging.info(f"User {user.user_id} already exists in DAL. Proceeding without creation.")
 
     return user, created
@@ -310,7 +318,7 @@ async def mark_trial_eligibility_reset(
     reset_at = reset_at or datetime.now(timezone.utc)
     stmt = update(User).where(User.user_id == user_id).values(trial_eligibility_reset_at=reset_at)
     result = await session.execute(stmt)
-    if result.rowcount <= 0:
+    if rowcount(result) <= 0:
         return None
     return reset_at
 
@@ -652,24 +660,21 @@ async def merge_users(
     await session.flush()
     await session.refresh(target)
 
-    await events.emit(
-        events.ACCOUNT_MERGED,
-        {
-            "source_user_id": int(source_user_id),
-            "target_user_id": int(target_user_id),
-            "reason": reason,
-            "send_user_email": send_user_email,
-            "source_panel_user_uuid": source_panel_uuid,
-            "target_panel_user_uuid": target.panel_user_uuid,
-            "email": target.email,
-            "telegram_id": target.telegram_id,
-            "username": target.username,
-            "first_name": target.first_name,
-            "language": target.language_code,
-            "final_end_date": events.iso(
-                getattr(target_anchor_sub or source_active_sub, "end_date", None)
-            ),
-        },
+    await events.emit_model(
+        AccountMergedPayload(
+            source_user_id=int(source_user_id),
+            target_user_id=int(target_user_id),
+            reason=reason,
+            send_user_email=send_user_email,
+            source_panel_user_uuid=source_panel_uuid,
+            target_panel_user_uuid=target.panel_user_uuid,
+            email=target.email,
+            telegram_id=target.telegram_id,
+            username=target.username,
+            first_name=target.first_name,
+            language=target.language_code,
+            final_end_date=getattr(target_anchor_sub or source_active_sub, "end_date", None),
+        )
     )
     return target
 
@@ -745,14 +750,14 @@ async def update_user(
 async def update_user_language(session: AsyncSession, user_id: int, lang_code: str) -> bool:
     stmt = update(User).where(User.user_id == user_id).values(language_code=lang_code)
     result = await session.execute(stmt)
-    return result.rowcount > 0
+    return rowcount(result) > 0
 
 
 async def get_banned_users(session: AsyncSession) -> List[User]:
     """Get all banned users"""
     stmt = select(User).where(User.is_banned == True).order_by(User.registration_date.desc())
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def get_all_users_paginated(
@@ -769,7 +774,7 @@ async def get_all_users_paginated(
         .limit(safe_page_size)
     )
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def count_all_users(session: AsyncSession) -> int:
@@ -781,7 +786,7 @@ async def count_all_users(session: AsyncSession) -> int:
 async def get_all_active_user_ids_for_broadcast(session: AsyncSession) -> List[int]:
     stmt = select(User.user_id).where(User.is_banned == False)
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def count_all_active_users_for_broadcast(session: AsyncSession) -> int:
@@ -793,7 +798,7 @@ async def count_all_active_users_for_broadcast(session: AsyncSession) -> int:
 async def get_all_users_with_panel_uuid(session: AsyncSession) -> List[User]:
     stmt = select(User).where(User.panel_user_uuid.is_not(None))
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def get_panel_user_uuids_for_user(
@@ -962,7 +967,7 @@ async def get_user_ids_with_active_subscription(session: AsyncSession) -> List[i
         )
     )
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def count_users_with_active_subscription_for_broadcast(session: AsyncSession) -> int:
@@ -1012,7 +1017,7 @@ async def get_user_ids_without_active_subscription(session: AsyncSession) -> Lis
         )
     )
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def count_users_without_active_subscription_for_broadcast(session: AsyncSession) -> int:
@@ -1049,7 +1054,7 @@ async def get_user_ids_without_any_subscription(session: AsyncSession) -> List[i
         )
     )
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def count_users_without_any_subscription_for_broadcast(session: AsyncSession) -> int:
@@ -1070,7 +1075,7 @@ async def count_users_without_any_subscription_for_broadcast(session: AsyncSessi
     return int(result.scalar_one() or 0)
 
 
-def _expired_subscription_exists_for_user(now: datetime):
+def _expired_subscription_exists_for_user(now: datetime) -> Any:
     expired_subs = aliased(Subscription)
     normalized_status = func.lower(func.coalesce(expired_subs.status_from_panel, ""))
     blank_status = or_(
@@ -1090,7 +1095,7 @@ def _expired_subscription_exists_for_user(now: datetime):
     )
 
 
-def _active_subscription_exists_for_user(now: datetime):
+def _active_subscription_exists_for_user(now: datetime) -> Any:
     active_subs = aliased(Subscription)
     return (
         select(active_subs.subscription_id)
@@ -1141,7 +1146,7 @@ async def get_user_ids_with_expired_subscription(session: AsyncSession) -> List[
         ~_active_subscription_exists_for_user(now),
     )
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def delete_user_and_relations(session: AsyncSession, user_id: int) -> bool:

@@ -1,7 +1,30 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+from typing import Annotated, Literal
 
-from typing import Literal
+from pydantic import StringConstraints
+
+from ._runtime import (
+    Any,
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Optional,
+    field_validator,
+    normalize_email,
+)
+
+PasswordAuthString = Annotated[str, StringConstraints(min_length=1, max_length=128)]
+PasswordSetupString = Annotated[str, StringConstraints(min_length=8, max_length=128)]
+ShortCodeString = Annotated[str, StringConstraints(min_length=1, max_length=32)]
+MagicTokenString = Annotated[str, StringConstraints(min_length=8, max_length=512)]
+TariffKeyString = Annotated[str, StringConstraints(min_length=1, max_length=128)]
+OptionalTariffKeyString = Annotated[str, StringConstraints(max_length=128)]
+SaleModeString = Annotated[str, StringConstraints(max_length=64)]
+LongTextString = Annotated[str, StringConstraints(max_length=4096)]
+ChangeModeString = Annotated[str, StringConstraints(min_length=1, max_length=64)]
+LanguageString = Annotated[str, StringConstraints(min_length=2, max_length=16)]
+DeviceTokenString = Annotated[str, StringConstraints(min_length=8, max_length=128)]
+TicketSubjectString = Annotated[str, StringConstraints(min_length=1, max_length=160)]
+TicketBodyString = Annotated[str, StringConstraints(min_length=1, max_length=4000)]
 
 
 class WebAppEmailPayload(BaseModel):
@@ -22,22 +45,53 @@ class WebAppEmailCodePayload(WebAppEmailPayload):
     code: str = ""
 
 
+class WebAppEmailRequestPayload(WebAppEmailPayload):
+    language: Optional[str] = None
+
+
+class WebAppEmailCodeAuthPayload(WebAppEmailCodePayload):
+    referral_code: Optional[str] = None
+    start_param: Optional[str] = None
+
+
 class WebAppEmailPasswordPayload(WebAppEmailPayload):
-    password: constr(min_length=1, max_length=128)
+    password: PasswordAuthString
 
 
 class WebAppSetPasswordPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    password: constr(min_length=8, max_length=128)
-    password_confirm: constr(min_length=8, max_length=128)
-    code: constr(min_length=1, max_length=32)
+    password: PasswordSetupString
+    password_confirm: PasswordSetupString
+    code: ShortCodeString
 
 
 class WebAppEmailMagicPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    token: constr(min_length=8, max_length=512)
+    token: MagicTokenString
+
+
+class WebAppEmailMagicAuthPayload(WebAppEmailMagicPayload):
+    referral_code: Optional[str] = None
+    start_param: Optional[str] = None
+
+
+class WebAppTelegramAuthPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    init_data: str = ""
+    id_token: str = ""
+    nonce: str = ""
+    auth_data: Any = None
+    referral_code: Optional[str] = None
+    start_param: Optional[str] = None
+
+
+class WebAppPromoApplyPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    code: Any = ""
 
 
 class WebAppPaymentCreatePayload(BaseModel):
@@ -47,12 +101,12 @@ class WebAppPaymentCreatePayload(BaseModel):
     months: Any = None
     traffic_gb: Any = None
     device_count: Any = None
-    tariff_key: Optional[constr(max_length=128)] = None
-    sale_mode: Optional[constr(max_length=64)] = None
+    tariff_key: Optional[OptionalTariffKeyString] = None
+    sale_mode: Optional[SaleModeString] = None
     renew_hwid_devices: Optional[bool] = None
-    description: Optional[constr(max_length=4096)] = None
-    comment: Optional[constr(max_length=4096)] = None
-    note: Optional[constr(max_length=4096)] = None
+    description: Optional[LongTextString] = None
+    comment: Optional[LongTextString] = None
+    note: Optional[LongTextString] = None
 
 
 class WebAppAutoRenewPayload(BaseModel):
@@ -64,20 +118,20 @@ class WebAppAutoRenewPayload(BaseModel):
 class WebAppTariffChangePayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    tariff_key: constr(min_length=1, max_length=128)
-    mode: constr(min_length=1, max_length=64)
+    tariff_key: TariffKeyString
+    mode: ChangeModeString
 
 
 class WebAppLanguagePayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    language: constr(min_length=2, max_length=16)
+    language: LanguageString
 
 
 class WebAppDeviceDisconnectPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    token: constr(min_length=8, max_length=128)
+    token: DeviceTokenString
 
 
 SupportCategory = Literal["billing", "technical", "account", "other"]
@@ -88,10 +142,10 @@ SupportStatus = Literal["open", "awaiting_user", "awaiting_admin", "resolved", "
 class CreateTicketPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    subject: constr(min_length=1, max_length=160)
+    subject: TicketSubjectString
     category: SupportCategory = "other"
     priority: Literal["normal", "high"] = "normal"
-    body: constr(min_length=1, max_length=4000)
+    body: TicketBodyString
 
     @field_validator("subject", "body")
     @classmethod
@@ -105,7 +159,7 @@ class CreateTicketPayload(BaseModel):
 class TicketReplyPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    body: constr(min_length=1, max_length=4000)
+    body: TicketBodyString
 
     @field_validator("body")
     @classmethod

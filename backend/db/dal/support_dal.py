@@ -1,7 +1,11 @@
+# SQLAlchemy legacy Column declarations expose instance attributes as Column[T]
+# to mypy; this DAL intentionally mutates loaded ORM instances.
+# mypy: disable-error-code=assignment
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy import and_, case, desc, func, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,7 +19,7 @@ CLOSED_STATUSES = {"resolved", "closed"}
 _UNSET = object()
 
 
-def _status_condition(status: Optional[str]):
+def _status_condition(status: Optional[str]) -> Any:
     normalized = (status or "").strip().lower()
     if not normalized or normalized in {"all", "any"}:
         return None

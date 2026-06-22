@@ -4,6 +4,7 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
 from bot.app.web.webapp import billing as billing_module
+from bot.app.web.webapp import billing_subscription
 from db.dal import user_billing_dal
 
 
@@ -68,7 +69,7 @@ class WebAppAutoRenewRouteTests(IsolatedAsyncioTestCase):
         )
 
         with (
-            patch.object(billing_module, "_require_user_id", return_value=42),
+            patch.object(billing_subscription, "_require_user_id", return_value=42),
             patch.object(billing_module.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
             patch.object(
                 billing_module.subscription_dal,
@@ -85,7 +86,7 @@ class WebAppAutoRenewRouteTests(IsolatedAsyncioTestCase):
                 "user_has_saved_payment_method",
                 AsyncMock(return_value=False),
             ) as has_saved_method,
-            patch.object(billing_module, "_invalidate_webapp_user_caches", AsyncMock()),
+            patch.object(billing_subscription, "_invalidate_webapp_user_caches", AsyncMock()),
         ):
             response = await billing_module.subscription_auto_renew_route(request)
 
@@ -110,7 +111,7 @@ class WebAppAutoRenewRouteTests(IsolatedAsyncioTestCase):
         request, session, user = self._request({"enabled": True}, sub=sub)
 
         with (
-            patch.object(billing_module, "_require_user_id", return_value=42),
+            patch.object(billing_subscription, "_require_user_id", return_value=42),
             patch.object(billing_module.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
             patch.object(
                 billing_module.subscription_dal,
@@ -127,7 +128,7 @@ class WebAppAutoRenewRouteTests(IsolatedAsyncioTestCase):
                 "user_has_saved_payment_method",
                 AsyncMock(return_value=True),
             ) as has_saved_method,
-            patch.object(billing_module, "_invalidate_webapp_user_caches", AsyncMock()),
+            patch.object(billing_subscription, "_invalidate_webapp_user_caches", AsyncMock()),
         ):
             response = await billing_module.subscription_auto_renew_route(request)
 

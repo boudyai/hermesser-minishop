@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 from bot.infra.redis import get_redis, redis_key
 from config.settings import Settings
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def webhook_queue_key(settings: Settings) -> str:
-    return redis_key(settings, "queue", settings.WEBHOOK_QUEUE_NAME)
+    return cast(str, redis_key(settings, "queue", settings.WEBHOOK_QUEUE_NAME))
 
 
 async def enqueue_webhook_event(
@@ -58,7 +58,8 @@ async def pop_webhook_event(settings: Settings, timeout_seconds: int = 5) -> Opt
         return None
     _, raw = item
     try:
-        return json.loads(raw)
+        decoded = json.loads(raw)
+        return decoded if isinstance(decoded, dict) else None
     except json.JSONDecodeError:
         logger.warning("Invalid webhook queue payload discarded")
         return None

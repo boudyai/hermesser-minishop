@@ -1,8 +1,21 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+from ._runtime import (
+    Any,
+    AsyncSession,
+    Dict,
+    List,
+    Optional,
+    SubscriptionServiceMixinContract,
+    datetime,
+    logging,
+    month_start,
+    subscription_dal,
+    tariff_dal,
+    timezone,
+    user_dal,
+)
 
 
-class TrafficMixin:
+class TrafficMixin(SubscriptionServiceMixinContract):
     async def _activate_traffic_package(
         self,
         session: AsyncSession,

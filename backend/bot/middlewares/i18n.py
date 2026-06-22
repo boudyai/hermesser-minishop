@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 from aiogram import BaseMiddleware
-from aiogram.types import Update, User
+from aiogram.types import TelegramObject, User
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.settings import Settings
@@ -596,8 +596,8 @@ class I18nMiddleware(BaseMiddleware):
 
     async def __call__(
         self,
-        handler: Callable[[Update, Dict[str, Any]], Awaitable[Any]],
-        event: Update,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
         data: Dict[str, Any],
     ) -> Any:
         session: AsyncSession = data["session"]

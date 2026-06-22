@@ -16,6 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import AppSettingOverride
 
+from ._sqlalchemy import rowcount
+
 logger = logging.getLogger(__name__)
 
 
@@ -90,7 +92,7 @@ async def upsert_override(
 async def delete_override(session: AsyncSession, key: str) -> bool:
     stmt = delete(AppSettingOverride).where(AppSettingOverride.key == key)
     result = await session.execute(stmt)
-    return bool(result.rowcount or 0)
+    return rowcount(result) > 0
 
 
 async def bulk_apply(

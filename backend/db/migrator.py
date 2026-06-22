@@ -465,6 +465,21 @@ def _migration_0012_add_tariffs_schema(connection: Connection) -> None:
         connection.execute(text(stmt))
 
 
+def _migration_0013_add_app_setting_overrides(connection: Connection) -> None:
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS app_setting_overrides (
+                key VARCHAR(128) PRIMARY KEY,
+                value TEXT,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_by BIGINT
+            )
+            """
+        )
+    )
+
+
 def _migration_0009_add_composite_indexes(connection: Connection) -> None:
     connection.execute(
         text(
@@ -1240,18 +1255,7 @@ MIGRATIONS: List[Migration] = [
     Migration(
         id="0013_add_app_setting_overrides",
         description="Persisted runtime overrides for application settings managed via admin webapp",
-        upgrade=lambda connection: connection.execute(
-            text(
-                """
-                CREATE TABLE IF NOT EXISTS app_setting_overrides (
-                    key VARCHAR(128) PRIMARY KEY,
-                    value TEXT,
-                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                    updated_by BIGINT
-                )
-                """
-            )
-        ),
+        upgrade=_migration_0013_add_app_setting_overrides,
     ),
     Migration(
         id="0014_add_premium_squad_traffic_fields",

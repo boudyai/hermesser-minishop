@@ -1,19 +1,37 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+from typing import Annotated, Literal, Optional
 
-from typing import Literal, Optional
-
-from pydantic import BaseModel, ConfigDict, constr, field_validator
+from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
 
 from bot.services.support_service import TicketNotFound
 from db.dal import support_dal, user_dal
 from db.models import SupportTicket, SupportTicketMessage
 
+from ._runtime import (
+    Any,
+    Dict,
+    RouteContract,
+    loose_array_schema,
+    loose_object_schema,
+    ok_envelope_with,
+    parse_body_or_400,
+    register_contract,
+    sessionmaker,
+    web,
+)
+from .auth import (
+    _require_admin_user_id,
+)
+from .common import (
+    _error,
+)
+
+TicketBodyString = Annotated[str, StringConstraints(min_length=1, max_length=4000)]
+
 
 class AdminTicketReplyPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    body: constr(min_length=1, max_length=4000)
+    body: TicketBodyString
     is_internal_note: bool = False
 
     @field_validator("body")
@@ -36,11 +54,50 @@ class AdminTicketPatchPayload(BaseModel):
     assigned_admin_id: Optional[int] = None
 
 
-def _validate_model_payload(model_cls, payload: Dict[str, Any]):
-    try:
-        return model_cls.model_validate(payload), None
-    except ValidationError:
-        return None, _error(400, "invalid_request", "Invalid request")
+register_contract(
+    "admin_support_tickets_route",
+    RouteContract(response_schema=ok_envelope_with({"tickets": loose_array_schema()})),
+)
+register_contract(
+    "admin_support_ticket_detail_route",
+    RouteContract(
+        response_schema=ok_envelope_with(
+            {
+                "ticket": loose_object_schema(),
+                "messages": loose_array_schema(),
+                "user_snapshot": loose_object_schema(),
+            }
+        )
+    ),
+)
+register_contract(
+    "admin_support_ticket_reply_route",
+    RouteContract(
+        request_model=AdminTicketReplyPayload,
+        response_schema=ok_envelope_with(
+            {"ticket": loose_object_schema(), "message": loose_object_schema()}
+        ),
+    ),
+)
+register_contract(
+    "admin_support_ticket_patch_route",
+    RouteContract(
+        request_model=AdminTicketPatchPayload,
+        response_schema=ok_envelope_with({"ticket": loose_object_schema()}),
+    ),
+)
+register_contract(
+    "admin_support_ticket_read_route",
+    RouteContract(response_schema=ok_envelope_with()),
+)
+register_contract(
+    "admin_support_stats_route",
+    RouteContract(response_schema=ok_envelope_with({"stats": loose_object_schema()})),
+)
+
+
+def _invalid_request_payload_response(_exc) -> web.Response:
+    return _error(400, "invalid_request", "Invalid request")
 
 
 def _support_ticket_payload(ticket: SupportTicket) -> Dict[str, Any]:
@@ -182,9 +239,11 @@ async def admin_support_ticket_detail_route(request: web.Request) -> web.Respons
 async def admin_support_ticket_reply_route(request: web.Request) -> web.Response:
     admin_id = _require_admin_user_id(request)
     ticket_id = int(request.match_info["id"])
-    payload, error = _validate_model_payload(AdminTicketReplyPayload, await _read_json(request))
-    if error:
-        return error
+    payload = await parse_body_or_400(
+        request,
+        AdminTicketReplyPayload,
+        validation_error_response_factory=_invalid_request_payload_response,
+    )
     try:
         ticket, message = await request.app["support_service"].reply_as_admin(
             admin_id,
@@ -211,9 +270,11 @@ async def admin_support_ticket_reply_route(request: web.Request) -> web.Response
 async def admin_support_ticket_patch_route(request: web.Request) -> web.Response:
     admin_id = _require_admin_user_id(request)
     ticket_id = int(request.match_info["id"])
-    payload, error = _validate_model_payload(AdminTicketPatchPayload, await _read_json(request))
-    if error:
-        return error
+    payload = await parse_body_or_400(
+        request,
+        AdminTicketPatchPayload,
+        validation_error_response_factory=_invalid_request_payload_response,
+    )
     updates = payload.model_dump(exclude_unset=True)
     try:
         if updates.get("status") == "closed":

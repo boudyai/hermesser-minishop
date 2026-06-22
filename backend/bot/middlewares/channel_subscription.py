@@ -1,10 +1,11 @@
 import logging
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional, cast
 
 from aiogram import BaseMiddleware
 from aiogram.types import (
     CallbackQuery,
     Message,
+    TelegramObject,
     Update,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,10 +33,12 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
 
     async def __call__(
         self,
-        handler: Callable[[Update, Dict[str, Any]], Awaitable[Any]],
-        event: Update,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
         data: Dict[str, Any],
     ) -> Any:
+        update = cast(Update, event)
+
         required_channel_id = normalize_required_channel_id(self.settings.REQUIRED_CHANNEL_ID)
         if not required_channel_id:
             return await handler(event, data)
@@ -44,7 +47,7 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
         if not event_user or event_user.id in self.settings.ADMIN_IDS:
             return await handler(event, data)
 
-        callback_query = event.callback_query
+        callback_query = update.callback_query
         if (
             callback_query
             and callback_query.data
@@ -53,7 +56,7 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
             return await handler(event, data)
 
         # Allow /start to reach the handler so the check can be re-run.
-        message_object: Optional[Message] = event.message
+        message_object: Optional[Message] = update.message
         if message_object and message_object.text and message_object.text.startswith("/start"):
             return await handler(event, data)
 
@@ -102,8 +105,8 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
         )
         prompt_text = translate("channel_subscription_required")
 
-        if event.callback_query:
-            await self._handle_callback(event.callback_query, prompt_text, keyboard, data)
+        if update.callback_query:
+            await self._handle_callback(update.callback_query, prompt_text, keyboard, data)
             return
 
         if message_object:

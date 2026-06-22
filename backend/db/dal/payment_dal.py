@@ -230,7 +230,7 @@ async def get_recent_payment_logs_with_user(
         .offset(offset)
     )
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def get_payments_count(session: AsyncSession) -> int:
@@ -249,7 +249,7 @@ async def get_all_succeeded_payments_with_user(session: AsyncSession) -> List[Pa
         .order_by(Payment.created_at.desc())
     )
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def count_user_succeeded_payments(
@@ -293,7 +293,7 @@ async def get_user_succeeded_payments_after(
         .limit(max(1, int(limit)))
     )
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def update_provider_payment_and_status(

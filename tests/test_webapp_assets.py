@@ -16,7 +16,7 @@ from PIL import Image, ImageOps
 from bot.app.web import subscription_webapp
 from bot.app.web.admin_api_impl import themes as admin_themes
 from bot.app.web.webapp import assets as webapp_assets
-from bot.app.web.webapp import cache_helpers
+from bot.app.web.webapp import assets_branding, assets_static, cache_helpers
 from config.settings import Settings
 from config.webapp_themes_config import WebappThemesConfig, builtin_webapp_themes_config
 
@@ -430,7 +430,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
     def test_frontend_starts_public_install_preload_before_mount(self):
         main_source = Path("frontend/src/main.js").read_text(encoding="utf-8")
         app_source = Path("frontend/src/App.svelte").read_text(encoding="utf-8")
-        store_source = Path("frontend/src/lib/webapp/stores/installGuidesStore.js").read_text(
+        store_source = Path("frontend/src/lib/webapp/stores/installGuidesStore.ts").read_text(
             encoding="utf-8"
         )
 
@@ -499,7 +499,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             logo_dir = Path(tmpdir)
             (logo_dir / "logo-1111111111111111.png").write_bytes(b"logo")
-            with patch.object(webapp_assets, "WEBAPP_UPLOADED_LOGO_DIR", logo_dir):
+            with patch.object(assets_branding, "WEBAPP_UPLOADED_LOGO_DIR", logo_dir):
                 response = await webapp_assets.webapp_logo_route(request)
 
         self.assertEqual(response.status, 200)
@@ -602,7 +602,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 path="/apple-touch-icon-precomposed.png",
             )
 
-            with patch.object(webapp_assets, "WEBAPP_FAVICON_DIR", Path(tmpdir)):
+            with patch.object(assets_branding, "WEBAPP_FAVICON_DIR", Path(tmpdir)):
                 response = await webapp_assets.webapp_current_favicon_route(request)
 
         self.assertEqual(response.status, 200)
@@ -1096,7 +1096,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             os.utime(old_asset, (1, 1))
             os.utime(new_asset, (2, 2))
 
-            with patch.object(webapp_assets, "ASSET_DIR", asset_dir):
+            with patch.object(assets_static, "ASSET_DIR", asset_dir):
                 self.assertEqual(
                     subscription_webapp._resolve_webapp_js_asset_name(),
                     "subscription_webapp.min.22222222.js",
@@ -1110,7 +1110,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             )
             (asset_dir / "subscription_webapp.css").write_text(".app{color:red}", encoding="utf-8")
 
-            with patch.object(webapp_assets, "ASSET_DIR", asset_dir):
+            with patch.object(assets_static, "ASSET_DIR", asset_dir):
                 webapp_assets._ASSET_NAME_CACHE.clear()
                 self.assertRegex(
                     subscription_webapp._resolve_webapp_js_asset_name(),
@@ -1143,7 +1143,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             os.utime(new_js, (2, 2))
             os.utime(new_css, (2, 2))
 
-            with patch.object(webapp_assets, "ASSET_DIR", asset_dir):
+            with patch.object(assets_static, "ASSET_DIR", asset_dir):
                 webapp_assets._ASSET_NAME_CACHE.clear()
                 self.assertEqual(
                     subscription_webapp._resolve_webapp_admin_js_asset_name(),
@@ -1164,7 +1164,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 ".admin{color:red}", encoding="utf-8"
             )
 
-            with patch.object(webapp_assets, "ASSET_DIR", asset_dir):
+            with patch.object(assets_static, "ASSET_DIR", asset_dir):
                 webapp_assets._ASSET_NAME_CACHE.clear()
                 self.assertRegex(
                     subscription_webapp._resolve_webapp_admin_js_asset_name(),
@@ -1186,7 +1186,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 match_info={"asset_hash": "abcdef12"},
             )
 
-            with patch.object(webapp_assets, "ASSET_DIR", asset_dir):
+            with patch.object(assets_static, "ASSET_DIR", asset_dir):
                 response = await subscription_webapp.js_asset_route(request)
 
             self.assertEqual(
@@ -1205,7 +1205,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 match_info={"asset_hash": "abcdef12"},
             )
 
-            with patch.object(webapp_assets, "ASSET_DIR", asset_dir):
+            with patch.object(assets_static, "ASSET_DIR", asset_dir):
                 response = await subscription_webapp.admin_js_asset_route(request)
 
             self.assertEqual(
@@ -1226,7 +1226,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 headers={"Accept-Encoding": "gzip, br"},
             )
 
-            with patch.object(webapp_assets, "ASSET_DIR", asset_dir):
+            with patch.object(assets_static, "ASSET_DIR", asset_dir):
                 response = await subscription_webapp.js_asset_route(request)
 
             self.assertEqual(response.body, b"br-body")
@@ -1249,7 +1249,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 headers={"Accept-Encoding": "gzip"},
             )
 
-            with patch.object(webapp_assets, "ASSET_DIR", asset_dir):
+            with patch.object(assets_static, "ASSET_DIR", asset_dir):
                 response = await subscription_webapp.css_asset_route(request)
 
             self.assertEqual(response.body, b"gz-body")
@@ -1530,7 +1530,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             logo_url = "https://cdn.example.com/logo.png"
             logo = (b"png-bytes", "image/png")
 
-            with patch.object(webapp_assets, "WEBAPP_LOGO_CACHE_DIR", Path(tmpdir)):
+            with patch.object(assets_branding, "WEBAPP_LOGO_CACHE_DIR", Path(tmpdir)):
                 subscription_webapp._write_webapp_logo_to_disk(logo_url, logo)
 
                 self.assertEqual(subscription_webapp._read_webapp_logo_from_disk(logo_url), logo)
@@ -1546,13 +1546,13 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             }
 
             with (
-                patch.object(webapp_assets, "WEBAPP_LOGO_CACHE_DIR", Path(tmpdir)),
+                patch.object(assets_branding, "WEBAPP_LOGO_CACHE_DIR", Path(tmpdir)),
                 patch.object(
-                    webapp_assets,
+                    assets_branding,
                     "_hostname_resolves_to_public_address",
                     return_value=True,
                 ),
-                patch.object(webapp_assets, "_fetch_webapp_logo") as fetch_logo,
+                patch.object(assets_branding, "_fetch_webapp_logo") as fetch_logo,
             ):
                 subscription_webapp._write_webapp_logo_to_disk(logo_url, logo)
 

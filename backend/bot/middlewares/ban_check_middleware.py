@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Awaitable, Callable, Dict, Optional, Union
+from typing import Any, Awaitable, Callable, Dict, Optional, Union, cast
 
 from aiogram import BaseMiddleware, Bot
 from aiogram.exceptions import (
@@ -7,7 +7,7 @@ from aiogram.exceptions import (
     TelegramAPIError,
     TelegramForbiddenError,
 )
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message, Update, User
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message, TelegramObject, Update, User
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.settings import Settings
@@ -25,10 +25,12 @@ class BanCheckMiddleware(BaseMiddleware):
 
     async def __call__(
         self,
-        handler: Callable[[Update, Dict[str, Any]], Awaitable[Any]],
-        event: Update,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
         data: Dict[str, Any],
     ) -> Any:
+        update = cast(Update, event)
+
         session: AsyncSession = data["session"]
         event_user: Optional[User] = data.get("event_from_user")
         bot_instance: Bot = data["bot"]
@@ -77,17 +79,17 @@ class BanCheckMiddleware(BaseMiddleware):
                 keyboard = builder.as_markup()
 
             actual_event_object: Optional[Union[Message, CallbackQuery]] = None
-            if event.message:
-                actual_event_object = event.message
-            elif event.callback_query:
-                actual_event_object = event.callback_query
+            if update.message:
+                actual_event_object = update.message
+            elif update.callback_query:
+                actual_event_object = update.callback_query
 
             try:
                 if isinstance(actual_event_object, Message):
                     await actual_event_object.answer(ban_message_text, reply_markup=keyboard)
                 elif isinstance(actual_event_object, CallbackQuery):
                     await actual_event_object.answer(ban_message_text, show_alert=True)
-                    if actual_event_object.message:
+                    if isinstance(actual_event_object.message, Message):
                         try:
                             await actual_event_object.message.edit_text(
                                 ban_message_text, reply_markup=keyboard

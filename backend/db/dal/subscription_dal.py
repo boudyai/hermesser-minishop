@@ -11,6 +11,8 @@ from sqlalchemy.orm import selectinload
 
 from db.models import Subscription, SubscriptionNotification, User
 
+from ._sqlalchemy import rowcount
+
 INSTALL_SHARE_TOKEN_BYTES = 16
 
 
@@ -152,7 +154,7 @@ async def ensure_install_share_token(
                 .values(install_share_token=token)
             )
             await session.flush()
-            if result.rowcount:
+            if rowcount(result):
                 await session.refresh(subscription)
                 return (
                     normalize_install_share_token(
@@ -186,7 +188,7 @@ async def get_active_subscriptions_for_user(
         .order_by(Subscription.end_date.desc())
     )
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def update_subscription(
@@ -230,7 +232,7 @@ async def set_user_subscriptions_cancelled_with_grace(
         )
     )
     result = await session.execute(stmt)
-    return result.rowcount or 0
+    return rowcount(result)
 
 
 async def upsert_subscription(session: AsyncSession, sub_payload: Dict[str, Any]) -> Subscription:
@@ -287,9 +289,10 @@ async def deactivate_other_active_subscriptions(
         stmt = stmt.where(Subscription.panel_subscription_uuid != current_panel_subscription_uuid)
 
     result = await session.execute(stmt)
-    if result.rowcount > 0:
+    affected = rowcount(result)
+    if affected > 0:
         logging.info(
-            f"Deactivated {result.rowcount} other active subscriptions for panel_user_uuid {panel_user_uuid}."  # noqa: E501
+            f"Deactivated {affected} other active subscriptions for panel_user_uuid {panel_user_uuid}."  # noqa: E501
         )
 
 
@@ -300,22 +303,22 @@ async def deactivate_all_user_subscriptions(session: AsyncSession, user_id: int)
         .values(is_active=False, status_from_panel="INACTIVE_USER_NOT_FOUND")
     )
     result = await session.execute(stmt)
-    if result.rowcount > 0:
+    affected = rowcount(result)
+    if affected > 0:
         logging.info(
-            f"Deactivated {result.rowcount} subscriptions for user {user_id} due to missing panel user."  # noqa: E501
+            f"Deactivated {affected} subscriptions for user {user_id} due to missing panel user."  # noqa: E501
         )
-    return result.rowcount
+    return affected
 
 
 async def delete_all_user_subscriptions(session: AsyncSession, user_id: int) -> int:
     """Completely delete all user subscriptions."""
     stmt = delete(Subscription).where(Subscription.user_id == user_id)
     result = await session.execute(stmt)
-    if result.rowcount > 0:
-        logging.info(
-            f"Deleted {result.rowcount} subscription records for user {user_id} for trial reset."
-        )
-    return result.rowcount
+    affected = rowcount(result)
+    if affected > 0:
+        logging.info(f"Deleted {affected} subscription records for user {user_id} for trial reset.")
+    return affected
 
 
 async def update_subscription_end_date(
@@ -385,7 +388,7 @@ async def get_subscriptions_near_expiration(
         .options(selectinload(Subscription.user))
     )
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def update_subscription_notification_time(

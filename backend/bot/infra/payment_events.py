@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Mapping, Optional
+from typing import Any, Callable, Iterable, Mapping, Optional, cast
+
+from bot.infra.event_payloads import PaymentSucceededPayload
 
 logger = logging.getLogger(__name__)
 
@@ -313,4 +315,4 @@ def build_payment_succeeded_payload(
     snapshot = resolve_payment_success_snapshot(payload, payment)
     payload["traffic_gb"] = snapshot.traffic_gb
     payload["purchased_hwid_devices"] = snapshot.purchased_hwid_devices
-    return payload
+    return cast(dict[str, Any], PaymentSucceededPayload(**payload).to_payload())

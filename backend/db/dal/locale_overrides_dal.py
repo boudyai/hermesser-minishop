@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import LocaleOverride
 
+from ._sqlalchemy import rowcount
+
 
 async def get_all_overrides(session: AsyncSession) -> Dict[str, Dict[str, str]]:
     rows = (await session.execute(select(LocaleOverride))).scalars().all()
@@ -64,7 +66,7 @@ async def delete_override(session: AsyncSession, *, lang: str, key: str) -> bool
         LocaleOverride.key == key,
     )
     result = await session.execute(stmt)
-    return bool(result.rowcount or 0)
+    return rowcount(result) > 0
 
 
 async def bulk_apply(

@@ -4,10 +4,10 @@ import logging
 import time
 from collections import defaultdict, deque
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Deque, Dict, Optional
+from typing import Any, Awaitable, Callable, Deque, Dict, Optional, cast
 
 from aiogram import BaseMiddleware
-from aiogram.types import Update
+from aiogram.types import TelegramObject, Update
 
 from bot.infra.redis import get_redis, redis_key
 from config.settings import Settings
@@ -82,17 +82,19 @@ class UpdateAntiFloodMiddleware(BaseMiddleware):
 
     async def __call__(
         self,
-        handler: Callable[[Update, Dict[str, Any]], Awaitable[Any]],
-        event: Update,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
         data: Dict[str, Any],
     ) -> Any:
+        update = cast(Update, event)
+
         if bool(getattr(self.settings, "TELEGRAM_DROP_NON_PRIVATE_UPDATES", True)):
-            chat_type = _message_or_callback_chat_type(event)
+            chat_type = _message_or_callback_chat_type(update)
             if chat_type is not None and chat_type != "private":
                 logger.info(
                     "Telegram update dropped outside private chat: chat_type=%s update_type=%s",
                     chat_type,
-                    getattr(event, "event_type", "unknown"),
+                    getattr(update, "event_type", "unknown"),
                 )
                 _mark_dropped(data)
                 return None
@@ -100,12 +102,12 @@ class UpdateAntiFloodMiddleware(BaseMiddleware):
         if not bool(getattr(self.settings, "TELEGRAM_ANTIFLOOD_ENABLED", True)):
             return await handler(event, data)
 
-        actor_key = _update_actor_key(event)
+        actor_key = _update_actor_key(update)
         if not actor_key:
             return await handler(event, data)
 
-        action_key = _update_action_key(event)
-        cooldown = _update_action_cooldown(event, self.settings)
+        action_key = _update_action_key(update)
+        cooldown = _update_action_cooldown(update, self.settings)
         if cooldown and await self._is_cooldown_active(cooldown[0], cooldown[1]):
             logger.info(
                 "Telegram callback dropped by action cooldown: actor=%s cooldown=%s",
@@ -113,7 +115,7 @@ class UpdateAntiFloodMiddleware(BaseMiddleware):
                 cooldown[0],
             )
             _mark_dropped(data)
-            await _quietly_answer_callback(event)
+            await _quietly_answer_callback(update)
             return None
 
         if await self._is_limited("updates", actor_key, self.default_rule) or (
@@ -124,7 +126,7 @@ class UpdateAntiFloodMiddleware(BaseMiddleware):
             logger.warning(
                 "Telegram update dropped by anti-flood: actor=%s update_type=%s",
                 actor_key,
-                action_key or getattr(event, "event_type", "unknown"),
+                action_key or getattr(update, "event_type", "unknown"),
             )
             _mark_dropped(data)
             return None

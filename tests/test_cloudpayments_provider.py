@@ -18,6 +18,7 @@ from urllib.parse import unquote_plus, urlencode
 
 from bot.payment_providers import cloudpayments
 from bot.payment_providers.cloudpayments import CloudPaymentsConfig, CloudPaymentsService
+from bot.payment_providers.cloudpayments import service as cloudpayments_service
 from bot.payment_providers.shared import RecurringChargeContext
 
 
@@ -269,7 +270,7 @@ def test_signature_fails_closed_without_secret():
 
 def _webhook_service(session, payment, monkeypatch, **overrides):
     monkeypatch.setattr(
-        cloudpayments,
+        cloudpayments_service,
         "lookup_payment_by_order_or_provider_id",
         AsyncMock(return_value=payment),
     )
@@ -332,7 +333,7 @@ def test_webhook_duplicate_success_does_not_finalize_again(monkeypatch):
         AsyncMock(side_effect=AssertionError("duplicate webhook must not update payment")),
     )
     monkeypatch.setattr(
-        cloudpayments,
+        cloudpayments_service,
         "finalize_successful_payment",
         AsyncMock(side_effect=AssertionError("duplicate webhook must not finalize")),
     )
@@ -358,7 +359,7 @@ def test_webhook_success_finalizes_payment(monkeypatch):
     monkeypatch.setattr(
         cloudpayments.payment_dal, "update_provider_payment_and_status", update_mock
     )
-    monkeypatch.setattr(cloudpayments, "finalize_successful_payment", finalize_mock)
+    monkeypatch.setattr(cloudpayments_service, "finalize_successful_payment", finalize_mock)
 
     response = asyncio.run(
         CloudPaymentsService.webhook_route(
@@ -394,7 +395,7 @@ def test_webhook_success_saves_token_when_recurring_enabled(monkeypatch):
     monkeypatch.setattr(
         cloudpayments.payment_dal, "update_provider_payment_and_status", update_mock
     )
-    monkeypatch.setattr(cloudpayments, "finalize_successful_payment", finalize_mock)
+    monkeypatch.setattr(cloudpayments_service, "finalize_successful_payment", finalize_mock)
     monkeypatch.setattr(cloudpayments.user_billing_dal, "upsert_user_payment_method", upsert_mock)
 
     response = asyncio.run(
@@ -435,7 +436,7 @@ def test_webhook_amount_mismatch_is_rejected(monkeypatch):
         AsyncMock(side_effect=AssertionError("mismatched amount must not update payment")),
     )
     monkeypatch.setattr(
-        cloudpayments,
+        cloudpayments_service,
         "finalize_successful_payment",
         AsyncMock(side_effect=AssertionError("mismatched amount must not finalize")),
     )
@@ -466,9 +467,9 @@ def test_webhook_failed_status_marks_payment_failed(monkeypatch):
     monkeypatch.setattr(
         cloudpayments.payment_dal, "update_provider_payment_and_status", update_mock
     )
-    monkeypatch.setattr(cloudpayments, "notify_user_payment_failed", notify_mock)
+    monkeypatch.setattr(cloudpayments_service, "notify_user_payment_failed", notify_mock)
     monkeypatch.setattr(
-        cloudpayments,
+        cloudpayments_service,
         "finalize_successful_payment",
         AsyncMock(side_effect=AssertionError("failed webhook must not finalize")),
     )

@@ -16,6 +16,7 @@ from unittest.mock import AsyncMock
 from bot.payment_providers import stripe
 from bot.payment_providers.shared import RecurringChargeContext
 from bot.payment_providers.stripe import StripeConfig, StripeService
+from bot.payment_providers.stripe import service as stripe_service
 
 
 def _stripe_signature(body: bytes, secret: str, timestamp: int | None = None) -> str:
@@ -138,7 +139,7 @@ def _webhook_service(session, payment, monkeypatch, **overrides):
     service.subscription_service = SimpleNamespace()
     service.referral_service = SimpleNamespace()
     monkeypatch.setattr(
-        stripe,
+        stripe_service,
         "lookup_payment_by_order_or_provider_id",
         AsyncMock(return_value=payment),
     )
@@ -215,7 +216,7 @@ def test_webhook_success_finalizes_payment_and_saves_payment_method(monkeypatch)
     finalize_mock = AsyncMock(return_value=SimpleNamespace())
     upsert_mock = AsyncMock()
     monkeypatch.setattr(stripe.payment_dal, "update_provider_payment_and_status", update_mock)
-    monkeypatch.setattr(stripe, "finalize_successful_payment", finalize_mock)
+    monkeypatch.setattr(stripe_service, "finalize_successful_payment", finalize_mock)
     monkeypatch.setattr(stripe.user_billing_dal, "upsert_user_payment_method", upsert_mock)
 
     payload = {
@@ -263,7 +264,7 @@ def test_webhook_duplicate_success_does_not_finalize_again(monkeypatch):
         AsyncMock(side_effect=AssertionError("duplicate webhook must not update payment")),
     )
     monkeypatch.setattr(
-        stripe,
+        stripe_service,
         "finalize_successful_payment",
         AsyncMock(side_effect=AssertionError("duplicate webhook must not finalize")),
     )
@@ -293,7 +294,7 @@ def test_webhook_amount_mismatch_is_rejected(monkeypatch):
         AsyncMock(side_effect=AssertionError("mismatched amount must not update payment")),
     )
     monkeypatch.setattr(
-        stripe,
+        stripe_service,
         "finalize_successful_payment",
         AsyncMock(side_effect=AssertionError("mismatched amount must not finalize")),
     )
@@ -320,9 +321,9 @@ def test_webhook_failed_status_marks_payment_failed(monkeypatch):
     update_mock = AsyncMock()
     notify_mock = AsyncMock()
     monkeypatch.setattr(stripe.payment_dal, "update_provider_payment_and_status", update_mock)
-    monkeypatch.setattr(stripe, "notify_user_payment_failed", notify_mock)
+    monkeypatch.setattr(stripe_service, "notify_user_payment_failed", notify_mock)
     monkeypatch.setattr(
-        stripe,
+        stripe_service,
         "finalize_successful_payment",
         AsyncMock(side_effect=AssertionError("failed webhook must not finalize")),
     )

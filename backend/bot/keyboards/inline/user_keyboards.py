@@ -580,11 +580,7 @@ def get_payment_method_keyboard(
                     if hwid_renewal_selected
                     else "payment_hwid_renewal_toggle_off",
                     count=int(selected_hwid_quote.get("device_count") or 0),
-                    price=(
-                        hwid_renewal_quote.get("price")
-                        if hwid_renewal_quote
-                        else hwid_renewal_stars_quote.get("price")
-                    ),
+                    price=selected_hwid_quote.get("price"),
                     currency_symbol=currency_symbol_val,
                 ),
                 callback_data=":".join(toggle_tokens),
@@ -910,23 +906,6 @@ def get_connect_and_main_keyboard(
         )
     )
 
-    return builder.as_markup()
-
-
-def get_payment_methods_manage_keyboard(
-    lang: str, i18n_instance, has_card: bool
-) -> InlineKeyboardMarkup:
-    """Deprecated in favor of get_payment_methods_list_keyboard. Kept for backward compatibility."""
-    _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
-    builder = InlineKeyboardBuilder()
-    builder.row(
-        InlineKeyboardButton(text=_(key="payment_method_bind_button"), callback_data="pm:bind")
-    )
-    builder.row(
-        InlineKeyboardButton(
-            text=_(key="back_to_main_menu_button"), callback_data="main_action:back_to_main"
-        )
-    )
     return builder.as_markup()
 
 

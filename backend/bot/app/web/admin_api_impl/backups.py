@@ -1,8 +1,7 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
-
 import secrets
 import subprocess
+
+from aiohttp.multipart import BodyPartReader
 
 from bot.infra.redis import redis_lock
 from bot.services.backup_restore_service import (
@@ -13,6 +12,68 @@ from bot.services.backup_restore_service import (
     BackupRestoreService,
 )
 from bot.services.backup_worker import BackupWorker
+
+from ._runtime import (
+    BINARY_RESPONSE_SCHEMA,
+    STRING_SCHEMA,
+    AdminBackupRestoreBody,
+    Any,
+    Dict,
+    Optional,
+    Path,
+    RouteContract,
+    Settings,
+    logger,
+    loose_array_schema,
+    loose_object_schema,
+    ok_envelope_with,
+    parse_body_or_400,
+    register_contract,
+    web,
+)
+from .auth import (
+    _require_admin_user_id,
+)
+from .common import (
+    _error,
+    _ok,
+)
+
+_BACKUP_UPLOAD_BODY_SCHEMA = {
+    "type": "object",
+    "required": ["file"],
+    "properties": {"file": BINARY_RESPONSE_SCHEMA},
+}
+register_contract(
+    "admin_backups_list_route",
+    RouteContract(
+        response_schema=ok_envelope_with(
+            {"backup_dir": STRING_SCHEMA, "archives": loose_array_schema()}
+        )
+    ),
+)
+register_contract(
+    "admin_backups_create_route",
+    RouteContract(
+        response_schema=ok_envelope_with(
+            {"result": loose_object_schema(), "archive": loose_object_schema()}
+        )
+    ),
+)
+register_contract(
+    "admin_backups_upload_route",
+    RouteContract(
+        request_content={"multipart/form-data": _BACKUP_UPLOAD_BODY_SCHEMA},
+        response_schema=ok_envelope_with({"archive": loose_object_schema()}),
+    ),
+)
+register_contract(
+    "admin_backups_restore_route",
+    RouteContract(
+        request_model=AdminBackupRestoreBody,
+        response_schema=ok_envelope_with({"result": loose_object_schema()}),
+    ),
+)
 
 
 def _backup_archive_payload(archive) -> Dict[str, Any]:
@@ -28,6 +89,8 @@ async def _read_uploaded_backup_file(request: web.Request) -> BackupArchiveInfo:
     reader = await request.multipart()
     try:
         async for part in reader:
+            if not isinstance(part, BodyPartReader):
+                continue
             if part.name != "file":
                 continue
 
@@ -133,12 +196,12 @@ async def admin_backups_create_route(request: web.Request) -> web.Response:
 async def admin_backups_restore_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     settings: Settings = request.app["settings"]
-    payload = await _read_json(request)
+    body = await parse_body_or_400(request, AdminBackupRestoreBody)
 
-    archive_name = str(payload.get("archive_name") or "").strip()
-    restore_database = bool(payload.get("restore_database"))
-    restore_compose = bool(payload.get("restore_compose"))
-    confirm = bool(payload.get("confirm"))
+    archive_name = str(body.archive_name or "").strip()
+    restore_database = bool(body.restore_database)
+    restore_compose = bool(body.restore_compose)
+    confirm = bool(body.confirm)
     if not confirm:
         return _error(400, "restore_confirmation_required")
 

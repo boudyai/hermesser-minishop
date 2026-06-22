@@ -1,16 +1,21 @@
 import logging
+from collections.abc import AsyncGenerator
 
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from config.settings import Settings
 from db.models import Base
 
 from .migrator import run_all_migration_chains
 
-async_engine = None
+async_engine: AsyncEngine | None = None
 DB_INIT_ADVISORY_LOCK_ID = 817512404897421337
 
 
@@ -27,7 +32,7 @@ def redacted_database_url(database_url: str) -> str:
         return "<invalid database url>"
 
 
-def init_db_connection(settings: Settings) -> sessionmaker:
+def init_db_connection(settings: Settings) -> async_sessionmaker[AsyncSession]:
     global async_engine
 
     if async_engine is None:
@@ -56,7 +61,9 @@ def init_db_connection(settings: Settings) -> sessionmaker:
     return local_async_session_factory
 
 
-async def get_async_session(session_factory: sessionmaker) -> AsyncSession:
+async def get_async_session(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> AsyncGenerator[AsyncSession, None]:
 
     if session_factory is None:
         raise RuntimeError("AsyncSessionFactory is not provided or initialized.")
@@ -68,7 +75,10 @@ async def get_async_session(session_factory: sessionmaker) -> AsyncSession:
         await async_session.close()
 
 
-async def init_db(settings: Settings, session_factory: sessionmaker):
+async def init_db(
+    settings: Settings,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
 
     global async_engine
     if async_engine is None:

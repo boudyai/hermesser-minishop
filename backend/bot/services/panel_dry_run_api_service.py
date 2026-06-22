@@ -471,7 +471,12 @@ class PanelDryRunApiService(PanelApiService):
             if value in (None, ""):
                 continue
             try:
-                users = await super().get_users_by_filter(**{argument_name: value})
+                if argument_name == "username":
+                    users = await super().get_users_by_filter(username=str(value))
+                elif argument_name == "telegram_id":
+                    users = await super().get_users_by_filter(telegram_id=int(str(value)))
+                else:
+                    users = await super().get_users_by_filter(email=str(value))
             except Exception as exc:
                 validation.add(f"failed to validate unique {label}: {type(exc).__name__}")
                 continue

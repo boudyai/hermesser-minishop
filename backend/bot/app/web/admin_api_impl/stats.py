@@ -1,7 +1,34 @@
 # ruff: noqa: F401,F403,F405,I001
 import asyncio
 
-from ._runtime import *  # noqa: F403,F405
+from ._runtime import (
+    AdminMeOut,
+    AdminPanelSyncOut,
+    AdminStatsOut,
+    Any,
+    Dict,
+    Optional,
+    PaymentOut,
+    RouteContract,
+    Settings,
+    datetime,
+    default_payment_currency_code_for_settings,
+    get_queue_manager,
+    logger,
+    ok_envelope_for,
+    panel_sync_dal,
+    payment_dal,
+    register_contract,
+    sessionmaker,
+    timedelta,
+    timezone,
+    user_dal,
+    web,
+)
+from .common import (
+    _enrich_bandwidth_nodes_with_online,
+    _panel_nodes_online_by_uuid,
+)
 from .auth import _require_admin_user_id
 from .common import _ok, _serialize_payment
 from bot.utils.ttl_cache import AsyncTTLCache
@@ -10,10 +37,26 @@ _ADMIN_PANEL_STATS_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {}
 _ADMIN_DB_STATS_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {}
 
 
+register_contract(
+    "admin_me_route",
+    RouteContract(
+        response_schema=ok_envelope_for(AdminMeOut),
+        models=(AdminMeOut,),
+    ),
+)
+register_contract(
+    "admin_stats_route",
+    RouteContract(
+        response_schema=ok_envelope_for(AdminStatsOut),
+        models=(AdminStatsOut, AdminPanelSyncOut, PaymentOut),
+    ),
+)
+
+
 async def admin_me_route(request: web.Request) -> web.Response:
     user_id = _require_admin_user_id(request)
     settings: Settings = request.app["settings"]
-    return _ok({}, user_id=user_id, admin_ids=list(settings.ADMIN_IDS or []))
+    return _ok(AdminMeOut(user_id=user_id, admin_ids=list(settings.ADMIN_IDS or [])).model_dump())
 
 
 async def admin_stats_route(request: web.Request) -> web.Response:
@@ -35,7 +78,7 @@ async def admin_stats_route(request: web.Request) -> web.Response:
             payload["queue"] = None
 
     payload["currency_symbol"] = default_payment_currency_code_for_settings(settings)
-    return _ok(payload)
+    return _ok(AdminStatsOut.model_validate(payload).model_dump(mode="json", exclude_none=True))
 
 
 async def _load_admin_db_stats(
@@ -61,15 +104,7 @@ async def _load_admin_db_stats_uncached(async_session_factory: sessionmaker) -> 
     return {
         "users": user_stats,
         "financial": financial_stats,
-        "panel_sync": {
-            "status": sync_status.status if sync_status else "never_run",
-            "last_sync_time": sync_status.last_sync_time.isoformat()
-            if sync_status and sync_status.last_sync_time
-            else None,
-            "details": sync_status.details if sync_status else None,
-            "users_processed": sync_status.users_processed_from_panel if sync_status else 0,
-            "subscriptions_synced": sync_status.subscriptions_synced if sync_status else 0,
-        },
+        "panel_sync": AdminPanelSyncOut.from_sync_status(sync_status).model_dump(mode="json"),
         "recent_payments": [_serialize_payment(p) for p in recent_payments],
     }
 

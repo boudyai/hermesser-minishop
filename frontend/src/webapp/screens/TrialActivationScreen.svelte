@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { onMount } from "svelte";
   import {
     ArrowLeft,
@@ -16,19 +16,23 @@
   import Card from "$components/ui/card.svelte";
   import { formatTrafficGb } from "../../lib/webapp/formatters.js";
 
-  export let appSettings = {};
-  export let brand = {};
+  type AnyRecord = Record<string, any>;
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type VoidAction = () => void;
+
+  export let appSettings: AnyRecord = {};
+  export let brand: AnyRecord = {};
   export let brandTitle = "";
-  export let subscription = {};
+  export let subscription: AnyRecord = {};
   export let trialBusy = false;
   export let linkTelegramBusy = false;
-  export let trialResult = null;
+  export let trialResult: AnyRecord | null = null;
   export let trialError = "";
-  export let activateTrial = () => {};
-  export let linkTelegramAndActivateTrial = () => {};
-  export let openInstallOrConnect = () => {};
-  export let goHome = () => {};
-  export let t = (key, _params = {}, fallback = "") => fallback || key;
+  export let activateTrial: VoidAction = () => {};
+  export let linkTelegramAndActivateTrial: VoidAction = () => {};
+  export let openInstallOrConnect: VoidAction = () => {};
+  export let goHome: VoidAction = () => {};
+  export let t: Translate = (key, _params = {}, fallback = "") => fallback || key;
 
   let requested = false;
 

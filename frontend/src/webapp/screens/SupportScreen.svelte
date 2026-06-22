@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { getContext, onMount } from "svelte";
   import { fade, slide } from "svelte/transition";
   import { Check, ChevronsUpDown, LifeBuoy, MessageSquarePlus } from "$components/ui/icons.js";
@@ -13,19 +13,35 @@
     supportDraftScope,
     writeSupportDraft,
   } from "$lib/webapp/supportDrafts.js";
+  import type { SupportStore } from "$lib/webapp/stores/supportStore";
 
-  export let t = (key) => key;
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type SupportCategory = "billing" | "technical" | "account" | "other";
+  type SupportPriority = "normal" | "high";
+  type TicketRecord = Record<string, unknown> & { ticket_id?: number };
+  type DraftPayload = {
+    body: string;
+    category: SupportCategory;
+    maxBodyLength: number;
+    maxSubjectLength: number;
+    open: boolean;
+    priority: SupportPriority;
+    subject: string;
+  };
+
+  export let t: Translate = (key) => key;
   export let maxSubjectLength = 160;
   export let maxBodyLength = 4000;
-  export let user = {};
+  export let user: Record<string, unknown> = {};
 
-  const supportStore = getContext("supportStore");
+  const supportStore = getContext("supportStore") as SupportStore;
   let subject = "";
   let body = "";
-  let category = "other";
-  let priority = "normal";
+  let category: SupportCategory = "other";
+  let priority: SupportPriority = "normal";
   let createOpen = false;
   let loadedCreateDraftScope = "";
+  const selectContentProps = { trapFocus: false } as Record<string, unknown>;
 
   $: ({ tickets, loading, creating, statusFilter, counts } = $supportStore);
   $: categoryOptions = [
@@ -33,11 +49,11 @@
     { value: "technical", label: t("wa_support_category_technical") },
     { value: "account", label: t("wa_support_category_account") },
     { value: "other", label: t("wa_support_category_other") },
-  ];
+  ] as { value: SupportCategory; label: string }[];
   $: priorityOptions = [
     { value: "normal", label: t("wa_support_priority_normal") },
     { value: "high", label: t("wa_support_priority_high") },
-  ];
+  ] as { value: SupportPriority; label: string }[];
   $: statusTabs = [
     {
       value: "active",
@@ -97,11 +113,15 @@
     }
   }
 
-  function optionValue(options, value, fallback) {
-    return options.some((option) => option.value === value) ? value : fallback;
+  function optionValue<T extends string>(
+    options: { value: T; label: string }[],
+    value: unknown,
+    fallback: T
+  ) {
+    return options.some((option) => option.value === value) ? (value as T) : fallback;
   }
 
-  function loadCreateDraft(scope) {
+  function loadCreateDraft(scope: string) {
     const draft = readSupportDraft("new", scope);
     subject = typeof draft?.subject === "string" ? draft.subject.slice(0, maxSubjectLength) : "";
     body = typeof draft?.body === "string" ? draft.body.slice(0, maxBodyLength) : "";
@@ -111,7 +131,7 @@
     loadedCreateDraftScope = scope;
   }
 
-  function persistCreateDraft(scope, draft) {
+  function persistCreateDraft(scope: string, draft: DraftPayload) {
     const draftSubject = String(draft.subject || "").slice(0, draft.maxSubjectLength);
     const draftBody = String(draft.body || "").slice(0, draft.maxBodyLength);
     const hasDraft =
@@ -184,7 +204,8 @@
                 type="single"
                 value={category}
                 items={categoryOptions}
-                onValueChange={(value) => (category = value)}
+                onValueChange={(value: string) =>
+                  (category = optionValue(categoryOptions, value, "other"))}
               >
                 <Select.Trigger
                   class="support-select-trigger"
@@ -198,7 +219,7 @@
                   side="bottom"
                   align="start"
                   sideOffset={6}
-                  trapFocus={false}
+                  {...selectContentProps}
                 >
                   <Select.Viewport class="support-select-viewport">
                     {#each categoryOptions as option (option.value)}
@@ -222,7 +243,8 @@
                 type="single"
                 value={priority}
                 items={priorityOptions}
-                onValueChange={(value) => (priority = value)}
+                onValueChange={(value: string) =>
+                  (priority = optionValue(priorityOptions, value, "normal"))}
               >
                 <Select.Trigger
                   class="support-select-trigger"
@@ -236,7 +258,7 @@
                   side="bottom"
                   align="start"
                   sideOffset={6}
-                  trapFocus={false}
+                  {...selectContentProps}
                 >
                   <Select.Viewport class="support-select-viewport">
                     {#each priorityOptions as option (option.value)}
@@ -261,7 +283,7 @@
               class="textarea support-message-input"
               bind:value={body}
               maxlength={maxBodyLength}
-              rows="5"
+              rows={5}
               placeholder={t("wa_support_message_placeholder")}
             />
             <small>{body.length}/{maxBodyLength}</small>
@@ -324,7 +346,11 @@
       <ScrollArea class="support-ticket-list-scroll" maxHeight="none">
         <div class="ticket-list">
           {#each tickets as ticket}
-            <TicketCard {ticket} {t} onOpen={(item) => supportStore.openTicket(item.ticket_id)} />
+            <TicketCard
+              {ticket}
+              {t}
+              onOpen={(item: TicketRecord) => supportStore.openTicket(item.ticket_id || 0)}
+            />
           {/each}
         </div>
       </ScrollArea>

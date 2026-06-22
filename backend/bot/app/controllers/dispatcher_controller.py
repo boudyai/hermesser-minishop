@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker
 try:
     from aiogram.fsm.storage.redis import RedisStorage
 except ModuleNotFoundError:  # pragma: no cover - dependency is installed in Docker image
-    RedisStorage = None  # type: ignore[assignment]
+    RedisStorage = None  # type: ignore[assignment,misc]
 
 from bot.middlewares.action_logger_middleware import ActionLoggerMiddleware
 from bot.middlewares.ban_check_middleware import BanCheckMiddleware

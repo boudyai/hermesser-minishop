@@ -1,5 +1,387 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+from bot.app.web.route_contracts import (
+    BINARY_RESPONSE_SCHEMA,
+    JSON_OBJECT_SCHEMA,
+    USER_SECURITY,
+    RouteContract,
+    loose_array_schema,
+    loose_object_schema,
+    ok_envelope_with,
+    register_contract,
+)
+
+from ._runtime import (
+    WEBAPP_DEFAULT_LOGO_PATH,
+    WEBAPP_FAVICON_PATH,
+    WEBAPP_LOGO_PROXY_PATH,
+    WEBAPP_UPLOADED_LOGO_PATH,
+    setup_admin_routes,
+    web,
+)
+from .account import (
+    account_avatar_route,
+    account_email_request_route,
+    account_email_verify_route,
+    account_language_route,
+    account_password_confirm_route,
+    account_password_request_route,
+    account_telegram_link_route,
+    me_route,
+)
+from .assets import (
+    admin_css_asset_route,
+    admin_js_asset_route,
+    app_deeplink_route,
+    bootstrap_route,
+    css_asset_route,
+    health_route,
+    i18n_route,
+    index_route,
+    js_asset_route,
+    robots_txt_route,
+    theme_asset_route,
+    theme_css_asset_route,
+    webapp_current_favicon_route,
+    webapp_default_logo_route,
+    webapp_favicon_route,
+    webapp_logo_route,
+    webapp_uploaded_logo_route,
+)
+from .auth import (
+    auth_token_route,
+    email_auth_magic_route,
+    email_auth_request_route,
+    email_auth_verify_route,
+    email_password_auth_route,
+    logout_route,
+    referral_welcome_bonus_claim_route,
+    telegram_oauth_callback_route,
+    telegram_oauth_nonce_route,
+    telegram_oauth_start_route,
+)
+from .billing import (
+    activate_trial_route,
+    apply_promo_route,
+    create_payment_route,
+    device_topup_options_route,
+    payment_status_route,
+    subscription_auto_renew_route,
+    tariff_change_options_route,
+    tariff_change_payment_route,
+    tariff_change_route,
+    tariff_topup_options_route,
+)
+from .devices import (
+    devices_route,
+    disconnect_device_route,
+)
+from .guides import (
+    public_subscription_guides_route,
+    subscription_guides_route,
+)
+from .payloads import (
+    CreateTicketPayload,
+    TicketReplyPayload,
+    WebAppAutoRenewPayload,
+    WebAppDeviceDisconnectPayload,
+    WebAppEmailCodeAuthPayload,
+    WebAppEmailCodePayload,
+    WebAppEmailMagicAuthPayload,
+    WebAppEmailPasswordPayload,
+    WebAppEmailPayload,
+    WebAppEmailRequestPayload,
+    WebAppLanguagePayload,
+    WebAppPaymentCreatePayload,
+    WebAppPromoApplyPayload,
+    WebAppSetPasswordPayload,
+    WebAppTariffChangePayload,
+    WebAppTelegramAuthPayload,
+)
+from .support import (
+    support_create_ticket_route,
+    support_ticket_detail_route,
+    support_ticket_read_route,
+    support_ticket_reply_route,
+    support_tickets_route,
+    support_unread_route,
+)
+from .telegram_notifications import (
+    account_telegram_notifications_probe_route,
+)
+
+_STRING_SCHEMA = {"type": "string"}
+_INTEGER_SCHEMA = {"type": "integer"}
+_NUMBER_SCHEMA = {"type": "number"}
+_BOOLEAN_SCHEMA = {"type": "boolean"}
+_NULLABLE_STRING_SCHEMA = {"type": ["string", "null"]}
+_NULLABLE_INTEGER_SCHEMA = {"type": ["integer", "null"]}
+_NULLABLE_NUMBER_SCHEMA = {"type": ["number", "null"]}
+
+_TELEGRAM_AUTH_BODY_SCHEMA = {
+    "type": "object",
+    "additionalProperties": True,
+    "properties": {
+        "init_data": _STRING_SCHEMA,
+        "id_token": _STRING_SCHEMA,
+        "nonce": _STRING_SCHEMA,
+        "auth_data": JSON_OBJECT_SCHEMA,
+        "referral_code": _STRING_SCHEMA,
+        "start_param": _STRING_SCHEMA,
+    },
+}
+_PROMO_APPLY_BODY_SCHEMA = {
+    "type": "object",
+    "additionalProperties": True,
+    "required": ["code"],
+    "properties": {"code": _STRING_SCHEMA},
+}
+
+
+def _public_contract(**kwargs) -> RouteContract:
+    return RouteContract(**kwargs)
+
+
+def _user_contract(**kwargs) -> RouteContract:
+    return RouteContract(security=USER_SECURITY, **kwargs)
+
+
+_AUTH_RESPONSE_SCHEMA = ok_envelope_with(
+    {
+        "user_id": _NULLABLE_INTEGER_SCHEMA,
+        "telegram_id": _NULLABLE_INTEGER_SCHEMA,
+        "csrf_token": _STRING_SCHEMA,
+        "account_merge": loose_object_schema(),
+    },
+    required=[],
+)
+_EMAIL_REQUEST_RESPONSE_SCHEMA = ok_envelope_with(
+    {
+        "retry_after": _NULLABLE_INTEGER_SCHEMA,
+        "email_code": _STRING_SCHEMA,
+        "code": _STRING_SCHEMA,
+    },
+    required=[],
+)
+_PAYMENT_RESPONSE_SCHEMA = ok_envelope_with(
+    {
+        "payment_id": _INTEGER_SCHEMA,
+        "status": _STRING_SCHEMA,
+        "paid": _BOOLEAN_SCHEMA,
+        "payment": loose_object_schema(),
+        "payment_url": _NULLABLE_STRING_SCHEMA,
+        "confirmation_url": _NULLABLE_STRING_SCHEMA,
+    },
+    required=[],
+)
+_PLAN_OPTIONS_RESPONSE_SCHEMA = ok_envelope_with(
+    {
+        "plans": loose_array_schema(),
+        "tariff_key": _STRING_SCHEMA,
+        "tariff_name": _STRING_SCHEMA,
+    },
+    required=[],
+)
+
+_ROUTE_CONTRACTS = {
+    "telegram_oauth_nonce_route": _public_contract(
+        response_schema=ok_envelope_with(
+            {
+                "nonce": _STRING_SCHEMA,
+                "client_id": _STRING_SCHEMA,
+                "request_access": _STRING_SCHEMA,
+            }
+        )
+    ),
+    "auth_token_route": _public_contract(
+        request_model=WebAppTelegramAuthPayload,
+        response_schema=_AUTH_RESPONSE_SCHEMA,
+    ),
+    "email_auth_request_route": _public_contract(
+        request_model=WebAppEmailRequestPayload,
+        response_schema=_EMAIL_REQUEST_RESPONSE_SCHEMA,
+    ),
+    "email_auth_verify_route": _public_contract(
+        request_model=WebAppEmailCodeAuthPayload,
+        response_schema=_AUTH_RESPONSE_SCHEMA,
+    ),
+    "email_auth_magic_route": _public_contract(
+        request_model=WebAppEmailMagicAuthPayload,
+        response_schema=_AUTH_RESPONSE_SCHEMA,
+    ),
+    "email_password_auth_route": _public_contract(
+        request_model=WebAppEmailPasswordPayload,
+        response_schema=_AUTH_RESPONSE_SCHEMA,
+    ),
+    "logout_route": _public_contract(response_schema=ok_envelope_with()),
+    "bootstrap_route": _public_contract(
+        response_schema=ok_envelope_with(
+            {"config": loose_object_schema(), "i18n": loose_object_schema()},
+        )
+    ),
+    "i18n_route": _public_contract(
+        response_schema=ok_envelope_with(
+            {"scope": _STRING_SCHEMA, "i18n": loose_object_schema()},
+        )
+    ),
+    "me_route": _user_contract(response_schema=ok_envelope_with(required=[])),
+    "subscription_guides_route": _user_contract(
+        response_schema=ok_envelope_with(
+            {
+                "enabled": _BOOLEAN_SCHEMA,
+                "config": loose_object_schema(),
+                "source": _NULLABLE_STRING_SCHEMA,
+            },
+            required=["enabled"],
+        )
+    ),
+    "public_subscription_guides_route": _public_contract(
+        response_schema=ok_envelope_with(
+            {
+                "enabled": _BOOLEAN_SCHEMA,
+                "config": loose_object_schema(),
+                "source": _NULLABLE_STRING_SCHEMA,
+                "subscription": loose_object_schema(),
+            },
+            required=["enabled"],
+        )
+    ),
+    "account_avatar_route": _user_contract(
+        response_schema=BINARY_RESPONSE_SCHEMA,
+        response_content_type="image/jpeg",
+    ),
+    "account_language_route": _user_contract(
+        request_model=WebAppLanguagePayload,
+        response_schema=ok_envelope_with({"language": _STRING_SCHEMA}),
+    ),
+    "account_email_request_route": _user_contract(
+        request_model=WebAppEmailPayload,
+        response_schema=ok_envelope_with(
+            {
+                "already_linked": _BOOLEAN_SCHEMA,
+                "retry_after": _NULLABLE_INTEGER_SCHEMA,
+                "email_code": _STRING_SCHEMA,
+                "code": _STRING_SCHEMA,
+            },
+            required=[],
+        ),
+    ),
+    "account_email_verify_route": _user_contract(
+        request_model=WebAppEmailCodePayload,
+        response_schema=_AUTH_RESPONSE_SCHEMA,
+    ),
+    "account_password_request_route": _user_contract(
+        response_schema=ok_envelope_with({"retry_after": _NULLABLE_INTEGER_SCHEMA}, required=[]),
+    ),
+    "account_password_confirm_route": _user_contract(
+        request_model=WebAppSetPasswordPayload,
+        response_schema=ok_envelope_with({"password_auth_enabled": _BOOLEAN_SCHEMA}),
+    ),
+    "account_telegram_link_route": _user_contract(
+        request_model=WebAppTelegramAuthPayload,
+        response_schema=_AUTH_RESPONSE_SCHEMA,
+    ),
+    "account_telegram_notifications_probe_route": _user_contract(
+        response_schema=ok_envelope_with({"telegram_notifications": loose_object_schema()}),
+    ),
+    "referral_welcome_bonus_claim_route": _user_contract(
+        response_schema=ok_envelope_with(
+            {
+                "claimed": _BOOLEAN_SCHEMA,
+                "end_date": _NULLABLE_STRING_SCHEMA,
+                "end_date_text": _NULLABLE_STRING_SCHEMA,
+            }
+        )
+    ),
+    "apply_promo_route": _user_contract(
+        request_model=WebAppPromoApplyPayload,
+        response_schema=ok_envelope_with(
+            {
+                "end_date": _NULLABLE_STRING_SCHEMA,
+                "end_date_text": _NULLABLE_STRING_SCHEMA,
+            },
+            required=[],
+        ),
+    ),
+    "activate_trial_route": _user_contract(
+        response_schema=ok_envelope_with(
+            {
+                "activated": _BOOLEAN_SCHEMA,
+                "days": _INTEGER_SCHEMA,
+                "end_date": _NULLABLE_STRING_SCHEMA,
+                "end_date_text": _NULLABLE_STRING_SCHEMA,
+                "traffic_gb": _NULLABLE_NUMBER_SCHEMA,
+                "config_link": _NULLABLE_STRING_SCHEMA,
+                "connect_url": _NULLABLE_STRING_SCHEMA,
+            }
+        )
+    ),
+    "subscription_auto_renew_route": _user_contract(
+        request_model=WebAppAutoRenewPayload,
+        response_schema=ok_envelope_with(
+            {
+                "auto_renew_enabled": _BOOLEAN_SCHEMA,
+                "provider": _STRING_SCHEMA,
+                "provider_label": _STRING_SCHEMA,
+            }
+        ),
+    ),
+    "devices_route": _user_contract(
+        response_schema=ok_envelope_with(
+            {"devices": loose_array_schema(), "subscription": loose_object_schema()},
+            required=[],
+        )
+    ),
+    "disconnect_device_route": _user_contract(
+        request_model=WebAppDeviceDisconnectPayload,
+        response_schema=ok_envelope_with(),
+    ),
+    "device_topup_options_route": _user_contract(response_schema=_PLAN_OPTIONS_RESPONSE_SCHEMA),
+    "support_tickets_route": _user_contract(
+        response_schema=ok_envelope_with(
+            {"tickets": loose_array_schema(), "counts": loose_object_schema()}
+        ),
+    ),
+    "support_create_ticket_route": _user_contract(
+        request_model=CreateTicketPayload,
+        response_schema=ok_envelope_with({"ticket": loose_object_schema()}),
+    ),
+    "support_ticket_detail_route": _user_contract(
+        response_schema=ok_envelope_with(
+            {"ticket": loose_object_schema(), "messages": loose_array_schema()}
+        ),
+    ),
+    "support_ticket_reply_route": _user_contract(
+        request_model=TicketReplyPayload,
+        response_schema=ok_envelope_with(
+            {"ticket": loose_object_schema(), "message": loose_object_schema()}
+        ),
+    ),
+    "support_ticket_read_route": _user_contract(response_schema=ok_envelope_with()),
+    "support_unread_route": _user_contract(
+        response_schema=ok_envelope_with({"unread": _INTEGER_SCHEMA}),
+    ),
+    "tariff_topup_options_route": _user_contract(response_schema=_PLAN_OPTIONS_RESPONSE_SCHEMA),
+    "tariff_change_options_route": _user_contract(
+        response_schema=ok_envelope_with(
+            {"current": loose_object_schema(), "targets": loose_array_schema()},
+        )
+    ),
+    "tariff_change_route": _user_contract(
+        request_model=WebAppTariffChangePayload,
+        response_schema=ok_envelope_with({"subscription": loose_object_schema()}, required=[]),
+    ),
+    "tariff_change_payment_route": _user_contract(
+        request_model=WebAppPaymentCreatePayload,
+        response_schema=_PAYMENT_RESPONSE_SCHEMA,
+    ),
+    "create_payment_route": _user_contract(
+        request_model=WebAppPaymentCreatePayload,
+        response_schema=_PAYMENT_RESPONSE_SCHEMA,
+    ),
+    "payment_status_route": _user_contract(response_schema=_PAYMENT_RESPONSE_SCHEMA),
+}
+
+for _handler_name, _contract in _ROUTE_CONTRACTS.items():
+    register_contract(_handler_name, _contract)
 
 
 def setup_subscription_webapp_routes(app: web.Application) -> None:

@@ -1,12 +1,45 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
-from .common import _panel_user_connection_activity
-
 import asyncio
 from collections import defaultdict
 
 from bot.utils.ttl_cache import AsyncTTLCache
 
+from ._runtime import (
+    INTEGER_SCHEMA,
+    STRING_SCHEMA,
+    AdminBroadcastBody,
+    Any,
+    AsyncSession,
+    Dict,
+    List,
+    MessageContent,
+    Optional,
+    RouteContract,
+    Settings,
+    Subscription,
+    User,
+    datetime,
+    get_queue_manager,
+    logger,
+    loose_object_schema,
+    message_log_dal,
+    ok_envelope_with,
+    parse_body_or_400,
+    register_contract,
+    select,
+    send_message_via_queue,
+    sessionmaker,
+    timezone,
+    user_dal,
+    web,
+)
+from .auth import (
+    _require_admin_user_id,
+)
+from .common import (
+    _error,
+    _ok,
+    _panel_user_connection_activity,
+)
 
 BROADCAST_TARGET_ACTIVE_NEVER_CONNECTED = "active_never_connected"
 BROADCAST_TARGETS = {
@@ -19,6 +52,20 @@ BROADCAST_TARGETS = {
 }
 PANEL_ACTIVITY_LOOKUP_CONCURRENCY = 10
 _ADMIN_BROADCAST_AUDIENCE_COUNT_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {}
+
+register_contract(
+    "admin_broadcast_route",
+    RouteContract(
+        request_model=AdminBroadcastBody,
+        response_schema=ok_envelope_with(
+            {"queued": INTEGER_SCHEMA, "failed": INTEGER_SCHEMA, "target": STRING_SCHEMA}
+        ),
+    ),
+)
+register_contract(
+    "admin_broadcast_audience_counts_route",
+    RouteContract(response_schema=ok_envelope_with({"counts": loose_object_schema()})),
+)
 
 
 def _resolve_panel_service(request: web.Request) -> Any:
@@ -164,9 +211,9 @@ async def _load_broadcast_audience_counts_uncached(
 
 async def admin_broadcast_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
-    payload = await _read_json(request)
-    text = str(payload.get("text") or "").strip()
-    target = str(payload.get("target") or "all").strip().lower()
+    body = await parse_body_or_400(request, AdminBroadcastBody)
+    text = str(body.text or "").strip()
+    target = str(body.target or "all").strip().lower()
     if not text:
         return _error(400, "empty_text")
     if target not in BROADCAST_TARGETS:

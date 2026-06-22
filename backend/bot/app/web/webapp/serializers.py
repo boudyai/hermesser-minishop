@@ -1,18 +1,57 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
-
 from bot.app.web.webapp.auth import (
     _referral_welcome_telegram_required_reason,
     _trial_telegram_required_reason,
     _user_has_linked_telegram,
 )
-from config.subscription_guides_config import subscription_guides_available
-from config.webapp_themes_config import public_themes_catalog_payload
 from bot.services.telegram_notifications import (
     TELEGRAM_NOTIFICATIONS_ENABLED,
     normalize_telegram_notification_status,
     telegram_notifications_need_prompt,
     telegram_notifications_start_link,
+)
+from config.subscription_guides_config import subscription_guides_available
+from config.webapp_themes_config import public_themes_catalog_payload
+
+from ._runtime import (
+    Any,
+    AsyncSession,
+    Dict,
+    List,
+    Optional,
+    ReferralService,
+    Settings,
+    SubscriptionService,
+    datetime,
+    default_currency_key_for_settings,
+    default_payment_currency_code_for_settings,
+    json,
+    logger,
+    parse_qsl,
+    payment_currency_code,
+    quote,
+    sessionmaker,
+    subscription_dal,
+    support_dal,
+    timezone,
+    urlencode,
+    urlsplit,
+    urlunsplit,
+    user_dal,
+    web,
+)
+from .assets import (
+    _get_cached_webapp_settings,
+)
+from .common import (
+    _coerce_int_or_none,
+    _ensure_cached_telegram_avatar,
+    _format_bytes,
+    _format_months_title,
+    _format_number_for_payload,
+    _format_remaining,
+    _format_traffic_title,
+    _normalize_language,
+    _telegram_avatar_url,
 )
 
 
@@ -638,7 +677,7 @@ def _serialize_plans(
     if tariffs_config:
         default_currency = default_currency_key_for_settings(settings)
         default_currency_code = payment_currency_code(default_currency)
-        plans: List[Dict[str, Any]] = []
+        plans = []
         for tariff in tariffs_config.enabled_tariffs:
             common = {
                 "tariff_key": tariff.key,
@@ -729,7 +768,7 @@ def _serialize_plans(
         active_traffic_packages = traffic_packages or settings.traffic_packages
         active_stars_traffic_packages = stars_traffic_packages or settings.stars_traffic_packages
         traffic_units = sorted(set(active_traffic_packages) | set(active_stars_traffic_packages))
-        plans: List[Dict[str, Any]] = []
+        plans = []
         for traffic_gb in traffic_units:
             price = active_traffic_packages.get(traffic_gb)
             stars_price = active_stars_traffic_packages.get(traffic_gb)
@@ -753,7 +792,7 @@ def _serialize_plans(
     active_stars_subscription_options = (
         stars_subscription_options or settings.stars_subscription_options
     )
-    plans: List[Dict[str, Any]] = []
+    plans = []
     for months in sorted(set(active_subscription_options) | set(active_stars_subscription_options)):
         price = active_subscription_options.get(months)
         stars_price = active_stars_subscription_options.get(months)
@@ -984,8 +1023,3 @@ def _serialize_payment_methods(
                 payload.update(minimum)
             methods.append(payload)
     return methods
-
-
-def _service_configured(app: web.Application, key: str) -> bool:
-    service = app.get(key)
-    return bool(service and getattr(service, "configured", False))

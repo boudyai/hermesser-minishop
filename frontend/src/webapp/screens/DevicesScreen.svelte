@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { CircleX, Plus, RefreshCw, Smartphone } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
@@ -10,18 +10,41 @@
     devicesPercent,
   } from "../../lib/webapp/devicesLabels.js";
 
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type DeviceRecord = Record<string, unknown> & {
+    can_disconnect?: boolean;
+    created_at_text?: string;
+    display_name?: string;
+    hwid_short?: string;
+    index?: number;
+    platform_label?: string;
+    token?: string;
+    user_agent?: string;
+  };
+  type DevicesData = Record<string, unknown> & {
+    devices?: DeviceRecord[];
+    max_devices?: number | null;
+  };
+  type SubscriptionData = Record<string, unknown> & {
+    active?: boolean;
+    can_topup_devices?: boolean;
+    extra_hwid_devices?: number;
+    extra_hwid_devices_valid_until_text?: string;
+    max_devices?: number | null;
+  };
+
   export let devicesBusy = false;
-  export let devicesData = {};
+  export let devicesData: DevicesData = {};
   export let devicesErrorCode = "";
   export let devicesIsError = false;
   export let devicesLoaded = false;
   export let devicesStatus = "";
-  export let subscription = {};
+  export let subscription: SubscriptionData = {};
 
-  export let loadDevices = () => {};
-  export let openDeviceDisconnectDialog = () => {};
-  export let openDeviceTopupModal = () => {};
-  export let t = (key) => key;
+  export let loadDevices: (force?: boolean) => void = () => {};
+  export let openDeviceDisconnectDialog: (device: DeviceRecord) => void = () => {};
+  export let openDeviceTopupModal: () => void = () => {};
+  export let t: Translate = (key) => key;
 
   $: deviceList = Array.isArray(devicesData?.devices) ? devicesData.devices : [];
   $: hasDevices = deviceList.length > 0;

@@ -1,17 +1,58 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
-
 from bot.app.web.webapp.cache_helpers import webapp_cached_user_payload
 from bot.infra import events
-from .auth import (
-    _hash_email_password,
-    _sync_merged_panel_identity_for_user,
+from bot.infra.event_payloads import AccountEmailLinkedPayload, AccountTelegramLinkedPayload
+
+from ._runtime import (
+    Any,
+    Dict,
+    EmailAuthService,
+    Optional,
+    Settings,
+    UserMergeConflictError,
+    UserTelegramAvatar,
+    create_webapp_session_token,
+    datetime,
+    hashlib,
+    logger,
+    sessionmaker,
+    timezone,
+    user_dal,
+    web,
 )
-from .common import _invalidate_webapp_user_caches
+from .assets import (
+    _enforce_webapp_rate_limit,
+)
+from .auth import (
+    _build_account_merge_notice,
+    _build_webapp_auth_response,
+    _hash_email_password,
+    _link_telegram_to_user,
+    _request_email_code,
+    _sync_merged_panel_identity_for_user,
+    _sync_panel_identity_for_user,
+    _validate_telegram_auth_payload,
+)
+from .common import (
+    _ensure_cached_telegram_avatar,
+    _invalidate_webapp_user_caches,
+    _json_error,
+    _normalize_language,
+    _parse_model_payload,
+    _require_user_id,
+    _telegram_id_for_user,
+)
+from .payloads import (
+    WebAppEmailCodePayload,
+    WebAppEmailPayload,
+    WebAppLanguagePayload,
+    WebAppSetPasswordPayload,
+    WebAppTelegramAuthPayload,
+)
+from .serializers import _build_user_payload
 from .telegram_notifications import _probe_telegram_notifications_for_user_id
 
 
-def _email_auth_enabled(settings: Settings) -> bool:
+def _email_auth_enabled(settings: Any) -> bool:
     return bool(getattr(settings, "email_auth_configured", True))
 
 
@@ -25,10 +66,7 @@ async def account_email_request_route(request: web.Request) -> web.Response:
     if not _email_auth_enabled(settings):
         return _email_auth_not_configured_response()
 
-    payload = await _read_json(request)
-    email_payload, validation_error = _validate_model_payload(WebAppEmailPayload, payload)
-    if validation_error:
-        return validation_error
+    email_payload = await _parse_model_payload(request, WebAppEmailPayload)
     email = email_payload.email
     async_session_factory: sessionmaker = request.app["async_session_factory"]
 
@@ -63,10 +101,7 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
     if rate_limit_response:
         return rate_limit_response
 
-    payload = await _read_json(request)
-    email_payload, validation_error = _validate_model_payload(WebAppEmailCodePayload, payload)
-    if validation_error:
-        return validation_error
+    email_payload = await _parse_model_payload(request, WebAppEmailCodePayload)
     email = email_payload.email
     code = str(email_payload.code or "")
     email_service: EmailAuthService = request.app["email_auth_service"]
@@ -138,16 +173,15 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
             final_first_name = current_user.first_name
             final_panel_uuid = current_user.panel_user_uuid
 
-            await events.emit(
-                events.ACCOUNT_EMAIL_LINKED,
-                {
-                    "user_id": final_user_id,
-                    "email": email,
-                    "first_link": should_notify_email_linked,
-                    "telegram_id": final_telegram_id,
-                    "username": final_username,
-                    "first_name": final_first_name,
-                },
+            await events.emit_model(
+                AccountEmailLinkedPayload(
+                    user_id=final_user_id,
+                    email=email,
+                    first_link=should_notify_email_linked,
+                    telegram_id=final_telegram_id,
+                    username=final_username,
+                    first_name=final_first_name,
+                )
             )
 
             if merge_notice:
@@ -209,14 +243,11 @@ async def account_password_request_route(request: web.Request) -> web.Response:
 
 async def account_password_confirm_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    settings = request.app.get("settings")
-    if not _email_auth_enabled(settings):
+    settings_for_gate = request.app.get("settings")
+    if not _email_auth_enabled(settings_for_gate):
         return _email_auth_not_configured_response()
 
-    payload = await _read_json(request)
-    password_payload, validation_error = _validate_model_payload(WebAppSetPasswordPayload, payload)
-    if validation_error:
-        return validation_error
+    password_payload = await _parse_model_payload(request, WebAppSetPasswordPayload)
     if password_payload.password != password_payload.password_confirm:
         return _json_error(400, "password_mismatch", "Passwords do not match")
 
@@ -269,7 +300,8 @@ async def account_password_confirm_route(request: web.Request) -> web.Response:
 async def account_telegram_link_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     settings: Settings = request.app["settings"]
-    payload = await _read_json(request)
+    auth_payload = await _parse_model_payload(request, WebAppTelegramAuthPayload)
+    payload = auth_payload.model_dump(mode="json", exclude_none=True)
     telegram_user = await _validate_telegram_auth_payload(request, payload)
     if not telegram_user:
         return _json_error(401, "invalid_auth", "Invalid Telegram auth data")
@@ -323,16 +355,15 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
                 )
             await session.commit()
 
-            await events.emit(
-                events.ACCOUNT_TELEGRAM_LINKED,
-                {
-                    "user_id": final_user_id,
-                    "telegram_id": final_telegram_id,
-                    "first_link": should_notify_telegram_linked,
-                    "email": final_email,
-                    "username": final_username,
-                    "first_name": final_first_name,
-                },
+            await events.emit_model(
+                AccountTelegramLinkedPayload(
+                    user_id=final_user_id,
+                    telegram_id=final_telegram_id,
+                    first_link=should_notify_telegram_linked,
+                    email=final_email,
+                    username=final_username,
+                    first_name=final_first_name,
+                )
             )
 
             if merge_notice:
@@ -427,10 +458,7 @@ async def account_avatar_route(request: web.Request) -> web.Response:
 async def account_language_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     settings: Settings = request.app["settings"]
-    payload = await _read_json(request)
-    language_payload, validation_error = _validate_model_payload(WebAppLanguagePayload, payload)
-    if validation_error:
-        return validation_error
+    language_payload = await _parse_model_payload(request, WebAppLanguagePayload)
 
     language = _normalize_language(str(language_payload.language or ""))
     i18n = request.app.get("i18n")
@@ -454,13 +482,6 @@ async def account_language_route(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, "language": language})
 
 
-def _format_webapp_datetime(value: Optional[datetime]) -> Optional[str]:
-    if not value:
-        return None
-    normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
-    return normalized.strftime("%d.%m.%Y %H:%M")
-
-
 def _telegram_photo_url_value(telegram_user: Dict[str, Any]) -> Optional[str]:
     raw_value = telegram_user.get("photo_url")
     if not raw_value:
@@ -469,114 +490,6 @@ def _telegram_photo_url_value(telegram_user: Dict[str, Any]) -> Optional[str]:
     return value or None
 
 
-def _telegram_avatar_is_stale(avatar: Optional[UserTelegramAvatar]) -> bool:
-    if not avatar or not avatar.updated_at:
-        return True
-    updated_at = avatar.updated_at
-    if updated_at.tzinfo is None:
-        updated_at = updated_at.replace(tzinfo=timezone.utc)
-    return (
-        datetime.now(timezone.utc) - updated_at
-    ).total_seconds() >= WEBAPP_TELEGRAM_AVATAR_REFRESH_SECONDS
-
-
 def _telegram_avatar_etag(avatar: UserTelegramAvatar) -> str:
     digest = hashlib.sha256(bytes(avatar.image_bytes)).hexdigest()[:16]
     return f'"tg-avatar-{int(avatar.user_id)}-{digest}"'
-
-
-def _telegram_avatar_url(avatar: Optional[UserTelegramAvatar]) -> str:
-    if not avatar:
-        return ""
-    updated_at = avatar.updated_at
-    if updated_at and updated_at.tzinfo is None:
-        updated_at = updated_at.replace(tzinfo=timezone.utc)
-    version = (
-        int(updated_at.timestamp())
-        if updated_at
-        else hashlib.sha256(bytes(avatar.image_bytes)).hexdigest()[:8]
-    )
-    return f"/api/account/avatar?v={version}"
-
-
-def _select_compact_telegram_photo_size(sizes: List[Any]) -> Optional[Any]:
-    if not sizes:
-        return None
-    suitable = [size for size in sizes if int(getattr(size, "width", 0) or 0) >= 160]
-    candidates = suitable or sizes
-    return min(
-        candidates,
-        key=lambda size: (
-            int(getattr(size, "file_size", 0) or 0)
-            or int(getattr(size, "width", 0) or 0) * int(getattr(size, "height", 0) or 0),
-            int(getattr(size, "width", 0) or 0),
-        ),
-    )
-
-
-def _telegram_file_content_type(file_path: Optional[str]) -> str:
-    path = str(file_path or "").lower()
-    if path.endswith(".png"):
-        return "image/png"
-    if path.endswith(".webp"):
-        return "image/webp"
-    return "image/jpeg"
-
-
-async def _fetch_compact_telegram_avatar(
-    bot: Bot, telegram_id: int
-) -> Optional[Tuple[bytes, str, Optional[str]]]:
-    photos = await bot.get_user_profile_photos(user_id=telegram_id, limit=1)
-    if not photos or not photos.photos:
-        return None
-
-    photo_size = _select_compact_telegram_photo_size(list(photos.photos[0] or []))
-    if not photo_size:
-        return None
-
-    file_info = await bot.get_file(photo_size.file_id)
-    destination = io.BytesIO()
-    await bot.download_file(file_info.file_path, destination=destination)
-    body = destination.getvalue()
-    if not body or len(body) > WEBAPP_TELEGRAM_AVATAR_MAX_BYTES:
-        return None
-    return (
-        body,
-        _telegram_file_content_type(file_info.file_path),
-        getattr(photo_size, "file_unique_id", None),
-    )
-
-
-async def _ensure_cached_telegram_avatar(
-    request: web.Request,
-    session: AsyncSession,
-    user: User,
-) -> Optional[UserTelegramAvatar]:
-    avatar = await user_dal.get_user_telegram_avatar(session, int(user.user_id))
-    telegram_id = _telegram_id_for_user(user)
-    if not telegram_id:
-        return avatar
-    if avatar and not _telegram_avatar_is_stale(avatar):
-        return avatar
-
-    bot: Bot = request.app["bot"]
-    try:
-        fetched = await asyncio.wait_for(
-            _fetch_compact_telegram_avatar(bot, int(telegram_id)),
-            timeout=WEBAPP_TELEGRAM_AVATAR_FETCH_TIMEOUT_SECONDS,
-        )
-    except Exception as exc:
-        logger.info("Failed to refresh Telegram avatar for user %s: %s", user.user_id, exc)
-        return avatar
-
-    if not fetched:
-        return avatar
-
-    body, content_type, file_unique_id = fetched
-    return await user_dal.upsert_user_telegram_avatar(
-        session,
-        user_id=int(user.user_id),
-        file_unique_id=file_unique_id,
-        content_type=content_type,
-        image_bytes=body,
-    )

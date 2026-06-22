@@ -1,10 +1,22 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
-
 from bot.infra import events
+from bot.infra.event_payloads import TrialActivatedPayload
+
+from ._runtime import (
+    Any,
+    AsyncSession,
+    Dict,
+    Optional,
+    SubscriptionServiceMixinContract,
+    datetime,
+    logging,
+    subscription_dal,
+    timedelta,
+    timezone,
+    user_dal,
+)
 
 
-class TrialSubscriptionMixin:
+class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
     async def activate_trial_subscription(
         self, session: AsyncSession, user_id: int
     ) -> Optional[Dict[str, Any]]:
@@ -122,14 +134,13 @@ class TrialSubscriptionMixin:
 
         await session.commit()
 
-        await events.emit(
-            events.TRIAL_ACTIVATED,
-            {
-                "user_id": user_id,
-                "end_date": events.iso(end_date),
-                "days": self.settings.TRIAL_DURATION_DAYS,
-                "traffic_gb": self.settings.TRIAL_TRAFFIC_LIMIT_GB,
-            },
+        await events.emit_model(
+            TrialActivatedPayload(
+                user_id=user_id,
+                end_date=end_date,
+                days=self.settings.TRIAL_DURATION_DAYS,
+                traffic_gb=self.settings.TRIAL_TRAFFIC_LIMIT_GB,
+            )
         )
 
         final_subscription_url = updated_panel_user.get("subscriptionUrl")

@@ -23,7 +23,7 @@ class LknpdService:
             logging.warning("LKNPD credentials are missing. Receipt sending disabled.")
 
     async def _ensure_authenticated(self) -> bool:
-        if not self._client:
+        if not self._client or not self.inn or not self.password:
             return False
 
         async with self._auth_lock:
@@ -50,8 +50,12 @@ class LknpdService:
         if not await self._ensure_authenticated():
             return None
 
+        client = self._client
+        if client is None:
+            return None
+
         try:
-            receipt_uuid = await self._client.create_income(
+            receipt_uuid = await client.create_income(
                 name=item_name,
                 amount=amount,
                 quantity=quantity,

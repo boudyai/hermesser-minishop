@@ -967,14 +967,14 @@ def coerce_value(field: SettingField, raw: Any) -> Any:
 
     if field.type == "float":
         try:
-            value = float(str(raw).strip())
+            float_value = float(str(raw).strip())
         except (TypeError, ValueError) as exc:
             raise ValueError(f"{field.key}: number expected") from exc
-        if field.min is not None and value < field.min:
+        if field.min is not None and float_value < field.min:
             raise ValueError(f"{field.key}: must be >= {field.min:g}")
-        if field.max is not None and value > field.max:
+        if field.max is not None and float_value > field.max:
             raise ValueError(f"{field.key}: must be <= {field.max:g}")
-        return value
+        return float_value
 
     if isinstance(raw, str):
         return raw.strip()

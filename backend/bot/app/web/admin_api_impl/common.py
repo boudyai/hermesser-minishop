@@ -1,5 +1,29 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+from ._runtime import (
+    AdCampaign,
+    AdOut,
+    Any,
+    Dict,
+    List,
+    LogOut,
+    MessageLog,
+    Optional,
+    Path,
+    Payment,
+    PaymentOut,
+    PromoCode,
+    Settings,
+    Subscription,
+    TariffsConfig,
+    Tuple,
+    User,
+    datetime,
+    json,
+    parse_qsl,
+    timezone,
+    urlsplit,
+    urlunsplit,
+    web,
+)
 
 
 def _ok(payload: Dict[str, Any], **extra) -> web.Response:
@@ -12,14 +36,6 @@ def _error(status: int, code: str, message: str = "") -> web.Response:
         {"ok": False, "error": code, "message": message or code},
         status=status,
     )
-
-
-async def _read_json(request: web.Request) -> Dict[str, Any]:
-    try:
-        data = await request.json()
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
 
 
 _PANEL_LAST_CONNECTED_KEYS = (
@@ -367,39 +383,7 @@ def _payment_user_display_label(loaded_user: Any, payment_user_id: int) -> str:
 
 
 def _serialize_payment(payment: Payment) -> Dict[str, Any]:
-    # Avoid lazy-loading `payment.user` outside an active SQLAlchemy session.
-    # Some admin routes serialize payments after the session scope is closed.
-    telegram_id = None
-    loaded_user = payment.__dict__.get("user")
-    user_label = _payment_user_display_label(loaded_user, int(payment.user_id))
-    if loaded_user is not None:
-        tid = getattr(loaded_user, "telegram_id", None)
-        if tid is not None:
-            try:
-                telegram_id = int(tid)
-            except (TypeError, ValueError):
-                telegram_id = None
-    reg_gb, prem_gb = _payment_traffic_gb_split(payment)
-    return {
-        "payment_id": int(payment.payment_id),
-        "user_id": int(payment.user_id),
-        "user_label": user_label,
-        "telegram_id": telegram_id,
-        "traffic_regular_gb": reg_gb,
-        "traffic_premium_gb": prem_gb,
-        "provider": payment.provider,
-        "provider_payment_id": payment.provider_payment_id,
-        "amount": float(payment.amount),
-        "currency": payment.currency,
-        "status": payment.status,
-        "description": payment.description,
-        "subscription_duration_months": payment.subscription_duration_months,
-        "sale_mode": payment.sale_mode,
-        "tariff_key": payment.tariff_key,
-        "purchased_gb": payment.purchased_gb,
-        "purchased_hwid_devices": payment.purchased_hwid_devices,
-        "created_at": payment.created_at.isoformat() if payment.created_at else None,
-    }
+    return PaymentOut.from_orm_payment(payment).model_dump(mode="json")
 
 
 def _serialize_promo(promo: PromoCode) -> Dict[str, Any]:
@@ -419,41 +403,11 @@ def _serialize_promo(promo: PromoCode) -> Dict[str, Any]:
 
 
 def _serialize_ad(campaign: AdCampaign, totals: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    return {
-        "id": int(campaign.ad_campaign_id),
-        "source": campaign.source,
-        "start_param": campaign.start_param,
-        "cost": float(campaign.cost or 0),
-        "is_active": bool(campaign.is_active),
-        "created_at": campaign.created_at.isoformat() if campaign.created_at else None,
-        "stats": totals or {},
-    }
+    return AdOut.from_orm_ad(campaign, totals).model_dump(mode="json")
 
 
 def _serialize_log(entry: MessageLog) -> Dict[str, Any]:
-    author_user = entry.__dict__.get("author_user")
-    target_user = entry.__dict__.get("target_user")
-    user_id = int(entry.user_id) if entry.user_id is not None else None
-    target_user_id = int(entry.target_user_id) if entry.target_user_id is not None else None
-    return {
-        "log_id": int(entry.log_id),
-        "user_id": user_id,
-        "user_label": _user_display_label(
-            author_user,
-            user_id,
-            first_name=entry.telegram_first_name,
-            username=entry.telegram_username,
-        ),
-        "telegram_username": entry.telegram_username,
-        "telegram_first_name": entry.telegram_first_name,
-        "email": getattr(author_user, "email", None),
-        "event_type": entry.event_type,
-        "content": entry.content,
-        "is_admin_event": bool(entry.is_admin_event),
-        "target_user_id": target_user_id,
-        "target_user_label": _user_display_label(target_user, target_user_id),
-        "timestamp": entry.timestamp.isoformat() if entry.timestamp else None,
-    }
+    return LogOut.from_orm_log(entry).model_dump(mode="json")
 
 
 def _tariffs_config_path(settings: Settings) -> Path:

@@ -74,7 +74,7 @@ class User(Base):
         cascade="all, delete-orphan",
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<User(user_id={self.user_id}, username='{self.username}')>"
 
 
@@ -151,7 +151,7 @@ class Subscription(Base):
 
     user = relationship("User", back_populates="subscriptions")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Subscription(id={self.subscription_id}, user_id={self.user_id}, panel_uuid='{self.panel_user_uuid}', ends='{self.end_date}')>"  # noqa: E501
 
 
@@ -538,7 +538,7 @@ class AdCampaign(Base):
         cascade="all, delete-orphan",
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<AdCampaign(id={self.ad_campaign_id}, source='{self.source}', start_param='{self.start_param}', cost={self.cost})>"  # noqa: E501
 
 

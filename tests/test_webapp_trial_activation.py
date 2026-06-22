@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import bot.app.web.subscription_webapp  # noqa: F401
 from bot.app.web.webapp import billing as billing_module
+from bot.app.web.webapp import billing_subscription
 
 
 class _Session:
@@ -71,9 +72,9 @@ class WebAppTrialActivationTests(IsolatedAsyncioTestCase):
         )
 
         with (
-            patch.object(billing_module, "_require_user_id", return_value=42),
+            patch.object(billing_subscription, "_require_user_id", return_value=42),
             patch.object(
-                billing_module,
+                billing_subscription,
                 "_enforce_webapp_rate_limit",
                 AsyncMock(return_value=None),
             ),
@@ -83,7 +84,7 @@ class WebAppTrialActivationTests(IsolatedAsyncioTestCase):
                 AsyncMock(return_value=db_user),
             ),
             patch.object(
-                billing_module,
+                billing_subscription,
                 "prepare_config_links",
                 AsyncMock(return_value=("https://panel.example/sub", "https://connect.example")),
             ),
@@ -137,9 +138,9 @@ class WebAppTrialActivationTests(IsolatedAsyncioTestCase):
         )
 
         with (
-            patch.object(billing_module, "_require_user_id", return_value=42),
+            patch.object(billing_subscription, "_require_user_id", return_value=42),
             patch.object(
-                billing_module,
+                billing_subscription,
                 "_enforce_webapp_rate_limit",
                 AsyncMock(return_value=None),
             ),
@@ -183,9 +184,9 @@ class WebAppTrialActivationTests(IsolatedAsyncioTestCase):
         )
 
         with (
-            patch.object(billing_module, "_require_user_id", return_value=42),
+            patch.object(billing_subscription, "_require_user_id", return_value=42),
             patch.object(
-                billing_module,
+                billing_subscription,
                 "_enforce_webapp_rate_limit",
                 AsyncMock(return_value=None),
             ),
@@ -247,9 +248,9 @@ class WebAppTrialActivationTests(IsolatedAsyncioTestCase):
         )
 
         with (
-            patch.object(billing_module, "_require_user_id", return_value=42),
+            patch.object(billing_subscription, "_require_user_id", return_value=42),
             patch.object(
-                billing_module,
+                billing_subscription,
                 "_enforce_webapp_rate_limit",
                 AsyncMock(return_value=None),
             ),

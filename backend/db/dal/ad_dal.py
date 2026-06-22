@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from ..models import AdAttribution, AdCampaign, Payment
+from ._sqlalchemy import rowcount
 
 
 async def create_campaign(
@@ -45,7 +46,7 @@ async def list_campaigns(session: AsyncSession, *, only_active: bool = False) ->
     if only_active:
         stmt = stmt.where(AdCampaign.is_active == True)
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def toggle_campaign_active(session: AsyncSession, campaign_id: int, is_active: bool) -> bool:
@@ -55,7 +56,7 @@ async def toggle_campaign_active(session: AsyncSession, campaign_id: int, is_act
         .values(is_active=is_active)
     )
     result = await session.execute(stmt)
-    return result.rowcount > 0
+    return rowcount(result) > 0
 
 
 async def ensure_attribution(
@@ -85,7 +86,7 @@ async def mark_trial_activated(session: AsyncSession, user_id: int) -> bool:
         .values(trial_activated_at=func.now())
     )
     result = await session.execute(stmt)
-    return result.rowcount > 0
+    return rowcount(result) > 0
 
 
 async def get_campaign_stats(session: AsyncSession, campaign_id: int) -> Dict[str, Any]:
@@ -163,7 +164,7 @@ async def list_campaigns_paged(
     if only_active:
         stmt = stmt.where(AdCampaign.is_active == True)
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def get_totals(session: AsyncSession) -> Dict[str, float]:

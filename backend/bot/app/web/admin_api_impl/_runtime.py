@@ -59,6 +59,63 @@ from db.models import (
     UserTelegramAvatar,
 )
 
+from bot.app.web.route_contracts import (
+    BINARY_RESPONSE_SCHEMA,
+    BOOLEAN_SCHEMA,
+    GENERIC_OK_RESPONSE,
+    INTEGER_SCHEMA,
+    JSON_ARRAY_SCHEMA,
+    JSON_OBJECT_SCHEMA,
+    NULLABLE_INTEGER_SCHEMA,
+    NULLABLE_NUMBER_SCHEMA,
+    NULLABLE_STRING_SCHEMA,
+    NUMBER_SCHEMA,
+    RouteContract,
+    STRING_SCHEMA,
+    loose_array_schema,
+    loose_object_schema,
+    ok_envelope_for,
+    ok_envelope_with,
+    register_contract,
+)
+
+from bot.app.web.request_parsing import parse_body, parse_body_or_400
+from .schemas import (
+    AdCreateBody,
+    AdOut,
+    AdToggleBody,
+    AdminBackupRestoreBody,
+    AdminAdsListOut,
+    AdminBroadcastBody,
+    AdminHealthOut,
+    AdminLogsListOut,
+    AdminMeOut,
+    AdminPanelSyncOut,
+    AdminPaymentsListOut,
+    AdminSettingsPatchBody,
+    AdminStatsOut,
+    AdminTranslationsPatchBody,
+    AdminUserBanBody,
+    AdminUserExtendBody,
+    AdminUserHwidDeviceLimitBody,
+    AdminUserMessageBody,
+    AdminUserPremiumOverrideBody,
+    AdminUserRegularTrafficOverrideBody,
+    AdminUserTariffBody,
+    AdminUserTrafficGrantBody,
+    ImageUrlUploadBody,
+    HttpBodyModel,
+    HttpResponseModel,
+    LogOut,
+    PaymentDetailOut,
+    PaymentOut,
+    PromoCreateBody,
+    PromoOut,
+    PromoUpdateBody,
+    TariffsSaveBody,
+    ThemesSaveBody,
+)
+
 logger = logging.getLogger(__name__)
 
 

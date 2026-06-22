@@ -1,8 +1,20 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+from ._runtime import (
+    Any,
+    AsyncSession,
+    Dict,
+    Optional,
+    SubscriptionServiceMixinContract,
+    Tuple,
+    User,
+    datetime,
+    logging,
+    normalize_traffic_limit_strategy,
+    panel_description_from_profile,
+    user_dal,
+)
 
 
-class PanelIdentityMixin:
+class PanelIdentityMixin(SubscriptionServiceMixinContract):
     def _extract_panel_traffic_details(
         self, panel_user_data: Dict[str, Any]
     ) -> Tuple[Optional[int], Optional[int], Optional[str]]:

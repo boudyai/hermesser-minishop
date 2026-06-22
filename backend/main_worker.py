@@ -15,6 +15,7 @@ from app_logging import configure_logging
 from bot.app.factories.build_services import build_core_services
 from bot.handlers.admin.sync_admin import perform_sync
 from bot.infra import events
+from bot.infra.event_payloads import PaymentCanceledPayload
 from bot.infra.redis import close_redis, redis_lock
 from bot.infra.webhook_queue import pop_webhook_event, webhook_queue_depth
 from bot.middlewares.i18n import get_i18n_instance
@@ -103,7 +104,10 @@ async def _handle_yookassa_event(ctx: PluginContext, payload: Dict[str, Any]) ->
                 )
                 await session.commit()
                 if event_payload:
-                    await events.emit(events.PAYMENT_CANCELED, event_payload)
+                    await events.emit_model(
+                        PaymentCanceledPayload.model_validate(event_payload),
+                        exclude_unset=True,
+                    )
 
 
 async def _handle_panel_event(ctx: PluginContext, payload: Dict[str, Any]) -> None:

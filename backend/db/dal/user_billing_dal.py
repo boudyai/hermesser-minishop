@@ -122,7 +122,7 @@ async def list_user_payment_methods(
         stmt = stmt.where(UserPaymentMethod.provider == provider)
     stmt = stmt.order_by(UserPaymentMethod.is_default.desc(), UserPaymentMethod.created_at.desc())
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def get_user_default_payment_method(

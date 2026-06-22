@@ -2,7 +2,7 @@ import asyncio
 import functools
 import hmac
 import logging
-from typing import Awaitable, Callable, Optional
+from typing import Any, Awaitable, Callable, Optional
 
 from aiogram import Bot, Dispatcher
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
@@ -99,7 +99,7 @@ async def build_and_start_web_app(
     _inject_shared_instances(app, dp, bot, settings, async_session_factory)
 
     async def _healthcheck(request: web.Request) -> web.Response:
-        payload = {"status": "ok"}
+        payload: dict[str, Any] = {"status": "ok"}
         try:
             from db.database_setup import async_engine
 

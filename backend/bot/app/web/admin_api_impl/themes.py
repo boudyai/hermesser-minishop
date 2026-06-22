@@ -1,15 +1,12 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
-from .webapp_runtime import refresh_webapp_runtime_after_settings_change
-
 import asyncio
 import hashlib
 import ipaddress
-import shutil
 import re
+import shutil
 import socket
 
 from aiohttp import ClientSession, ClientTimeout
+from aiohttp.multipart import BodyPartReader
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from config.webapp_themes_config import (
@@ -17,6 +14,98 @@ from config.webapp_themes_config import (
     ensure_webapp_core_themes,
     resolved_webapp_themes_catalog,
     write_webapp_theme_dir,
+)
+
+from ._runtime import (
+    BINARY_RESPONSE_SCHEMA,
+    BOOLEAN_SCHEMA,
+    STRING_SCHEMA,
+    Any,
+    Dict,
+    ImageUrlUploadBody,
+    Optional,
+    Path,
+    RouteContract,
+    Settings,
+    ThemesSaveBody,
+    ValidationError,
+    io,
+    logger,
+    loose_object_schema,
+    ok_envelope_with,
+    parse_body_or_400,
+    register_contract,
+    sessionmaker,
+    update_overrides,
+    urlsplit,
+    web,
+)
+from .auth import (
+    _require_admin_user_id,
+)
+from .common import (
+    _error,
+    _ok,
+    _webapp_themes_catalog_payload,
+)
+from .webapp_runtime import refresh_webapp_runtime_after_settings_change
+
+_IMAGE_URL_UPLOAD_SCHEMA = {
+    "type": "object",
+    "additionalProperties": True,
+    "required": ["url"],
+    "properties": {"url": STRING_SCHEMA},
+}
+_IMAGE_MULTIPART_UPLOAD_SCHEMA = {
+    "type": "object",
+    "required": ["file"],
+    "properties": {"file": BINARY_RESPONSE_SCHEMA},
+}
+_THEMES_RESPONSE_SCHEMA = ok_envelope_with(
+    {"exists": BOOLEAN_SCHEMA, "themes_dir": STRING_SCHEMA, "catalog": loose_object_schema()}
+)
+
+register_contract(
+    "admin_themes_get_route",
+    RouteContract(response_schema=_THEMES_RESPONSE_SCHEMA, models=(WebappThemesConfig,)),
+)
+register_contract(
+    "admin_themes_save_route",
+    RouteContract(
+        request_model=ThemesSaveBody,
+        response_schema=_THEMES_RESPONSE_SCHEMA,
+        models=(WebappThemesConfig,),
+    ),
+)
+register_contract(
+    "admin_appearance_logo_upload_route",
+    RouteContract(
+        request_content={
+            "application/json": _IMAGE_URL_UPLOAD_SCHEMA,
+            "multipart/form-data": _IMAGE_MULTIPART_UPLOAD_SCHEMA,
+        },
+        response_schema=ok_envelope_with(
+            {
+                "logo_url": STRING_SCHEMA,
+                "persisted": BOOLEAN_SCHEMA,
+                "favicon_url": STRING_SCHEMA,
+            },
+            required=["logo_url", "persisted"],
+        ),
+    ),
+)
+register_contract(
+    "admin_appearance_favicon_upload_route",
+    RouteContract(
+        request_content={
+            "application/json": _IMAGE_URL_UPLOAD_SCHEMA,
+            "multipart/form-data": _IMAGE_MULTIPART_UPLOAD_SCHEMA,
+        },
+        response_schema=ok_envelope_with(
+            {"persisted": BOOLEAN_SCHEMA, "favicon_url": STRING_SCHEMA},
+            required=["persisted"],
+        ),
+    ),
 )
 
 
@@ -256,6 +345,8 @@ def _write_favicon_set(body: bytes, content_type: str = "", filename: str = "") 
 async def _read_uploaded_logo_file(request: web.Request) -> tuple[bytes, str, str]:
     reader = await request.multipart()
     async for part in reader:
+        if not isinstance(part, BodyPartReader):
+            continue
         if part.name != "file":
             continue
         body = bytearray()
@@ -347,8 +438,8 @@ async def admin_appearance_logo_upload_route(request: web.Request) -> web.Respon
         if content_type.startswith("multipart/form-data"):
             body, detected_content_type, filename = await _read_uploaded_logo_file(request)
         else:
-            payload = await _read_json(request)
-            source_url = str(payload.get("url") or "").strip()
+            upload = await parse_body_or_400(request, ImageUrlUploadBody)
+            source_url = str(upload.url or "").strip()
             if not source_url:
                 return _error(400, "invalid_payload", "url or file is required")
             body, detected_content_type, filename = await _fetch_logo_from_url(source_url)
@@ -385,8 +476,8 @@ async def admin_appearance_favicon_upload_route(request: web.Request) -> web.Res
         if content_type.startswith("multipart/form-data"):
             body, detected_content_type, filename = await _read_uploaded_logo_file(request)
         else:
-            payload = await _read_json(request)
-            source_url = str(payload.get("url") or "").strip()
+            upload = await parse_body_or_400(request, ImageUrlUploadBody)
+            source_url = str(upload.url or "").strip()
             if not source_url:
                 return _error(400, "invalid_payload", "url or file is required")
             body, detected_content_type, filename = await _fetch_logo_from_url(source_url)
@@ -435,8 +526,8 @@ async def admin_themes_save_route(request: web.Request) -> web.Response:
         env_default_theme=settings.WEBAPP_DEFAULT_THEME,
         theme_dir=settings.WEBAPP_THEMES_DIR,
     )
-    payload = await _read_json(request)
-    catalog = payload.get("catalog") if "catalog" in payload else payload
+    body = await parse_body_or_400(request, ThemesSaveBody)
+    catalog = body.catalog_payload()
     if not isinstance(catalog, dict):
         return _error(400, "invalid_payload", "catalog must be an object")
 

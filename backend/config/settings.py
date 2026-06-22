@@ -1,3 +1,5 @@
+# mypy: disable-error-code=prop-decorator
+
 import logging
 import os
 import re
@@ -1380,7 +1382,7 @@ def get_settings() -> Settings:
     global _settings_instance
     if _settings_instance is None:
         try:
-            _settings_instance = Settings()
+            _settings_instance = Settings()  # type: ignore[call-arg]
             if not _settings_instance.ADMIN_IDS:
                 logging.warning(
                     "CRITICAL: ADMIN_IDS not set or contains no valid integer IDs in .env. "

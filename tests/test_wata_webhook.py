@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from bot.payment_providers import wata
 from bot.payment_providers.wata import WataConfig, WataService
+from bot.payment_providers.wata import service as wata_service
 
 
 class _FakeRequest:
@@ -102,9 +103,9 @@ def test_wata_created_webhook_returns_ok_and_persists_transaction_id(monkeypatch
     ):
         updates.append((payment_id, provider_payment_id, status))
 
-    monkeypatch.setattr(wata, "lookup_payment_by_order_or_provider_id", lookup_payment)
+    monkeypatch.setattr(wata_service, "lookup_payment_by_order_or_provider_id", lookup_payment)
     monkeypatch.setattr(
-        wata.payment_dal,
+        wata_service.payment_dal,
         "update_provider_payment_and_status",
         update_provider_payment_and_status,
     )
@@ -149,9 +150,9 @@ def test_wata_created_webhook_can_find_payment_by_payment_link_id(monkeypatch):
     ):
         updates.append((payment_id, provider_payment_id, status))
 
-    monkeypatch.setattr(wata, "lookup_payment_by_order_or_provider_id", lookup_payment)
+    monkeypatch.setattr(wata_service, "lookup_payment_by_order_or_provider_id", lookup_payment)
     monkeypatch.setattr(
-        wata.payment_dal,
+        wata_service.payment_dal,
         "update_provider_payment_and_status",
         update_provider_payment_and_status,
     )
@@ -186,9 +187,9 @@ def test_wata_known_payment_with_unknown_status_still_acknowledges_webhook(monke
     async def update_provider_payment_and_status(*args, **kwargs):
         raise AssertionError("unknown statuses must not mutate payment state")
 
-    monkeypatch.setattr(wata, "lookup_payment_by_order_or_provider_id", lookup_payment)
+    monkeypatch.setattr(wata_service, "lookup_payment_by_order_or_provider_id", lookup_payment)
     monkeypatch.setattr(
-        wata.payment_dal,
+        wata_service.payment_dal,
         "update_provider_payment_and_status",
         update_provider_payment_and_status,
     )
@@ -267,13 +268,13 @@ def test_wata_refresh_finds_paid_transaction_by_order_id_and_finalizes(monkeypat
         return SimpleNamespace()
 
     service.search_transactions = search_transactions
-    monkeypatch.setattr(wata.payment_dal, "get_payment_by_db_id", get_payment_by_db_id)
+    monkeypatch.setattr(wata_service.payment_dal, "get_payment_by_db_id", get_payment_by_db_id)
     monkeypatch.setattr(
-        wata.payment_dal,
+        wata_service.payment_dal,
         "update_provider_payment_and_status",
         update_provider_payment_and_status,
     )
-    monkeypatch.setattr(wata, "finalize_successful_payment", finalize_successful_payment)
+    monkeypatch.setattr(wata_service, "finalize_successful_payment", finalize_successful_payment)
 
     result = asyncio.run(service.refresh_payment_status(session, payment))
 
@@ -334,13 +335,13 @@ def test_wata_hwid_payment_finalizes_purchased_device_count(monkeypatch):
         return SimpleNamespace()
 
     service.search_transactions = search_transactions
-    monkeypatch.setattr(wata.payment_dal, "get_payment_by_db_id", get_payment_by_db_id)
+    monkeypatch.setattr(wata_service.payment_dal, "get_payment_by_db_id", get_payment_by_db_id)
     monkeypatch.setattr(
-        wata.payment_dal,
+        wata_service.payment_dal,
         "update_provider_payment_and_status",
         update_provider_payment_and_status,
     )
-    monkeypatch.setattr(wata, "finalize_successful_payment", finalize_successful_payment)
+    monkeypatch.setattr(wata_service, "finalize_successful_payment", finalize_successful_payment)
 
     result = asyncio.run(service.refresh_payment_status(session, payment))
 
@@ -477,7 +478,7 @@ def test_create_payment_link_uses_clean_iso_expiration_without_microseconds(monk
         captured["body"] = body
         return True, {"id": "link-1", "url": "https://wata.pro/p/link-1"}
 
-    monkeypatch.setattr(wata, "post_json_request", fake_post_json_request)
+    monkeypatch.setattr(wata_service, "post_json_request", fake_post_json_request)
 
     service = _service(_FakeSession())
 
@@ -510,7 +511,7 @@ def test_create_crypto_payment_link_uses_crypto_terminal_credentials(monkeypatch
         captured["log_prefix"] = log_prefix
         return True, {"id": "crypto-link", "url": "https://wata.pro/p/crypto-link"}
 
-    monkeypatch.setattr(wata, "post_json_request", fake_post_json_request)
+    monkeypatch.setattr(wata_service, "post_json_request", fake_post_json_request)
 
     service = _service(
         _FakeSession(),
@@ -589,9 +590,9 @@ def test_wata_webhook_rejects_mismatched_terminal_public_id(monkeypatch):
     async def update_provider_payment_and_status(*args, **kwargs):
         raise AssertionError("terminal mismatch must not mutate payment state")
 
-    monkeypatch.setattr(wata, "lookup_payment_by_order_or_provider_id", lookup_payment)
+    monkeypatch.setattr(wata_service, "lookup_payment_by_order_or_provider_id", lookup_payment)
     monkeypatch.setattr(
-        wata.payment_dal,
+        wata_service.payment_dal,
         "update_provider_payment_and_status",
         update_provider_payment_and_status,
     )
@@ -630,9 +631,9 @@ def test_wata_crypto_webhook_accepts_matching_terminal_public_id(monkeypatch):
     ):
         updates.append((payment_id, provider_payment_id, status))
 
-    monkeypatch.setattr(wata, "lookup_payment_by_order_or_provider_id", lookup_payment)
+    monkeypatch.setattr(wata_service, "lookup_payment_by_order_or_provider_id", lookup_payment)
     monkeypatch.setattr(
-        wata.payment_dal,
+        wata_service.payment_dal,
         "update_provider_payment_and_status",
         update_provider_payment_and_status,
     )
@@ -676,9 +677,9 @@ def test_wata_webhook_without_terminal_hint_rechecks_signature_with_payment_prof
     ):
         updates.append((payment_id, provider_payment_id, status))
 
-    monkeypatch.setattr(wata, "lookup_payment_by_order_or_provider_id", lookup_payment)
+    monkeypatch.setattr(wata_service, "lookup_payment_by_order_or_provider_id", lookup_payment)
     monkeypatch.setattr(
-        wata.payment_dal,
+        wata_service.payment_dal,
         "update_provider_payment_and_status",
         update_provider_payment_and_status,
     )
@@ -752,11 +753,11 @@ def test_refresh_marks_expired_wata_link_as_canceled(monkeypatch):
     service._find_transaction_for_payment = find_transaction_for_payment
     service.get_payment_link = get_payment_link
     monkeypatch.setattr(
-        wata.payment_dal,
+        wata_service.payment_dal,
         "update_provider_payment_and_status",
         update_provider_payment_and_status,
     )
-    monkeypatch.setattr(wata.payment_dal, "get_payment_by_db_id", get_payment_by_db_id)
+    monkeypatch.setattr(wata_service.payment_dal, "get_payment_by_db_id", get_payment_by_db_id)
 
     result = asyncio.run(service.refresh_payment_status(session, payment))
 

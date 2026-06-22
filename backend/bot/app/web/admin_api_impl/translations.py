@@ -1,14 +1,65 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
-
 from bot.middlewares.i18n import JsonI18n, locale_language_options, resolve_locale_key
 from bot.services.locale_override_service import (
     LOCALE_OVERRIDES_PATH,
     audience_for_locale_key,
     group_id_for_locale_key,
-    locale_group_catalog,
     load_locale_overrides,
+    locale_group_catalog,
     update_locale_overrides,
+)
+
+from ._runtime import (
+    BOOLEAN_SCHEMA,
+    INTEGER_SCHEMA,
+    STRING_SCHEMA,
+    AdminTranslationsPatchBody,
+    Any,
+    Dict,
+    List,
+    Optional,
+    RouteContract,
+    Tuple,
+    locale_overrides_dal,
+    loose_array_schema,
+    ok_envelope_with,
+    parse_body_or_400,
+    register_contract,
+    sessionmaker,
+    web,
+)
+from .auth import (
+    _require_admin_user_id,
+)
+from .common import (
+    _error,
+    _ok,
+)
+
+register_contract(
+    "admin_translations_get_route",
+    RouteContract(
+        response_schema=ok_envelope_with(
+            {
+                "languages": loose_array_schema(),
+                "groups": loose_array_schema(),
+                "path": STRING_SCHEMA,
+                "override_count": INTEGER_SCHEMA,
+            }
+        )
+    ),
+)
+register_contract(
+    "admin_translations_patch_route",
+    RouteContract(
+        request_model=AdminTranslationsPatchBody,
+        response_schema=ok_envelope_with(
+            {
+                "applied": INTEGER_SCHEMA,
+                "reverted": INTEGER_SCHEMA,
+                "file_written": BOOLEAN_SCHEMA,
+            }
+        ),
+    ),
 )
 
 
@@ -116,9 +167,9 @@ async def admin_translations_patch_route(request: web.Request) -> web.Response:
     if i18n is None:
         return _error(503, "i18n_unavailable")
     async_session_factory: sessionmaker = request.app["async_session_factory"]
-    payload = await _read_json(request)
-    updates = payload.get("updates") or {}
-    deletes = payload.get("deletes") or []
+    body = await parse_body_or_400(request, AdminTranslationsPatchBody)
+    updates = body.updates or {}
+    deletes = body.deletes or []
     if not isinstance(updates, dict):
         return _error(400, "invalid_updates")
     if not isinstance(deletes, list):

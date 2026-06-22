@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Send } from "$components/ui/icons.js";
   import { Button, Spinner, Textarea } from "$components/ui/index.js";
 
@@ -8,14 +8,14 @@
   export let sending = false;
   export let placeholder = "";
   export let sendLabel = "";
-  export let onSend = () => {};
+  export let onSend: (value: string) => void | Promise<void> = () => {};
 
   function submit() {
     if (disabled || sending || !value.trim()) return;
     onSend(value.trim());
   }
 
-  function handleKeydown(event) {
+  function handleKeydown(event: KeyboardEvent) {
     if (!(event.ctrlKey || event.metaKey) || event.key !== "Enter") return;
     event.preventDefault();
     submit();

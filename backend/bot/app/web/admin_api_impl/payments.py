@@ -1,5 +1,48 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+from ._runtime import (
+    AdminPaymentsListOut,
+    Payment,
+    PaymentDetailOut,
+    PaymentOut,
+    RouteContract,
+    csv,
+    io,
+    ok_envelope_for,
+    payment_dal,
+    register_contract,
+    select,
+    sessionmaker,
+    web,
+)
+from .auth import (
+    _require_admin_user_id,
+)
+from .common import (
+    _error,
+    _ok,
+    _payment_user_display_label,
+)
+
+register_contract(
+    "admin_payments_list_route",
+    RouteContract(
+        response_schema=ok_envelope_for(AdminPaymentsListOut),
+        models=(AdminPaymentsListOut, PaymentOut),
+    ),
+)
+register_contract(
+    "admin_payment_detail_route",
+    RouteContract(
+        response_schema=ok_envelope_for(PaymentDetailOut, key="payment"),
+        models=(PaymentDetailOut,),
+    ),
+)
+register_contract(
+    "admin_payments_export_route",
+    RouteContract(
+        response_schema={"type": "string", "contentMediaType": "text/csv"},
+        response_content_type="text/csv",
+    ),
+)
 
 
 async def admin_payments_list_route(request: web.Request) -> web.Response:
@@ -24,7 +67,7 @@ async def admin_payments_list_route(request: web.Request) -> web.Response:
 
     return _ok(
         {
-            "payments": [_serialize_payment(p) for p in rows],
+            "payments": [PaymentOut.from_orm_payment(p).model_dump(mode="json") for p in rows],
             "page": page,
             "page_size": page_size,
             "total": int(total or 0),
@@ -46,17 +89,7 @@ async def admin_payment_detail_route(request: web.Request) -> web.Response:
         if not payment:
             return _error(404, "not_found", "Payment not found")
 
-        payload = _serialize_payment(payment)
-        payload.update(
-            {
-                "yookassa_payment_id": payment.yookassa_payment_id,
-                "idempotence_key": payment.idempotence_key,
-                "promo_code": (
-                    payment.promo_code_used.code if payment.promo_code_used is not None else None
-                ),
-                "updated_at": payment.updated_at.isoformat() if payment.updated_at else None,
-            }
-        )
+        payload = PaymentDetailOut.from_orm_payment_detail(payment).model_dump(mode="json")
 
     return _ok({"payment": payload})
 

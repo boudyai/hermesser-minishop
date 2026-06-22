@@ -18,6 +18,7 @@
   export let promoStatus = "";
 
   export let applyPromo = () => {};
+  export let setPromoCode = () => {};
   export let clearPromoFieldError = () => {};
   export let copyText = () => {};
   export let t = (key) => key;
@@ -142,10 +143,13 @@
       <div class="field-error-wrap">
         <Tooltip.Root open={Boolean(promoFieldError)}>
           <Input
-            bind:value={promoCode}
+            value={promoCode}
             placeholder="PROMO2026"
             class={promoFieldError ? "input-error" : ""}
-            on:input={clearPromoFieldError}
+            on:input={(event) => {
+              setPromoCode(event.currentTarget.value);
+              clearPromoFieldError();
+            }}
           />
           {#if promoFieldError}
             <Tooltip.Trigger class="field-error-trigger" aria-label={promoFieldError}>

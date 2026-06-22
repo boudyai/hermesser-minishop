@@ -2,6 +2,7 @@ import js from "@eslint/js";
 import eslintConfigPrettier from "eslint-config-prettier";
 import svelte from "eslint-plugin-svelte";
 import globals from "globals";
+import tseslint from "typescript-eslint";
 
 /** @type {import("eslint").Linter.Config[]} */
 export default [
@@ -11,7 +12,7 @@ export default [
   js.configs.recommended,
   ...svelte.configs["flat/base"],
   {
-    files: ["src/**/*.{js,svelte}", "scripts/**/*.mjs"],
+    files: ["src/**/*.{js,ts,svelte}", "scripts/**/*.mjs"],
     rules: {
       "no-unused-vars": [
         "warn",
@@ -26,12 +27,50 @@ export default [
   },
   {
     files: ["src/**/*.svelte"],
+    languageOptions: {
+      parserOptions: {
+        parser: tseslint.parser,
+      },
+    },
+    plugins: {
+      "@typescript-eslint": tseslint.plugin,
+    },
     rules: {
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
       "no-useless-assignment": "off",
     },
   },
   {
-    files: ["src/**/*.{js,svelte}"],
+    files: ["src/**/*.ts"],
+    languageOptions: {
+      parser: tseslint.parser,
+    },
+    plugins: {
+      "@typescript-eslint": tseslint.plugin,
+    },
+    rules: {
+      "no-undef": "off",
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/**/*.{js,ts,svelte}"],
     languageOptions: {
       globals: {
         ...globals.browser,

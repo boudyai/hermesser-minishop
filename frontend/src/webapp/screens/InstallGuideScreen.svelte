@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { getContext, onDestroy, onMount } from "svelte";
   import QRCode from "qrcode";
   import {
@@ -17,24 +17,44 @@
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import { createHeightStageAnimator } from "$lib/webapp/motion/heightStage.js";
+  import type { InstallGuidesStore } from "$lib/webapp/stores/installGuidesStore";
+
+  type AnyRecord = Record<string, any>;
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type HeightStageAnimator = {
+    animate(update: () => void): void;
+    destroy(): void;
+  };
+  type HeightStageState = {
+    instant: boolean;
+    locked: boolean;
+    style: string;
+  };
+
+  const createInstallStageAnimator = createHeightStageAnimator as unknown as (options: {
+    durationMs: number;
+    getElement: () => HTMLElement | null;
+    settleDelayMs: number;
+    setState: (state: HeightStageState) => void;
+  }) => HeightStageAnimator;
 
   export let currentLang = "ru";
   export let telegramPlatform = "";
-  export let user = {};
-  export let subscription = {};
+  export let user: AnyRecord = {};
+  export let subscription: AnyRecord = {};
   export let goHome = () => {};
-  export let openConnectLink = () => {};
-  export let openExternalLink = () => {};
-  export let openAppLink = null;
-  export let copyText = async () => {};
-  export let t = (key, _params = {}, fallback = "") => fallback || key;
+  export let openConnectLink: (url?: string) => void = () => {};
+  export let openExternalLink: (url: string) => void = () => {};
+  export let openAppLink: ((url: string) => void) | null = null;
+  export let copyText: (text: string, message?: string) => Promise<void> = async () => {};
+  export let t: Translate = (key, _params = {}, fallback = "") => fallback || key;
   export let publicMode = false;
 
-  const installGuidesStore = getContext("installGuidesStore");
+  const installGuidesStore = getContext("installGuidesStore") as InstallGuidesStore;
   const STAGE_HEIGHT_ANIMATION_MS = 360;
   const CARD_STAGGER_MS = 46;
   const QR_DELAY_EXTRA_MS = 90;
-  const colorTokens = {
+  const colorTokens: Record<string, string> = {
     amber: "#f59e0b",
     blue: "#3b82f6",
     cyan: "#06b6d4",
@@ -63,11 +83,12 @@
   let qrDataUrl = "";
   let lastQrValue = "";
   let qrRequestId = 0;
-  let installContentStage;
+  let installContentStage: HTMLElement | null = null;
   let stageHeightStyle = "";
   let stageHeightLocked = false;
   let stageHeightInstant = false;
-  const installStageAnimator = createHeightStageAnimator({
+  const selectContentProps = { trapFocus: false } as Record<string, unknown>;
+  const installStageAnimator = createInstallStageAnimator({
     durationMs: STAGE_HEIGHT_ANIMATION_MS,
     getElement: () => installContentStage,
     settleDelayMs: QR_DELAY_EXTRA_MS + 80,
@@ -81,10 +102,10 @@
   onDestroy(() => installStageAnimator.destroy());
 
   $: guideState = $installGuidesStore;
-  $: config = guideState?.config || null;
-  $: platforms = Object.entries(config?.platforms || {})
+  $: config = (guideState?.config || null) as AnyRecord | null;
+  $: platforms = Object.entries((config?.platforms || {}) as Record<string, AnyRecord>)
     .filter(([, platform]) => Array.isArray(platform?.apps) && platform.apps.length)
-    .map(([key, platform]) => ({ key, ...platform }));
+    .map(([key, platform]) => ({ key, ...platform }) as AnyRecord & { key: string });
   $: platformOptions = platforms.map((platform) => ({
     value: platform.key,
     label: localized(platform.displayName, platform.key),
@@ -125,7 +146,7 @@
     updateQr(finalSubscriptionLink);
   }
 
-  function localized(value, fallback = "") {
+  function localized(value: any, fallback = ""): string {
     if (typeof value === "string") return value;
     if (!value || typeof value !== "object") return fallback;
     const lang = String(currentLang || "ru")
@@ -140,24 +161,24 @@
     );
   }
 
-  function iconSvg(key) {
+  function iconSvg(key: unknown): string {
     const iconKey = String(key || "").trim();
     return iconKey ? config?.svgLibrary?.[iconKey] || "" : "";
   }
 
-  function iconColorStyle(color) {
+  function iconColorStyle(color: unknown): string {
     const raw = String(color || "").trim();
     const value = colorTokens[raw] || raw;
     return value ? `--install-icon-color:${value};` : "";
   }
 
-  function setInstallStageState({ instant, locked, style }) {
+  function setInstallStageState({ instant, locked, style }: HeightStageState) {
     stageHeightInstant = instant;
     stageHeightLocked = locked;
     stageHeightStyle = style;
   }
 
-  function selectPlatform(key) {
+  function selectPlatform(key: string) {
     if (key === selectedPlatformKey) return;
     installStageAnimator.animate(() => {
       selectedPlatformKey = key;
@@ -165,26 +186,28 @@
     });
   }
 
-  function selectApp(index) {
+  function selectApp(index: number) {
     if (index === selectedAppIndex) return;
     installStageAnimator.animate(() => {
       selectedAppIndex = index;
     });
   }
 
-  function installMotionStyle(index, extraDelay = 0) {
+  function installMotionStyle(index: number, extraDelay = 0) {
     const delay = Math.max(0, index) * CARD_STAGGER_MS + Math.max(0, extraDelay);
     return `--motion-delay:${delay}ms;`;
   }
 
-  function platformFallbackIcon(key) {
+  function platformFallbackIcon(key: string) {
     return key === "ios" || key === "android" || key === "androidTV" ? Smartphone : Monitor;
   }
 
-  function detectPlatformKey(availableKeys) {
+  function detectPlatformKey(availableKeys: string[]) {
     const available = new Set(availableKeys || []);
     const tgPlatform = String(telegramPlatform || "").toLowerCase();
-    const nav = typeof navigator === "undefined" ? {} : navigator;
+    const nav = (typeof navigator === "undefined" ? {} : navigator) as Navigator & {
+      userAgentData?: { platform?: string };
+    };
     const userAgentDataPlatform = String(nav?.userAgentData?.platform || "").toLowerCase();
     const ua = String(nav?.userAgent || "").toLowerCase();
     const candidates = [];
@@ -213,7 +236,7 @@
     return candidates.find((candidate) => available.has(candidate)) || "";
   }
 
-  function templateValues() {
+  function templateValues(): Record<string, string> {
     const subscriptionLink = subscription?.config_link || subscription?.connect_url || "";
     const username = user?.username || user?.first_name || user?.id || "";
     return {
@@ -224,28 +247,28 @@
     };
   }
 
-  function resolveTemplate(value) {
+  function resolveTemplate(value: unknown) {
     const replacements = templateValues();
     return String(value || "").replace(/\{\{\s*([A-Z0-9_]+)\s*\}\}/g, (_match, key) =>
       Object.prototype.hasOwnProperty.call(replacements, key) ? replacements[key] : ""
     );
   }
 
-  function isUnsafeUrl(value) {
+  function isUnsafeUrl(value: unknown) {
     const url = String(value || "")
       .trim()
       .toLowerCase();
     return !url || hasControlChars(url) || /^(javascript|data|vbscript):/.test(url);
   }
 
-  function hasControlChars(value) {
+  function hasControlChars(value: unknown) {
     return Array.from(String(value || "")).some((char) => {
       const code = char.charCodeAt(0);
       return code <= 31 || code === 127;
     });
   }
 
-  function openResolvedLink(url) {
+  function openResolvedLink(url: string) {
     if (isUnsafeUrl(url)) {
       openConnectLink();
       return;
@@ -253,7 +276,7 @@
     (openAppLink || openExternalLink)(url);
   }
 
-  async function handleButton(button) {
+  async function handleButton(button: AnyRecord) {
     const value = resolveTemplate(button?.link);
     if (button?.type === "copyButton") {
       await copyText(
@@ -265,7 +288,7 @@
     openResolvedLink(value);
   }
 
-  async function updateQr(value) {
+  async function updateQr(value: unknown) {
     const link = String(value || "").trim();
     const requestId = ++qrRequestId;
     if (!link) {
@@ -368,7 +391,7 @@
             side="bottom"
             align="start"
             sideOffset={6}
-            trapFocus={false}
+            {...selectContentProps}
           >
             <Select.Viewport class="install-platform-viewport">
               {#each platforms as platform}
