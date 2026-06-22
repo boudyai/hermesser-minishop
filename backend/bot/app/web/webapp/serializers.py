@@ -1023,8 +1023,3 @@ def _serialize_payment_methods(
                 payload.update(minimum)
             methods.append(payload)
     return methods
-
-
-def _service_configured(app: web.Application, key: str) -> bool:
-    service = app.get(key)
-    return bool(service and getattr(service, "configured", False))
