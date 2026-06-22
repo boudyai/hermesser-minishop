@@ -430,7 +430,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
     def test_frontend_starts_public_install_preload_before_mount(self):
         main_source = Path("frontend/src/main.js").read_text(encoding="utf-8")
         app_source = Path("frontend/src/App.svelte").read_text(encoding="utf-8")
-        store_source = Path("frontend/src/lib/webapp/stores/installGuidesStore.js").read_text(
+        store_source = Path("frontend/src/lib/webapp/stores/installGuidesStore.ts").read_text(
             encoding="utf-8"
         )
 

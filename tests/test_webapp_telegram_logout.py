@@ -27,7 +27,7 @@ def test_logout_button_is_controlled_by_telegram_context():
 
 
 def test_logout_handler_is_noop_inside_telegram_mini_app():
-    source = _read("frontend/src/lib/webapp/stores/accountStore.js")
+    source = _read("frontend/src/lib/webapp/stores/accountStore.ts")
 
     guard_pos = source.index("if (telegramSdk.hasLaunchParams()) return;")
     mark_logout_pos = source.index("markManualLogout();")

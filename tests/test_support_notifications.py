@@ -18,6 +18,9 @@ def _settings(**overrides):
         "BOT_TOKEN": "123456:test",
         "POSTGRES_USER": "app_user",
         "POSTGRES_PASSWORD": "app_password",
+        # Keep the helper hermetic: an ambient SUBSCRIPTION_MINI_APP_URL (set in CI) must
+        # not leak into the fallback tests that expect it unset. Explicit overrides win.
+        "SUBSCRIPTION_MINI_APP_URL": "",
     }
     data.update(overrides)
     return Settings(_env_file=None, **data)
