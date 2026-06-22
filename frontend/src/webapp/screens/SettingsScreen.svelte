@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import {
     ArrowRight,
     CheckCircle2,
@@ -16,8 +16,17 @@
   import { LanguageSelect } from "$components/patterns/webapp/index.js";
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
 
+  type AnyRecord = Record<string, any>;
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type VoidAction = () => void;
+  type LanguageOption = {
+    value: string;
+    label: string;
+    flag?: string;
+  };
+
   export let currentLang = "ru";
-  export let currentLanguageOption = null;
+  export let currentLanguageOption: LanguageOption | null = null;
   export let emailAuthEnabled = true;
   export let emailLinkStatus = "";
   export let isAdmin = false;
@@ -25,7 +34,7 @@
   export let languageClickGuard = false;
   export let languageClickGuardArmed = false;
   export let languageMenuOpen = false;
-  export let languageOptions = [];
+  export let languageOptions: LanguageOption[] = [];
   export let linkEmailBusy = false;
   export let linkTelegramBusy = false;
   export let privacyPolicyUrl = "";
@@ -38,21 +47,21 @@
   export let telegramNotificationsStartLink = "";
   export let telegramNotificationsStatus = "unknown";
   export let telegramProfileName = "";
-  export let user = {};
+  export let user: AnyRecord = {};
   export let userAgreementUrl = "";
   export let userLanguage = "";
   export let showLogout = true;
 
-  export let linkTelegramAccount = () => {};
-  export let openTelegramNotificationsBot = () => {};
-  export let logout = () => {};
-  export let openAdminPanel = () => {};
-  export let openExternalLink = () => {};
-  export let openLinkEmailDialog = () => {};
-  export let openSetPasswordDialog = () => {};
-  export let setLanguageMenuOpen = () => {};
-  export let t = (key) => key;
-  export let updateAccountLanguage = () => {};
+  export let linkTelegramAccount: VoidAction = () => {};
+  export let openTelegramNotificationsBot: VoidAction = () => {};
+  export let logout: VoidAction = () => {};
+  export let openAdminPanel: VoidAction = () => {};
+  export let openExternalLink: (url: string) => void = () => {};
+  export let openLinkEmailDialog: VoidAction = () => {};
+  export let openSetPasswordDialog: VoidAction = () => {};
+  export let setLanguageMenuOpen: (open: boolean) => void = () => {};
+  export let t: Translate = (key) => key;
+  export let updateAccountLanguage: (language: string) => void = () => {};
 
   $: showEmailAccount = emailAuthEnabled || Boolean(user?.email);
 </script>

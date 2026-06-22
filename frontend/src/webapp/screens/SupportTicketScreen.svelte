@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { afterUpdate, getContext, tick } from "svelte";
   import { Badge, Button, ScrollArea, Skeleton } from "$components/ui/index.js";
   import Card from "$components/ui/card.svelte";
@@ -10,23 +10,34 @@
     supportDraftScope,
     writeSupportDraft,
   } from "$lib/webapp/supportDrafts.js";
+  import type { SupportStore } from "$lib/webapp/stores/supportStore";
 
-  export let t = (key) => key;
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type MessageRecord = Record<string, unknown> & {
+    author_name?: string;
+    author_role?: string;
+    body?: string;
+    created_at?: string;
+    is_internal_note?: boolean;
+    message_id?: number;
+  };
+
+  export let t: Translate = (key) => key;
   export let maxBodyLength = 4000;
-  export let brand = {};
-  export let user = {};
+  export let brand: Record<string, unknown> = {};
+  export let user: Record<string, unknown> = {};
   export let userAvatarUrl = "";
   export let userInitials = "";
 
-  const supportStore = getContext("supportStore");
+  const supportStore = getContext("supportStore") as SupportStore;
   let reply = "";
-  let messagesScrollEl;
+  let messagesScrollEl: null = null;
   let lastMessageKey = "";
   let replyDraftKey = "";
 
   $: ({ openedTicket, messages, detailLoading, sending } = $supportStore);
-  $: closed = ["resolved", "closed"].includes(openedTicket?.status);
-  $: ticketId = openedTicket?.ticket_id || "";
+  $: closed = ["resolved", "closed"].includes(String(openedTicket?.status || ""));
+  $: ticketId = String(openedTicket?.ticket_id || "");
   $: draftScope = supportDraftScope(user);
   $: nextReplyDraftKey = ticketId ? `${draftScope}:${ticketId}` : "";
   $: if (nextReplyDraftKey && nextReplyDraftKey !== replyDraftKey) {
@@ -40,7 +51,7 @@
     else clearSupportDraft("reply", draftScope, ticketId);
   }
 
-  async function send(body) {
+  async function send(body: string) {
     const currentTicketId = ticketId;
     const currentDraftScope = draftScope;
     const sent = await supportStore.sendReply(body);
@@ -51,8 +62,9 @@
 
   function scrollMessagesToBottom() {
     if (!messagesScrollEl) return;
+    const scrollEl = messagesScrollEl as HTMLElement;
     const scroll = () => {
-      messagesScrollEl.scrollTop = messagesScrollEl.scrollHeight;
+      scrollEl.scrollTop = scrollEl.scrollHeight;
     };
     scroll();
     requestAnimationFrame(scroll);
@@ -60,7 +72,7 @@
     window.setTimeout(scroll, 180);
   }
 
-  function messageAuthorName(message) {
+  function messageAuthorName(message: MessageRecord) {
     if (message?.author_name) return message.author_name;
     return message?.author_role === "user" ? t("wa_support_role_user") : "";
   }

@@ -11,8 +11,21 @@ import type {
 import { unwrap } from "../publicApi";
 
 type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-type TicketRecord = Record<string, unknown> & { ticket_id?: number; unread_user_count?: number };
-type MessageRecord = Record<string, unknown>;
+type TicketRecord = Record<string, unknown> & {
+  priority?: string;
+  status?: string;
+  subject?: string;
+  ticket_id?: number;
+  unread_user_count?: number;
+};
+type MessageRecord = Record<string, unknown> & {
+  author_name?: string;
+  author_role?: string;
+  body?: string;
+  created_at?: string;
+  is_internal_note?: boolean;
+  message_id?: number;
+};
 type CountsRecord = {
   active: number;
   closed: number;
@@ -558,3 +571,5 @@ export function createSupportStore({
     closePolling,
   };
 }
+
+export type SupportStore = ReturnType<typeof createSupportStore>;

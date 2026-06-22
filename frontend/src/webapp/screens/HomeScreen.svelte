@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { onMount } from "svelte";
   import {
     CheckCircle2,
@@ -35,19 +35,22 @@
   const SUBSCRIPTION_EXPIRY_WARNING_MS = 72 * 60 * 60 * 1000;
   const SUBSCRIPTION_EXPIRING_SOON_MS = 24 * 60 * 60 * 1000;
 
-  export let appSettings = {};
-  export let brand = {};
+  type AnyRecord = Record<string, any>;
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+
+  export let appSettings: AnyRecord = {};
+  export let brand: AnyRecord = {};
   export let brandTitle = "";
   export let canChangeTariff = false;
   export let premiumTrafficTopupBarClickable = false;
   export let premiumTrafficTopupUnlocked = false;
   export let regularTrafficTopupBarClickable = false;
   export let regularTrafficTopupUnlocked = false;
-  export let referral = {};
+  export let referral: AnyRecord = {};
   export let currentTariffName = "";
   export let hasActiveTariffSubscription = false;
   export let hasMultipleTariffs = false;
-  export let subscription = {};
+  export let subscription: AnyRecord = {};
   export let autoRenewBusy = false;
   export let linkTelegramBusy = false;
   export let telegramNotificationsNeedPrompt = false;
@@ -55,28 +58,28 @@
   export let telegramNotificationsStatus = "unknown";
   export let trafficMode = false;
   export let trialBusy = false;
-  export let termUnitLabel = () => ""; // We need this passed from App or context. Actually, App.svelte doesn't pass it yet. We'll pass it.
+  export let termUnitLabel: (value: number, unit: string) => string = () => ""; // We need this passed from App or context. Actually, App.svelte doesn't pass it yet. We'll pass it.
 
   let nowMs = Date.now();
 
-  function trafficPercent(sub) {
+  function trafficPercent(sub: AnyRecord) {
     return trafficPercentFn(sub);
   }
-  function trafficLabel(sub) {
+  function trafficLabel(sub: AnyRecord) {
     return trafficLabelFn(sub, t);
   }
-  function trafficResetLabel(sub) {
+  function trafficResetLabel(sub: AnyRecord) {
     return trafficResetLabelFn(sub, t);
   }
-  function regularTrafficLimitVisible(sub = subscription) {
+  function regularTrafficLimitVisible(sub: AnyRecord = subscription) {
     return regularTrafficLimitVisibleFn(sub);
   }
-  function regularTrafficDepleted(sub = subscription) {
+  function regularTrafficDepleted(sub: AnyRecord = subscription) {
     const used = Number(sub?.traffic_used_bytes || 0);
     const limit = Number(sub?.traffic_limit_bytes || 0);
     return limit > 0 && used >= limit;
   }
-  function regularTrafficCardClass(sub = subscription) {
+  function regularTrafficCardClass(sub: AnyRecord = subscription) {
     return [
       "traffic-card-compact",
       regularTrafficTopupBarClickable ? "traffic-card-clickable" : "",
@@ -85,33 +88,33 @@
       .filter(Boolean)
       .join(" ");
   }
-  function regularTrafficMetaLabel(sub = subscription) {
+  function regularTrafficMetaLabel(sub: AnyRecord = subscription) {
     return regularTrafficDepleted(sub) ? t("wa_traffic_depleted") : trafficResetLabel(sub);
   }
-  function premiumTrafficAvailable(sub = subscription) {
+  function premiumTrafficAvailable(sub: AnyRecord = subscription) {
     return !regularTrafficDepleted(sub);
   }
-  function premiumTrafficPercent(sub) {
+  function premiumTrafficPercent(sub: AnyRecord) {
     return premiumTrafficPercentFn(sub);
   }
-  function premiumTrafficLimitVisible(sub = subscription) {
+  function premiumTrafficLimitVisible(sub: AnyRecord = subscription) {
     return premiumTrafficLimitVisibleFn(sub);
   }
-  function premiumTrafficLabel(sub) {
+  function premiumTrafficLabel(sub: AnyRecord) {
     return premiumTrafficLabelFn(sub, t);
   }
-  function premiumTitle(sub = subscription) {
+  function premiumTitle(sub: AnyRecord = subscription) {
     return premiumTitleFn(sub, t);
   }
-  function premiumTrafficMetaLabel(sub = subscription) {
+  function premiumTrafficMetaLabel(sub: AnyRecord = subscription) {
     return sub?.premium_is_limited
       ? t("wa_premium_access_limited", {}, "Доступ к premium временно ограничен")
       : t("wa_premium_reset_monthly", {}, "Отдельный лимит на месяц");
   }
-  function premiumServerLabels(sub) {
+  function premiumServerLabels(sub: AnyRecord) {
     return premiumServerLabelsFn(sub);
   }
-  function activeSubscriptionTermLabel(sub) {
+  function activeSubscriptionTermLabel(sub: AnyRecord) {
     return activeSubscriptionTermLabelFn(sub, { t, termUnitLabel });
   }
   function trialTrafficLabel() {
@@ -125,30 +128,30 @@
       unit: termUnitLabel(days, "day"),
     });
   }
-  function parseSubscriptionEndMs(sub) {
+  function parseSubscriptionEndMs(sub: AnyRecord) {
     const raw = String(sub?.end_date || "").trim();
     if (!raw) return null;
     const parsed = Date.parse(raw);
     return Number.isFinite(parsed) ? parsed : null;
   }
-  function dateOnlyFromEndText(text) {
+  function dateOnlyFromEndText(text: unknown) {
     const value = String(text || "").trim();
     if (!value) return "";
     return value.split(/\s+/)[0] || value;
   }
-  function dateOnlyFromIso(text) {
+  function dateOnlyFromIso(text: unknown) {
     const match = String(text || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
     return match ? `${match[3]}.${match[2]}.${match[1]}` : "";
   }
-  function subscriptionEndDateLabel(sub) {
+  function subscriptionEndDateLabel(sub: AnyRecord) {
     return dateOnlyFromEndText(sub?.end_date_text) || dateOnlyFromIso(sub?.end_date);
   }
-  function formatSubscriptionCountdown(ms) {
+  function formatSubscriptionCountdown(ms: number) {
     const totalSeconds = Math.max(0, Math.floor(ms / 1000));
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
-    const pad = (value) => String(value).padStart(2, "0");
+    const pad = (value: number) => String(value).padStart(2, "0");
     return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
   }
 
@@ -208,18 +211,18 @@
     return () => window.clearInterval(countdownTimer);
   });
 
-  export let activateTrial = () => {};
-  export let toggleAutoRenew = () => {};
-  export let linkTelegramAndActivateTrial = () => {};
-  export let linkTelegramAndClaimReferralWelcome = () => {};
-  export let openConnectLink = () => {};
-  export let openPaymentModal = () => {};
-  export let openTelegramNotificationsBot = () => {};
-  export let openRegularTopupModal = () => {};
-  export let openPremiumTopupModal = () => {};
-  export let openTariffChangeModal = () => {};
-  export let primaryPayActionLabel = () => "";
-  export let t = (key) => key;
+  export let activateTrial: () => void = () => {};
+  export let toggleAutoRenew: (enabled: boolean) => void = () => {};
+  export let linkTelegramAndActivateTrial: () => void = () => {};
+  export let linkTelegramAndClaimReferralWelcome: () => void = () => {};
+  export let openConnectLink: () => void = () => {};
+  export let openPaymentModal: () => void = () => {};
+  export let openTelegramNotificationsBot: () => void = () => {};
+  export let openRegularTopupModal: () => void = () => {};
+  export let openPremiumTopupModal: () => void = () => {};
+  export let openTariffChangeModal: () => void = () => {};
+  export let primaryPayActionLabel: () => string = () => "";
+  export let t: Translate = (key) => key;
 </script>
 
 <main class="home-layout">

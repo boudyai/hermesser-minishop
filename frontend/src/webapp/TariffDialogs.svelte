@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { ArrowRight, CheckCircle2, LockKeyhole } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
@@ -22,44 +22,48 @@
     PaymentMethodGrid,
   } from "$components/patterns/webapp/index.js";
 
-  export let applyTariffChange = () => {};
+  type AnyRecord = Record<string, any>;
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type VoidAction = () => void;
+
+  export let applyTariffChange: VoidAction = () => {};
   export let changeConfirmOpen = false;
   export let changeModalOpen = false;
-  export let changeOptions = null;
-  export let closeDeviceTopupModal = () => {};
-  export let closeTariffChangeConfirm = () => {};
-  export let closeTariffChangeModal = () => {};
-  export let closeTopupModal = () => {};
-  export let createDeviceTopupPayment = () => {};
-  export let createTopupPayment = () => {};
+  export let changeOptions: AnyRecord | null = null;
+  export let closeDeviceTopupModal: VoidAction = () => {};
+  export let closeTariffChangeConfirm: VoidAction = () => {};
+  export let closeTariffChangeModal: VoidAction = () => {};
+  export let closeTopupModal: VoidAction = () => {};
+  export let createDeviceTopupPayment: VoidAction = () => {};
+  export let createTopupPayment: VoidAction = () => {};
   export let deviceTopupModalOpen = false;
-  export let deviceTopupOptions = null;
-  export let methods = [];
-  export let openTariffChangeConfirm = () => {};
+  export let deviceTopupOptions: AnyRecord | null = null;
+  export let methods: AnyRecord[] = [];
+  export let openTariffChangeConfirm: VoidAction = () => {};
   export let payBusy = false;
-  export let selectedChangeAction = null;
-  export let selectedChangeTarget = null;
-  export let selectedDeviceTopupPlan = null;
+  export let selectedChangeAction: AnyRecord | null = null;
+  export let selectedChangeTarget: AnyRecord | null = null;
+  export let selectedDeviceTopupPlan: AnyRecord | null = null;
   export let selectedMethod = "";
-  export let selectedTopupPlan = null;
+  export let selectedTopupPlan: AnyRecord | null = null;
   export let singleTariffMode = false;
   export let tariffActionBusy = false;
   export let topupModalOpen = false;
-  export let topupOptions = null;
+  export let topupOptions: AnyRecord | null = null;
   export let topupKind = "regular";
-  export let subscription = {};
+  export let subscription: AnyRecord = {};
   export let trafficMode = false;
 
-  function priceLabel(plan) {
+  function priceLabel(plan: AnyRecord | null) {
     return priceLabelFn(plan, selectedMethod);
   }
-  function planKey(plan) {
+  function planKey(plan: AnyRecord | null) {
     return planKeyFn(plan);
   }
-  function planUnitHint(plan) {
+  function planUnitHint(plan: AnyRecord | null) {
     return planUnitHintFn(plan, { trafficMode, selectedMethod, t });
   }
-  function actionKey(action) {
+  function actionKey(action: AnyRecord | null) {
     return actionKeyFn(action);
   }
 
@@ -88,7 +92,7 @@
     }
   }
 
-  function changeActionTitle(action) {
+  function changeActionTitle(action: AnyRecord | null) {
     const mode = String(action?.mode || "");
     if (mode === "recalc_days") {
       return t("wa_tariff_change_recalc_days", { days: Number(action?.days_after || 0) });
@@ -155,13 +159,13 @@
       : "";
   }
 
-  function deviceTopupPlanTitle(plan) {
+  function deviceTopupPlanTitle(plan: AnyRecord) {
     return t("wa_hwid_devices_package", {
       count: Number(plan?.device_count || plan?.months || 0),
     });
   }
 
-  function deviceTopupPlanHint(plan) {
+  function deviceTopupPlanHint(plan: AnyRecord) {
     if (plan?.valid_until_text) {
       return t("wa_hwid_devices_active_until", { date: plan.valid_until_text });
     }
@@ -199,7 +203,7 @@
     return t("wa_topup_traffic");
   }
 
-  export let t = (key) => key;
+  export let t: Translate = (key) => key;
 </script>
 
 <Dialog

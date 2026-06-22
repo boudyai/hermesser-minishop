@@ -1,21 +1,29 @@
-<script>
+<script lang="ts">
   import { Check, ChevronsUpDown, Globe2 } from "$components/ui/icons.js";
   import { Select } from "$components/ui/primitives.js";
 
+  type LanguageOption = {
+    value: string;
+    label: string;
+    flag?: string;
+  };
+
   export let open = false;
   export let value = "ru";
-  export let currentOption = null;
+  export let currentOption: LanguageOption | null = null;
   export let userLanguage = "";
-  export let options = [];
+  export let options: LanguageOption[] = [];
   export let disabled = false;
   export let clickGuard = false;
   export let clickGuardArmed = false;
   export let closeLabel = "Close";
   export let label = "Language";
-  export let onOpenChange = () => {};
-  export let onValueChange = () => {};
+  export let onOpenChange: (open: boolean) => void = () => {};
+  export let onValueChange: (value: string) => void = () => {};
 
-  function closeFromGuard(event) {
+  const selectContentProps = { trapFocus: false } as Record<string, unknown>;
+
+  function closeFromGuard(event: MouseEvent | PointerEvent) {
     event.preventDefault();
     event.stopPropagation();
     if (clickGuardArmed) onOpenChange(false);
@@ -59,7 +67,7 @@
       side="bottom"
       align="end"
       sideOffset={6}
-      trapFocus={false}
+      {...selectContentProps}
     >
       <Select.Viewport class="language-select-viewport">
         {#each options as option (option.value)}

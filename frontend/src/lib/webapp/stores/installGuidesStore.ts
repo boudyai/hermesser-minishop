@@ -174,3 +174,5 @@ export function createInstallGuidesStore({
     reset,
   };
 }
+
+export type InstallGuidesStore = ReturnType<typeof createInstallGuidesStore>;
