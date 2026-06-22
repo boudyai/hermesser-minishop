@@ -1,17 +1,83 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
-
 from bot.app.web.route_contracts import (
     BINARY_RESPONSE_SCHEMA,
     JSON_OBJECT_SCHEMA,
-    RouteContract,
     USER_SECURITY,
+    RouteContract,
     loose_array_schema,
     loose_object_schema,
     ok_envelope_with,
     register_contract,
 )
 
+from ._runtime import (
+    WEBAPP_DEFAULT_LOGO_PATH,
+    WEBAPP_FAVICON_PATH,
+    WEBAPP_LOGO_PROXY_PATH,
+    WEBAPP_UPLOADED_LOGO_PATH,
+    setup_admin_routes,
+    web,
+)
+from .account import (
+    account_avatar_route,
+    account_email_request_route,
+    account_email_verify_route,
+    account_language_route,
+    account_password_confirm_route,
+    account_password_request_route,
+    account_telegram_link_route,
+    me_route,
+)
+from .assets import (
+    admin_css_asset_route,
+    admin_js_asset_route,
+    app_deeplink_route,
+    bootstrap_route,
+    css_asset_route,
+    health_route,
+    i18n_route,
+    index_route,
+    js_asset_route,
+    robots_txt_route,
+    theme_asset_route,
+    theme_css_asset_route,
+    webapp_current_favicon_route,
+    webapp_default_logo_route,
+    webapp_favicon_route,
+    webapp_logo_route,
+    webapp_uploaded_logo_route,
+)
+from .auth import (
+    auth_token_route,
+    email_auth_magic_route,
+    email_auth_request_route,
+    email_auth_verify_route,
+    email_password_auth_route,
+    logout_route,
+    referral_welcome_bonus_claim_route,
+    telegram_oauth_callback_route,
+    telegram_oauth_nonce_route,
+    telegram_oauth_start_route,
+)
+from .billing import (
+    activate_trial_route,
+    apply_promo_route,
+    create_payment_route,
+    device_topup_options_route,
+    payment_status_route,
+    subscription_auto_renew_route,
+    tariff_change_options_route,
+    tariff_change_payment_route,
+    tariff_change_route,
+    tariff_topup_options_route,
+)
+from .devices import (
+    devices_route,
+    disconnect_device_route,
+)
+from .guides import (
+    public_subscription_guides_route,
+    subscription_guides_route,
+)
 from .payloads import (
     CreateTicketPayload,
     TicketReplyPayload,
@@ -26,7 +92,17 @@ from .payloads import (
     WebAppSetPasswordPayload,
     WebAppTariffChangePayload,
 )
-
+from .support import (
+    support_create_ticket_route,
+    support_ticket_detail_route,
+    support_ticket_read_route,
+    support_ticket_reply_route,
+    support_tickets_route,
+    support_unread_route,
+)
+from .telegram_notifications import (
+    account_telegram_notifications_probe_route,
+)
 
 _STRING_SCHEMA = {"type": "string"}
 _INTEGER_SCHEMA = {"type": "integer"}

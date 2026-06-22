@@ -1,9 +1,23 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
-
 from bot.services.support_service import TicketForbidden, TicketNotFound, TicketRateLimited
 from db.dal import support_dal, user_dal
 from db.models import SupportTicket, SupportTicketMessage
+
+from ._runtime import (
+    Any,
+    Dict,
+    sessionmaker,
+    web,
+)
+from .common import (
+    _json_error,
+    _read_json,
+    _require_user_id,
+    _validate_model_payload,
+)
+from .payloads import (
+    CreateTicketPayload,
+    TicketReplyPayload,
+)
 
 
 def _support_ticket_payload(ticket: SupportTicket) -> Dict[str, Any]:

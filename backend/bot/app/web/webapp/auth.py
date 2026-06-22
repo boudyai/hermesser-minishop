@@ -1,42 +1,75 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
-
 from bot.infra import events
 from bot.infra.event_payloads import ReferralBonusGrantedPayload
 
-from .common import _invalidate_webapp_user_caches
+from ._runtime import (
+    WEBAPP_CSRF_COOKIE_NAME,
+    WEBAPP_SESSION_COOKIE_NAME,
+    WEBAPP_TELEGRAM_OAUTH_STATE_COOKIE_NAME,
+    Any,
+    AsyncSession,
+    ClientTimeout,
+    Dict,
+    EmailAuthService,
+    List,
+    Optional,
+    Settings,
+    SubscriptionService,
+    User,
+    UserMergeConflictError,
+    base64,
+    create_signed_telegram_oauth_state,
+    create_telegram_oauth_nonce,
+    create_webapp_session_token,
+    datetime,
+    hashlib,
+    hmac,
+    ipaddress,
+    is_disposable_email,
+    logger,
+    panel_description_from_profile,
+    parse_ip_entries,
+    re,
+    sanitize_display_name,
+    sanitize_username,
+    secrets,
+    security_dal,
+    sessionmaker,
+    subscription_dal,
+    timezone,
+    urlencode,
+    urlsplit,
+    user_dal,
+    validate_telegram_login_widget_data,
+    validate_telegram_oauth_id_token,
+    validate_telegram_webapp_init_data,
+    verify_signed_telegram_oauth_state,
+    verify_telegram_oauth_nonce,
+    web,
+)
+from .assets import (
+    _enforce_webapp_rate_limit,
+    _get_shared_http_session,
+)
+from .common import (
+    _extract_authenticated_user_id,
+    _format_webapp_datetime,
+    _invalidate_webapp_user_caches,
+    _json_error,
+    _normalize_language,
+    _read_json,
+    _require_user_id,
+    _resolve_telegram_oauth_client_id,
+    _resolve_telegram_oauth_request_access,
+    _telegram_id_for_user,
+    _validate_model_payload,
+)
+from .payloads import (
+    WebAppEmailCodePayload,
+    WebAppEmailMagicPayload,
+    WebAppEmailPasswordPayload,
+    WebAppEmailPayload,
+)
 from .telegram_notifications import _probe_telegram_notifications_for_user_id
-
-
-def _resolve_telegram_bot_id(bot_token: str) -> Optional[int]:
-    token_prefix = str(bot_token or "").strip().split(":", 1)[0]
-    if not token_prefix.isdigit():
-        return None
-    try:
-        return int(token_prefix)
-    except ValueError:
-        return None
-
-
-def _resolve_telegram_oauth_client_id(settings: Settings) -> Optional[int]:
-    configured_client_id = getattr(settings, "TELEGRAM_OAUTH_CLIENT_ID", None)
-    if configured_client_id:
-        try:
-            return int(configured_client_id)
-        except (TypeError, ValueError):
-            return None
-    return _resolve_telegram_bot_id(settings.BOT_TOKEN)
-
-
-def _resolve_telegram_oauth_request_access(settings: Settings) -> List[str]:
-    raw_value = str(getattr(settings, "TELEGRAM_OAUTH_REQUEST_ACCESS", "") or "")
-    allowed = {"write", "phone"}
-    scopes = []
-    for item in raw_value.split(","):
-        value = item.strip().lower()
-        if value in allowed and value not in scopes:
-            scopes.append(value)
-    return scopes
 
 
 def _public_webapp_base_url(settings: Settings, request: web.Request) -> str:
@@ -913,22 +946,6 @@ def _build_webapp_auth_response(
     return response
 
 
-def _extract_authenticated_user_id(request: web.Request) -> Optional[int]:
-    from bot.app.web.session import extract_authenticated_user_id
-
-    return extract_authenticated_user_id(request)
-
-
-def _require_user_id(request: web.Request) -> int:
-    user_id = _extract_authenticated_user_id(request)
-    if not user_id:
-        raise web.HTTPUnauthorized(
-            text=json.dumps({"ok": False, "error": "unauthorized"}),
-            content_type="application/json",
-        )
-    return user_id
-
-
 async def _request_email_code(
     request: web.Request,
     *,
@@ -967,16 +984,6 @@ async def _request_email_code(
             await session.rollback()
             logger.exception("Failed to send email verification code")
             return _json_error(502, "email_send_failed", "Failed to send email")
-
-
-def _telegram_id_for_user(user: User) -> Optional[int]:
-    telegram_id = getattr(user, "telegram_id", None)
-    if telegram_id:
-        return int(telegram_id)
-    user_id = getattr(user, "user_id", None)
-    if user_id and int(user_id) > 0:
-        return int(user_id)
-    return None
 
 
 def _user_has_linked_telegram(user: User) -> bool:

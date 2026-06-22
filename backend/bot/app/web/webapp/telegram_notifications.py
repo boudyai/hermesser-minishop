@@ -1,12 +1,23 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
-
 from bot.services.telegram_notifications import (
     TELEGRAM_NOTIFICATIONS_ENABLED,
     probe_telegram_notifications,
     telegram_notifications_start_link,
 )
-from .common import _invalidate_webapp_user_caches
+
+from ._runtime import (
+    Any,
+    Dict,
+    Settings,
+    logger,
+    sessionmaker,
+    user_dal,
+    web,
+)
+from .common import (
+    _invalidate_webapp_user_caches,
+    _json_error,
+    _require_user_id,
+)
 
 
 async def _probe_telegram_notifications_for_user_id(

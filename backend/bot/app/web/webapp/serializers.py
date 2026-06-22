@@ -1,18 +1,57 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
-
 from bot.app.web.webapp.auth import (
     _referral_welcome_telegram_required_reason,
     _trial_telegram_required_reason,
     _user_has_linked_telegram,
 )
-from config.subscription_guides_config import subscription_guides_available
-from config.webapp_themes_config import public_themes_catalog_payload
 from bot.services.telegram_notifications import (
     TELEGRAM_NOTIFICATIONS_ENABLED,
     normalize_telegram_notification_status,
     telegram_notifications_need_prompt,
     telegram_notifications_start_link,
+)
+from config.subscription_guides_config import subscription_guides_available
+from config.webapp_themes_config import public_themes_catalog_payload
+
+from ._runtime import (
+    Any,
+    AsyncSession,
+    Dict,
+    List,
+    Optional,
+    ReferralService,
+    Settings,
+    SubscriptionService,
+    datetime,
+    default_currency_key_for_settings,
+    default_payment_currency_code_for_settings,
+    json,
+    logger,
+    parse_qsl,
+    payment_currency_code,
+    quote,
+    sessionmaker,
+    subscription_dal,
+    support_dal,
+    timezone,
+    urlencode,
+    urlsplit,
+    urlunsplit,
+    user_dal,
+    web,
+)
+from .assets import (
+    _get_cached_webapp_settings,
+)
+from .common import (
+    _coerce_int_or_none,
+    _ensure_cached_telegram_avatar,
+    _format_bytes,
+    _format_months_title,
+    _format_number_for_payload,
+    _format_remaining,
+    _format_traffic_title,
+    _normalize_language,
+    _telegram_avatar_url,
 )
 
 

@@ -1,6 +1,3 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
-
 from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, constr, field_validator
@@ -8,6 +5,26 @@ from pydantic import BaseModel, ConfigDict, constr, field_validator
 from bot.services.support_service import TicketNotFound
 from db.dal import support_dal, user_dal
 from db.models import SupportTicket, SupportTicketMessage
+
+from ._runtime import (
+    Any,
+    Dict,
+    RouteContract,
+    ValidationError,
+    loose_array_schema,
+    loose_object_schema,
+    ok_envelope_with,
+    register_contract,
+    sessionmaker,
+    web,
+)
+from .auth import (
+    _require_admin_user_id,
+)
+from .common import (
+    _error,
+    _read_json,
+)
 
 
 class AdminTicketReplyPayload(BaseModel):

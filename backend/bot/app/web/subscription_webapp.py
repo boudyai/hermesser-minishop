@@ -1,4 +1,4 @@
-"""Compatibility facade for the subscription Mini App backend."""
+"""Compatibility re-export facade for the subscription Mini App backend."""
 
 # ruff: noqa: I001
 
@@ -45,9 +45,6 @@ for _module in _MODULES:
             if not _name.startswith("__") and _name != "annotations"
         }
     )
-
-for _module in _MODULES:
-    vars(_module).update(_NAMESPACE)
 
 globals().update(_NAMESPACE)
 

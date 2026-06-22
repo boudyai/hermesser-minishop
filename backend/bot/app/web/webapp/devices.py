@@ -1,7 +1,37 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
-
 from bot.app.web.webapp.cache_helpers import webapp_cached_user_payload
+
+from ._runtime import (
+    Any,
+    AsyncSession,
+    Dict,
+    List,
+    Optional,
+    Settings,
+    SubscriptionService,
+    cache_delete,
+    datetime,
+    hashlib,
+    hmac,
+    logger,
+    redis_key,
+    sessionmaker,
+    timezone,
+    user_dal,
+    web,
+)
+from .assets import (
+    _enforce_webapp_rate_limit,
+)
+from .common import (
+    _coerce_int_or_none,
+    _json_error,
+    _read_json,
+    _require_user_id,
+    _validate_model_payload,
+)
+from .payloads import (
+    WebAppDeviceDisconnectPayload,
+)
 
 
 async def devices_route(request: web.Request) -> web.Response:

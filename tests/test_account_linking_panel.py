@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 from bot.app.web import subscription_webapp  # noqa: F401
 from bot.app.web.webapp import account as account_routes
+from bot.app.web.webapp import auth as auth_routes
 from bot.app.web.webapp.auth import (
     _apply_telegram_profile_to_user,
     _ensure_user_from_telegram,
@@ -425,7 +426,7 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
                 AsyncMock(return_value=merged_user),
             ) as merge_users,
             patch.object(
-                account_routes.subscription_dal,
+                auth_routes.subscription_dal,
                 "get_active_subscription_by_user_id",
                 AsyncMock(return_value=None),
             ),
