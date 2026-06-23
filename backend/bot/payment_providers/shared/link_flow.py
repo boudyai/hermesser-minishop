@@ -109,6 +109,20 @@ class LinkPaymentDescriptor(Generic[ServiceT]):
     reuse: Callable[[ServiceT, Any], Awaitable[Optional[str]]]
     extract_url: Callable[[dict], Optional[str]]
     extract_provider_id: Callable[[dict], Optional[str]]
+    # Optional per-provider webapp currency policy. When unset, the webapp flow
+    # uses ``ctx.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB"`` (the
+    # common case). Providers whose webapp resolution differs supply their own.
+    webapp_currency: Optional[Callable[[WebAppPaymentContext, Settings], str]] = None
+
+
+def _resolve_webapp_currency(
+    descriptor: LinkPaymentDescriptor[ServiceT],
+    ctx: WebAppPaymentContext,
+    settings: Settings,
+) -> str:
+    if descriptor.webapp_currency is not None:
+        return descriptor.webapp_currency(ctx, settings)
+    return ctx.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
 
 
 async def run_callback_payment(
@@ -254,7 +268,7 @@ async def run_webapp_payment(
     if not service or not service.configured:
         return payment_unavailable()
 
-    currency = ctx.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
+    currency = _resolve_webapp_currency(descriptor, ctx, settings)
     try:
         payment = await create_webapp_payment_record(
             ctx,
