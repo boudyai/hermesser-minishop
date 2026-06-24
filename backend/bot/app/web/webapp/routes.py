@@ -149,12 +149,36 @@ def _user_contract(**kwargs: Any) -> RouteContract:
     return RouteContract(security=USER_SECURITY, **kwargs)
 
 
+_ACCOUNT_MERGE_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "merged",
+        "language",
+        "primary_user_id",
+        "removed_user_id",
+        "primary_panel_user_uuid",
+        "removed_panel_user_uuid",
+        "final_end_date",
+        "final_end_date_text",
+    ],
+    "properties": {
+        "merged": _BOOLEAN_SCHEMA,
+        "language": _STRING_SCHEMA,
+        "primary_user_id": _INTEGER_SCHEMA,
+        "removed_user_id": _INTEGER_SCHEMA,
+        "primary_panel_user_uuid": _NULLABLE_STRING_SCHEMA,
+        "removed_panel_user_uuid": _NULLABLE_STRING_SCHEMA,
+        "final_end_date": _NULLABLE_STRING_SCHEMA,
+        "final_end_date_text": _NULLABLE_STRING_SCHEMA,
+    },
+}
 _AUTH_RESPONSE_SCHEMA = ok_envelope_with(
     {
         "user_id": _NULLABLE_INTEGER_SCHEMA,
         "telegram_id": _NULLABLE_INTEGER_SCHEMA,
         "csrf_token": _STRING_SCHEMA,
-        "account_merge": loose_object_schema(),
+        "account_merge": _ACCOUNT_MERGE_SCHEMA,
     },
     required=[],
 )
@@ -285,7 +309,21 @@ _ROUTE_CONTRACTS = {
         response_schema=_AUTH_RESPONSE_SCHEMA,
     ),
     "account_telegram_notifications_probe_route": _user_contract(
-        response_schema=ok_envelope_with({"telegram_notifications": loose_object_schema()}),
+        response_schema=ok_envelope_with(
+            {
+                "telegram_notifications": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["ok", "status", "enabled", "start_link"],
+                    "properties": {
+                        "ok": _BOOLEAN_SCHEMA,
+                        "status": _STRING_SCHEMA,
+                        "enabled": _BOOLEAN_SCHEMA,
+                        "start_link": _NULLABLE_STRING_SCHEMA,
+                    },
+                }
+            }
+        ),
     ),
     "referral_welcome_bonus_claim_route": _user_contract(
         response_schema=ok_envelope_with(

@@ -4768,7 +4768,55 @@
                   "additionalProperties": false,
                   "properties": {
                     "account_merge": {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
+                      "properties": {
+                        "final_end_date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "final_end_date_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "language": {
+                          "type": "string"
+                        },
+                        "merged": {
+                          "type": "boolean"
+                        },
+                        "primary_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_user_id": {
+                          "type": "integer"
+                        },
+                        "removed_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removed_user_id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "merged",
+                        "language",
+                        "primary_user_id",
+                        "removed_user_id",
+                        "primary_panel_user_uuid",
+                        "removed_panel_user_uuid",
+                        "final_end_date",
+                        "final_end_date_text"
+                      ],
                       "type": "object"
                     },
                     "csrf_token": {
@@ -4987,7 +5035,55 @@
                   "additionalProperties": false,
                   "properties": {
                     "account_merge": {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
+                      "properties": {
+                        "final_end_date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "final_end_date_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "language": {
+                          "type": "string"
+                        },
+                        "merged": {
+                          "type": "boolean"
+                        },
+                        "primary_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_user_id": {
+                          "type": "integer"
+                        },
+                        "removed_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removed_user_id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "merged",
+                        "language",
+                        "primary_user_id",
+                        "removed_user_id",
+                        "primary_panel_user_uuid",
+                        "removed_panel_user_uuid",
+                        "final_end_date",
+                        "final_end_date_text"
+                      ],
                       "type": "object"
                     },
                     "csrf_token": {
@@ -5049,7 +5145,30 @@
                       "type": "boolean"
                     },
                     "telegram_notifications": {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "ok": {
+                          "type": "boolean"
+                        },
+                        "start_link": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "status",
+                        "enabled",
+                        "start_link"
+                      ],
                       "type": "object"
                     }
                   },
@@ -8342,7 +8461,55 @@
                   "additionalProperties": false,
                   "properties": {
                     "account_merge": {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
+                      "properties": {
+                        "final_end_date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "final_end_date_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "language": {
+                          "type": "string"
+                        },
+                        "merged": {
+                          "type": "boolean"
+                        },
+                        "primary_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_user_id": {
+                          "type": "integer"
+                        },
+                        "removed_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removed_user_id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "merged",
+                        "language",
+                        "primary_user_id",
+                        "removed_user_id",
+                        "primary_panel_user_uuid",
+                        "removed_panel_user_uuid",
+                        "final_end_date",
+                        "final_end_date_text"
+                      ],
                       "type": "object"
                     },
                     "csrf_token": {
@@ -8402,7 +8569,55 @@
                   "additionalProperties": false,
                   "properties": {
                     "account_merge": {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
+                      "properties": {
+                        "final_end_date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "final_end_date_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "language": {
+                          "type": "string"
+                        },
+                        "merged": {
+                          "type": "boolean"
+                        },
+                        "primary_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_user_id": {
+                          "type": "integer"
+                        },
+                        "removed_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removed_user_id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "merged",
+                        "language",
+                        "primary_user_id",
+                        "removed_user_id",
+                        "primary_panel_user_uuid",
+                        "removed_panel_user_uuid",
+                        "final_end_date",
+                        "final_end_date_text"
+                      ],
                       "type": "object"
                     },
                     "csrf_token": {
@@ -8515,7 +8730,55 @@
                   "additionalProperties": false,
                   "properties": {
                     "account_merge": {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
+                      "properties": {
+                        "final_end_date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "final_end_date_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "language": {
+                          "type": "string"
+                        },
+                        "merged": {
+                          "type": "boolean"
+                        },
+                        "primary_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_user_id": {
+                          "type": "integer"
+                        },
+                        "removed_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removed_user_id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "merged",
+                        "language",
+                        "primary_user_id",
+                        "removed_user_id",
+                        "primary_panel_user_uuid",
+                        "removed_panel_user_uuid",
+                        "final_end_date",
+                        "final_end_date_text"
+                      ],
                       "type": "object"
                     },
                     "csrf_token": {
@@ -8649,7 +8912,55 @@
                   "additionalProperties": false,
                   "properties": {
                     "account_merge": {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
+                      "properties": {
+                        "final_end_date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "final_end_date_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "language": {
+                          "type": "string"
+                        },
+                        "merged": {
+                          "type": "boolean"
+                        },
+                        "primary_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_user_id": {
+                          "type": "integer"
+                        },
+                        "removed_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removed_user_id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "merged",
+                        "language",
+                        "primary_user_id",
+                        "removed_user_id",
+                        "primary_panel_user_uuid",
+                        "removed_panel_user_uuid",
+                        "final_end_date",
+                        "final_end_date_text"
+                      ],
                       "type": "object"
                     },
                     "csrf_token": {

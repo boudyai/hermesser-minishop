@@ -3625,7 +3625,14 @@ export interface operations {
         content: {
           "application/json": {
             account_merge?: {
-              [key: string]: unknown;
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
             };
             csrf_token?: string;
             /** @constant */
@@ -3738,7 +3745,14 @@ export interface operations {
         content: {
           "application/json": {
             account_merge?: {
-              [key: string]: unknown;
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
             };
             csrf_token?: string;
             /** @constant */
@@ -3769,7 +3783,10 @@ export interface operations {
             /** @constant */
             ok: true;
             telegram_notifications: {
-              [key: string]: unknown;
+              enabled: boolean;
+              ok: boolean;
+              start_link: string | null;
+              status: string;
             };
           };
         };
@@ -5364,7 +5381,14 @@ export interface operations {
         content: {
           "application/json": {
             account_merge?: {
-              [key: string]: unknown;
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
             };
             csrf_token?: string;
             /** @constant */
@@ -5397,7 +5421,14 @@ export interface operations {
         content: {
           "application/json": {
             account_merge?: {
-              [key: string]: unknown;
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
             };
             csrf_token?: string;
             /** @constant */
@@ -5460,7 +5491,14 @@ export interface operations {
         content: {
           "application/json": {
             account_merge?: {
-              [key: string]: unknown;
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
             };
             csrf_token?: string;
             /** @constant */
@@ -5542,7 +5580,14 @@ export interface operations {
         content: {
           "application/json": {
             account_merge?: {
-              [key: string]: unknown;
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
             };
             csrf_token?: string;
             /** @constant */
