@@ -57,7 +57,7 @@
   import { createDocsDemoRouter } from "./lib/webapp/docsDemoRoutes.js";
   import { createTelegramLaunch } from "./lib/webapp/telegramLaunch";
   import { createUiChrome } from "./lib/webapp/uiChrome";
-  import { normalizedEmail } from "./lib/webapp/formatters.js";
+  import { createEmailAvatarSync } from "./lib/webapp/emailAvatarSync.js";
   import {
     buildTariffCatalog,
     type BillingPlan,
@@ -80,7 +80,6 @@
   const TELEGRAM_NOTIFICATIONS_RESUME_REFRESH_COOLDOWN_MS = 1500;
   const PUBLIC_INSTALL_PRELOAD_KEY = "__RW_PUBLIC_INSTALL_PRELOAD__";
   import { createActivationHandoff } from "./lib/webapp/activationHandoff.js";
-  import { buildGravatarUrl } from "./lib/webapp/gravatar.js";
   import { createBillingActions } from "./lib/webapp/billingActions";
   import { invalidateWebappTariffOptionCaches } from "./lib/webapp/billingOptionCache.js";
   import { runWebappBoot } from "./lib/webapp/webappBoot.js";
@@ -219,7 +218,6 @@
   let languageClickGuardArmed = false;
   let guestLanguage = "";
   let emailAvatarUrl = "";
-  let avatarHashToken = "";
   let token = MOCK ? "local-preview" : "";
   let csrfToken = MOCK ? "" : readCookie(CSRF_COOKIE_NAME) || "";
   let adminI18nLoaded = false;
@@ -297,6 +295,7 @@
   const billing = createBillingActions({
     api,
   });
+  const emailAvatarSync = createEmailAvatarSync();
   const activationHandoff = createActivationHandoff({
     storageKey: ACTIVATION_HANDOFF_STORAGE_KEY,
     ttlMs: ACTIVATION_HANDOFF_TTL_MS,
@@ -662,16 +661,9 @@
     if (billingSelectionPatch) billingStore.update((s) => ({ ...s, ...billingSelectionPatch }));
   }
   $: {
-    const emailKey = normalizedEmail(user?.email);
-    if (!emailKey) {
-      avatarHashToken = "";
-      emailAvatarUrl = "";
-    } else if (avatarHashToken !== emailKey) {
-      avatarHashToken = emailKey;
-      buildGravatarUrl(emailKey).then((url) => {
-        if (avatarHashToken === emailKey) emailAvatarUrl = url;
-      });
-    }
+    emailAvatarSync.sync(user?.email, (url) => {
+      emailAvatarUrl = url;
+    });
   }
 
   function canUseInstallGuides() {
