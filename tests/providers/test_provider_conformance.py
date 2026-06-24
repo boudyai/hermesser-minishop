@@ -81,6 +81,54 @@ WEBHOOK_PROFILES = {
 }
 
 
+# A provider package ``__init__`` is a public facade, not an implementation
+# barrel. These stdlib / framework / typing names leak in when a facade re-exports
+# its whole service module; F4 trimmed every facade and this set keeps them out.
+BANNED_FACADE_EXPORTS = frozenset(
+    {
+        # stdlib
+        "asyncio",
+        "base64",
+        "cast",
+        "datetime",
+        "hashlib",
+        "hmac",
+        "json",
+        "logging",
+        "time",
+        "parse_qsl",
+        "unquote_plus",
+        # aiohttp / aiogram / sqlalchemy / pydantic / sdk framework
+        "web",
+        "types",
+        "F",
+        "Router",
+        "Bot",
+        "AsyncSession",
+        "sessionmaker",
+        "Field",
+        "field_validator",
+        "SettingsConfigDict",
+        "Update",
+        "Networks",
+        "AioCryptoPay",
+        "InlineKeyboardButton",
+        "InlineKeyboardMarkup",
+        "LabeledPrice",
+        # typing
+        "Any",
+        "Optional",
+        "Dict",
+        "Tuple",
+        "List",
+        "Mapping",
+        "Sequence",
+        # third-party misc
+        "InvalidOperation",
+    }
+)
+
+
 def _service_module(name: str):
     return importlib.import_module(f"bot.payment_providers.{name}.service")
 
@@ -222,6 +270,32 @@ def test_webhook_profile_matches_implementation(name):
         f"{name}: declared webhook profile {declared!r} does not match the implementation "
         f"({detected!r}). Update WEBHOOK_PROFILES, or restore the provider's webhook shape."
     )
+
+
+@pytest.mark.parametrize("name", PROVIDER_NAMES)
+def test_provider_facade_declares_explicit_all(name):
+    package = importlib.import_module(f"bot.payment_providers.{name}")
+    assert getattr(package, "__all__", None), (
+        f"{name}: package __init__ must declare an explicit __all__ public surface"
+    )
+
+
+@pytest.mark.parametrize("name", PROVIDER_NAMES)
+def test_provider_facade_has_no_leaked_exports(name):
+    package = importlib.import_module(f"bot.payment_providers.{name}")
+    leaked = sorted(set(package.__all__) & BANNED_FACADE_EXPORTS)
+    assert not leaked, (
+        f"{name}: provider facade re-exports stdlib/framework/type symbols {leaked}. "
+        f"A package __init__ is a public facade, not an implementation barrel — import "
+        f"these from their real module instead of re-exporting them."
+    )
+
+
+@pytest.mark.parametrize("name", PROVIDER_NAMES)
+def test_provider_facade_exports_resolve(name):
+    package = importlib.import_module(f"bot.payment_providers.{name}")
+    missing = [n for n in package.__all__ if not hasattr(package, n)]
+    assert not missing, f"{name}: __all__ names not importable from the facade: {missing}"
 
 
 if __name__ == "__main__":
