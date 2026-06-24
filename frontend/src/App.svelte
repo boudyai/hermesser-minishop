@@ -53,6 +53,7 @@
   import { createBillingDeeplinkEffects } from "./lib/webapp/billingDeeplinkEffects.js";
   import { createSectionDataLoader } from "./lib/webapp/sectionDataLoader.js";
   import { createRouteSync } from "./lib/webapp/routeSync.js";
+  import { createSupportUnreadHydration } from "./lib/webapp/supportUnreadHydration.js";
   import { activeTabForWebappSection } from "./lib/webapp/sectionAvailability.js";
   import { readThemePreviewDraft, syncThemeGoogleFonts } from "./lib/webapp/themeStyle.js";
   import { computeThemeView } from "./lib/webapp/themeView.js";
@@ -434,6 +435,7 @@
     installGuidesStore,
     supportStore,
   });
+  const { hydrateSupportUnread } = createSupportUnreadHydration(supportStore);
   const { syncLoadedRoute } = createRouteSync({
     cleanDocsDemoRouteQuery,
     getLocation: () => ({
@@ -1102,14 +1104,10 @@
     if (loadedRoute.shouldPrefetchAdminAssets) {
       adminRuntime.scheduleAdminAssetsPrefetch(true);
     }
-    if (loadedRoute.supportEnabled) {
-      if (typeof payload.support_unread_count !== "undefined") {
-        supportStore.hydrateUnread(payload.support_unread_count);
-      } else {
-        void supportStore.refreshUnread();
-      }
-      supportStore.startPolling({ includeList: false });
-    }
+    hydrateSupportUnread({
+      supportEnabled: loadedRoute.supportEnabled,
+      unreadCount: payload.support_unread_count,
+    });
     syncLoadedRoute({
       initialAdminSection,
       initialSupportTicketId,
