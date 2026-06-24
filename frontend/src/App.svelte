@@ -34,6 +34,7 @@
   } from "./lib/webapp/appLinks.js";
   import { openAppLinkTarget } from "./lib/webapp/appLinkActions.js";
   import { createWebappDataClient } from "./lib/webapp/dataClient";
+  import { copyTextToClipboard } from "./lib/webapp/clipboard.js";
   import { createI18n } from "./lib/webapp/i18n.js";
   import { createActivationWatcher } from "./lib/webapp/activationWatcher";
   import { createAdminBundle } from "./lib/webapp/adminBundle";
@@ -1479,19 +1480,9 @@
   }
 
   async function copyText(value: string, success = t("wa_copied")) {
-    if (!value) {
+    if (!(await copyTextToClipboard(value))) {
       showToast(t("wa_unavailable"));
       return;
-    }
-    try {
-      await navigator.clipboard.writeText(value);
-    } catch {
-      const area = document.createElement("textarea");
-      area.value = value;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
     }
     showToast(success);
   }
