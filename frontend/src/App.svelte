@@ -28,13 +28,11 @@
     structuredCloneSafe,
   } from "./lib/webapp/browser.js";
   import {
-    buildExternalAppLaunchUrl,
-    hasControlChars,
     isExternalAppLaunchPath,
-    isHttpUrl,
     openUrlWithHiddenAnchor,
     readExternalAppLaunchTarget,
   } from "./lib/webapp/appLinks.js";
+  import { openAppLinkTarget } from "./lib/webapp/appLinkActions.js";
   import { createWebappDataClient } from "./lib/webapp/dataClient";
   import { createI18n } from "./lib/webapp/i18n.js";
   import { createActivationWatcher } from "./lib/webapp/activationWatcher";
@@ -1385,42 +1383,16 @@
   }
 
   function openAppLink(url: string) {
-    const raw = String(url || "").trim();
-    if (!raw || hasControlChars(raw) || /^(javascript|data|vbscript):/i.test(raw)) {
-      return;
-    }
-    if (isHttpUrl(raw)) {
-      openExternalLink(raw);
-      return;
-    }
-
-    const isTelegramMiniApp = hasTelegramLaunchParams();
-    const currentTg = tg || telegramSdk.refresh();
-    const gatewayUrl = isTelegramMiniApp ? buildExternalAppLaunchUrl(raw, null, currentLang) : "";
-    if (gatewayUrl) {
-      if (currentTg?.openLink) {
-        try {
-          tg = currentTg;
-          currentTg.openLink(gatewayUrl);
-          return;
-        } catch {
-          // Fall back to regular browser navigation below.
-        }
-      }
-      window.location.assign(gatewayUrl);
-      return;
-    }
-
-    if (/^tg:\/\//i.test(raw) && currentTg?.openTelegramLink) {
-      try {
-        tg = currentTg;
-        currentTg.openTelegramLink(raw);
-        return;
-      } catch {
-        // Fall back to the generic deeplink path below.
-      }
-    }
-    openUrlWithHiddenAnchor(raw);
+    openAppLinkTarget(url, {
+      currentLang,
+      getTelegram: () => tg,
+      hasTelegramLaunchParams,
+      openExternalLink,
+      refreshTelegram: () => telegramSdk.refresh(),
+      setTelegram: (value) => {
+        tg = value;
+      },
+    });
   }
 
   function openConnectLink() {
