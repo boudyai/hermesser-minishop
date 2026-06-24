@@ -77,6 +77,7 @@
   import { computeThemeView } from "./lib/webapp/themeView.js";
   import { computeBillingView } from "./lib/webapp/billingView.js";
   import { computeLanguageView, type LanguageOption } from "./lib/webapp/languageView.js";
+  import { computeTelegramLoginView } from "./lib/webapp/telegramLoginView.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -607,25 +608,26 @@
   $: telegramMiniAppAuthAvailable = Boolean(telegramMiniAppInitData);
   $: telegramMiniAppContext = hasTelegramLaunchParams();
   $: demoAuthLogin = MOCK && demoAuth.isDemoAuthMock();
-  $: telegramLoginUnavailable =
-    !demoAuthLogin &&
-    !telegramMiniAppAuthAvailable &&
-    !telegramOAuthClientId &&
-    telegramSdkStatus !== "loading";
-  $: telegramLoginChecking =
-    telegramLoginBusy || (authBusy && authStatus === t("wa_auth_checking_telegram"));
-  $: telegramLoginLabel = telegramLoginUnavailable
-    ? t("wa_login_telegram_unavailable_button")
-    : telegramLoginChecking
-      ? t("wa_auth_checking_telegram")
-      : t("wa_login_telegram_button");
-  $: telegramLoginUnavailableMessage = demoAuthLogin
-    ? ""
-    : telegramLoginUnavailable && telegramSdkStatus === "unavailable"
-      ? t("wa_auth_telegram_unavailable")
-      : telegramLoginUnavailable
-        ? t("wa_auth_telegram_not_configured")
-        : "";
+  let telegramLoginUnavailable = false;
+  let telegramLoginChecking = false;
+  let telegramLoginLabel = "";
+  let telegramLoginUnavailableMessage = "";
+  $: {
+    const telegramLoginView = computeTelegramLoginView({
+      authBusy,
+      authStatus,
+      demoAuthLogin,
+      telegramLoginBusy,
+      telegramMiniAppAuthAvailable,
+      telegramOAuthClientId,
+      telegramSdkStatus,
+      t,
+    });
+    telegramLoginUnavailable = telegramLoginView.telegramLoginUnavailable;
+    telegramLoginChecking = telegramLoginView.telegramLoginChecking;
+    telegramLoginLabel = telegramLoginView.telegramLoginLabel;
+    telegramLoginUnavailableMessage = telegramLoginView.telegramLoginUnavailableMessage;
+  }
   $: applyFavicon(faviconBrand);
   $: applyDocumentTitle(brandTitle);
   $: syncBodyScrollLock(
