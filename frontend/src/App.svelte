@@ -55,10 +55,7 @@
   } from "./lib/webapp/tariffs.js";
   import { reconcileBillingSelection } from "./lib/webapp/billingSelectionSync.js";
   import { renewalPaymentConfig, resolveTopupDeeplinkKind } from "./lib/webapp/billingDeeplinks.js";
-  import {
-    activeTabForWebappSection,
-    resolveAvailableWebappSection,
-  } from "./lib/webapp/sectionAvailability.js";
+  import { activeTabForWebappSection } from "./lib/webapp/sectionAvailability.js";
   import { readThemePreviewDraft, syncThemeGoogleFonts } from "./lib/webapp/themeStyle.js";
   import { computeThemeView } from "./lib/webapp/themeView.js";
   import { computeBillingView } from "./lib/webapp/billingView.js";
@@ -85,6 +82,7 @@
     resolveLoadedWebappRoute,
     resolveSupportLoadRoute,
   } from "./lib/webapp/appLoadFlow.js";
+  import { resolvePopstateRoute } from "./lib/webapp/appRouteLifecycle.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -100,10 +98,8 @@
   import {
     adminPaymentIdFromPath,
     adminPaymentsUserIdFromPath,
-    adminSectionFromPath,
     adminSettingsPathFromPath,
     adminUserIdFromPath,
-    normalizeSection,
     publicInstallTokenFromPath,
     sectionFromPath,
   } from "./lib/webapp/routes.js";
@@ -781,61 +777,59 @@
       if (document.visibilityState !== "hidden") onActivationResume();
     };
     const onPopState = () => {
-      const shareToken = publicInstallTokenFromPath(window.location.pathname);
-      if (shareToken) {
-        void loadPublicInstall(shareToken);
+      const currentQuery = currentSearchParams();
+      const decision = resolvePopstateRoute({
+        canUseInstallGuides: canUseInstallGuides(),
+        devicesEnabled,
+        fallbackAdminSection: initialAdminSectionFromLocation(),
+        isAdmin,
+        isDocsDemo,
+        mode,
+        pathname: routePathnameFromLocation(),
+        routePrefix,
+        screenQuery: currentQuery.get("screen"),
+        supportEnabled,
+      });
+      if (decision.kind === "publicInstall") {
+        void loadPublicInstall(decision.shareToken);
         return;
       }
-      if (mode === "publicInstall") {
+      if (decision.kind === "boot") {
         void boot();
         return;
       }
-      const currentQuery = currentSearchParams();
-      const section =
-        isDocsDemo && currentQuery.get("screen")
-          ? normalizeSection(currentQuery.get("screen"))
-          : sectionFromPath(routePathnameFromLocation(), routePrefix);
-      if (mode === "login") {
-        setPasswordLoginMode(isPasswordLoginPath(routePathnameFromLocation()), true);
+      if (decision.kind === "login") {
+        setPasswordLoginMode(decision.passwordLoginEnabled, true);
         screen = "login";
         return;
       }
-      if (mode === "app") {
-        if (section === "admin" && isAdmin) {
-          adminActiveSection = isDocsDemo
-            ? initialAdminSectionFromLocation()
-            : adminSectionFromPath(routePathnameFromLocation(), routePrefix);
-          cancelAdminAssetsPrefetch();
-          activeTab = "settings";
-          screen = "admin";
-          const pathAtStart = window.location.pathname;
-          void Promise.all([ensureI18nScope("admin"), ensureAdminBundle()]).catch(() => {
-            if (sectionFromPath(routePathnameFromLocation(), routePrefix) !== "admin") return;
-            if (window.location.pathname !== pathAtStart) return;
-            if (screen === "admin") {
-              activeTab = "settings";
-              screen = "settings";
-              syncAppSectionPath("settings", true);
-            }
-            showToast(t("wa_unavailable"));
-          });
-          return;
-        }
-        const nextSection = resolveAvailableWebappSection({
-          devicesEnabled,
-          installGuidesAvailable: canUseInstallGuides(),
-          isAdmin,
-          section,
-          supportEnabled,
+      if (decision.kind === "admin") {
+        adminActiveSection = decision.adminSection;
+        cancelAdminAssetsPrefetch();
+        activeTab = decision.activeTab;
+        screen = decision.section;
+        const pathAtStart = window.location.pathname;
+        void Promise.all([ensureI18nScope("admin"), ensureAdminBundle()]).catch(() => {
+          if (sectionFromPath(routePathnameFromLocation(), routePrefix) !== "admin") return;
+          if (window.location.pathname !== pathAtStart) return;
+          if (screen === "admin") {
+            activeTab = "settings";
+            screen = "settings";
+            syncAppSectionPath("settings", true);
+          }
+          showToast(t("wa_unavailable"));
         });
-        activeTab = activeTabForWebappSection(nextSection);
-        screen = nextSection;
-        if (nextSection === "devices") devicesStore.loadDevices(devicesEnabled);
-        if (nextSection === "support") {
+        return;
+      }
+      if (decision.kind === "section") {
+        activeTab = decision.activeTab;
+        screen = decision.section;
+        if (decision.loadDevices) devicesStore.loadDevices(devicesEnabled);
+        if (decision.loadSupport) {
           supportStore.loadList();
           supportStore.startPolling({ includeList: true });
         }
-        if (nextSection === "install") installGuidesStore.load();
+        if (decision.loadInstallGuides) installGuidesStore.load();
       }
     };
     window.addEventListener("popstate", onPopState);
