@@ -226,6 +226,24 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(panel_settings.api_connect_timeout_seconds, 8)
         self.assertEqual(panel_settings.api_sock_read_timeout_seconds, 15)
 
+    def test_compatibility_settings_view_reflects_migration_fields(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED=True,
+            MIGRATION_REMNASHOP_IMPORTED_AT="2026-01-02T03:04:05Z",
+            MIGRATION_REMNASHOP_NOTES="migrated batch 1",
+        )
+
+        compatibility_settings = settings.compatibility_settings
+
+        self.assertTrue(compatibility_settings.remnashop_referral_code_compat_enabled)
+        self.assertFalse(compatibility_settings.remnashop_promo_code_compat_enabled)
+        self.assertEqual(compatibility_settings.remnashop_imported_at, "2026-01-02T03:04:05Z")
+        self.assertEqual(compatibility_settings.remnashop_notes, "migrated batch 1")
+
     def test_subscription_guides_defaults_are_enabled(self):
         settings = Settings(
             _env_file=None,

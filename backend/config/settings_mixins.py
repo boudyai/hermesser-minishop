@@ -19,6 +19,7 @@ from typing import (
 from pydantic import field_validator
 
 from config.settings_models import (
+    CompatibilitySettings,
     DBSettings,
     EmailSettings,
     PanelSettings,
@@ -142,6 +143,10 @@ if TYPE_CHECKING:
         REFERRAL_WELCOME_BONUS_DAYS: int
         REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED: bool
         LEGACY_REFS: bool
+        MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED: bool
+        MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED: bool
+        MIGRATION_REMNASHOP_IMPORTED_AT: Optional[str]
+        MIGRATION_REMNASHOP_NOTES: Optional[str]
         SUPPORT_LINK: Optional[str]
         SUPPORT_TICKETS_ENABLED: bool
         SUPPORT_TICKET_MAX_BODY_LENGTH: int
@@ -284,6 +289,15 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             api_connect_timeout_seconds=self.PANEL_API_CONNECT_TIMEOUT_SECONDS,
             api_sock_connect_timeout_seconds=self.PANEL_API_SOCK_CONNECT_TIMEOUT_SECONDS,
             api_sock_read_timeout_seconds=self.PANEL_API_SOCK_READ_TIMEOUT_SECONDS,
+        )
+
+    @property
+    def compatibility_settings(self) -> CompatibilitySettings:
+        return CompatibilitySettings(
+            remnashop_referral_code_compat_enabled=self.MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED,
+            remnashop_promo_code_compat_enabled=self.MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED,
+            remnashop_imported_at=self.MIGRATION_REMNASHOP_IMPORTED_AT,
+            remnashop_notes=self.MIGRATION_REMNASHOP_NOTES,
         )
 
     @computed_field

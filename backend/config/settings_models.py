@@ -59,6 +59,13 @@ class PaymentSettings(BaseModel):
     traffic_sale_mode: bool
 
 
+class CompatibilitySettings(BaseModel):
+    remnashop_referral_code_compat_enabled: bool
+    remnashop_promo_code_compat_enabled: bool
+    remnashop_imported_at: Optional[str]
+    remnashop_notes: Optional[str]
+
+
 class PanelSettings(BaseModel):
     api_url: Optional[str]
     api_key: Optional[str]

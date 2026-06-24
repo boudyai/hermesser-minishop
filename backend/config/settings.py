@@ -8,6 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from config.settings_mixins import SettingsComputedMixin, SettingsValidationMixin
 from config.settings_models import (
+    CompatibilitySettings,
     DBSettings,
     EmailSettings,
     PanelSettings,
@@ -782,6 +783,7 @@ def get_settings() -> Settings:
 
 
 __all__ = [
+    "CompatibilitySettings",
     "DBSettings",
     "EmailSettings",
     "PanelSettings",
