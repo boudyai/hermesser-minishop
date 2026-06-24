@@ -65,6 +65,10 @@
   } from "./lib/webapp/tariffs.js";
   import { reconcileBillingSelection } from "./lib/webapp/billingSelectionSync.js";
   import { renewalPaymentConfig, resolveTopupDeeplinkKind } from "./lib/webapp/billingDeeplinks.js";
+  import {
+    activeTabForWebappSection,
+    resolveAvailableWebappSection,
+  } from "./lib/webapp/sectionAvailability.js";
   import { readThemePreviewDraft, syncThemeGoogleFonts } from "./lib/webapp/themeStyle.js";
   import { computeThemeView } from "./lib/webapp/themeView.js";
   import { computeBillingView } from "./lib/webapp/billingView.js";
@@ -823,15 +827,14 @@
           });
           return;
         }
-        const nextSection =
-          section === "devices" && !devicesEnabled
-            ? "home"
-            : section === "support" && !supportEnabled
-              ? "home"
-              : section === "install" && !canUseInstallGuides()
-                ? "home"
-                : section;
-        activeTab = nextSection === "install" || nextSection === "trial" ? "home" : nextSection;
+        const nextSection = resolveAvailableWebappSection({
+          devicesEnabled,
+          installGuidesAvailable: canUseInstallGuides(),
+          isAdmin,
+          section,
+          supportEnabled,
+        });
+        activeTab = activeTabForWebappSection(nextSection);
         screen = nextSection;
         if (nextSection === "devices") devicesStore.loadDevices(devicesEnabled);
         if (nextSection === "support") {
@@ -1141,18 +1144,15 @@
       renewHwidDevices: true,
       selectedMethod: payload.payment_methods?.[0]?.id || "",
     }));
-    let section = String(routeSection || "home");
-    if (section === "admin" && !payload.user?.is_admin) section = "settings";
-    if (section === "devices" && !payload.settings?.my_devices_enabled) section = "home";
-    if (section === "support" && payload.settings?.support_tickets_enabled === false) {
-      section = "home";
-    }
-    if (
-      section === "install" &&
-      !(payload.settings?.subscription_guides_enabled && payload.subscription?.active)
-    ) {
-      section = "home";
-    }
+    let section = resolveAvailableWebappSection({
+      devicesEnabled: Boolean(payload.settings?.my_devices_enabled),
+      installGuidesAvailable: Boolean(
+        payload.settings?.subscription_guides_enabled && payload.subscription?.active
+      ),
+      isAdmin: Boolean(payload.user?.is_admin),
+      section: String(routeSection || "home"),
+      supportEnabled: payload.settings?.support_tickets_enabled !== false,
+    });
     const initialAdminSection =
       section === "admin" ? preservedAdminSection || initialAdminSectionFromLocation() : null;
     if (section === "admin" && payload.user?.is_admin) {
@@ -1177,12 +1177,7 @@
         ? supportTicketIdFromPath(routePathnameFromLocation(), routePrefix)
         : null;
     if (isDocsDemo) docsDemoParentRouteConsumed = true;
-    activeTab =
-      section === "admin"
-        ? "settings"
-        : section === "install" || section === "trial"
-          ? "home"
-          : section;
+    activeTab = activeTabForWebappSection(section);
     screen = section;
     mode = "app";
     if (payload.user?.is_admin && section !== "admin") {
