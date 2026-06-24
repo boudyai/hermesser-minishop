@@ -51,6 +51,7 @@
     type TariffCatalogEntry,
   } from "./lib/webapp/tariffs.js";
   import { createBillingDeeplinkEffects } from "./lib/webapp/billingDeeplinkEffects.js";
+  import { createSectionDataLoader } from "./lib/webapp/sectionDataLoader.js";
   import { activeTabForWebappSection } from "./lib/webapp/sectionAvailability.js";
   import { readThemePreviewDraft, syncThemeGoogleFonts } from "./lib/webapp/themeStyle.js";
   import { computeThemeView } from "./lib/webapp/themeView.js";
@@ -427,6 +428,11 @@
   const devicesStore = createDevicesStore({ api, t, showToast });
   const supportStore = createSupportStore({ api, t, showToast, routePrefix });
   const installGuidesStore = createInstallGuidesStore({ api, t, showToast });
+  const { loadSectionData } = createSectionDataLoader({
+    devicesStore,
+    installGuidesStore,
+    supportStore,
+  });
   const actionsStore = createActionsStore({
     api,
     t,
@@ -1105,20 +1111,12 @@
     } else {
       syncAppSectionPath(section, true, initialAdminSection);
     }
-    if (section === "devices" && payload.settings?.my_devices_enabled) {
-      await devicesStore.loadDevices(true, true);
-    }
-    if (section === "install") {
-      await (installGuidesPromise || installGuidesStore.load());
-    } else if (payload.settings?.subscription_guides_enabled && payload.subscription?.active) {
-      void installGuidesStore.load();
-    }
-    if (section === "support") {
-      if (initialSupportTicketId)
-        await supportStore.openTicket(initialSupportTicketId, { skipPush: true });
-      else await supportStore.loadList();
-      supportStore.startPolling({ includeList: true });
-    }
+    await loadSectionData({
+      initialSupportTicketId,
+      installGuidesPromise,
+      payload,
+      section,
+    });
     if (topupModalOpen) await billingStore.loadTopupOptions(topupKind);
     if (deviceTopupModalOpen) await billingStore.loadDeviceTopupOptions();
     if (changeModalOpen) await billingStore.loadTariffChangeOptions();
