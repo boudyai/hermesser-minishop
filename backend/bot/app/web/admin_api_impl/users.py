@@ -18,6 +18,7 @@ from ._runtime import (
     AdminUserTariffBody,
     AdminUserTrafficGrantBody,
     AdminUserWithAvatarOut,
+    PaymentOut,
     RouteContract,
     loose_array_schema,
     loose_object_schema,
@@ -79,15 +80,17 @@ register_contract(
 register_contract(
     "admin_user_detail_route",
     RouteContract(
-        models=(AdminUserWithAvatarOut,),
+        models=(AdminUserWithAvatarOut, AdminSubscriptionOut, PaymentOut),
         response_schema=ok_envelope_with(
             {
                 "user": schema_ref(AdminUserWithAvatarOut),
-                "active_subscription": loose_object_schema(),
-                "subscriptions": loose_array_schema(),
+                "active_subscription": {
+                    "anyOf": [schema_ref(AdminSubscriptionOut), {"type": "null"}]
+                },
+                "subscriptions": {"type": "array", "items": schema_ref(AdminSubscriptionOut)},
                 "trial": loose_object_schema(),
                 "total_paid": NUMBER_SCHEMA,
-                "recent_payments": loose_array_schema(),
+                "recent_payments": {"type": "array", "items": schema_ref(PaymentOut)},
                 "log_count": INTEGER_SCHEMA,
                 "subscription_url": NULLABLE_STRING_SCHEMA,
                 "last_vpn_connected_at": NULLABLE_STRING_SCHEMA,

@@ -4851,23 +4851,17 @@ export interface operations {
         };
         content: {
           "application/json": {
-            active_subscription: {
-              [key: string]: unknown;
-            };
+            active_subscription: components["schemas"]["AdminSubscriptionOut"] | null;
             last_vpn_connected_at: string | null;
             log_count: number;
             /** @constant */
             ok: true;
-            recent_payments: {
-              [key: string]: unknown;
-            }[];
+            recent_payments: components["schemas"]["PaymentOut"][];
             referral: {
               [key: string]: unknown;
             };
             subscription_url: string | null;
-            subscriptions: {
-              [key: string]: unknown;
-            }[];
+            subscriptions: components["schemas"]["AdminSubscriptionOut"][];
             total_paid: number;
             trial: {
               [key: string]: unknown;

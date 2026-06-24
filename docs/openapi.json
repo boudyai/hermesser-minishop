@@ -7188,8 +7188,14 @@
                   "additionalProperties": false,
                   "properties": {
                     "active_subscription": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/AdminSubscriptionOut"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "last_vpn_connected_at": {
                       "type": [
@@ -7206,8 +7212,7 @@
                     },
                     "recent_payments": {
                       "items": {
-                        "additionalProperties": true,
-                        "type": "object"
+                        "$ref": "#/components/schemas/PaymentOut"
                       },
                       "type": "array"
                     },
@@ -7223,8 +7228,7 @@
                     },
                     "subscriptions": {
                       "items": {
-                        "additionalProperties": true,
-                        "type": "object"
+                        "$ref": "#/components/schemas/AdminSubscriptionOut"
                       },
                       "type": "array"
                     },
