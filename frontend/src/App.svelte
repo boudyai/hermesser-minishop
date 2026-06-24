@@ -80,6 +80,11 @@
   import { createTariffActions } from "./lib/webapp/tariffActions.js";
   import { createPrimaryPayActionLabel } from "./lib/webapp/primaryPayActionLabel.js";
   import { createTelegramLoginActions } from "./lib/webapp/telegramLoginActions.js";
+  import {
+    resolveInitialLoadRoute,
+    resolveLoadedWebappRoute,
+    resolveSupportLoadRoute,
+  } from "./lib/webapp/appLoadFlow.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -98,12 +103,9 @@
     adminSectionFromPath,
     adminSettingsPathFromPath,
     adminUserIdFromPath,
-    normalizeAdminSection,
     normalizeSection,
     publicInstallTokenFromPath,
     sectionFromPath,
-    supportTicketIdFromPath,
-    withRoutePrefix,
   } from "./lib/webapp/routes.js";
 
   type AnyRecord = Record<string, any>;
@@ -1076,23 +1078,23 @@
   }
 
   async function loadData(options: AppLoadDataOptions = {}) {
-    const preserveView = options?.preserveView === true;
-    const preservedSection = preserveView
-      ? normalizeSection(options?.section || screen || activeTab)
-      : null;
-    const preservedAdminSection =
-      preserveView && preservedSection === "admin"
-        ? normalizeAdminSection(
-            options?.adminSection || adminActiveSection || initialAdminSectionFromLocation()
-          )
-        : null;
     const currentQuery = currentSearchParams();
-    const routeSection = preserveView
-      ? preservedSection
-      : MOCK && currentQuery.get("screen")
-        ? normalizeSection(currentQuery.get("screen"))
-        : sectionFromPath(routePathnameFromLocation(), routePrefix);
-    const installGuidesPromise = routeSection === "install" ? installGuidesStore.load() : null;
+    const initialRoute = resolveInitialLoadRoute({
+      activeTab,
+      adminActiveSection,
+      adminSection: options?.adminSection,
+      fallbackAdminSection: initialAdminSectionFromLocation(),
+      mock: Boolean(MOCK),
+      pathname: routePathnameFromLocation(),
+      preserveView: options?.preserveView === true,
+      routePrefix,
+      screen,
+      screenQuery: currentQuery.get("screen"),
+      section: options?.section,
+    });
+    const installGuidesPromise = initialRoute.shouldPreloadInstallGuides
+      ? installGuidesStore.load()
+      : null;
     const payload = (await dataClient.loadData({ fresh: options?.fresh === true })) as AnyRecord;
     if (!payload.ok) throw new Error(payload.error || "load_failed");
     data = payload;
@@ -1104,17 +1106,14 @@
       renewHwidDevices: true,
       selectedMethod: payload.payment_methods?.[0]?.id || "",
     }));
-    let section = resolveAvailableWebappSection({
-      devicesEnabled: Boolean(payload.settings?.my_devices_enabled),
-      installGuidesAvailable: Boolean(
-        payload.settings?.subscription_guides_enabled && payload.subscription?.active
-      ),
-      isAdmin: Boolean(payload.user?.is_admin),
-      section: String(routeSection || "home"),
-      supportEnabled: payload.settings?.support_tickets_enabled !== false,
+    const loadedRoute = resolveLoadedWebappRoute({
+      fallbackAdminSection: initialAdminSectionFromLocation(),
+      payload,
+      preservedAdminSection: initialRoute.preservedAdminSection,
+      routeSection: initialRoute.routeSection,
     });
-    const initialAdminSection =
-      section === "admin" ? preservedAdminSection || initialAdminSectionFromLocation() : null;
+    let section = loadedRoute.section;
+    const initialAdminSection = loadedRoute.initialAdminSection;
     if (section === "admin" && payload.user?.is_admin) {
       cancelAdminAssetsPrefetch();
       adminActiveSection = initialAdminSection || "stats";
@@ -1132,18 +1131,21 @@
         showToast(t("wa_unavailable"));
       }
     }
-    const initialSupportTicketId =
-      section === "support"
-        ? supportTicketIdFromPath(routePathnameFromLocation(), routePrefix)
-        : null;
+    const supportRoute = resolveSupportLoadRoute({
+      pathname: routePathnameFromLocation(),
+      routePrefix,
+      section,
+    });
+    const initialSupportTicketId = supportRoute.initialSupportTicketId;
     if (isDocsDemo) docsDemoParentRouteConsumed = true;
-    activeTab = activeTabForWebappSection(section);
+    activeTab =
+      section === loadedRoute.section ? loadedRoute.activeTab : activeTabForWebappSection(section);
     screen = section;
     mode = "app";
-    if (payload.user?.is_admin && section !== "admin") {
-      scheduleAdminAssetsPrefetch(Boolean(payload.user?.is_admin));
+    if (loadedRoute.shouldPrefetchAdminAssets) {
+      scheduleAdminAssetsPrefetch(true);
     }
-    if (payload.settings?.support_tickets_enabled !== false) {
+    if (loadedRoute.supportEnabled) {
       if (typeof payload.support_unread_count !== "undefined") {
         supportStore.hydrateUnread(payload.support_unread_count);
       } else {
@@ -1151,13 +1153,15 @@
       }
       supportStore.startPolling({ includeList: false });
     }
-    if (section === "support" && initialSupportTicketId) {
-      const targetPath = withRoutePrefix(`/support/${initialSupportTicketId}`, routePrefix);
-      if (window.location.protocol !== "file:" && window.location.pathname !== targetPath) {
+    if (section === "support" && initialSupportTicketId && supportRoute.targetPath) {
+      if (
+        window.location.protocol !== "file:" &&
+        window.location.pathname !== supportRoute.targetPath
+      ) {
         window.history.replaceState(
           null,
           "",
-          `${targetPath}${window.location.search}${window.location.hash}`
+          `${supportRoute.targetPath}${window.location.search}${window.location.hash}`
         );
       }
       cleanDocsDemoRouteQuery();
