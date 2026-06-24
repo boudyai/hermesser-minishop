@@ -5263,13 +5263,13 @@ export interface operations {
         content: {
           "application/json": {
             grant: {
-              [key: string]: unknown;
+              granted_bytes: number;
+              granted_gb: number;
+              kind: string;
             };
             /** @constant */
             ok: true;
-            subscription?: {
-              [key: string]: unknown;
-            };
+            subscription?: components["schemas"]["AdminSubscriptionOut"] | null;
           };
         };
       };

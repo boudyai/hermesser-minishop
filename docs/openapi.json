@@ -8028,7 +8028,23 @@
                   "additionalProperties": false,
                   "properties": {
                     "grant": {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
+                      "properties": {
+                        "granted_bytes": {
+                          "type": "integer"
+                        },
+                        "granted_gb": {
+                          "type": "number"
+                        },
+                        "kind": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "granted_bytes",
+                        "granted_gb"
+                      ],
                       "type": "object"
                     },
                     "ok": {
@@ -8036,8 +8052,14 @@
                       "type": "boolean"
                     },
                     "subscription": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/AdminSubscriptionOut"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [

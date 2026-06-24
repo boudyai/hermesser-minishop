@@ -176,8 +176,21 @@ register_contract(
     "admin_user_traffic_grant_route",
     RouteContract(
         request_model=AdminUserTrafficGrantBody,
+        models=(AdminSubscriptionOut,),
         response_schema=ok_envelope_with(
-            {"subscription": loose_object_schema(), "grant": loose_object_schema()},
+            {
+                "subscription": {"anyOf": [schema_ref(AdminSubscriptionOut), {"type": "null"}]},
+                "grant": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["kind", "granted_bytes", "granted_gb"],
+                    "properties": {
+                        "kind": STRING_SCHEMA,
+                        "granted_bytes": INTEGER_SCHEMA,
+                        "granted_gb": NUMBER_SCHEMA,
+                    },
+                },
+            },
             required=["grant"],
         ),
     ),
