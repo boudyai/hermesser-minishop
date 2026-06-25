@@ -17,109 +17,217 @@
   type Action = (...args: any[]) => any;
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
-  export let accountStore: StoreLike;
-  export let activateTrial: Action;
-  export let activeTab = "home";
-  export let appSettings: AnyRecord = {};
-  export let applyPromo: Action;
-  export let autoRenewBusy = false;
-  export let brand: AnyRecord = {};
-  export let brandTitle = "";
-  export let canChangeTariff = false;
-  export let clearPromoFieldError: Action;
-  export let copyText: Action;
-  export let currentLang = "ru";
-  export let currentLanguageOption: LanguageOption | null = null;
-  export let currentTariffName = "";
-  export let devicesBusy = false;
-  export let devicesData: AnyRecord | null = null;
-  export let devicesEnabled = false;
-  export let devicesErrorCode = "";
-  export let devicesIsError = false;
-  export let devicesLoaded = false;
-  export let devicesStatus = "";
-  export let devicesStore: StoreLike;
-  export let emailAuthEnabled = true;
-  export let emailLinkStatus = "";
-  export let goDevices: Action;
-  export let goHome: Action;
-  export let goInvite: Action;
-  export let goSettings: Action;
-  export let goSupport: Action;
-  export let hasActiveTariffSubscription = false;
-  export let hasMultipleTariffs = false;
-  export let hasUnlinkedIdentity = false;
-  export let isAdmin = false;
-  export let languageBusy = false;
-  export let languageClickGuard = false;
-  export let languageClickGuardArmed = false;
-  export let languageMenuOpen = false;
-  export let languageOptions: LanguageOption[] = [];
-  export let linkEmailBusy = false;
-  export let linkTelegramAccount: Action;
-  export let linkTelegramAndActivateTrial: Action;
-  export let linkTelegramAndClaimReferralWelcome: Action;
-  export let linkTelegramBusy = false;
-  export let loadDevices: Action;
-  export let openAdminPanel: Action;
-  export let openAppLink: Action;
-  export let openConnectLink: Action;
-  export let openDeviceTopupModal: Action;
-  export let openExternalLink: Action;
-  export let openInstallOrConnect: Action;
-  export let openLinkEmailDialog: Action;
-  export let openPaymentModal: Action;
-  export let openPremiumTopupModal: Action;
-  export let openRegularTopupModal: Action;
-  export let openSetPasswordDialog: Action;
-  export let openTariffChangeModal: Action;
-  export let openTelegramNotificationsBot: Action;
-  export let openTrialInstallOrConnect: Action;
-  export let premiumTrafficTopupBarClickable = false;
-  export let premiumTrafficTopupUnlocked = false;
-  export let primaryPayActionLabel: () => string;
-  export let privacyPolicyUrl = "";
-  export let profileAvatarUrl = "";
-  export let profileEmail = "";
-  export let profileTelegramId = "";
-  export let promoBusy = false;
-  export let promoCode = "";
-  export let promoFieldError = "";
-  export let promoIsError = false;
-  export let promoStatus = "";
-  export let referral: AnyRecord = {};
-  export let referralBonusDetails: AnyRecord[] = [];
-  export let referralOneBonusPerReferee = false;
-  export let referralWelcomeBonusDays = 0;
-  export let regularTrafficTopupBarClickable = false;
-  export let regularTrafficTopupUnlocked = false;
-  export let screen = "home";
-  export let serverStatusUrl = "";
-  export let setLanguageMenuOpen: (open: boolean) => void;
-  export let setPromoCode: (value: string) => void;
-  export let subscription: AnyRecord = {};
-  export let supportEnabled = false;
-  export let supportStore: StoreLike;
-  export let supportUnreadCount = 0;
-  export let supportUnreadLoaded = false;
-  export let supportUnreadLoading = false;
-  export let supportUrl = "";
-  export let t: Translate;
-  export let telegramMiniAppContext = false;
-  export let telegramNotificationsNeedPrompt = false;
-  export let telegramNotificationsStartLink = "";
-  export let telegramNotificationsStatus = "unknown";
-  export let telegramPlatform = "";
-  export let telegramProfileName = "";
-  export let termUnitLabel: Action;
-  export let toggleAutoRenew: Action;
-  export let trafficMode = false;
-  export let trialActivationError = "";
-  export let trialActivationResult: AnyRecord | null = null;
-  export let trialBusy = false;
-  export let user: AnyRecord = {};
-  export let userAgreementUrl = "";
-  export let userLanguage = "";
+  type Props = {
+    accountStore: StoreLike;
+    activateTrial: Action;
+    activeTab?: string;
+    appSettings?: AnyRecord;
+    applyPromo: Action;
+    autoRenewBusy?: boolean;
+    brand?: AnyRecord;
+    brandTitle?: string;
+    canChangeTariff?: boolean;
+    clearPromoFieldError: Action;
+    copyText: Action;
+    currentLang?: string;
+    currentLanguageOption?: LanguageOption | null;
+    currentTariffName?: string;
+    devicesBusy?: boolean;
+    devicesData?: AnyRecord | null;
+    devicesEnabled?: boolean;
+    devicesErrorCode?: string;
+    devicesIsError?: boolean;
+    devicesLoaded?: boolean;
+    devicesStatus?: string;
+    devicesStore: StoreLike;
+    emailAuthEnabled?: boolean;
+    emailLinkStatus?: string;
+    goDevices: Action;
+    goHome: Action;
+    goInvite: Action;
+    goSettings: Action;
+    goSupport: Action;
+    hasActiveTariffSubscription?: boolean;
+    hasMultipleTariffs?: boolean;
+    hasUnlinkedIdentity?: boolean;
+    isAdmin?: boolean;
+    languageBusy?: boolean;
+    languageClickGuard?: boolean;
+    languageClickGuardArmed?: boolean;
+    languageMenuOpen?: boolean;
+    languageOptions?: LanguageOption[];
+    linkEmailBusy?: boolean;
+    linkTelegramAccount: Action;
+    linkTelegramAndActivateTrial: Action;
+    linkTelegramAndClaimReferralWelcome: Action;
+    linkTelegramBusy?: boolean;
+    loadDevices: Action;
+    openAdminPanel: Action;
+    openAppLink: Action;
+    openConnectLink: Action;
+    openDeviceTopupModal: Action;
+    openExternalLink: Action;
+    openInstallOrConnect: Action;
+    openLinkEmailDialog: Action;
+    openPaymentModal: Action;
+    openPremiumTopupModal: Action;
+    openRegularTopupModal: Action;
+    openSetPasswordDialog: Action;
+    openTariffChangeModal: Action;
+    openTelegramNotificationsBot: Action;
+    openTrialInstallOrConnect: Action;
+    premiumTrafficTopupBarClickable?: boolean;
+    premiumTrafficTopupUnlocked?: boolean;
+    primaryPayActionLabel: () => string;
+    privacyPolicyUrl?: string;
+    profileAvatarUrl?: string;
+    profileEmail?: string;
+    profileTelegramId?: string;
+    promoBusy?: boolean;
+    promoCode?: string;
+    promoFieldError?: string;
+    promoIsError?: boolean;
+    promoStatus?: string;
+    referral?: AnyRecord;
+    referralBonusDetails?: AnyRecord[];
+    referralOneBonusPerReferee?: boolean;
+    referralWelcomeBonusDays?: number;
+    regularTrafficTopupBarClickable?: boolean;
+    regularTrafficTopupUnlocked?: boolean;
+    screen?: string;
+    serverStatusUrl?: string;
+    setLanguageMenuOpen: (open: boolean) => void;
+    setPromoCode: (value: string) => void;
+    subscription?: AnyRecord;
+    supportEnabled?: boolean;
+    supportStore: StoreLike;
+    supportUnreadCount?: number;
+    supportUnreadLoaded?: boolean;
+    supportUnreadLoading?: boolean;
+    supportUrl?: string;
+    t: Translate;
+    telegramMiniAppContext?: boolean;
+    telegramNotificationsNeedPrompt?: boolean;
+    telegramNotificationsStartLink?: string;
+    telegramNotificationsStatus?: string;
+    telegramPlatform?: string;
+    telegramProfileName?: string;
+    termUnitLabel: Action;
+    toggleAutoRenew: Action;
+    trafficMode?: boolean;
+    trialActivationError?: string;
+    trialActivationResult?: AnyRecord | null;
+    trialBusy?: boolean;
+    user?: AnyRecord;
+    userAgreementUrl?: string;
+    userLanguage?: string;
+  };
+
+  let {
+    accountStore,
+    activateTrial,
+    activeTab = "home",
+    appSettings = {},
+    applyPromo,
+    autoRenewBusy = false,
+    brand = {},
+    brandTitle = "",
+    canChangeTariff = false,
+    clearPromoFieldError,
+    copyText,
+    currentLang = "ru",
+    currentLanguageOption = null,
+    currentTariffName = "",
+    devicesBusy = false,
+    devicesData = null,
+    devicesEnabled = false,
+    devicesErrorCode = "",
+    devicesIsError = false,
+    devicesLoaded = false,
+    devicesStatus = "",
+    devicesStore,
+    emailAuthEnabled = true,
+    emailLinkStatus = "",
+    goDevices,
+    goHome,
+    goInvite,
+    goSettings,
+    goSupport,
+    hasActiveTariffSubscription = false,
+    hasMultipleTariffs = false,
+    hasUnlinkedIdentity = false,
+    isAdmin = false,
+    languageBusy = false,
+    languageClickGuard = false,
+    languageClickGuardArmed = false,
+    languageMenuOpen = $bindable(false),
+    languageOptions = [],
+    linkEmailBusy = false,
+    linkTelegramAccount,
+    linkTelegramAndActivateTrial,
+    linkTelegramAndClaimReferralWelcome,
+    linkTelegramBusy = false,
+    loadDevices,
+    openAdminPanel,
+    openAppLink,
+    openConnectLink,
+    openDeviceTopupModal,
+    openExternalLink,
+    openInstallOrConnect,
+    openLinkEmailDialog,
+    openPaymentModal,
+    openPremiumTopupModal,
+    openRegularTopupModal,
+    openSetPasswordDialog,
+    openTariffChangeModal,
+    openTelegramNotificationsBot,
+    openTrialInstallOrConnect,
+    premiumTrafficTopupBarClickable = false,
+    premiumTrafficTopupUnlocked = false,
+    primaryPayActionLabel,
+    privacyPolicyUrl = "",
+    profileAvatarUrl = "",
+    profileEmail = "",
+    profileTelegramId = "",
+    promoBusy = false,
+    promoCode = "",
+    promoFieldError = "",
+    promoIsError = false,
+    promoStatus = "",
+    referral = {},
+    referralBonusDetails = [],
+    referralOneBonusPerReferee = false,
+    referralWelcomeBonusDays = 0,
+    regularTrafficTopupBarClickable = false,
+    regularTrafficTopupUnlocked = false,
+    screen = "home",
+    serverStatusUrl = "",
+    setLanguageMenuOpen,
+    setPromoCode,
+    subscription = {},
+    supportEnabled = false,
+    supportStore,
+    supportUnreadCount = 0,
+    supportUnreadLoaded = false,
+    supportUnreadLoading = false,
+    supportUrl = "",
+    t,
+    telegramMiniAppContext = false,
+    telegramNotificationsNeedPrompt = false,
+    telegramNotificationsStartLink = "",
+    telegramNotificationsStatus = "unknown",
+    telegramPlatform = "",
+    telegramProfileName = "",
+    termUnitLabel,
+    toggleAutoRenew,
+    trafficMode = false,
+    trialActivationError = "",
+    trialActivationResult = null,
+    trialBusy = false,
+    user = {},
+    userAgreementUrl = "",
+    userLanguage = "",
+  }: Props = $props();
 </script>
 
 <WebAppShell

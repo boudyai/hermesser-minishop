@@ -38,17 +38,31 @@
     setState: (state: HeightStageState) => void;
   }) => HeightStageAnimator;
 
-  export let currentLang = "ru";
-  export let telegramPlatform = "";
-  export let user: AnyRecord = {};
-  export let subscription: AnyRecord = {};
-  export let goHome = () => {};
-  export let openConnectLink: (url?: string) => void = () => {};
-  export let openExternalLink: (url: string) => void = () => {};
-  export let openAppLink: ((url: string) => void) | null = null;
-  export let copyText: (text: string, message?: string) => Promise<void> = async () => {};
-  export let t: Translate = (key, _params = {}, fallback = "") => fallback || key;
-  export let publicMode = false;
+  let {
+    currentLang = "ru",
+    telegramPlatform = "",
+    user = {},
+    subscription = {},
+    goHome = () => {},
+    openConnectLink = () => {},
+    openExternalLink = () => {},
+    openAppLink = null,
+    copyText = async () => {},
+    t = (key, _params = {}, fallback = "") => fallback || key,
+    publicMode = false,
+  }: {
+    currentLang?: string;
+    telegramPlatform?: string;
+    user?: AnyRecord;
+    subscription?: AnyRecord;
+    goHome?: () => void;
+    openConnectLink?: (url?: string) => void;
+    openExternalLink?: (url: string) => void;
+    openAppLink?: ((url: string) => void) | null;
+    copyText?: (text: string, message?: string) => Promise<void>;
+    t?: Translate;
+    publicMode?: boolean;
+  } = $props();
 
   const installGuidesStore = getContext("installGuidesStore") as InstallGuidesStore;
   const STAGE_HEIGHT_ANIMATION_MS = 360;
@@ -78,15 +92,15 @@
     yellow: "#eab308",
     zinc: "#71717a",
   };
-  let selectedPlatformKey = "";
-  let selectedAppIndex = 0;
-  let qrDataUrl = "";
-  let lastQrValue = "";
+  let selectedPlatformKey = $state("");
+  let selectedAppIndex = $state(0);
+  let qrDataUrl = $state("");
+  let lastQrValue = $state("");
   let qrRequestId = 0;
-  let installContentStage: HTMLElement | null = null;
-  let stageHeightStyle = "";
-  let stageHeightLocked = false;
-  let stageHeightInstant = false;
+  let installContentStage = $state<HTMLElement | null>(null);
+  let stageHeightStyle = $state("");
+  let stageHeightLocked = $state(false);
+  let stageHeightInstant = $state(false);
   const selectContentProps = { trapFocus: false } as Record<string, unknown>;
   const installStageAnimator = createInstallStageAnimator({
     durationMs: STAGE_HEIGHT_ANIMATION_MS,
@@ -101,50 +115,62 @@
 
   onDestroy(() => installStageAnimator.destroy());
 
-  $: guideState = $installGuidesStore;
-  $: config = (guideState?.config || null) as AnyRecord | null;
-  $: platforms = Object.entries((config?.platforms || {}) as Record<string, AnyRecord>)
-    .filter(([, platform]) => Array.isArray(platform?.apps) && platform.apps.length)
-    .map(([key, platform]) => ({ key, ...platform }) as AnyRecord & { key: string });
-  $: platformOptions = platforms.map((platform) => ({
-    value: platform.key,
-    label: localized(platform.displayName, platform.key),
-  }));
-  $: detectedPlatformKey = detectPlatformKey(platforms.map((platform) => platform.key));
-  $: if (platforms.length && !selectedPlatformKey) {
+  const guideState = $derived($installGuidesStore);
+  const config = $derived((guideState?.config || null) as AnyRecord | null);
+  const platforms = $derived(
+    Object.entries((config?.platforms || {}) as Record<string, AnyRecord>)
+      .filter(([, platform]) => Array.isArray(platform?.apps) && platform.apps.length)
+      .map(([key, platform]) => ({ key, ...platform }) as AnyRecord & { key: string })
+  );
+  const platformOptions = $derived(
+    platforms.map((platform) => ({
+      value: platform.key,
+      label: localized(platform.displayName, platform.key),
+    }))
+  );
+  const detectedPlatformKey = $derived(
+    detectPlatformKey(platforms.map((platform) => platform.key))
+  );
+  $effect(() => {
+    if (!platforms.length || selectedPlatformKey) return;
     selectedPlatformKey = detectedPlatformKey || platforms[0].key;
-  }
-  $: if (
-    selectedPlatformKey &&
-    platforms.length &&
-    !platforms.some((p) => p.key === selectedPlatformKey)
-  ) {
+  });
+  $effect(() => {
+    if (!selectedPlatformKey || !platforms.length) return;
+    if (platforms.some((p) => p.key === selectedPlatformKey)) return;
     selectedPlatformKey = platforms[0].key;
-  }
-  $: selectedPlatform =
-    platforms.find((platform) => platform.key === selectedPlatformKey) || platforms[0] || null;
-  $: selectedPlatformLabel = selectedPlatform
-    ? localized(selectedPlatform.displayName, selectedPlatform.key)
-    : "";
-  $: apps = selectedPlatform?.apps || [];
-  $: if (selectedAppIndex >= apps.length) selectedAppIndex = 0;
-  $: selectedApp = apps[selectedAppIndex] || apps[0] || null;
-  $: selectedBlocks = Array.isArray(selectedApp?.blocks) ? selectedApp.blocks : [];
-  $: hasAppCard = apps.length > 0;
-  $: stepsDelayOffset = hasAppCard ? apps.length + 1 : 0;
-  $: qrDelayIndex = stepsDelayOffset + selectedBlocks.length + 1;
-  $: installStageStyle = `${stageHeightStyle} --motion-stage-duration:${STAGE_HEIGHT_ANIMATION_MS}ms;`;
-  $: guideSubscription = guideState?.subscription || subscription || {};
-  $: finalSubscriptionLink =
+  });
+  const selectedPlatform = $derived(
+    platforms.find((platform) => platform.key === selectedPlatformKey) || platforms[0] || null
+  );
+  const selectedPlatformLabel = $derived(
+    selectedPlatform ? localized(selectedPlatform.displayName, selectedPlatform.key) : ""
+  );
+  const apps = $derived(selectedPlatform?.apps || []);
+  $effect(() => {
+    if (selectedAppIndex >= apps.length) selectedAppIndex = 0;
+  });
+  const selectedApp = $derived(apps[selectedAppIndex] || apps[0] || null);
+  const selectedBlocks = $derived(Array.isArray(selectedApp?.blocks) ? selectedApp.blocks : []);
+  const hasAppCard = $derived(apps.length > 0);
+  const stepsDelayOffset = $derived(hasAppCard ? apps.length + 1 : 0);
+  const qrDelayIndex = $derived(stepsDelayOffset + selectedBlocks.length + 1);
+  const installStageStyle = $derived(
+    `${stageHeightStyle} --motion-stage-duration:${STAGE_HEIGHT_ANIMATION_MS}ms;`
+  );
+  const guideSubscription = $derived(guideState?.subscription || subscription || {});
+  const finalSubscriptionLink = $derived(
     guideSubscription?.config_link ||
-    guideSubscription?.connect_url ||
-    subscription?.config_link ||
-    "";
-  $: shareUrl = guideSubscription?.share_url || subscription?.install_share_url || "";
-  $: if (finalSubscriptionLink !== lastQrValue) {
+      guideSubscription?.connect_url ||
+      subscription?.config_link ||
+      ""
+  );
+  const shareUrl = $derived(guideSubscription?.share_url || subscription?.install_share_url || "");
+  $effect(() => {
+    if (finalSubscriptionLink === lastQrValue) return;
     lastQrValue = finalSubscriptionLink;
     updateQr(finalSubscriptionLink);
-  }
+  });
 
   function localized(value: any, fallback = ""): string {
     if (typeof value === "string") return value;
