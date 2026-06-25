@@ -1,0 +1,170 @@
+services:
+  backend:
+    environment:
+      PANEL_API_URL: http://remnawave:3000/api
+      PANEL_API_KEY: ${REMNAWAVE_DEV_API_TOKEN:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1dWlkIjoiMzAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwidXNlcm5hbWUiOm51bGwsInJvbGUiOiJBUEkiLCJpYXQiOjAsImV4cCI6OTk5OTk5OTk5OX0.ILbG2DvyxMN6m7zGXYmaUTd1gbZsRDJHFYLc_yZQjgY}
+      PANEL_WRITE_MODE: ${PANEL_WRITE_MODE:-dry_run}
+      PANEL_DRY_RUN_VALIDATE_REMOTE: ${PANEL_DRY_RUN_VALIDATE_REMOTE:-False}
+      PANEL_DRY_RUN_SYNTHETIC_CREATE: ${PANEL_DRY_RUN_SYNTHETIC_CREATE:-True}
+      SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED: "True"
+    depends_on:
+      remnawave:
+        condition: service_healthy
+
+  remnawave:
+    image: remnawave/backend:${REMNAWAVE_DEV_VERSION:-2.7.4}
+    container_name: remnawave-dev-panel
+    hostname: remnawave
+    restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: 1048576
+        hard: 1048576
+    environment:
+      APP_PORT: "3000"
+      METRICS_PORT: "3001"
+      API_INSTANCES: "1"
+      DATABASE_URL: postgresql://postgres:postgres@remnawave-db:5432/postgres
+      REDIS_SOCKET: /var/run/valkey/valkey.sock
+      JWT_AUTH_SECRET: ${REMNAWAVE_DEV_JWT_AUTH_SECRET:-dev_remnawave_jwt_auth_secret_change_me_64_chars_minimum_local_only}
+      JWT_API_TOKENS_SECRET: ${REMNAWAVE_DEV_JWT_API_TOKENS_SECRET:-dev_remnawave_jwt_api_tokens_secret_change_me_64_chars_local_only}
+      PANEL_DOMAIN: localhost:3000
+      FRONT_END_DOMAIN: http://127.0.0.1:3000
+      SUB_PUBLIC_DOMAIN: 127.0.0.1:3010
+      IS_DOCS_ENABLED: "true"
+      METRICS_USER: admin
+      METRICS_PASS: ${REMNAWAVE_DEV_METRICS_PASS:-admin}
+      WEBHOOK_ENABLED: "false"
+      WEBHOOK_URL: http://backend:8080/webhook/panel
+      WEBHOOK_SECRET_HEADER: ${PANEL_WEBHOOK_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+    volumes:
+      - remnawave-dev-valkey-socket:/var/run/valkey
+    networks:
+      - remnawave-network
+    ports:
+      - "127.0.0.1:${REMNAWAVE_DEV_PANEL_PORT:-3000}:3000"
+      - "127.0.0.1:${REMNAWAVE_DEV_METRICS_PORT:-3001}:3001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 45s
+    depends_on:
+      remnawave-db:
+        condition: service_healthy
+      remnawave-redis:
+        condition: service_healthy
+
+  remnawave-db:
+    image: postgres:17.6
+    container_name: remnawave-dev-db
+    hostname: remnawave-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      TZ: UTC
+    volumes:
+      - remnawave-dev-db-data:/var/lib/postgresql/data
+    networks:
+      - remnawave-network
+    ports:
+      - "127.0.0.1:${REMNAWAVE_DEV_DB_PORT:-6767}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 3s
+      timeout: 10s
+      retries: 10
+
+  remnawave-redis:
+    image: valkey/valkey:9-alpine
+    container_name: remnawave-dev-redis
+    hostname: remnawave-redis
+    restart: unless-stopped
+    command: >
+      valkey-server --save "" --appendonly no --maxmemory-policy noeviction
+      --loglevel warning --unixsocket /var/run/valkey/valkey.sock
+      --unixsocketperm 777 --port 0
+    volumes:
+      - remnawave-dev-valkey-socket:/var/run/valkey
+    networks:
+      - remnawave-network
+    healthcheck:
+      test: ["CMD", "valkey-cli", "-s", "/var/run/valkey/valkey.sock", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  remnawave-subscription-page:
+    image: remnawave/subscription-page:${REMNAWAVE_SUBSCRIPTION_PAGE_VERSION:-7.2.4}
+    container_name: remnawave-dev-subscription-page
+    hostname: remnawave-subscription-page
+    restart: unless-stopped
+    environment:
+      APP_PORT: "3010"
+      REMNAWAVE_PANEL_URL: http://remnawave:3000
+      REMNAWAVE_API_TOKEN: ${REMNAWAVE_DEV_API_TOKEN:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1dWlkIjoiMzAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwidXNlcm5hbWUiOm51bGwsInJvbGUiOiJBUEkiLCJpYXQiOjAsImV4cCI6OTk5OTk5OTk5OX0.ILbG2DvyxMN6m7zGXYmaUTd1gbZsRDJHFYLc_yZQjgY}
+      CUSTOM_SUB_PREFIX: ${REMNAWAVE_DEV_SUB_PREFIX:-}
+      MARZBAN_LEGACY_LINK_ENABLED: "false"
+      TRUST_PROXY: "1"
+    networks:
+      - remnawave-network
+    ports:
+      - "127.0.0.1:${REMNAWAVE_DEV_SUBSCRIPTION_PORT:-3010}:3010"
+    depends_on:
+      remnawave-dev-seed:
+        condition: service_completed_successfully
+
+  remnawave-dev-seed:
+    image: postgres:17
+    container_name: remnawave-dev-seed
+    profiles:
+      - seed
+    environment:
+      PGHOST: remnawave-db
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    volumes:
+      - ./deploy/dev/seed-remnawave.sql:/seed/seed-remnawave.sql:ro
+    networks:
+      - remnawave-network
+    command: ["sh", "-ec", "psql -v ON_ERROR_STOP=1 -f /seed/seed-remnawave.sql"]
+    depends_on:
+      remnawave:
+        condition: service_healthy
+
+  dev-seed:
+    image: postgres:17
+    container_name: remnawave-minishop-dev-seed
+    profiles:
+      - seed
+    env_file:
+      - ${APP_ENV_FILE:-.env}
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+    volumes:
+      - ./deploy/dev/seed-minishop.sql:/seed/seed-minishop.sql:ro
+    networks:
+      - remnawave-network
+    command: ["sh", "-ec", "psql -v ON_ERROR_STOP=1 -f /seed/seed-minishop.sql"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  remnawave-minishop-db-data:
+    name: remnawave-minishop-runes-dev-db-data
+  remnawave-minishop-redis-data:
+    name: remnawave-minishop-runes-dev-redis-data
+  remnawave-dev-db-data:
+    name: remnawave-dev-db-data
+  remnawave-dev-valkey-socket:
+    name: remnawave-dev-valkey-socket
