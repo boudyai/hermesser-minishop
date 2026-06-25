@@ -33,6 +33,7 @@
   import { createActivationWatcher } from "./lib/webapp/activationWatcher";
   import { createActivationRuntime } from "./lib/webapp/activationRuntime.js";
   import { createAuthRuntime } from "./lib/webapp/authRuntime.js";
+  import { createResumeLifecycle } from "./lib/webapp/resumeLifecycle.js";
   import { refreshTelegramNotificationsAfterResume } from "./lib/webapp/telegramNotificationsResume.js";
   import {
     currentSearchParams,
@@ -478,6 +479,18 @@
     tick,
   });
   const { setPasswordLoginMode, showLogin, submitEmailOnEnter } = authRuntime;
+  const resumeLifecycle = createResumeLifecycle({
+    clearLoginTooltip: () => {
+      loginEmailTooltipOpen = false;
+    },
+    getMode: () => mode,
+    refreshPendingActivationOnResume: () => {
+      void refreshPendingActivationOnResume();
+    },
+    refreshTelegramNotificationsOnResume: () => {
+      void refreshTelegramNotificationsOnResume();
+    },
+  });
   const accountStore = createAccountStore({
     api,
     publicApi,
@@ -818,17 +831,6 @@
   onMount(() => {
     if (isPreviewBoard) return;
     if (isAppLaunchRoute) return;
-    const onAnyPointerDown = () => {
-      if (mode === "login") loginEmailTooltipOpen = false;
-    };
-    const onActivationResume = () => {
-      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-      void refreshPendingActivationOnResume();
-      void refreshTelegramNotificationsOnResume();
-    };
-    const onVisibilityChange = () => {
-      if (document.visibilityState !== "hidden") onActivationResume();
-    };
     const onPopState = () => {
       const currentQuery = currentSearchParams();
       const decision = resolvePopstateRoute({
@@ -889,17 +891,11 @@
       }
     };
     window.addEventListener("popstate", onPopState);
-    window.addEventListener("pointerdown", onAnyPointerDown);
-    window.addEventListener("focus", onActivationResume);
-    window.addEventListener("pageshow", onActivationResume);
-    document.addEventListener("visibilitychange", onVisibilityChange);
+    const cleanupResumeLifecycle = resumeLifecycle.mount();
     boot();
     return () => {
       window.removeEventListener("popstate", onPopState);
-      window.removeEventListener("pointerdown", onAnyPointerDown);
-      window.removeEventListener("focus", onActivationResume);
-      window.removeEventListener("pageshow", onActivationResume);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
+      cleanupResumeLifecycle();
       authStore.stopTelegramLoginWatchdog();
       authStore.clearCooldownTimer();
       accountStore.clearLinkEmailResendTimer();
