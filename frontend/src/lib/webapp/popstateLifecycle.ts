@@ -1,5 +1,6 @@
 import { resolvePopstateRoute, type PopstateRouteDecision } from "./appRouteLifecycle.js";
 import { sectionFromPath } from "./routes.js";
+import { shellState } from "./shellState.svelte";
 
 type MaybePromise<T = void> = T | Promise<T>;
 
@@ -17,8 +18,6 @@ type PopstateLifecycleDeps = {
   getDevicesEnabled: () => boolean;
   getFallbackAdminSection: () => string;
   getIsAdmin: () => boolean;
-  getMode: () => string;
-  getScreen: () => string;
   getSupportEnabled: () => boolean;
   getWindowPathname?: () => string;
   isDocsDemo: boolean;
@@ -28,10 +27,7 @@ type PopstateLifecycleDeps = {
   loadSupport: () => void;
   routePathnameFromLocation: () => string;
   routePrefix: string;
-  setActiveTab: (tab: string) => void;
-  setAdminActiveSection: (section: string) => void;
   setPasswordLoginMode: (enabled: boolean, replace?: boolean) => void;
-  setScreen: (screen: string) => void;
   showAdminUnavailable: () => void;
   startSupportPolling: () => void;
   syncAppSectionPath: (section: string, replace?: boolean) => void;
@@ -45,8 +41,6 @@ export function createPopstateLifecycle({
   getDevicesEnabled,
   getFallbackAdminSection,
   getIsAdmin,
-  getMode,
-  getScreen,
   getSupportEnabled,
   getWindowPathname = () => (typeof window === "undefined" ? "" : window.location.pathname),
   isDocsDemo,
@@ -56,19 +50,16 @@ export function createPopstateLifecycle({
   loadSupport,
   routePathnameFromLocation,
   routePrefix,
-  setActiveTab,
-  setAdminActiveSection,
   setPasswordLoginMode,
-  setScreen,
   showAdminUnavailable,
   startSupportPolling,
   syncAppSectionPath,
 }: PopstateLifecycleDeps) {
   function handleAdminDecision(decision: Extract<PopstateRouteDecision, { kind: "admin" }>): void {
-    setAdminActiveSection(decision.adminSection);
+    shellState.adminActiveSection = decision.adminSection;
     adminRuntime.cancelAdminAssetsPrefetch();
-    setActiveTab(decision.activeTab);
-    setScreen(decision.section);
+    shellState.activeTab = decision.activeTab;
+    shellState.screen = decision.section;
     const pathAtStart = getWindowPathname();
     void Promise.all([
       adminRuntime.ensureI18nScope("admin"),
@@ -76,9 +67,9 @@ export function createPopstateLifecycle({
     ]).catch(() => {
       if (sectionFromPath(routePathnameFromLocation(), routePrefix) !== "admin") return;
       if (getWindowPathname() !== pathAtStart) return;
-      if (getScreen() === "admin") {
-        setActiveTab("settings");
-        setScreen("settings");
+      if (shellState.screen === "admin") {
+        shellState.activeTab = "settings";
+        shellState.screen = "settings";
         syncAppSectionPath("settings", true);
       }
       showAdminUnavailable();
@@ -88,8 +79,8 @@ export function createPopstateLifecycle({
   function handleSectionDecision(
     decision: Extract<PopstateRouteDecision, { kind: "section" }>
   ): void {
-    setActiveTab(decision.activeTab);
-    setScreen(decision.section);
+    shellState.activeTab = decision.activeTab;
+    shellState.screen = decision.section;
     if (decision.loadDevices) loadDevices();
     if (decision.loadSupport) {
       loadSupport();
@@ -106,7 +97,7 @@ export function createPopstateLifecycle({
       fallbackAdminSection: getFallbackAdminSection(),
       isAdmin: getIsAdmin(),
       isDocsDemo,
-      mode: getMode(),
+      mode: shellState.mode,
       pathname: routePathnameFromLocation(),
       routePrefix,
       screenQuery: currentQuery.get("screen"),
@@ -123,7 +114,7 @@ export function createPopstateLifecycle({
     }
     if (decision.kind === "login") {
       setPasswordLoginMode(decision.passwordLoginEnabled, true);
-      setScreen("login");
+      shellState.screen = "login";
       return decision;
     }
     if (decision.kind === "admin") {

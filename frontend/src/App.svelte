@@ -707,8 +707,6 @@
     getDevicesEnabled: () => devicesEnabled,
     getFallbackAdminSection: initialAdminSectionFromLocation,
     getIsAdmin: () => isAdmin,
-    getMode: () => mode,
-    getScreen: () => screen,
     getSupportEnabled: () => supportEnabled,
     isDocsDemo,
     loadDevices: () => {
@@ -723,16 +721,7 @@
     },
     routePathnameFromLocation,
     routePrefix,
-    setActiveTab: (tab) => {
-      shellState.activeTab = tab;
-    },
-    setAdminActiveSection: (section) => {
-      shellState.adminActiveSection = section;
-    },
     setPasswordLoginMode,
-    setScreen: (nextScreen) => {
-      shellState.screen = nextScreen;
-    },
     showAdminUnavailable: () => {
       showToast(t("wa_unavailable"));
     },

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createPopstateLifecycle } from "./popstateLifecycle.js";
+import { resetShellState, shellState } from "./shellState.svelte.ts";
 
 const SHARE_TOKEN = "0123456789abcdef0123456789abcdef";
 
@@ -12,6 +13,7 @@ async function flushPromises() {
 function createDeps(overrides = {}) {
   const state = {
     activeTab: "home",
+    adminActiveSection: "stats",
     canUseInstallGuides: false,
     devicesEnabled: true,
     fallbackAdminSection: "stats",
@@ -26,6 +28,12 @@ function createDeps(overrides = {}) {
     windowPathname: "/",
     ...overrides,
   };
+  resetShellState({
+    activeTab: state.activeTab,
+    adminActiveSection: state.adminActiveSection,
+    mode: state.mode,
+    screen: state.screen,
+  });
   const adminRuntime = {
     cancelAdminAssetsPrefetch: vi.fn(),
     ensureAdminBundle: vi.fn(() => Promise.resolve({})),
@@ -39,8 +47,6 @@ function createDeps(overrides = {}) {
     getDevicesEnabled: () => state.devicesEnabled,
     getFallbackAdminSection: () => state.fallbackAdminSection,
     getIsAdmin: () => state.isAdmin,
-    getMode: () => state.mode,
-    getScreen: () => state.screen,
     getSupportEnabled: () => state.supportEnabled,
     getWindowPathname: () => state.windowPathname,
     isDocsDemo: state.isDocsDemo,
@@ -50,16 +56,7 @@ function createDeps(overrides = {}) {
     loadSupport: vi.fn(),
     routePathnameFromLocation: () => state.pathname,
     routePrefix: state.routePrefix,
-    setActiveTab: vi.fn((tab) => {
-      state.activeTab = tab;
-    }),
-    setAdminActiveSection: vi.fn((section) => {
-      state.adminActiveSection = section;
-    }),
     setPasswordLoginMode: vi.fn(),
-    setScreen: vi.fn((screen) => {
-      state.screen = screen;
-    }),
     showAdminUnavailable: vi.fn(),
     startSupportPolling: vi.fn(),
     syncAppSectionPath: vi.fn(),
@@ -86,7 +83,7 @@ describe("createPopstateLifecycle", () => {
 
     expect(deps.loadPublicInstall).toHaveBeenCalledWith(SHARE_TOKEN);
     expect(deps.boot).not.toHaveBeenCalled();
-    expect(deps.setScreen).not.toHaveBeenCalled();
+    expect(shellState.screen).toBe("home");
   });
 
   it("boots when leaving public install mode", () => {
@@ -115,11 +112,11 @@ describe("createPopstateLifecycle", () => {
     });
 
     expect(deps.setPasswordLoginMode).toHaveBeenCalledWith(true, true);
-    expect(deps.setScreen).toHaveBeenCalledWith("login");
+    expect(shellState.screen).toBe("login");
   });
 
   it("loads admin shell dependencies for admin routes", () => {
-    const { adminRuntime, deps, lifecycle, state } = createDeps({
+    const { adminRuntime, lifecycle } = createDeps({
       isAdmin: true,
       pathname: "/admin/users/42",
       windowPathname: "/admin/users/42",
@@ -132,17 +129,18 @@ describe("createPopstateLifecycle", () => {
       section: "admin",
     });
 
-    expect(deps.setAdminActiveSection).toHaveBeenCalledWith("users");
     expect(adminRuntime.cancelAdminAssetsPrefetch).toHaveBeenCalledOnce();
-    expect(deps.setActiveTab).toHaveBeenCalledWith("settings");
-    expect(deps.setScreen).toHaveBeenCalledWith("admin");
     expect(adminRuntime.ensureI18nScope).toHaveBeenCalledWith("admin");
     expect(adminRuntime.ensureAdminBundle).toHaveBeenCalledOnce();
-    expect(state.screen).toBe("admin");
+    expect(shellState).toMatchObject({
+      activeTab: "settings",
+      adminActiveSection: "users",
+      screen: "admin",
+    });
   });
 
   it("falls back to settings when admin bundle loading fails on the same route", async () => {
-    const { adminRuntime, deps, lifecycle, state } = createDeps({
+    const { adminRuntime, deps, lifecycle } = createDeps({
       isAdmin: true,
       pathname: "/admin/payments",
       screen: "home",
@@ -153,7 +151,7 @@ describe("createPopstateLifecycle", () => {
     lifecycle.handlePopstate();
     await flushPromises();
 
-    expect(state.screen).toBe("settings");
+    expect(shellState.screen).toBe("settings");
     expect(deps.syncAppSectionPath).toHaveBeenCalledWith("settings", true);
     expect(deps.showAdminUnavailable).toHaveBeenCalledOnce();
   });
