@@ -2,20 +2,21 @@
   import { Check, ChevronDown } from "$components/ui/icons.js";
   import { Select } from "$components/ui/primitives.js";
 
-  export let value = "";
-  export let items = [];
-  export let ariaLabel = "";
-  export let placeholder = "";
-  export let disabled = false;
-  export let side = "bottom";
-  export let align = "start";
-  export let sideOffset = 6;
-  export let collisionPadding = 12;
-  export let onValueChange = () => {};
-  let className = "";
-  export { className as class };
+  let {
+    value = $bindable(""),
+    items = [],
+    ariaLabel = "",
+    placeholder = "",
+    disabled = false,
+    side = "bottom",
+    align = "start",
+    sideOffset = 6,
+    collisionPadding = 12,
+    onValueChange = () => {},
+    class: className = "",
+  } = $props();
 
-  $: selected = items.find((item) => item.value === value);
+  const selected = $derived(items.find((item) => item.value === value));
 
   function handleValueChange(next) {
     value = next;

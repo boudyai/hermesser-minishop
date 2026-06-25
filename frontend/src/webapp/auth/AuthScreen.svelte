@@ -17,58 +17,56 @@
   import Spinner from "$components/ui/spinner.svelte";
   import { StatusMessage } from "$components/patterns/webapp/index.js";
 
-  export let screen;
-  export let CFG;
-  export let brand = {};
-  export let brandTitle;
-  export let email;
-  export let emailPassword;
-  export let emailCode;
-  export let pendingEmail;
-  export let authStatus;
-  export let authIsError;
-  export let authBusy;
-  export let authResendCooldown;
-  export let loginEmailFieldError;
-  export let loginEmailTooltipOpen;
-  export let passwordLoginFallback;
-  export let passwordLoginMode;
-  export let telegramLoginBusy;
-  export let telegramLoginUnavailable;
-  export let telegramLoginChecking;
-  export let telegramLoginLabel;
-  export let telegramLoginUnavailableMessage;
-  export let privacyPolicyUrl;
-  export let userAgreementUrl;
-  export let currentLang = "ru";
-  /** @type {import("../../lib/webapp/languageView.js").LanguageOption | null} */
-  export let currentLanguageOption = null;
-  /** @type {import("../../lib/webapp/languageView.js").LanguageOption[]} */
-  export let languageOptions = [];
-  export let languageMenuOpen = false;
-  export let languageClickGuard = false;
-  export let languageClickGuardArmed = false;
-  export let t;
-  /** @type {(open: boolean) => void} */
-  export let setLanguageMenuOpen = () => {};
-  /** @type {(language: string) => void} */
-  export let updateLoginLanguage = () => {};
-  export let requestEmailCode;
-  export let loginWithEmailPassword;
-  export let verifyEmailCode;
-  export let openTelegramLogin;
-  export let openExternalLink;
-  export let submitEmailOnEnter;
-  export let onBackToLogin;
-  export let clearLoginEmailError;
-  export let setPasswordLoginMode;
+  let {
+    screen,
+    CFG,
+    brand = {},
+    brandTitle,
+    email = $bindable(""),
+    emailPassword = $bindable(""),
+    emailCode = $bindable(""),
+    pendingEmail,
+    authStatus,
+    authIsError,
+    authBusy,
+    authResendCooldown,
+    loginEmailFieldError,
+    loginEmailTooltipOpen,
+    passwordLoginFallback,
+    passwordLoginMode,
+    telegramLoginBusy,
+    telegramLoginUnavailable,
+    telegramLoginChecking,
+    telegramLoginLabel,
+    telegramLoginUnavailableMessage,
+    privacyPolicyUrl,
+    userAgreementUrl,
+    currentLang = "ru",
+    currentLanguageOption = null,
+    languageOptions = [],
+    languageMenuOpen = $bindable(false),
+    languageClickGuard = false,
+    languageClickGuardArmed = false,
+    t,
+    setLanguageMenuOpen = () => {},
+    updateLoginLanguage = () => {},
+    requestEmailCode,
+    loginWithEmailPassword,
+    verifyEmailCode,
+    openTelegramLogin,
+    openExternalLink,
+    submitEmailOnEnter,
+    onBackToLogin,
+    clearLoginEmailError,
+    setPasswordLoginMode,
+  } = $props();
 
-  let authPanelHeight = 0;
+  let authPanelHeight = $state(0);
 
-  $: emailAuthEnabled = CFG.emailAuthEnabled !== false;
-  $: passwordModeActive = Boolean(passwordLoginMode && emailAuthEnabled);
-  $: authCardHeight = authPanelHeight ? `${authPanelHeight}px` : undefined;
-  $: showLanguageSelect = languageOptions.length > 1;
+  const emailAuthEnabled = $derived(CFG.emailAuthEnabled !== false);
+  const passwordModeActive = $derived(Boolean(passwordLoginMode && emailAuthEnabled));
+  const authCardHeight = $derived(authPanelHeight ? `${authPanelHeight}px` : undefined);
+  const showLanguageSelect = $derived(languageOptions.length > 1);
 
   function closeLanguageFromGuard(event) {
     event.preventDefault();
