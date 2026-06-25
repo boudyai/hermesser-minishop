@@ -186,7 +186,11 @@ def _set_webapp_auth_cookies(
     session_token: str,
     csrf_token: str,
 ) -> None:
-    max_age = max(60, int(settings.WEBAPP_SESSION_TTL_SECONDS))
+    try:
+        session_ttl_seconds = int(settings.webapp_settings.session_ttl_seconds)
+    except AttributeError:
+        session_ttl_seconds = int(settings.WEBAPP_SESSION_TTL_SECONDS)
+    max_age = max(60, session_ttl_seconds)
     response.set_cookie(
         WEBAPP_SESSION_COOKIE_NAME,
         session_token,

@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from config.settings_mixins import _split_csv
-from config.settings_models import PanelSettings, ReferralSettings, SupportSettings
+from config.settings_models import PanelSettings, ReferralSettings, SupportSettings, WebAppSettings
 from config.webapp_themes_config import WebappThemesConfig
 
 DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
@@ -90,7 +90,14 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "WEBAPP_LOGO_URL": None,
     "WEBAPP_ME_CACHE_TTL_SECONDS": 15,
     "WEBAPP_PRIMARY_COLOR": "#00fe7a",
+    "WEBAPP_SERVER_HOST": "0.0.0.0",
+    "WEBAPP_SERVER_PORT": 8080,
+    "WEBAPP_SESSION_SECRET": "test-session-secret",
+    "WEBAPP_SESSION_TTL_SECONDS": 86400,
     "WEBAPP_TITLE": "/minishop",
+    "WEBAPP_AUTH_MAX_AGE_SECONDS": 86400,
+    "WEBAPP_LOGIN_TOKEN_TTL_SECONDS": 600,
+    "WEBHOOK_SECRET_TOKEN": "test-webhook-secret",
 }
 
 
@@ -140,6 +147,26 @@ class SettingsStub(SimpleNamespace):
     @property
     def trusted_proxies(self) -> list[str]:
         return _split_csv(getattr(self, "TRUSTED_PROXIES", None))
+
+    @property
+    def webapp_settings(self) -> WebAppSettings:
+        return WebAppSettings(
+            title=getattr(self, "WEBAPP_TITLE", "/minishop"),
+            primary_color=getattr(self, "WEBAPP_PRIMARY_COLOR", "#00fe7a"),
+            logo_url=getattr(self, "WEBAPP_LOGO_URL", None),
+            favicon_use_custom=bool(getattr(self, "WEBAPP_FAVICON_USE_CUSTOM", False)),
+            favicon_url=getattr(self, "WEBAPP_FAVICON_URL", None),
+            logo_favicon_url=getattr(self, "WEBAPP_LOGO_FAVICON_URL", None),
+            session_ttl_seconds=int(getattr(self, "WEBAPP_SESSION_TTL_SECONDS", 86400)),
+            session_secret=getattr(self, "WEBAPP_SESSION_SECRET", "test-session-secret"),
+            webhook_secret_token=getattr(self, "WEBHOOK_SECRET_TOKEN", "test-webhook-secret"),
+            auth_max_age_seconds=int(getattr(self, "WEBAPP_AUTH_MAX_AGE_SECONDS", 86400)),
+            login_token_ttl_seconds=int(getattr(self, "WEBAPP_LOGIN_TOKEN_TTL_SECONDS", 600)),
+            server_host=getattr(self, "WEBAPP_SERVER_HOST", "0.0.0.0"),
+            server_port=int(getattr(self, "WEBAPP_SERVER_PORT", 8080)),
+            enabled=bool(getattr(self, "WEBAPP_ENABLED", True)),
+            trusted_proxies=self.trusted_proxies,
+        )
 
     @property
     def panel_settings(self) -> PanelSettings:
