@@ -30,7 +30,7 @@
   import { createWebappActivationContext } from "./lib/webapp/webappActivationContext";
   import { createAuthRuntime } from "./lib/webapp/authRuntime.js";
   import { createResumeLifecycle } from "./lib/webapp/resumeLifecycle.js";
-  import { refreshTelegramNotificationsAfterResume } from "./lib/webapp/telegramNotificationsResume.js";
+  import { createAppBootRuntime } from "./lib/webapp/appBootRuntime.js";
   import {
     currentSearchParams,
     hasEmailCodeLoginDeeplink,
@@ -65,10 +65,8 @@
   const TELEGRAM_NOTIFICATIONS_RESUME_REFRESH_COOLDOWN_MS = 1500;
   import { createBillingActions } from "./lib/webapp/billingActions";
   import { invalidateWebappTariffOptionCaches } from "./lib/webapp/billingOptionCache.js";
-  import { runWebappBoot } from "./lib/webapp/webappBoot.js";
   import { CSRF_COOKIE_NAME, readCookie } from "./lib/webapp/session.js";
   import { createTelegramRuntime, type TelegramWebApp } from "./lib/webapp/telegramRuntime.js";
-  import { publicInstallTokenFromPath } from "./lib/webapp/routes.js";
 
   type AnyRecord = Record<string, any>;
   export let mockRuntime: AnyRecord | null = null;
@@ -165,6 +163,7 @@
   let telegramNotificationsNeedPrompt = false;
   let telegramOAuthClientId = 0;
   let user: AnyRecord = {};
+  let appActions: AppActionRuntime;
   const telegramRuntime = createTelegramRuntime<TelegramWebApp | null>({
     scriptUrl: TELEGRAM_WEBAPP_SCRIPT_URL,
     bootTimeoutMs: TELEGRAM_SDK_BOOT_TIMEOUT_MS,
@@ -414,6 +413,55 @@
     tick,
   });
   const { setPasswordLoginMode, showLogin, submitEmailOnEnter } = authRuntime;
+  const bootRuntime = createAppBootRuntime({
+    loadPublicInstall: (shareToken) => appActions.loadPublicInstall(shareToken),
+    isDemoAuthMock: () => Boolean(MOCK) && demoAuth.isDemoAuthMock(),
+    prepareDemoAuthState: () => demoAuth.prepareAuthState(),
+    mock: MOCK,
+    getTelegram: () => tg,
+    setMode: (next) => {
+      mode = next;
+    },
+    hasTelegramLaunchParams,
+    loadTelegramSdk,
+    loadData,
+    showLogin,
+    clearToken,
+    clearManualLogoutFlag,
+    isManuallyLoggedOut,
+    hasEmailCodeLoginDeeplink,
+    finalizeMagicLogin: (loginToken) => authStore.finalizeMagicLogin(loginToken),
+    finalizeTelegramAuth: (authData, source) => authStore.finalizeTelegramAuth(authData, source),
+    setAuthStatus: (message, isError = false) => authStore.setAuthStatus(message, isError),
+    t,
+    getInitDataForBoot: () =>
+      telegramMiniAppInitData || tg?.initData || readTelegramMiniAppInitDataFromLocation(),
+    getToken: () => token,
+    getCsrfToken: () => csrfToken,
+    getMode: () => mode,
+    getScreen: () => screen,
+    continueTelegramLinkPendingAction: () => appActions.continueTelegramLinkPendingAction(),
+    hasPendingActivationHandoff,
+    maybeShowActivationSuccessDialog,
+    startPendingActivationWatch,
+    telegramNotificationsResumeCooldownMs: TELEGRAM_NOTIFICATIONS_RESUME_REFRESH_COOLDOWN_MS,
+    readTelegramNotificationsResumeState: () => ({
+      botOpenedAt: telegramNotificationsBotOpenedAt,
+      lastCheckAt: telegramNotificationsResumeLastCheckAt,
+      mode,
+      needPrompt: telegramNotificationsNeedPrompt,
+      refreshBusy: telegramNotificationsResumeRefreshBusy,
+    }),
+    setTelegramNotificationsBotOpenedAt: (openedAt) => {
+      telegramNotificationsBotOpenedAt = openedAt;
+    },
+    setTelegramNotificationsResumeLastCheckAt: (checkedAt) => {
+      telegramNotificationsResumeLastCheckAt = checkedAt;
+    },
+    setTelegramNotificationsResumeRefreshBusy: (busy) => {
+      telegramNotificationsResumeRefreshBusy = busy;
+    },
+  });
   const resumeLifecycle = createResumeLifecycle({
     clearLoginTooltip: () => {
       authStore.update((state) => ({ ...state, loginEmailTooltipOpen: false }));
@@ -423,7 +471,7 @@
       void refreshPendingActivationOnResume();
     },
     refreshTelegramNotificationsOnResume: () => {
-      void refreshTelegramNotificationsOnResume();
+      void bootRuntime.refreshTelegramNotificationsOnResume();
     },
   });
   const accountStore = createAccountStore({
@@ -462,7 +510,6 @@
   setContext("actionsStore", actionsStore);
   setContext("accountStore", accountStore);
 
-  let appActions: AppActionRuntime;
   let shellView: AppShellView;
   $: ({ authStatus, authBusy, telegramLoginBusy } = $authStore);
   $: ({
@@ -588,32 +635,9 @@
     });
   }
 
-  async function refreshTelegramNotificationsOnResume() {
-    await refreshTelegramNotificationsAfterResume({
-      cooldownMs: TELEGRAM_NOTIFICATIONS_RESUME_REFRESH_COOLDOWN_MS,
-      loadData: () => loadData({ fresh: true, preserveView: true }),
-      readState: () => ({
-        botOpenedAt: telegramNotificationsBotOpenedAt,
-        lastCheckAt: telegramNotificationsResumeLastCheckAt,
-        mode,
-        needPrompt: telegramNotificationsNeedPrompt,
-        refreshBusy: telegramNotificationsResumeRefreshBusy,
-      }),
-      setBotOpenedAt: (openedAt) => {
-        telegramNotificationsBotOpenedAt = openedAt;
-      },
-      setLastCheckAt: (checkedAt) => {
-        telegramNotificationsResumeLastCheckAt = checkedAt;
-      },
-      setRefreshBusy: (busy) => {
-        telegramNotificationsResumeRefreshBusy = busy;
-      },
-    });
-  }
-
   const popstateLifecycle = createPopstateLifecycle({
     adminRuntime,
-    boot,
+    boot: bootRuntime.boot,
     canUseInstallGuides,
     currentSearchParams,
     getDevicesEnabled: () => devicesEnabled,
@@ -716,7 +740,7 @@
     const onPopState = popstateLifecycle.handlePopstate;
     window.addEventListener("popstate", onPopState);
     const cleanupResumeLifecycle = resumeLifecycle.mount();
-    boot();
+    bootRuntime.boot();
     return () => {
       window.removeEventListener("popstate", onPopState);
       cleanupResumeLifecycle();
@@ -849,60 +873,6 @@
       shouldMount: Boolean(screen === "admin" && isAdmin && adminBundleApi && adminMountTarget),
       target: adminMountTarget,
     });
-  }
-
-  async function boot() {
-    const shareToken = publicInstallTokenFromPath(window.location.pathname);
-    if (shareToken) {
-      await appActions.loadPublicInstall(shareToken);
-      return;
-    }
-    if (MOCK && demoAuth.isDemoAuthMock()) {
-      demoAuth.prepareAuthState();
-      showLogin();
-      return;
-    }
-    await runWebappBoot({
-      MOCK,
-      setMode: (next: string) => {
-        mode = next;
-      },
-      hasTelegramLaunchParams,
-      loadTelegramSdk,
-      prepareTelegramMiniApp: () => {
-        if (!tg) return;
-        try {
-          tg.ready?.();
-          tg.expand?.();
-        } catch (_error) {
-          void _error;
-        }
-      },
-      loadData,
-      showLogin,
-      clearToken,
-      clearManualLogoutFlag,
-      isManuallyLoggedOut,
-      hasEmailCodeLoginDeeplink,
-      finalizeMagicLogin: (loginToken: string) => authStore.finalizeMagicLogin(loginToken),
-      finalizeTelegramAuth: (authData: unknown, source: "auth_data" | "init_data" | "id_token") =>
-        authStore.finalizeTelegramAuth(authData, source),
-      setAuthStatus: (message: string, isError = false) =>
-        authStore.setAuthStatus(message, isError),
-      t,
-      getInitDataForBoot: () =>
-        telegramMiniAppInitData || tg?.initData || readTelegramMiniAppInitDataFromLocation(),
-      getToken: () => token,
-      getCsrfToken: () => csrfToken,
-    });
-    if (mode === "app" && screen !== "admin") {
-      const telegramActionHandled = await appActions.continueTelegramLinkPendingAction();
-      if (!telegramActionHandled) {
-        if (hasPendingActivationHandoff()) await loadData({ fresh: true });
-        const shown = await maybeShowActivationSuccessDialog({ source: "boot" });
-        if (!shown) startPendingActivationWatch();
-      }
-    }
   }
 
   async function loadData(options: AppLoadDataOptions = {}) {
