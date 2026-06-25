@@ -58,7 +58,10 @@ def test_devices_screen_passes_subscription_limit_as_initial_fallback():
         encoding="utf-8"
     )
 
-    assert "effectiveMaxDevices = devicesData?.max_devices ?? subscription?.max_devices" in source
+    assert (
+        "effectiveMaxDevices = $derived(devicesData?.max_devices ?? subscription?.max_devices)"
+        in source
+    )
     assert "devicesCountLabel(devicesData, t, effectiveMaxDevices)" in source
     assert "devicesPercent(devicesData, effectiveMaxDevices)" in source
     assert "devicesLimitLabel(devicesData, t, effectiveMaxDevices)" in source

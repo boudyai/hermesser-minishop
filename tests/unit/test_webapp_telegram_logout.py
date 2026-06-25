@@ -27,7 +27,7 @@ def test_logout_button_is_controlled_by_telegram_context():
     assert "{shellView}" in app_source
     assert "{telegramMiniAppContext}" in app_mode_source
     assert "showLogout={!telegramMiniAppContext}" in authenticated_screens_source
-    assert "export let showLogout = true;" in settings_source
+    assert "showLogout = true," in settings_source
     assert "{#if showLogout}" in settings_source
 
 
@@ -35,8 +35,8 @@ def test_shell_view_reactivity_keeps_dependencies_visible():
     app_source = _read("frontend/src/App.svelte")
 
     assert "computeCurrentShellView" not in app_source
-    start = app_source.index("$: shellView = computeAppShellView({")
-    end = app_source.index("$: ({", start)
+    start = app_source.index("const shellView: AppShellView = $derived(")
+    end = app_source.index("const telegramNotificationsNeedPrompt", start)
     shell_view_block = app_source[start:end]
 
     for dependency in (
@@ -53,7 +53,7 @@ def test_shell_view_reactivity_keeps_dependencies_visible():
 
 
 def test_logout_handler_is_noop_inside_telegram_mini_app():
-    source = _read("frontend/src/lib/webapp/stores/accountStore.ts")
+    source = _read("frontend/src/lib/webapp/stores/accountStore.svelte.ts")
 
     guard_pos = source.index("if (telegramSdk.hasLaunchParams()) return;")
     mark_logout_pos = source.index("markManualLogout();")
@@ -70,7 +70,7 @@ def test_open_app_route_uses_fallback_screen_without_auth_flow():
     assert "loadBootstrap().finally" in main_source
     assert "AppModeContent" in app_source
     assert "AppLaunchScreen" in app_mode_source
-    assert 'mode = isAppLaunchRoute ? "appLaunch"' in app_source
+    assert 'mode: isAppLaunchRoute ? "appLaunch"' in app_source
     assert "window.close()" in screen_source
     assert 'window.addEventListener("blur", notePageLeft)' not in screen_source
     assert "CLOSE_ATTEMPT_DELAY_MS = 2500" in screen_source

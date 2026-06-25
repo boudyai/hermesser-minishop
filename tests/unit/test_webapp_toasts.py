@@ -13,7 +13,7 @@ def test_sonner_toaster_uses_app_theme_and_unstyled_toasts():
     shell_view_source = APP_SHELL_VIEW.read_text(encoding="utf-8")
 
     assert "computeThemeView" in shell_view_source
-    assert "themeView: {" in source
+    assert "shellView.themeView" in source
     assert "toastTheme" in source
     assert "theme={toastTheme}" in source
     assert "style={shellStyle}" in source

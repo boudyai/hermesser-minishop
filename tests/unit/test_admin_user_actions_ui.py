@@ -8,7 +8,7 @@ USER_ACTIONS = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserActionsT
 STATS_SECTION = REPO_ROOT / "frontend/src/admin/sections/StatsSection.svelte"
 ADMIN_PANEL = REPO_ROOT / "frontend/src/admin/AdminPanel.svelte"
 ADMIN_CSS = REPO_ROOT / "frontend/src/styles/admin.css"
-USERS_STORE = REPO_ROOT / "frontend/src/lib/admin/stores/usersStore.ts"
+USERS_STORE = REPO_ROOT / "frontend/src/lib/admin/stores/usersStore.svelte.ts"
 
 
 def _source() -> str:
@@ -32,7 +32,7 @@ def test_extend_subscription_controls_are_grouped_in_action_card():
 
     assert '<AdminSectionHeader title={at("user_label_extend"' in card
     assert 'class="admin-user-extend-grid"' in card
-    assert "bind:value={$usersStore.userExtendDays}" in card
+    assert "bind:value={usersStore.userExtendDays}" in card
     assert 'max="3650"' in card
     assert "items={extendTariffItems}" in card
     assert "onclick={usersStore.extendUser}" in card
@@ -155,9 +155,8 @@ def test_stats_recent_payment_user_button_stays_in_current_section():
     source = ADMIN_PANEL.read_text(encoding="utf-8")
 
     assert "onOpenUserCard={openSectionUserCard}" in source
-    assert re.search(
-        r'\$: openSectionUserCard\s*=\s*active === "payments"\s*\?\s*openPaymentUserCard'
-        r'\s*:\s*active === "logs"\s*\?\s*openLogsUserCard\s*:\s*openUserCard;',
-        source,
-        re.S,
-    )
+    assert "const openSectionUserCard = $derived(" in source
+    assert 'active === "payments"' in source
+    assert "openPaymentUserCard" in source
+    assert 'active === "logs"' in source
+    assert "openLogsUserCard" in source
