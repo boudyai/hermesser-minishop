@@ -19,6 +19,8 @@
     "check:svelte": "svelte-check --tsconfig ./jsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "check": "npm run lint && npm run check:svelte && npm run format:check",
     "fix": "npm run format && npm run lint:js:fix"
   },
@@ -26,6 +28,7 @@
     "@eslint/js": "^10.0.1",
     "@internationalized/date": "^3.12.1",
     "@neodrag/svelte": "^2.3.3",
+    "@playwright/test": "^1.50.1",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@tailwindcss/cli": "4.3.0",
     "@tailwindcss/vite": "^4.3.0",

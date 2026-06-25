@@ -70,6 +70,44 @@ jobs:
         run: npm run test
         working-directory: frontend
 
+  # Deterministic Playwright mock-smoke against the docs-demo build (mockApi, no
+  # backend). Kept in its own job so a flake never blocks the lint/typecheck/unit
+  # signal. Covers boot + every nav switch + tariff modal + admin lazy-load +
+  # zero console errors.
+  webapp-e2e:
+    name: Webapp e2e smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend deps
+        run: npm ci
+        working-directory: frontend
+
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+
+      - name: Run webapp mock-smoke
+        run: npm run test:e2e
+        working-directory: frontend
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
+
   demo-manifest:
     name: Demo settings manifest in sync
     runs-on: ubuntu-latest
