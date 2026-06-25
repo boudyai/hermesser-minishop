@@ -164,7 +164,6 @@
   const languageClickGuardArmed = $derived(shellState.languageClickGuardArmed);
   const guestLanguage = $derived(shellState.guestLanguage);
   const emailAvatarUrl = $derived(shellState.emailAvatarUrl);
-  const csrfToken = $derived(shellState.csrfToken);
   const adminBundleApi: AnyRecord | null = $derived(shellState.adminBundleApi as AnyRecord | null);
   const adminBundleError = $derived(shellState.adminBundleError);
   const adminMountTarget = $derived(shellState.adminMountTarget);
@@ -255,7 +254,7 @@
   const dataClient = createWebappDataClient({
     apiBase: CFG.apiBase,
     csrfCookieName: CSRF_COOKIE_NAME,
-    getCsrfToken: () => csrfToken,
+    getCsrfToken: () => shellState.csrfToken,
     onUnauthorized: () => {
       clearToken();
       showLogin();
