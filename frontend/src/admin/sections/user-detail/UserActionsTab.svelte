@@ -24,41 +24,73 @@
   type UserDetail = Record<string, unknown> & {
     active_subscription?: SubscriptionDetail | null;
   };
+  type Props = {
+    at: TranslateFn;
+    openedUser?: AdminUser | null;
+    openedUserDetail?: UserDetail | null;
+    userActionBusy?: boolean;
+    userMessageDraft?: string;
+    extendTariffItems?: SelectOption[];
+    extendTariffsLoading?: boolean;
+    userExtendDaysValid?: boolean;
+    userExtendTariffValid?: boolean;
+    extendTariffRequired?: boolean;
+    selectExtendTariff: ComponentCallback;
+    periodTariffItems?: SelectOption[];
+    tariffActionDirty?: boolean;
+    currentSubscriptionTariffLabel?: string;
+    userTariffActionKey?: string;
+    selectTariffAction: ComponentCallback;
+    premiumOverrideDirty?: boolean;
+    premiumOverrideDraftValid?: boolean;
+    premiumUnlimitedDraft?: boolean;
+    regularOverrideDirty?: boolean;
+    regularOverrideDraftValid?: boolean;
+    regularUnlimitedDraft?: boolean;
+    hwidLimitDirty?: boolean;
+    hwidLimitDraftValid?: boolean;
+    hwidUnlimitedDraft?: boolean;
+    hwidLimitLabel: (sub: Record<string, unknown> | null | undefined) => string;
+    selectGrantTrafficKind: ComponentCallback;
+    grantTrafficGbValid?: boolean;
+  };
 
-  export let at: TranslateFn;
-  export let openedUser: AdminUser | null = null;
-  export let openedUserDetail: UserDetail | null = null;
-  export let userActionBusy = false;
-  export let userMessageDraft = "";
-  export let extendTariffItems: SelectOption[] = [];
-  export let extendTariffsLoading = false;
-  export let userExtendDaysValid = false;
-  export let userExtendTariffValid = false;
-  export let extendTariffRequired = false;
-  export let selectExtendTariff: ComponentCallback;
-  export let periodTariffItems: SelectOption[] = [];
-  export let tariffActionDirty = false;
-  export let currentSubscriptionTariffLabel = "";
-  export let userTariffActionKey = "";
-  export let selectTariffAction: ComponentCallback;
-  export let premiumOverrideDirty = false;
-  export let premiumOverrideDraftValid = false;
-  export let premiumUnlimitedDraft = false;
-  export let regularOverrideDirty = false;
-  export let regularOverrideDraftValid = false;
-  export let regularUnlimitedDraft = false;
-  export let hwidLimitDirty = false;
-  export let hwidLimitDraftValid = false;
-  export let hwidUnlimitedDraft = false;
-  export let hwidLimitLabel: (sub: Record<string, unknown> | null | undefined) => string;
-  export let selectGrantTrafficKind: ComponentCallback;
-  export let grantTrafficGbValid = false;
+  let {
+    at,
+    openedUser = null,
+    openedUserDetail = null,
+    userActionBusy = false,
+    userMessageDraft = "",
+    extendTariffItems = [],
+    extendTariffsLoading = false,
+    userExtendDaysValid = false,
+    userExtendTariffValid = false,
+    extendTariffRequired = false,
+    selectExtendTariff,
+    periodTariffItems = [],
+    tariffActionDirty = false,
+    currentSubscriptionTariffLabel = "",
+    userTariffActionKey = "",
+    selectTariffAction,
+    premiumOverrideDirty = false,
+    premiumOverrideDraftValid = false,
+    premiumUnlimitedDraft = false,
+    regularOverrideDirty = false,
+    regularOverrideDraftValid = false,
+    regularUnlimitedDraft = false,
+    hwidLimitDirty = false,
+    hwidLimitDraftValid = false,
+    hwidUnlimitedDraft = false,
+    hwidLimitLabel,
+    selectGrantTrafficKind,
+    grantTrafficGbValid = false,
+  }: Props = $props();
 
   const usersStore = getContext<UsersStore>("usersStore");
 
-  $: activeSubscription = openedUserDetail?.active_subscription ?? null;
-  $: extraHwidDevices = Number(activeSubscription?.extra_hwid_devices || 0);
-  $: openedUserIsBanned = Boolean(openedUser?.is_banned);
+  const activeSubscription = $derived(openedUserDetail?.active_subscription ?? null);
+  const extraHwidDevices = $derived(Number(activeSubscription?.extra_hwid_devices || 0));
+  const openedUserIsBanned = $derived(Boolean(openedUser?.is_banned));
 </script>
 
 <Tabs.Content value="actions" class="admin-tabs-content admin-actions-tab">

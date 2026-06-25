@@ -16,17 +16,31 @@
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type DateFormatter = (value: unknown) => string;
   type UserLogRow = Record<string, unknown> & { log_id?: number | string };
+  type Props = {
+    at: TranslateFn;
+    fmtDate: DateFormatter;
+    openedUser?: AdminUser | null;
+    userLogsRows?: readonly UserLogRow[];
+    userLogsTotal?: number;
+    userLogsPage?: number;
+    userLogsPageCount?: number;
+    userLogsPageSize?: number;
+    userLogsLoading?: boolean;
+    userLogsLoaded?: boolean;
+  };
 
-  export let at: TranslateFn;
-  export let fmtDate: DateFormatter;
-  export let openedUser: AdminUser | null = null;
-  export let userLogsRows: readonly UserLogRow[] = [];
-  export let userLogsTotal = 0;
-  export let userLogsPage = 0;
-  export let userLogsPageCount = 1;
-  export let userLogsPageSize = 20;
-  export let userLogsLoading = false;
-  export let userLogsLoaded = false;
+  let {
+    at,
+    fmtDate,
+    openedUser = null,
+    userLogsRows = [],
+    userLogsTotal = 0,
+    userLogsPage = 0,
+    userLogsPageCount = 1,
+    userLogsPageSize = 20,
+    userLogsLoading = false,
+    userLogsLoaded = false,
+  }: Props = $props();
 
   const usersStore = getContext<UsersStore>("usersStore");
 </script>

@@ -14,29 +14,55 @@
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type DateFormatter = (value: unknown) => string;
+  type Props = {
+    at: TranslateFn;
+    fmtDateShort?: DateFormatter;
+    userDisplayName: (user: AdminUser) => string;
+    userSecondaryName: (user: AdminUser) => string;
+    openRelatedUser: (user: AdminUser) => void;
+    closeAvatarPreview: () => void;
+    openedUser?: AdminUser | null;
+    userReferralsOpen?: boolean;
+    userReferralsLoading?: boolean;
+    userReferralsRows?: readonly AdminUser[];
+    userReferralsTotal?: number;
+    userReferralsPage?: number;
+    userReferralsPageCount?: number;
+    userReferralsPageSize?: number;
+    avatarPreviewOpen?: boolean;
+    avatarPreviewUrl?: string;
+    avatarPreviewName?: string;
+    userMessageConfirmOpen?: boolean;
+    userMessageDraft?: string;
+    userBanConfirmOpen?: boolean;
+    userDeleteOpen?: boolean;
+    userActionBusy?: boolean;
+  };
 
-  export let at: TranslateFn;
-  export let fmtDateShort: DateFormatter = (value) => String(value ?? "");
-  export let userDisplayName: (user: AdminUser) => string;
-  export let userSecondaryName: (user: AdminUser) => string;
-  export let openRelatedUser: (user: AdminUser) => void;
-  export let closeAvatarPreview: () => void;
-  export let openedUser: AdminUser | null = null;
-  export let userReferralsOpen = false;
-  export let userReferralsLoading = false;
-  export let userReferralsRows: readonly AdminUser[] = [];
-  export let userReferralsTotal = 0;
-  export let userReferralsPage = 0;
-  export let userReferralsPageCount = 1;
-  export let userReferralsPageSize = 25;
-  export let avatarPreviewOpen = false;
-  export let avatarPreviewUrl = "";
-  export let avatarPreviewName = "";
-  export let userMessageConfirmOpen = false;
-  export let userMessageDraft = "";
-  export let userBanConfirmOpen = false;
-  export let userDeleteOpen = false;
-  export let userActionBusy = false;
+  let {
+    at,
+    fmtDateShort = (value) => String(value ?? ""),
+    userDisplayName,
+    userSecondaryName,
+    openRelatedUser,
+    closeAvatarPreview,
+    openedUser = null,
+    userReferralsOpen = false,
+    userReferralsLoading = false,
+    userReferralsRows = [],
+    userReferralsTotal = 0,
+    userReferralsPage = 0,
+    userReferralsPageCount = 1,
+    userReferralsPageSize = 25,
+    avatarPreviewOpen = false,
+    avatarPreviewUrl = "",
+    avatarPreviewName = "",
+    userMessageConfirmOpen = false,
+    userMessageDraft = "",
+    userBanConfirmOpen = false,
+    userDeleteOpen = false,
+    userActionBusy = false,
+  }: Props = $props();
 
   const usersStore = getContext<UsersStore>("usersStore");
 </script>

@@ -25,27 +25,53 @@
   type SelectOption = { value: string; label: string };
   type HwidDraftState = { key: string; valid: boolean };
 
-  export let at: TranslateFn;
-  export let fmtDate: DateFormatter;
-  export let fmtMoney: MoneyFormatter;
-  export let resolvedAvatarUrl: (user: AdminUser) => string;
-  export let userDisplayName: (user: AdminUser) => string;
-  export let userSecondaryName: (user: AdminUser) => string;
-  export let paymentStatusVariant: (status: unknown) => BadgeVariant;
-  export let trafficPercentValue: (left: unknown, total: unknown) => number;
-  export let trafficLeftLabel: (used: unknown, limit: unknown) => string;
-  export let trafficOfLabel: (used: unknown, limit: unknown) => string;
-  export let userInitials: (user: AdminUser) => string = () => "";
-  export let fmtDateShort: DateFormatter = (value) => String(value ?? "");
-  export let userTelegramProfileLink: (user: AdminUser) => string = () => "";
-  export let userTelegramProfileLinkKind: (user: AdminUser) => string = () => "";
-  export let openTelegramProfileLink: (url: string) => boolean = () => false;
-  export let onClose: () => void = () => usersStore.closeUser();
+  const usersStore = getContext<UsersStore>("usersStore");
+  const tariffsStore = getContext<TariffsStore>("tariffsStore");
+  const userLogsTable = createAdminDatatable();
+  const userReferralsTable = createAdminDatatable();
+  const userLogsTableSignal = watchAdminDatatable(userLogsTable);
+  const userReferralsTableSignal = watchAdminDatatable(userReferralsTable);
 
-  let avatarPreviewOpen = false;
-  let avatarPreviewUrl = "";
-  let avatarPreviewName = "";
-  let tariffsLoadRequested = false;
+  let {
+    at,
+    fmtDate,
+    fmtMoney,
+    resolvedAvatarUrl,
+    userDisplayName,
+    userSecondaryName,
+    paymentStatusVariant,
+    trafficPercentValue,
+    trafficLeftLabel,
+    trafficOfLabel,
+    userInitials = () => "",
+    fmtDateShort = (value) => String(value ?? ""),
+    userTelegramProfileLink = () => "",
+    userTelegramProfileLinkKind = () => "",
+    openTelegramProfileLink = () => false,
+    onClose = () => usersStore.closeUser(),
+  }: {
+    at: TranslateFn;
+    fmtDate: DateFormatter;
+    fmtMoney: MoneyFormatter;
+    resolvedAvatarUrl: (user: AdminUser) => string;
+    userDisplayName: (user: AdminUser) => string;
+    userSecondaryName: (user: AdminUser) => string;
+    paymentStatusVariant: (status: unknown) => BadgeVariant;
+    trafficPercentValue: (left: unknown, total: unknown) => number;
+    trafficLeftLabel: (used: unknown, limit: unknown) => string;
+    trafficOfLabel: (used: unknown, limit: unknown) => string;
+    userInitials?: (user: AdminUser) => string;
+    fmtDateShort?: DateFormatter;
+    userTelegramProfileLink?: (user: AdminUser) => string;
+    userTelegramProfileLinkKind?: (user: AdminUser) => string;
+    openTelegramProfileLink?: (url: string) => boolean;
+    onClose?: () => void;
+  } = $props();
+
+  let avatarPreviewOpen = $state(false);
+  let avatarPreviewUrl = $state("");
+  let avatarPreviewName = $state("");
+  let tariffsLoadRequested = $state(false);
 
   function pretty(val: unknown): string {
     if (val === true) return at("yes", {}, "Да");
@@ -102,13 +128,6 @@
     }
     return "—";
   }
-
-  const usersStore = getContext<UsersStore>("usersStore");
-  const tariffsStore = getContext<TariffsStore>("tariffsStore");
-  const userLogsTable = createAdminDatatable();
-  const userReferralsTable = createAdminDatatable();
-  const userLogsTableSignal = watchAdminDatatable(userLogsTable);
-  const userReferralsTableSignal = watchAdminDatatable(userReferralsTable);
 
   const selectExtendTariff = ((value: string) =>
     usersStore.updateState({ userExtendTariffKey: value })) as ComponentCallback;
@@ -183,153 +202,184 @@
     return { key: `limit:${limit}`, valid: true };
   }
 
-  $: ({
-    openedUser,
-    openedUserDetail,
-    userDetailLoading,
-    userMessageDraft,
-    userActionBusy,
-    userDeleteOpen,
-    userBanConfirmOpen,
-    userMessageConfirmOpen,
-    userReferralsOpen,
-    userReferralsLoading,
-    userReferrals,
-    userReferralsTotal,
-    userReferralsPage,
-    userReferralsPageSize,
-    premiumUnlimitedDraft,
-    premiumUnlimitedBaseline,
-    premiumBonusGbDraft,
-    premiumBonusGbBaseline,
-    regularUnlimitedDraft,
-    regularUnlimitedBaseline,
-    regularBonusGbDraft,
-    regularBonusGbBaseline,
-    hwidUnlimitedDraft,
-    hwidUnlimitedBaseline,
-    hwidDeviceLimitDraft,
-    hwidDeviceLimitBaseline,
-    userDetailTab,
-    userTariffActionKey,
-    userTariffActionBaselineKey,
-    grantTrafficGbDraft,
-    userLogs,
-    userLogsTotal,
-    userLogsPage,
-    userLogsLoading,
-    userLogsLoaded,
-    userLogsPageSize,
-  } = $usersStore);
-  $: syncAdminDatatable(userLogsTable, userLogs);
-  $: syncAdminDatatable(userReferralsTable, userReferrals);
+  const usersState = $derived($usersStore);
+  const tariffsState = $derived($tariffsStore);
+  const openedUser = $derived(usersState.openedUser);
+  const openedUserDetail = $derived(usersState.openedUserDetail);
+  const userDetailLoading = $derived(usersState.userDetailLoading);
+  const userMessageDraft = $derived(usersState.userMessageDraft);
+  const userActionBusy = $derived(usersState.userActionBusy);
+  const userDeleteOpen = $derived(usersState.userDeleteOpen);
+  const userBanConfirmOpen = $derived(usersState.userBanConfirmOpen);
+  const userMessageConfirmOpen = $derived(usersState.userMessageConfirmOpen);
+  const userReferralsOpen = $derived(usersState.userReferralsOpen);
+  const userReferralsLoading = $derived(usersState.userReferralsLoading);
+  const userReferrals = $derived(usersState.userReferrals);
+  const userReferralsTotal = $derived(usersState.userReferralsTotal);
+  const userReferralsPage = $derived(usersState.userReferralsPage);
+  const userReferralsPageSize = $derived(usersState.userReferralsPageSize);
+  const premiumUnlimitedDraft = $derived(usersState.premiumUnlimitedDraft);
+  const premiumUnlimitedBaseline = $derived(usersState.premiumUnlimitedBaseline);
+  const premiumBonusGbDraft = $derived(usersState.premiumBonusGbDraft);
+  const premiumBonusGbBaseline = $derived(usersState.premiumBonusGbBaseline);
+  const regularUnlimitedDraft = $derived(usersState.regularUnlimitedDraft);
+  const regularUnlimitedBaseline = $derived(usersState.regularUnlimitedBaseline);
+  const regularBonusGbDraft = $derived(usersState.regularBonusGbDraft);
+  const regularBonusGbBaseline = $derived(usersState.regularBonusGbBaseline);
+  const hwidUnlimitedDraft = $derived(usersState.hwidUnlimitedDraft);
+  const hwidUnlimitedBaseline = $derived(usersState.hwidUnlimitedBaseline);
+  const hwidDeviceLimitDraft = $derived(usersState.hwidDeviceLimitDraft);
+  const hwidDeviceLimitBaseline = $derived(usersState.hwidDeviceLimitBaseline);
+  const userDetailTab = $derived(usersState.userDetailTab);
+  const userTariffActionKey = $derived(usersState.userTariffActionKey);
+  const userTariffActionBaselineKey = $derived(usersState.userTariffActionBaselineKey);
+  const grantTrafficGbDraft = $derived(usersState.grantTrafficGbDraft);
+  const userLogs = $derived(usersState.userLogs);
+  const userLogsTotal = $derived(usersState.userLogsTotal);
+  const userLogsPage = $derived(usersState.userLogsPage);
+  const userLogsLoading = $derived(usersState.userLogsLoading);
+  const userLogsLoaded = $derived(usersState.userLogsLoaded);
+  const userLogsPageSize = $derived(usersState.userLogsPageSize);
 
-  $: userLogsPageCount = Math.max(
-    1,
-    Math.ceil(Number(userLogsTotal || 0) / Number(userLogsPageSize || 20))
+  $effect(() => syncAdminDatatable(userLogsTable, userLogs));
+  $effect(() => syncAdminDatatable(userReferralsTable, userReferrals));
+
+  const userLogsPageCount = $derived(
+    Math.max(1, Math.ceil(Number(userLogsTotal || 0) / Number(userLogsPageSize || 20)))
   );
-  $: userReferralsPageCount = Math.max(
-    1,
-    Math.ceil(Number(userReferralsTotal || 0) / Number(userReferralsPageSize || 25))
+  const userReferralsPageCount = $derived(
+    Math.max(1, Math.ceil(Number(userReferralsTotal || 0) / Number(userReferralsPageSize || 25)))
   );
 
-  $: openedUserAvatarUrl = openedUser ? resolvedAvatarUrl(openedUser) : "";
-  $: referralInviter = openedUserDetail?.referral?.inviter || null;
-  $: referralInviteesTotal = Number(openedUserDetail?.referral?.invitees_total || 0);
-  $: openedUserTelegramProfileLink = openedUser ? userTelegramProfileLink(openedUser) : "";
-  $: openedUserTelegramProfileLinkKind = openedUser ? userTelegramProfileLinkKind(openedUser) : "";
-  $: openedUserTelegramProfileHint =
+  const openedUserAvatarUrl = $derived(openedUser ? resolvedAvatarUrl(openedUser) : "");
+  const referralInviter = $derived(openedUserDetail?.referral?.inviter || null);
+  const referralInviteesTotal = $derived(Number(openedUserDetail?.referral?.invitees_total || 0));
+  const openedUserTelegramProfileLink = $derived(
+    openedUser ? userTelegramProfileLink(openedUser) : ""
+  );
+  const openedUserTelegramProfileLinkKind = $derived(
+    openedUser ? userTelegramProfileLinkKind(openedUser) : ""
+  );
+  const openedUserTelegramProfileHint = $derived(
     openedUserTelegramProfileLinkKind === "id"
       ? at("user_open_tg_profile_id_hint", {}, "Бот отправит кнопку профиля в Telegram")
-      : at("user_open_tg_profile_hint", {}, "Открыть профиль Telegram");
+      : at("user_open_tg_profile_hint", {}, "Открыть профиль Telegram")
+  );
 
-  $: tariffCatalogItems = $tariffsStore.tariffsCatalog?.tariffs || [];
-  $: enabledTariffs = tariffCatalogItems.filter((tariff) => tariff?.enabled !== false);
-  $: currentSubscriptionTariffKey = String(openedUserDetail?.active_subscription?.tariff_key || "");
-  $: currentSubscriptionTariff =
+  const tariffCatalogItems = $derived((tariffsState.tariffsCatalog?.tariffs || []) as Tariff[]);
+  const enabledTariffs = $derived(tariffCatalogItems.filter((tariff) => tariff?.enabled !== false));
+  const currentSubscriptionTariffKey = $derived(
+    String(openedUserDetail?.active_subscription?.tariff_key || "")
+  );
+  const currentSubscriptionTariff = $derived(
     tariffCatalogItems.find(
       (tariff) => String(tariff?.key || "") === currentSubscriptionTariffKey
-    ) || null;
-  $: periodTariffs = enabledTariffs.filter((tariff) => tariff?.billing_model === "period");
-  $: periodTariffItems = periodTariffs.map((tariff) => tariffSelectItem(tariff));
-  $: extendPeriodTariffs = uniqueTariffsByKey([
-    ...periodTariffs,
-    ...(currentSubscriptionTariff?.billing_model === "period" ? [currentSubscriptionTariff] : []),
-  ]);
-  $: extendTariffItems = extendPeriodTariffs.map((tariff) =>
-    tariffSelectItem(tariff, { currentKey: currentSubscriptionTariffKey, markCurrent: true })
+    ) || null
   );
-  $: extendTariffRequired = extendTariffItems.length > 1;
-  $: userExtendTariffValid =
-    !$usersStore.userExtendTariffKey ||
-    !extendTariffItems.length ||
-    extendTariffItems.some((item) => item.value === $usersStore.userExtendTariffKey);
-  $: userExtendDaysValid = Number($usersStore.userExtendDays) > 0;
-  $: extendTariffsLoading = Boolean(
-    openedUser && $tariffsStore.tariffsLoading && !extendTariffItems.length
+  const periodTariffs = $derived(
+    enabledTariffs.filter((tariff) => tariff?.billing_model === "period")
   );
-  $: tariffActionDirty =
-    Boolean(userTariffActionKey) && userTariffActionKey !== userTariffActionBaselineKey;
-  $: premiumOverrideDraftValid = gbDraftNumber(premiumBonusGbDraft) >= 0;
-  $: premiumOverrideDirty =
+  const periodTariffItems = $derived(periodTariffs.map((tariff) => tariffSelectItem(tariff)));
+  const extendPeriodTariffs = $derived(
+    uniqueTariffsByKey([
+      ...periodTariffs,
+      ...(currentSubscriptionTariff?.billing_model === "period" ? [currentSubscriptionTariff] : []),
+    ])
+  );
+  const extendTariffItems = $derived(
+    extendPeriodTariffs.map((tariff) =>
+      tariffSelectItem(tariff, { currentKey: currentSubscriptionTariffKey, markCurrent: true })
+    )
+  );
+  const extendTariffRequired = $derived(extendTariffItems.length > 1);
+  const userExtendTariffValid = $derived(
+    !usersState.userExtendTariffKey ||
+      !extendTariffItems.length ||
+      extendTariffItems.some((item) => item.value === usersState.userExtendTariffKey)
+  );
+  const userExtendDaysValid = $derived(Number(usersState.userExtendDays) > 0);
+  const extendTariffsLoading = $derived(
+    Boolean(openedUser && tariffsState.tariffsLoading && !extendTariffItems.length)
+  );
+  const tariffActionDirty = $derived(
+    Boolean(userTariffActionKey) && userTariffActionKey !== userTariffActionBaselineKey
+  );
+  const premiumOverrideDraftValid = $derived(gbDraftNumber(premiumBonusGbDraft) >= 0);
+  const premiumOverrideDirty = $derived(
     Boolean(premiumUnlimitedDraft) !== Boolean(premiumUnlimitedBaseline) ||
-    !sameGbDraft(premiumBonusGbDraft, premiumBonusGbBaseline);
-  $: regularOverrideDraftValid = gbDraftNumber(regularBonusGbDraft) >= 0;
-  $: regularOverrideDirty =
+      !sameGbDraft(premiumBonusGbDraft, premiumBonusGbBaseline)
+  );
+  const regularOverrideDraftValid = $derived(gbDraftNumber(regularBonusGbDraft) >= 0);
+  const regularOverrideDirty = $derived(
     Boolean(regularUnlimitedDraft) !== Boolean(regularUnlimitedBaseline) ||
-    !sameGbDraft(regularBonusGbDraft, regularBonusGbBaseline);
-  $: hwidDraft = hwidDraftState(hwidUnlimitedDraft, hwidDeviceLimitDraft);
-  $: hwidBaseline = hwidDraftState(hwidUnlimitedBaseline, hwidDeviceLimitBaseline);
-  $: hwidLimitDraftValid = hwidDraft.valid;
-  $: hwidLimitDirty = hwidDraft.key !== hwidBaseline.key;
-  $: grantTrafficGbValid =
+      !sameGbDraft(regularBonusGbDraft, regularBonusGbBaseline)
+  );
+  const hwidDraft = $derived(hwidDraftState(hwidUnlimitedDraft, hwidDeviceLimitDraft));
+  const hwidBaseline = $derived(hwidDraftState(hwidUnlimitedBaseline, hwidDeviceLimitBaseline));
+  const hwidLimitDraftValid = $derived(hwidDraft.valid);
+  const hwidLimitDirty = $derived(hwidDraft.key !== hwidBaseline.key);
+  const grantTrafficGbValid = $derived(
     grantTrafficGbDraft !== "" &&
-    grantTrafficGbDraft !== null &&
-    grantTrafficGbDraft !== undefined &&
-    gbDraftNumber(grantTrafficGbDraft) > 0;
-  $: currentSubscriptionTariffLabel =
+      grantTrafficGbDraft !== null &&
+      grantTrafficGbDraft !== undefined &&
+      gbDraftNumber(grantTrafficGbDraft) > 0
+  );
+  const currentSubscriptionTariffLabel = $derived(
     (currentSubscriptionTariff ? tariffLabel(currentSubscriptionTariff) : "") ||
-    periodTariffItems.find((item) => item.value === currentSubscriptionTariffKey)?.label ||
-    currentSubscriptionTariffKey ||
-    at("user_tariff_none", {}, "No tariff");
+      periodTariffItems.find((item) => item.value === currentSubscriptionTariffKey)?.label ||
+      currentSubscriptionTariffKey ||
+      at("user_tariff_none", {}, "No tariff")
+  );
 
-  $: if (
-    openedUser &&
-    !tariffsLoadRequested &&
-    !$tariffsStore.tariffsLoading &&
-    enabledTariffs.length === 0
-  ) {
-    tariffsLoadRequested = true;
-    tariffsStore.loadTariffs();
-  }
+  $effect(() => {
+    if (
+      openedUser &&
+      !tariffsLoadRequested &&
+      !tariffsState.tariffsLoading &&
+      enabledTariffs.length === 0
+    ) {
+      tariffsLoadRequested = true;
+      tariffsStore.loadTariffs();
+    }
+  });
 
-  $: if (openedUser && extendTariffItems.length === 1 && !$usersStore.userExtendTariffKey) {
-    usersStore.updateState({ userExtendTariffKey: extendTariffItems[0].value });
-  }
+  $effect(() => {
+    if (openedUser && extendTariffItems.length === 1 && !usersState.userExtendTariffKey) {
+      usersStore.updateState({ userExtendTariffKey: extendTariffItems[0].value });
+    }
+  });
 
-  $: if (
-    openedUser &&
-    extendTariffItems.length > 0 &&
-    $usersStore.userExtendTariffKey &&
-    !userExtendTariffValid
-  ) {
-    usersStore.updateState({ userExtendTariffKey: "" });
-  }
+  $effect(() => {
+    if (
+      openedUser &&
+      extendTariffItems.length > 0 &&
+      usersState.userExtendTariffKey &&
+      !userExtendTariffValid
+    ) {
+      usersStore.updateState({ userExtendTariffKey: "" });
+    }
+  });
 
-  $: if (openedUser && currentSubscriptionTariffKey && !$usersStore.userTariffActionKey) {
-    usersStore.updateState({ userTariffActionKey: currentSubscriptionTariffKey });
-  }
+  $effect(() => {
+    if (openedUser && currentSubscriptionTariffKey && !usersState.userTariffActionKey) {
+      usersStore.updateState({ userTariffActionKey: currentSubscriptionTariffKey });
+    }
+  });
 
-  $: if (openedUser && userDetailTab === "logs" && !userLogsLoading && !userLogsLoaded) {
-    usersStore.loadUserLogs(0);
-  }
+  $effect(() => {
+    if (openedUser && userDetailTab === "logs" && !userLogsLoading && !userLogsLoaded) {
+      usersStore.loadUserLogs(0);
+    }
+  });
 
-  $: if (!openedUser) {
-    avatarPreviewOpen = false;
-    avatarPreviewUrl = "";
-    avatarPreviewName = "";
-    tariffsLoadRequested = false;
-  }
+  $effect(() => {
+    if (!openedUser) {
+      avatarPreviewOpen = false;
+      avatarPreviewUrl = "";
+      avatarPreviewName = "";
+      tariffsLoadRequested = false;
+    }
+  });
 
   function openAvatarPreview() {
     if (!openedUserAvatarUrl || !openedUser) return;
