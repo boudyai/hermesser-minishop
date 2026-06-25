@@ -8,18 +8,33 @@
     flag?: string;
   };
 
-  export let open = false;
-  export let value = "ru";
-  export let currentOption: LanguageOption | null = null;
-  export let userLanguage = "";
-  export let options: LanguageOption[] = [];
-  export let disabled = false;
-  export let clickGuard = false;
-  export let clickGuardArmed = false;
-  export let closeLabel = "Close";
-  export let label = "Language";
-  export let onOpenChange: (open: boolean) => void = () => {};
-  export let onValueChange: (value: string) => void = () => {};
+  let {
+    open = $bindable(false),
+    value = "ru",
+    currentOption = null,
+    userLanguage = "",
+    options = [],
+    disabled = false,
+    clickGuard = false,
+    clickGuardArmed = false,
+    closeLabel = "Close",
+    label = "Language",
+    onOpenChange = () => {},
+    onValueChange = () => {},
+  }: {
+    open?: boolean;
+    value?: string;
+    currentOption?: LanguageOption | null;
+    userLanguage?: string;
+    options?: LanguageOption[];
+    disabled?: boolean;
+    clickGuard?: boolean;
+    clickGuardArmed?: boolean;
+    closeLabel?: string;
+    label?: string;
+    onOpenChange?: (open: boolean) => void;
+    onValueChange?: (value: string) => void;
+  } = $props();
 
   const selectContentProps = { trapFocus: false } as Record<string, unknown>;
 
