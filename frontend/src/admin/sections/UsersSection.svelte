@@ -73,7 +73,7 @@
 
   const usersStore = getContext<UsersStore>("usersStore");
   const usersTable = createAdminDatatable();
-  const usersState = $derived($usersStore);
+  const usersState = $derived(usersStore);
   const users = $derived(usersState.users);
   const usersTotal = $derived(usersState.usersTotal);
   const usersPage = $derived(usersState.usersPage);

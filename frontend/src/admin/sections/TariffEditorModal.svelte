@@ -24,7 +24,7 @@
   let { at }: { at: TranslateFn } = $props();
   const tariffsStore = getContext<TariffsStore>("tariffsStore");
 
-  const tariffsState = $derived($tariffsStore);
+  const tariffsState = $derived(tariffsStore);
   const tariffEditorOpen = $derived(Boolean(tariffsState.tariffEditorOpen));
   const tariffEditingKey = $derived(String(tariffsState.tariffEditingKey || ""));
   const tariffDraft: TariffDraft = $derived(tariffsState.tariffDraft);
@@ -72,11 +72,10 @@
   );
   function addDraftSquad(field: DraftSquadField, value: string): void {
     tariffsStore.addSquadToDraft(field, value);
-    tariffsStore.update((state) => ({
-      ...state,
-      selectedBaseSquad: field === "squadUuids" ? "" : state.selectedBaseSquad,
-      selectedPremiumSquad: field === "premiumSquadUuids" ? "" : state.selectedPremiumSquad,
-    }));
+    tariffsStore.updateState({
+      selectedBaseSquad: field === "squadUuids" ? "" : tariffsStore.selectedBaseSquad,
+      selectedPremiumSquad: field === "premiumSquadUuids" ? "" : tariffsStore.selectedPremiumSquad,
+    });
   }
 
   const addBaseSquad = ((value: string) => addDraftSquad("squadUuids", value)) as ComponentCallback;
@@ -114,7 +113,7 @@
   onclose={() => tariffsStore.updateState({ tariffEditorOpen: false })}
   class="admin-dialog admin-tariff-dialog"
 >
-  <Tabs.Root bind:value={$tariffsStore.tariffEditorTab} class="admin-tabs-root">
+  <Tabs.Root bind:value={tariffsStore.tariffEditorTab} class="admin-tabs-root">
     <Tabs.List class="admin-tabs-list">
       <Tabs.Trigger value="general" class="admin-tabs-trigger"
         >{at("tariff_tab_general", {}, "Основное")}</Tabs.Trigger
@@ -148,7 +147,7 @@
             class="input"
             type="text"
             placeholder="standard"
-            bind:value={$tariffsStore.tariffDraft.key}
+            bind:value={tariffsStore.tariffDraft.key}
           />
         </Label.Root>
 
@@ -166,7 +165,7 @@
             )}</small
           >
           <AdminSelect
-            bind:value={$tariffsStore.tariffDraft.billing_model}
+            bind:value={tariffsStore.tariffDraft.billing_model}
             items={billingModelOptions}
             ariaLabel={at("tariff_label_model", {}, "Модель")}
           />
@@ -204,7 +203,7 @@
             class="input"
             type="text"
             placeholder={at("tariff_placeholder_name_ru", {}, "Стандарт")}
-            bind:value={$tariffsStore.tariffDraft.nameRu}
+            bind:value={tariffsStore.tariffDraft.nameRu}
           />
         </Label.Root>
         <Label.Root class="admin-field-label">
@@ -213,7 +212,7 @@
             class="input"
             type="text"
             placeholder={at("tariff_placeholder_name_en", {}, "Standard")}
-            bind:value={$tariffsStore.tariffDraft.nameEn}
+            bind:value={tariffsStore.tariffDraft.nameEn}
           />
         </Label.Root>
       </div>
@@ -225,7 +224,7 @@
             class="input"
             type="text"
             placeholder={at("tariff_placeholder_desc_ru", {}, "Базовый набор серверов")}
-            bind:value={$tariffsStore.tariffDraft.descriptionRu}
+            bind:value={tariffsStore.tariffDraft.descriptionRu}
           />
         </Label.Root>
         <Label.Root class="admin-field-label">
@@ -234,7 +233,7 @@
             class="input"
             type="text"
             placeholder={at("tariff_placeholder_desc_en", {}, "Base server pool")}
-            bind:value={$tariffsStore.tariffDraft.descriptionEn}
+            bind:value={tariffsStore.tariffDraft.descriptionEn}
           />
         </Label.Root>
       </div>
@@ -251,7 +250,7 @@
               )}</small
         >
         <AdminSelect
-          bind:value={$tariffsStore.selectedBaseSquad}
+          bind:value={tariffsStore.selectedBaseSquad}
           items={panelSquadOptions}
           placeholder={at("btn_add_squad", {}, "Добавить сквад")}
           ariaLabel={at("btn_add_squad", {}, "Добавить основной сквад")}
@@ -286,7 +285,7 @@
             type="number"
             min="0"
             placeholder="5"
-            bind:value={$tariffsStore.tariffDraft.hwid_device_limit}
+            bind:value={tariffsStore.tariffDraft.hwid_device_limit}
           />
         </Label.Root>
         {#if tariffDraft.billing_model === "period"}
@@ -305,7 +304,7 @@
               min="0"
               step="0.1"
               placeholder="100"
-              bind:value={$tariffsStore.tariffDraft.monthly_gb}
+              bind:value={tariffsStore.tariffDraft.monthly_gb}
             />
           </Label.Root>
         {:else}
@@ -324,7 +323,7 @@
               min="0"
               step="0.01"
               placeholder="20"
-              bind:value={$tariffsStore.tariffDraft.conversion_rate_rub_per_gb}
+              bind:value={tariffsStore.tariffDraft.conversion_rate_rub_per_gb}
             />
           </Label.Root>
         {/if}
@@ -361,7 +360,7 @@
               class="input"
               type="text"
               placeholder={at("tariff_placeholder_premium_name_ru", {}, "Premium-серверы")}
-              bind:value={$tariffsStore.tariffDraft.premiumNameRu}
+              bind:value={tariffsStore.tariffDraft.premiumNameRu}
             />
           </Label.Root>
           <Label.Root class="admin-field-label">
@@ -377,7 +376,7 @@
               class="input"
               type="text"
               placeholder={at("tariff_placeholder_premium_name_en", {}, "Premium servers")}
-              bind:value={$tariffsStore.tariffDraft.premiumNameEn}
+              bind:value={tariffsStore.tariffDraft.premiumNameEn}
             />
           </Label.Root>
         </div>
@@ -392,7 +391,7 @@
               )}</small
             >
             <AdminSelect
-              bind:value={$tariffsStore.selectedPremiumSquad}
+              bind:value={tariffsStore.selectedPremiumSquad}
               items={panelSquadOptions}
               placeholder={at("btn_add_premium_squad", {}, "Добавить premium-сквад")}
               ariaLabel={at("btn_add_premium_squad", {}, "Добавить premium-сквад")}
@@ -432,7 +431,7 @@
               min="0"
               step="0.1"
               placeholder="50"
-              bind:value={$tariffsStore.tariffDraft.premium_monthly_gb}
+              bind:value={tariffsStore.tariffDraft.premium_monthly_gb}
             />
           </Label.Root>
         </div>

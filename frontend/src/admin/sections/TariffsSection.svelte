@@ -58,7 +58,7 @@
   const tariffsStore = getContext<TariffsStore>("tariffsStore");
   const settingsStore = getContext<SettingsStore>("settingsStore");
 
-  const tariffsState = $derived($tariffsStore);
+  const tariffsState = $derived(tariffsStore);
   const tariffsCatalog: TariffsCatalog = $derived(tariffsState.tariffsCatalog);
   const tariffsLoading = $derived(Boolean(tariffsState.tariffsLoading));
   const tariffsPath = $derived(String(tariffsState.tariffsPath || ""));

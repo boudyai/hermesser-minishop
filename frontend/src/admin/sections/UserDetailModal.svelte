@@ -196,8 +196,8 @@
     return { key: `limit:${limit}`, valid: true };
   }
 
-  const usersState = $derived($usersStore);
-  const tariffsState = $derived($tariffsStore);
+  const usersState = $derived(usersStore);
+  const tariffsState = $derived(tariffsStore);
   const openedUser = $derived(usersState.openedUser);
   const openedUserDetail = $derived(usersState.openedUserDetail);
   const userDetailLoading = $derived(usersState.userDetailLoading);
@@ -649,7 +649,7 @@
 
         <main class="admin-user-main">
           <Tabs.Root
-            bind:value={$usersStore.userDetailTab}
+            bind:value={usersStore.userDetailTab}
             class="admin-tabs-root admin-user-tabs-root"
           >
             <Tabs.List class="admin-tabs-list">

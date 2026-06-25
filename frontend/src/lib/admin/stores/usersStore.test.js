@@ -1,4 +1,3 @@
-import { get } from "svelte/store";
 import { describe, expect, it, vi } from "vitest";
 
 import { formatTemplate } from "../../webapp/formatters.js";
@@ -31,7 +30,7 @@ describe("usersStore", () => {
     expect(api).toHaveBeenCalledWith(
       "/admin/users?page=1&page_size=25&q=ivan&filter=active&panel_status=enabled&premium_traffic=with&sort=created_desc"
     );
-    expect(get(store)).toMatchObject({
+    expect(store).toMatchObject({
       users: [{ user_id: 42 }],
       usersTotal: 1,
       usersLoading: false,
@@ -56,7 +55,7 @@ describe("usersStore", () => {
     await store.openUser(7, { skipPush: true });
 
     expect(api).toHaveBeenCalledWith("/admin/users/7");
-    expect(get(store)).toMatchObject({
+    expect(store).toMatchObject({
       openedUser: { user_id: 7, first_name: "Ann" },
       userDetailLoading: false,
       userExtendTariffKey: "pro",
@@ -78,7 +77,7 @@ describe("usersStore", () => {
     store.updateState({ userMessageDraft: "hello", userReferralsOpen: true });
     store.closeUser({ skipPush: true });
 
-    expect(get(store)).toMatchObject({
+    expect(store).toMatchObject({
       openedUser: null,
       openedUserDetail: null,
       userMessageDraft: "",

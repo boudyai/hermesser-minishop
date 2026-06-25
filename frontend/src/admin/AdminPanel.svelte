@@ -455,13 +455,13 @@
     const paymentUserId = active === "payments" ? readPaymentUserIdFromPath() : null;
     const contextualUserId = paymentUserId || userId;
     if (contextualUserId) {
-      if (!$usersStore.openedUser || $usersStore.openedUser.user_id !== contextualUserId) {
+      if (!usersStore.openedUser || usersStore.openedUser.user_id !== contextualUserId) {
         void usersStore.openUser(contextualUserId, {
           skipPush: true,
           pathContext: paymentUserId ? "payments" : "users",
         });
       }
-    } else if ($usersStore.openedUser) {
+    } else if (usersStore.openedUser) {
       usersStore.closeUser({ skipPush: true });
     }
     const paymentId = readPaymentIdFromPath();
@@ -683,7 +683,7 @@
       active === "users" &&
       initialUserId &&
       dismissedUserRouteKey !== `users:${initialUserId}` &&
-      (!$usersStore.openedUser || $usersStore.openedUser.user_id !== initialUserId)
+      (!usersStore.openedUser || usersStore.openedUser.user_id !== initialUserId)
     ) {
       void usersStore.openUser(initialUserId, { skipPush: true });
     }
@@ -704,7 +704,7 @@
       active === "payments" &&
       initialPaymentUserId &&
       dismissedUserRouteKey !== `payments:${initialPaymentUserId}` &&
-      (!$usersStore.openedUser || $usersStore.openedUser.user_id !== initialPaymentUserId)
+      (!usersStore.openedUser || usersStore.openedUser.user_id !== initialPaymentUserId)
     ) {
       void usersStore.openUser(initialPaymentUserId, { skipPush: true, pathContext: "payments" });
     }
