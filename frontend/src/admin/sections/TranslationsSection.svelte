@@ -2,7 +2,7 @@
   import { Input, Textarea } from "$components/ui/index.js";
   import { ChevronRight, Languages, Plus, Search, X } from "$components/ui/icons.js";
   import { AdminBadge, AdminButton, AdminEmptyState } from "$components/patterns/admin/index.js";
-  import { getContext, onDestroy, onMount } from "svelte";
+  import { getContext, onDestroy, onMount, untrack } from "svelte";
   import { slide } from "svelte/transition";
   import type {
     TranslationDirtyEntry,
@@ -24,51 +24,58 @@
     groups: TranslationGroupWithItems[];
   };
 
-  export let at: TranslateFn;
-  export let onTranslationsSaved:
-    | ((payload: TranslationsSavedPayload) => void | Promise<void>)
-    | undefined;
+  type TranslationsSectionProps = {
+    at: TranslateFn;
+    onTranslationsSaved?: (payload: TranslationsSavedPayload) => void | Promise<void>;
+  };
+
+  let { at, onTranslationsSaved }: TranslationsSectionProps = $props();
 
   const translationsStore = getContext<TranslationsStore>("translationsStore");
   const AUDIENCE_ORDER = ["user", "internal"];
   const AUDIENCE_FILTERS = ["all", ...AUDIENCE_ORDER];
-  let translationGroups: TranslationGroup[] = [];
-  let translationLanguages: TranslationLanguage[] = [];
-  let translationsLoading = false;
-  let translationsDirty: TranslationDirtyState = {};
-  let translationsSaving = false;
-  let translationsPath = "";
+  const translationsState = $derived($translationsStore);
+  const translationGroups = $derived(translationsState.translationGroups as TranslationGroup[]);
+  const translationLanguages = $derived(
+    translationsState.translationLanguages as TranslationLanguage[]
+  );
+  const translationsLoading = $derived(Boolean(translationsState.translationsLoading));
+  const translationsDirty = $derived(translationsState.translationsDirty as TranslationDirtyState);
+  const translationsSaving = $derived(Boolean(translationsState.translationsSaving));
+  const translationsPath = $derived(String(translationsState.translationsPath || ""));
 
-  $: ({
-    translationGroups,
-    translationLanguages,
-    translationsLoading,
-    translationsDirty,
-    translationsSaving,
-    translationsPath,
-  } = $translationsStore);
-
-  let openGroups: string[] = [];
-  let readyGroups: string[] = [];
-  let openLocaleEditors: string[] = [];
-  let closedLocaleEditors: string[] = [];
-  let search = "";
-  let audienceFilter = "all";
-  let newLanguageCode = "";
+  let openGroups = $state<string[]>([]);
+  let readyGroups = $state<string[]>([]);
+  let openLocaleEditors = $state<string[]>([]);
+  let closedLocaleEditors = $state<string[]>([]);
+  let search = $state("");
+  let audienceFilter = $state("all");
+  let newLanguageCode = $state("");
   const readyTimers = new Map<string, number>();
 
-  $: openGroupSet = new Set(openGroups);
-  $: readyGroupSet = new Set(readyGroups);
-  $: openLocaleEditorSet = new Set(openLocaleEditors);
-  $: closedLocaleEditorSet = new Set(closedLocaleEditors);
-  $: filteredTranslationGroups = filteredGroups(translationGroups, search, translationLanguages);
-  $: audienceSections = buildAudienceSections(filteredTranslationGroups, audienceFilter);
-  $: visibleGroupKeys = audienceSections.flatMap((section) =>
-    section.groups.map((group) => groupPanelId(section.id, group.id))
+  const openGroupSet = $derived(new Set(openGroups));
+  const readyGroupSet = $derived(new Set(readyGroups));
+  const openLocaleEditorSet = $derived(new Set(openLocaleEditors));
+  const closedLocaleEditorSet = $derived(new Set(closedLocaleEditors));
+  const filteredTranslationGroups = $derived(
+    filteredGroups(translationGroups, search, translationLanguages)
   );
-  $: allOpen =
-    visibleGroupKeys.length > 0 && visibleGroupKeys.every((key) => openGroups.includes(key));
-  $: scheduleReadyGroups(openGroups);
+  const audienceSections = $derived(
+    buildAudienceSections(filteredTranslationGroups, audienceFilter)
+  );
+  const visibleGroupKeys = $derived(
+    audienceSections.flatMap((section) =>
+      section.groups.map((group) => groupPanelId(section.id, group.id))
+    )
+  );
+  const allOpen = $derived(
+    visibleGroupKeys.length > 0 && visibleGroupKeys.every((key) => openGroups.includes(key))
+  );
+
+  $effect(() => {
+    const groups = openGroups;
+    untrack(() => scheduleReadyGroups(groups));
+  });
 
   onMount(() => {
     translationsStore.loadTranslations();
