@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from config.settings_mixins import _split_csv
-from config.settings_models import PanelSettings, SupportSettings
+from config.settings_models import PanelSettings, ReferralSettings, SupportSettings
 from config.webapp_themes_config import WebappThemesConfig
 
 DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
@@ -197,6 +197,25 @@ class SettingsStub(SimpleNamespace):
             admin_email_cooldown_seconds=int(
                 getattr(self, "SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS", 1800)
             ),
+        )
+
+    @property
+    def referral_settings(self) -> ReferralSettings:
+        return ReferralSettings(
+            bonus_days_inviter_1_month=getattr(self, "REFERRAL_BONUS_DAYS_1_MONTH", 7),
+            bonus_days_inviter_3_months=getattr(self, "REFERRAL_BONUS_DAYS_3_MONTHS", 7),
+            bonus_days_inviter_6_months=getattr(self, "REFERRAL_BONUS_DAYS_6_MONTHS", 7),
+            bonus_days_inviter_12_months=getattr(self, "REFERRAL_BONUS_DAYS_12_MONTHS", 7),
+            bonus_days_referee_1_month=getattr(self, "REFEREE_BONUS_DAYS_1_MONTH", 3),
+            bonus_days_referee_3_months=getattr(self, "REFEREE_BONUS_DAYS_3_MONTHS", 3),
+            bonus_days_referee_6_months=getattr(self, "REFEREE_BONUS_DAYS_6_MONTHS", 3),
+            bonus_days_referee_12_months=getattr(self, "REFEREE_BONUS_DAYS_12_MONTHS", 3),
+            one_bonus_per_referee=bool(getattr(self, "REFERRAL_ONE_BONUS_PER_REFEREE", False)),
+            welcome_bonus_days=int(getattr(self, "REFERRAL_WELCOME_BONUS_DAYS", 0)),
+            welcome_bonus_without_telegram_enabled=bool(
+                getattr(self, "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED", True)
+            ),
+            legacy_refs_enabled=bool(getattr(self, "LEGACY_REFS", True)),
         )
 
     @property
