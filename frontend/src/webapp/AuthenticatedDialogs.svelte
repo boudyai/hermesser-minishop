@@ -12,32 +12,63 @@
   type Action = (...args: any[]) => any;
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
-  export let accountStore: StoreLike;
-  export let activationSuccessDialogOpen = false;
-  export let activationSuccessUseInstallGuides = false;
-  export let backToTariffList: Action;
-  export let billingStore: StoreLike;
-  export let closeActivationSuccessDialog: Action;
-  export let closeDeviceTopupModal: Action;
-  export let continueWithSelectedTariff: Action;
-  export let devicesStore: StoreLike;
-  export let disconnectDevice: Action;
-  export let emailAuthEnabled = true;
-  export let hasMultipleTariffs = false;
-  export let methods: AnyRecord[] = [];
-  export let plans: AnyRecord[] = [];
-  export let selectTariff: Action;
-  export let selectedTariff: AnyRecord | null = null;
-  export let selectedTariffPlans: AnyRecord[] = [];
-  export let singleTariffMode = false;
-  export let subscription: AnyRecord = {};
-  export let subscriptionPurchaseDescription = "";
-  export let t: Translate;
-  export let tariffCatalog: AnyRecord[] = [];
-  export let tariffMode = false;
-  export let termUnitLabel: Action;
-  export let trafficMode = false;
-  export let user: AnyRecord = {};
+  type Props = {
+    accountStore: StoreLike;
+    activationSuccessDialogOpen?: boolean;
+    activationSuccessUseInstallGuides?: boolean;
+    backToTariffList: Action;
+    billingStore: StoreLike;
+    closeActivationSuccessDialog: Action;
+    closeDeviceTopupModal: Action;
+    continueWithSelectedTariff: Action;
+    devicesStore: StoreLike;
+    disconnectDevice: Action;
+    emailAuthEnabled?: boolean;
+    hasMultipleTariffs?: boolean;
+    methods?: AnyRecord[];
+    plans?: AnyRecord[];
+    selectTariff: Action;
+    selectedTariff?: AnyRecord | null;
+    selectedTariffPlans?: AnyRecord[];
+    singleTariffMode?: boolean;
+    subscription?: AnyRecord;
+    subscriptionPurchaseDescription?: string;
+    t: Translate;
+    tariffCatalog?: AnyRecord[];
+    tariffMode?: boolean;
+    termUnitLabel: Action;
+    trafficMode?: boolean;
+    user?: AnyRecord;
+  };
+
+  let {
+    accountStore,
+    activationSuccessDialogOpen = false,
+    activationSuccessUseInstallGuides = false,
+    backToTariffList,
+    billingStore,
+    closeActivationSuccessDialog,
+    closeDeviceTopupModal,
+    continueWithSelectedTariff,
+    devicesStore,
+    disconnectDevice,
+    emailAuthEnabled = true,
+    hasMultipleTariffs = false,
+    methods = [],
+    plans = [],
+    selectTariff,
+    selectedTariff = null,
+    selectedTariffPlans = [],
+    singleTariffMode = false,
+    subscription = {},
+    subscriptionPurchaseDescription = "",
+    t,
+    tariffCatalog = [],
+    tariffMode = false,
+    termUnitLabel,
+    trafficMode = false,
+    user = {},
+  }: Props = $props();
 </script>
 
 <PaymentDialogs
