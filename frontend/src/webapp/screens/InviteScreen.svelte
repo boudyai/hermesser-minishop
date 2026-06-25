@@ -7,25 +7,30 @@
   import Input from "$components/ui/input.svelte";
   import { StatusMessage } from "$components/patterns/webapp/index.js";
 
-  export let referral = {};
-  export let referralBonusDetails = [];
-  export let referralOneBonusPerReferee = false;
-  export let referralWelcomeBonusDays = 0;
-  export let promoBusy = false;
-  export let promoCode = "";
-  export let promoFieldError = "";
-  export let promoIsError = false;
-  export let promoStatus = "";
+  let {
+    referral = {},
+    referralBonusDetails = [],
+    referralOneBonusPerReferee = false,
+    referralWelcomeBonusDays = 0,
+    promoBusy = false,
+    promoCode = "",
+    promoFieldError = "",
+    promoIsError = false,
+    promoStatus = "",
+    applyPromo = () => {},
+    setPromoCode = () => {},
+    clearPromoFieldError = () => {},
+    copyText = () => {},
+    t = (key) => key,
+  } = $props();
 
-  export let applyPromo = () => {};
-  export let setPromoCode = () => {};
-  export let clearPromoFieldError = () => {};
-  export let copyText = () => {};
-  export let t = (key) => key;
-
-  $: tariffBonusSummaries = referralBonusDetails.filter((bonus) => Array.isArray(bonus.details));
-  $: periodBonusDetails = referralBonusDetails.filter((bonus) => !Array.isArray(bonus.details));
-  $: usesTariffBonusSummaries = tariffBonusSummaries.length > 0;
+  const tariffBonusSummaries = $derived(
+    referralBonusDetails.filter((bonus) => Array.isArray(bonus.details))
+  );
+  const periodBonusDetails = $derived(
+    referralBonusDetails.filter((bonus) => !Array.isArray(bonus.details))
+  );
+  const usesTariffBonusSummaries = $derived(tariffBonusSummaries.length > 0);
 
   function daysRange(minDays, maxDays) {
     return t("wa_referral_bonus_range_days", {
