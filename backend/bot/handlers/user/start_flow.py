@@ -13,6 +13,7 @@ from bot.infra import events
 from bot.infra.event_payloads import ReferralBonusGrantedPayload
 from bot.middlewares.i18n import JsonI18n
 from bot.services.referral_service import ReferralService
+from bot.services.registration_invite_gate import evaluate_registration_invite
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.telegram_notifications import TELEGRAM_NOTIFICATIONS_ENABLED
 from bot.utils.callback_answer import (
@@ -151,6 +152,7 @@ async def start_command_handler(
             return
 
     referred_by_user_id: Optional[int] = None
+    raw_ref_value: Optional[str] = None
     promo_code_to_apply: Optional[str] = None
     should_open_referral_from_start = False
     ad_start_param: Optional[str] = None
@@ -158,12 +160,6 @@ async def start_command_handler(
 
     if ref_match:
         raw_ref_value = ref_match.group(1)
-        referred_by_user_id = await _resolve_referrer_from_start_ref(
-            session,
-            raw_ref_value,
-            settings=settings,
-            current_user_id=user_id,
-        )
     elif promo_match:
         promo_code_to_apply = promo_match.group(1)
         logging.info(f"User {user_id} started with promo code: {promo_code_to_apply}")
@@ -183,6 +179,27 @@ async def start_command_handler(
 
     db_user = await user_dal.get_user_by_id(session, user_id)
     is_existing_user = db_user is not None
+    if db_user:
+        if raw_ref_value:
+            referred_by_user_id = await _resolve_referrer_from_start_ref(
+                session,
+                raw_ref_value,
+                settings=settings,
+                current_user_id=user_id,
+            )
+    else:
+        invite_check = await evaluate_registration_invite(
+            session,
+            raw_ref_value,
+            settings=settings,
+            current_user_id=user_id,
+            source="telegram_start",
+        )
+        if invite_check.requires_invite:
+            await message.answer(_("registration_invite_required"))
+            return
+        referred_by_user_id = invite_check.referrer_user_id
+
     if not db_user:
         user_data_to_create = {
             "user_id": user_id,

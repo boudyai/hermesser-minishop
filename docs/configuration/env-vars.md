@@ -148,6 +148,7 @@ proxy/Docker gateway и может отклонить валидный webhook. 
 | `REQUIRED_CHANNEL_LINK` | Необязательная запасная ссылка на обязательный канал (`@username` или invite-link), если ссылку нельзя получить по ID. |
 | `START_COMMAND_DESCRIPTION` | Описание `/start` для меню Telegram. |
 | `DISABLE_WELCOME_MESSAGE` | Отключить приветствие на `/start`. |
+| `REGISTRATION_INVITE_ONLY_ENABLED` | По умолчанию `False`. Если включено, новые публичные регистрации разрешены только по валидной реферальной ссылке; существующие пользователи продолжают входить через Telegram, Web App, email-код, magic-link или пароль. |
 
 ## Remnawave
 

@@ -12,6 +12,7 @@ from bot.app.web.context import (
 )
 from bot.app.web.webapp_auth import create_webapp_session_token
 from bot.services.email_auth_service import EmailAuthService
+from bot.services.registration_invite_gate import evaluate_registration_invite
 from config.settings import Settings
 from db.dal import security_dal, user_dal
 from db.models import User
@@ -23,7 +24,6 @@ from .auth_common import (
 from .auth_referral import (
     _apply_referral_to_existing_user,
     _apply_referral_welcome_bonus_if_needed,
-    _resolve_referrer_id,
 )
 from .common import (
     _invalidate_webapp_user_caches,
@@ -57,6 +57,14 @@ def _password_login_failure_response(
     if retry_after is not None:
         payload["retry_after"] = retry_after
     return json_response(payload, status=status)
+
+
+def _registration_invite_required_response() -> web.Response:
+    return _json_error(
+        403,
+        "registration_invite_required",
+        "Registration requires an invitation",
+    )
 
 
 async def email_password_auth_route(request: web.Request) -> web.Response:
@@ -150,12 +158,14 @@ async def email_auth_request_route(request: web.Request) -> web.Response:
     email_payload = await _parse_model_payload(request, WebAppEmailRequestPayload)
     email = email_payload.email
     lang = _normalize_language(str(email_payload.language or settings.DEFAULT_LANGUAGE))
+    referral_param = str(email_payload.referral_code or email_payload.start_param or "")
     return await _request_email_code(
         request,
         email=email,
         purpose="login",
         language_code=lang,
         target_user_id=None,
+        referral_param=referral_param,
     )
 
 
@@ -193,18 +203,22 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
 
             db_user = await user_dal.get_user_by_email(session, email)
             if not db_user:
-                referred_by_id = await _resolve_referrer_id(
+                invite_check = await evaluate_registration_invite(
                     session,
                     referral_param,
                     current_user_id=None,
                     settings=settings,
+                    source="webapp",
                 )
+                if invite_check.requires_invite:
+                    await session.rollback()
+                    return _registration_invite_required_response()
                 db_user, _ = await user_dal.create_email_user(
                     session,
                     email=email,
                     language_code=_normalize_language(settings.DEFAULT_LANGUAGE),
                     email_verified_at=datetime.now(timezone.utc),
-                    referred_by_id=referred_by_id,
+                    referred_by_id=invite_check.referrer_user_id,
                 )
                 created_user = True
             elif not db_user.email_verified_at:
@@ -280,18 +294,22 @@ async def email_auth_magic_route(request: web.Request) -> web.Response:
             verified_email = magic_result.email or ""
             db_user = await user_dal.get_user_by_email(session, verified_email)
             if not db_user:
-                referred_by_id = await _resolve_referrer_id(
+                invite_check = await evaluate_registration_invite(
                     session,
                     referral_param,
                     current_user_id=None,
                     settings=settings,
+                    source="webapp",
                 )
+                if invite_check.requires_invite:
+                    await session.rollback()
+                    return _registration_invite_required_response()
                 db_user, _ = await user_dal.create_email_user(
                     session,
                     email=verified_email,
                     language_code=_normalize_language(settings.DEFAULT_LANGUAGE),
                     email_verified_at=datetime.now(timezone.utc),
-                    referred_by_id=referred_by_id,
+                    referred_by_id=invite_check.referrer_user_id,
                 )
                 created_user = True
             elif not db_user.email_verified_at:
@@ -342,6 +360,7 @@ async def _request_email_code(
     purpose: str,
     language_code: str,
     target_user_id: Optional[int],
+    referral_param: Optional[str] = None,
 ) -> web.Response:
     email_service: EmailAuthService = get_email_auth_service(request)
     async_session_factory: sessionmaker = get_session_factory(request)
@@ -353,6 +372,7 @@ async def _request_email_code(
                 purpose=purpose,
                 language_code=language_code,
                 target_user_id=target_user_id,
+                referral_param=referral_param,
             )
             if not result.ok:
                 await session.rollback()

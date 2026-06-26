@@ -231,6 +231,9 @@ def _get_cached_webapp_settings(request: web.Request) -> Dict[str, Any]:
             "user_agreement_url": settings.USER_AGREEMENT_URL or "",
             "currency": payment_settings.default_currency_symbol or "RUB",
             "email_auth_enabled": settings.email_auth_configured,
+            "registration_invite_only_enabled": bool(
+                settings.registration_settings.invite_only_enabled
+            ),
             "language": _normalize_language(settings.DEFAULT_LANGUAGE),
         }
         cache["ts"] = now
@@ -457,6 +460,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
                 base_languages=base_locales_data.keys(),
             ),
             "emailAuthEnabled": cached["email_auth_enabled"],
+            "registrationInviteOnlyEnabled": cached["registration_invite_only_enabled"],
             "appVersion": _resolve_app_version(),
             "appRepositoryUrl": APP_REPOSITORY_URL,
         },

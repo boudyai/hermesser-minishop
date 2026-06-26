@@ -14,6 +14,7 @@ from config.settings_models import (
     PanelSettings,
     PaymentSettings,
     ReferralSettings,
+    RegistrationSettings,
     SupportSettings,
     WebAppSettings,
 )
@@ -651,6 +652,13 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     DISABLE_WELCOME_MESSAGE: bool = Field(
         default=False, description="Disable welcome message on /start command"
     )
+    REGISTRATION_INVITE_ONLY_ENABLED: bool = Field(
+        default=False,
+        description=(
+            "When true, new public registrations require a valid referral invitation. "
+            "Existing users can still sign in normally."
+        ),
+    )
 
     MY_DEVICES_SECTION_ENABLED: bool = Field(
         default=False, description="Enable the My Devices section in the subscription menu"
@@ -808,6 +816,7 @@ __all__ = [
     "PanelSettings",
     "PaymentSettings",
     "ReferralSettings",
+    "RegistrationSettings",
     "Settings",
     "SupportSettings",
     "WebAppSettings",

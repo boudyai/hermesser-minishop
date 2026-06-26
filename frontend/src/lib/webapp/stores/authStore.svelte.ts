@@ -297,7 +297,13 @@ export function createAuthStore({
         await loadData();
         return true;
       }
-      setAuthStatus(t("wa_auth_login_confirm_failed"), true);
+      const errorCode = stringField(asRecord(response).error);
+      setAuthStatus(
+        errorCode === "registration_invite_required"
+          ? t("wa_auth_invite_required")
+          : t("wa_auth_login_confirm_failed"),
+        true
+      );
     } catch {
       setAuthStatus(t("wa_auth_login_confirm_failed"), true);
     } finally {
@@ -347,7 +353,11 @@ export function createAuthStore({
       }
       const errorCode = stringField(asRecord(response).error);
       setAuthStatus(
-        errorCode === "banned" ? t("wa_auth_access_denied") : t("wa_auth_telegram_not_confirmed"),
+        errorCode === "banned"
+          ? t("wa_auth_access_denied")
+          : errorCode === "registration_invite_required"
+            ? t("wa_auth_invite_required")
+            : t("wa_auth_telegram_not_confirmed"),
         true
       );
     } catch (error) {

@@ -13,6 +13,11 @@ from bot.app.web.context import (
 )
 from bot.infra import events
 from bot.infra.event_payloads import ReferralBonusGrantedPayload
+from bot.services.registration_invite_gate import (
+    RegistrationInviteRequiredError,
+    evaluate_registration_invite,
+    resolve_referrer_user_id,
+)
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from config.settings import Settings
@@ -23,9 +28,7 @@ from .assets import (
     _enforce_webapp_rate_limit,
 )
 from .auth_common import (
-    _referral_param_lookup_candidates,
     _referral_welcome_telegram_required_reason,
-    _remnashop_referral_compat_enabled,
     _telegram_photo_url_value,
 )
 from .common import (
@@ -46,33 +49,15 @@ async def _resolve_referrer_id(
     current_user_id: Optional[int],
     settings: Optional[Settings] = None,
 ) -> Optional[int]:
-    remnashop_compat = _remnashop_referral_compat_enabled(settings)
-    candidates = _referral_param_lookup_candidates(
-        raw_referral_param,
-        remnashop_compat=remnashop_compat,
-    )
-    if not candidates:
+    if settings is None:
         return None
-
-    for normalized in candidates:
-        ref_user = None
-        if normalized.isdigit() and not remnashop_compat:
-            ref_user = await user_dal.get_user_by_id(session, int(normalized))
-        if not ref_user:
-            ref_user = await user_dal.get_user_by_referral_code(
-                session,
-                normalized,
-                include_legacy=remnashop_compat,
-            )
-        if not ref_user and normalized.isdigit() and remnashop_compat:
-            ref_user = await user_dal.get_user_by_id(session, int(normalized))
-        if not ref_user:
-            continue
-        if current_user_id is not None and int(ref_user.user_id) == int(current_user_id):
-            continue
-        return int(ref_user.user_id)
-
-    return None
+    return await resolve_referrer_user_id(
+        session,
+        raw_referral_param,
+        settings=settings,
+        current_user_id=current_user_id,
+        source="webapp",
+    )
 
 
 async def _apply_referral_to_existing_user(
@@ -268,19 +253,23 @@ async def _ensure_user_from_telegram(
     if not db_user:
         db_user = await user_dal.get_user_by_id(session, user_id)
     if not db_user:
-        referred_by_id = await _resolve_referrer_id(
+        invite_check = await evaluate_registration_invite(
             session,
             referral_param or telegram_user.get("start_param"),
             current_user_id=user_id,
             settings=settings,
+            source="webapp",
         )
+        if invite_check.requires_invite:
+            raise RegistrationInviteRequiredError(invite_check.status)
+
         db_user, created = await user_dal.create_user(
             session,
             {
                 "user_id": user_id,
                 **profile_data,
                 "language_code": telegram_language_code,
-                "referred_by_id": referred_by_id,
+                "referred_by_id": invite_check.referrer_user_id,
                 "registration_date": datetime.now(timezone.utc),
             },
         )

@@ -16,6 +16,7 @@
   import Input from "$components/ui/input.svelte";
   import Spinner from "$components/ui/spinner.svelte";
   import { StatusMessage } from "$components/patterns/webapp/index.js";
+  import { shouldShowInviteOnlyHint } from "$lib/webapp/authHelpers.js";
 
   let {
     screen,
@@ -67,6 +68,7 @@
   const passwordModeActive = $derived(Boolean(passwordLoginMode && emailAuthEnabled));
   const authCardHeight = $derived(authPanelHeight ? `${authPanelHeight}px` : undefined);
   const showLanguageSelect = $derived(languageOptions.length > 1);
+  const showInviteOnlyHint = $derived(shouldShowInviteOnlyHint(CFG));
 
   function closeLanguageFromGuard(event) {
     event.preventDefault();
@@ -170,6 +172,11 @@
                   {/if}
                 </div>
               </div>
+              {#if showInviteOnlyHint}
+                <StatusMessage class="auth-login-status auth-invite-note">
+                  {t("wa_auth_invite_only_hint")}
+                </StatusMessage>
+              {/if}
               {#if authStatus}
                 <StatusMessage error={authIsError} class="auth-login-status">
                   {authStatus}
@@ -255,6 +262,10 @@
                   class="auth-login-status"
                 >
                   {authStatus || telegramLoginUnavailableMessage}
+                </StatusMessage>
+              {:else if showInviteOnlyHint}
+                <StatusMessage class="auth-login-status auth-invite-note">
+                  {t("wa_auth_invite_only_hint")}
                 </StatusMessage>
               {/if}
             {/if}

@@ -20,6 +20,7 @@ from bot.app.web.webapp_auth import (
     validate_telegram_webapp_init_data,
     verify_telegram_oauth_nonce,
 )
+from bot.services.registration_invite_gate import RegistrationInviteRequiredError
 from config.settings import Settings
 from db.dal import user_dal
 from db.dal.user_dal import UserMergeConflictError
@@ -296,6 +297,9 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
             await session.commit()
         except web.HTTPFound:
             raise
+        except RegistrationInviteRequiredError:
+            await session.rollback()
+            raise redirect("/", "invite_required")
         except UserMergeConflictError:
             await session.rollback()
             raise redirect(redirect_path, "merge_conflict")
@@ -417,6 +421,13 @@ async def auth_token_route(request: web.Request) -> web.Response:
                 )
             authenticated_user_id = int(db_user.user_id)
             await session.commit()
+        except RegistrationInviteRequiredError:
+            await session.rollback()
+            return _json_error(
+                403,
+                "registration_invite_required",
+                "Registration requires an invitation",
+            )
         except Exception:
             await session.rollback()
             logger.exception("WebApp auth failed")

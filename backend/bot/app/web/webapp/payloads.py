@@ -39,6 +39,8 @@ class WebAppEmailCodePayload(WebAppEmailPayload):
 
 class WebAppEmailRequestPayload(WebAppEmailPayload):
     language: Optional[str] = None
+    referral_code: Optional[str] = None
+    start_param: Optional[str] = None
 
 
 class WebAppEmailCodeAuthPayload(WebAppEmailCodePayload):

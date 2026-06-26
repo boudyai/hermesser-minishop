@@ -66,6 +66,10 @@ class CompatibilitySettings(BaseModel):
     remnashop_notes: Optional[str]
 
 
+class RegistrationSettings(BaseModel):
+    invite_only_enabled: bool
+
+
 class PanelSettings(BaseModel):
     api_url: Optional[str]
     api_key: Optional[str]

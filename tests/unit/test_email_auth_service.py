@@ -1,5 +1,6 @@
 from email.utils import parsedate_to_datetime
 from types import SimpleNamespace
+from urllib.parse import parse_qs, urlsplit
 
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.email_templates import EmailInlineImage
@@ -10,7 +11,23 @@ def _settings():
         SMTP_FROM_NAME="Mini Shop",
         SMTP_FROM_EMAIL="noreply@example.com",
         WEBAPP_TITLE="Mini Shop",
+        SUBSCRIPTION_MINI_APP_URL="https://app.example.com/",
     )
+
+
+def test_build_magic_link_includes_referral_param():
+    service = EmailAuthService(_settings())
+
+    link = service._build_magic_link(
+        token="login-token",
+        purpose="login",
+        referral_param="uABC123",
+    )
+
+    assert link is not None
+    query = parse_qs(urlsplit(link).query)
+    assert query["login_token"] == ["login-token"]
+    assert query["ref"] == ["uABC123"]
 
 
 def test_build_email_message_attaches_inline_images_to_html_part():

@@ -4265,6 +4265,30 @@
             ],
             "default": null,
             "title": "Language"
+          },
+          "referral_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Referral Code"
+          },
+          "start_param": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start Param"
           }
         },
         "required": [

@@ -4,7 +4,13 @@ from types import SimpleNamespace
 from typing import Any
 
 from config.settings_mixins import _split_csv
-from config.settings_models import PanelSettings, ReferralSettings, SupportSettings, WebAppSettings
+from config.settings_models import (
+    PanelSettings,
+    ReferralSettings,
+    RegistrationSettings,
+    SupportSettings,
+    WebAppSettings,
+)
 from config.webapp_themes_config import WebappThemesConfig
 
 DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
@@ -48,6 +54,7 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "REFERRAL_ONE_BONUS_PER_REFEREE": False,
     "REFERRAL_WELCOME_BONUS_DAYS": 0,
     "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED": True,
+    "REGISTRATION_INVITE_ONLY_ENABLED": False,
     "SUBSCRIPTION_GUIDES_CONFIG_CACHE_TTL_SECONDS": 300,
     "SUBSCRIPTION_GUIDES_ENABLED": True,
     "SUBSCRIPTION_GUIDES_PUBLIC_CACHE_TTL_SECONDS": 300,
@@ -243,6 +250,12 @@ class SettingsStub(SimpleNamespace):
                 getattr(self, "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED", True)
             ),
             legacy_refs_enabled=bool(getattr(self, "LEGACY_REFS", True)),
+        )
+
+    @property
+    def registration_settings(self) -> RegistrationSettings:
+        return RegistrationSettings(
+            invite_only_enabled=bool(getattr(self, "REGISTRATION_INVITE_ONLY_ENABLED", False)),
         )
 
     @property

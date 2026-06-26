@@ -25,6 +25,7 @@ from config.settings_models import (
     PanelSettings,
     PaymentSettings,
     ReferralSettings,
+    RegistrationSettings,
     SupportSettings,
     WebAppSettings,
 )
@@ -146,6 +147,7 @@ if TYPE_CHECKING:
         REFERRAL_ONE_BONUS_PER_REFEREE: bool
         REFERRAL_WELCOME_BONUS_DAYS: int
         REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED: bool
+        REGISTRATION_INVITE_ONLY_ENABLED: bool
         LEGACY_REFS: bool
         MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED: bool
         MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED: bool
@@ -265,6 +267,12 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             welcome_bonus_days=self.REFERRAL_WELCOME_BONUS_DAYS,
             welcome_bonus_without_telegram_enabled=self.REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED,
             legacy_refs_enabled=self.LEGACY_REFS,
+        )
+
+    @property
+    def registration_settings(self) -> RegistrationSettings:
+        return RegistrationSettings(
+            invite_only_enabled=self.REGISTRATION_INVITE_ONLY_ENABLED,
         )
 
     @property

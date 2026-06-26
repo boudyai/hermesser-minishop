@@ -74,6 +74,17 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "START_COMMAND_DESCRIPTION", "string", "general", "Описание /start", placeholder=""
     ),
     SettingField(
+        "REGISTRATION_INVITE_ONLY_ENABLED",
+        "bool",
+        "general",
+        "Регистрация только по приглашению",
+        (
+            "Если включено, новые пользователи создаются только по валидной "
+            "реферальной ссылке. Существующие пользователи продолжают входить как обычно."
+        ),
+        optional=False,
+    ),
+    SettingField(
         "TELEGRAM_BOT_MENU_DISABLED",
         "bool",
         "general",

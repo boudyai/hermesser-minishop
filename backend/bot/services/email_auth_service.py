@@ -148,7 +148,13 @@ class EmailAuthService:
         ).digest()
         return hmac.new(secret, token.encode("utf-8"), hashlib.sha256).hexdigest()
 
-    def _build_magic_link(self, *, token: str, purpose: str) -> Optional[str]:
+    def _build_magic_link(
+        self,
+        *,
+        token: str,
+        purpose: str,
+        referral_param: Optional[str] = None,
+    ) -> Optional[str]:
         base_url = (self.settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
         if not base_url:
             return None
@@ -160,6 +166,10 @@ class EmailAuthService:
         params = {"login_token": token}
         if purpose and purpose != "login":
             params["login_purpose"] = purpose
+        if purpose == "login":
+            referral_value = str(referral_param or "").strip()
+            if referral_value:
+                params["ref"] = referral_value[:128]
         existing_query = parsed.query
         new_query = urlencode(params)
         merged_query = f"{existing_query}&{new_query}" if existing_query else new_query
@@ -175,6 +185,7 @@ class EmailAuthService:
         purpose: str,
         language_code: str,
         target_user_id: Optional[int] = None,
+        referral_param: Optional[str] = None,
     ) -> EmailCodeRequestResult:
         normalized_email = normalize_email(email)
         if not self.settings.email_auth_configured:
@@ -230,7 +241,11 @@ class EmailAuthService:
         code = f"{secrets.randbelow(1_000_000):06d}"
         magic_token = secrets.token_urlsafe(32)
         magic_link = (
-            self._build_magic_link(token=magic_token, purpose=purpose)
+            self._build_magic_link(
+                token=magic_token,
+                purpose=purpose,
+                referral_param=referral_param,
+            )
             if purpose == "login"
             else None
         )

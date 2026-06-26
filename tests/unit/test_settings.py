@@ -178,6 +178,24 @@ class SettingsTests(unittest.TestCase):
         self.assertFalse(referral_settings.welcome_bonus_without_telegram_enabled)
         self.assertFalse(referral_settings.legacy_refs_enabled)
 
+    def test_registration_settings_view_reflects_invite_only_flag(self):
+        default_settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+        )
+        enabled_settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            REGISTRATION_INVITE_ONLY_ENABLED=True,
+        )
+
+        self.assertFalse(default_settings.registration_settings.invite_only_enabled)
+        self.assertTrue(enabled_settings.registration_settings.invite_only_enabled)
+
     def test_support_settings_view_reflects_support_fields(self):
         settings = Settings(
             _env_file=None,

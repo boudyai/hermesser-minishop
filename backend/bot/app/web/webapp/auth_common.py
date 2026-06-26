@@ -2,7 +2,6 @@ import base64
 import hashlib
 import hmac
 import ipaddress
-import re
 import secrets
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlsplit
@@ -17,6 +16,11 @@ from bot.app.web.webapp_auth import (
     verify_signed_telegram_oauth_state,
 )
 from bot.services.email_auth_service import is_disposable_email
+from bot.services.registration_invite_gate import (
+    normalize_webapp_referral_param,
+    strip_referral_param_prefix,
+    webapp_referral_lookup_candidates,
+)
 from bot.utils.request_security import parse_ip_entries
 from bot.utils.text_sanitizer import panel_description_from_profile
 from config.settings import Settings
@@ -318,29 +322,14 @@ def _strip_referral_param_prefix(
     *,
     preserve_current_u_prefix: bool,
 ) -> str:
-    value = (raw or "").strip()
-    if not value:
-        return ""
-
-    value_lower = value.lower()
-    if value_lower.startswith("ref_u") and not preserve_current_u_prefix:
-        value = value[5:]
-    elif value_lower.startswith("ref_"):
-        value = value[4:]
-    return value
+    return strip_referral_param_prefix(
+        raw,
+        preserve_current_u_prefix=preserve_current_u_prefix,
+    )
 
 
 def _normalize_referral_param(raw: Optional[str]) -> Optional[str]:
-    value = _strip_referral_param_prefix(raw, preserve_current_u_prefix=False)
-    if not value:
-        return None
-
-    if value and value[0].lower() == "u" and len(value) == 10:
-        value = value[1:]
-
-    if not re.fullmatch(r"[A-Za-z0-9]{1,32}", value):
-        return None
-    return value.upper()
+    return normalize_webapp_referral_param(raw)
 
 
 def _referral_param_lookup_candidates(
@@ -348,20 +337,4 @@ def _referral_param_lookup_candidates(
     *,
     remnashop_compat: bool,
 ) -> List[str]:
-    if not remnashop_compat:
-        normalized = _normalize_referral_param(raw)
-        return [normalized] if normalized else []
-
-    value = _strip_referral_param_prefix(raw, preserve_current_u_prefix=True)
-    if not value or not re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", value):
-        return []
-
-    candidates = [value]
-    if value and value[0].lower() == "u":
-        candidates.append(value[1:])
-
-    unique: List[str] = []
-    for candidate in candidates:
-        if candidate and candidate not in unique:
-            unique.append(candidate)
-    return unique
+    return webapp_referral_lookup_candidates(raw, remnashop_compat=remnashop_compat)

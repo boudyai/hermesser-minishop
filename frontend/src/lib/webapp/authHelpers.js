@@ -1,11 +1,24 @@
 import { rememberReferral, readReferral } from "./session.js";
 
-export function readReferralParam(tg) {
+function readReferralParamFromLocation() {
+  if (typeof window === "undefined") return "";
   const params = new URLSearchParams(window.location.search);
-  const fromQuery = params.get("ref") || params.get("start") || params.get("start_param") || "";
+  return params.get("ref") || params.get("start") || params.get("start_param") || "";
+}
+
+export function readReferralParam(tg) {
+  const fromQuery = readReferralParamFromLocation();
   const fromTelegram = tg?.initDataUnsafe?.start_param || "";
   const value = String(fromTelegram || fromQuery || "").trim();
   return value ? rememberReferral(value) : readReferral();
+}
+
+export function hasReferralParam(tg = null) {
+  return Boolean(readReferralParam(tg));
+}
+
+export function shouldShowInviteOnlyHint(config, tg = null) {
+  return Boolean(config?.registrationInviteOnlyEnabled) && !hasReferralParam(tg);
 }
 
 export function readTelegramAuthStatus() {
@@ -64,6 +77,7 @@ export function emailError(error, fallback, t) {
   if (error?.error === "expired_code") return t("wa_auth_code_expired");
   if (error?.error === "invalid_code" || error?.error === "too_many_attempts")
     return t("wa_auth_invalid_code");
+  if (error?.error === "registration_invite_required") return t("wa_auth_invite_required");
   return fallback;
 }
 

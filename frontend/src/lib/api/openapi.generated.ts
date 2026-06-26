@@ -3353,6 +3353,16 @@ export interface components {
        * @default null
        */
       language: string | null;
+      /**
+       * Referral Code
+       * @default null
+       */
+      referral_code: string | null;
+      /**
+       * Start Param
+       * @default null
+       */
+      start_param: string | null;
     };
     /** WebAppLanguagePayload */
     WebAppLanguagePayload: {
