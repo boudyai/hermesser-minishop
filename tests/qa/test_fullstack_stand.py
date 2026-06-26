@@ -138,7 +138,8 @@ async def _fetch_payment_and_latest_subscription(
     try:
         payment = await connection.fetchrow(
             """
-            select payment_id, user_id, provider, provider_payment_id, status, amount, currency
+            select payment_id, user_id, provider, provider_payment_id, status, amount, currency,
+                   tariff_key
             from payments
             where payment_id = $1
             """,
@@ -234,8 +235,9 @@ def test_qa_payment_webhook_activates_subscription(client: httpx.Client) -> None
     )
     assert payment["provider"] == "qa"
     assert payment["status"] == "succeeded"
+    assert payment["tariff_key"] == "standard"
     assert subscription["provider"] == "qa"
-    assert subscription["tariff_key"] == "standard"
+    assert subscription["duration_months"] == 1
     assert subscription["is_active"] is True
 
 
