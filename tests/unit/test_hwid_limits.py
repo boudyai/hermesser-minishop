@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 from bot.services.panel_api_service import PanelApiService
-from bot.services.subscription_service import SubscriptionService
+from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.subscription_service_impl.hwid_limits import HwidDeviceLimits
 from config.settings import Settings
 

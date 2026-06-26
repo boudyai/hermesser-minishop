@@ -25,7 +25,7 @@ from bot.app.factories.core_services import CoreServices
 from bot.payment_providers.yookassa import YooKassaService
 from bot.services.panel_dry_run_api_service import PanelDryRunApiService
 from bot.services.panel_webhook_service import PanelWebhookService
-from bot.services.subscription_service import SubscriptionService
+from bot.services.subscription_service_impl.core import SubscriptionService
 from config.settings import Settings
 
 # Strip all provider env so per-provider BaseSettings models don't pick up

@@ -14,7 +14,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from bot.services.panel_api_service import PanelApiService
-from bot.services.subscription_service import SubscriptionService
+from bot.services.subscription_service_impl.core import SubscriptionService
 from config.settings import Settings
 
 
@@ -79,15 +79,15 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
 
             with (
                 patch(
-                    "bot.services.subscription_service.user_dal.get_user_by_id",
+                    "bot.services.subscription_service_impl._runtime.user_dal.get_user_by_id",
                     new=AsyncMock(return_value=db_user),
                 ),
                 patch(
-                    "bot.services.subscription_service.subscription_dal.get_active_subscription_by_user_id",
+                    "bot.services.subscription_service_impl._runtime.subscription_dal.get_active_subscription_by_user_id",
                     new=AsyncMock(return_value=sub),
                 ),
                 patch(
-                    "bot.services.subscription_service.tariff_dal.sum_active_hwid_devices",
+                    "bot.services.subscription_service_impl._runtime.tariff_dal.sum_active_hwid_devices",
                     new=AsyncMock(return_value=2),
                 ),
             ):
@@ -128,15 +128,15 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
 
             with (
                 patch(
-                    "bot.services.subscription_service.user_dal.get_user_by_id",
+                    "bot.services.subscription_service_impl._runtime.user_dal.get_user_by_id",
                     new=AsyncMock(return_value=db_user),
                 ),
                 patch(
-                    "bot.services.subscription_service.subscription_dal.get_active_subscription_by_user_id",
+                    "bot.services.subscription_service_impl._runtime.subscription_dal.get_active_subscription_by_user_id",
                     new=AsyncMock(return_value=sub),
                 ),
                 patch(
-                    "bot.services.subscription_service.tariff_dal.sum_active_hwid_devices",
+                    "bot.services.subscription_service_impl._runtime.tariff_dal.sum_active_hwid_devices",
                     new=AsyncMock(return_value=3),
                 ),
             ):
@@ -175,15 +175,15 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
 
             with (
                 patch(
-                    "bot.services.subscription_service.user_dal.get_user_by_id",
+                    "bot.services.subscription_service_impl._runtime.user_dal.get_user_by_id",
                     new=AsyncMock(return_value=db_user),
                 ),
                 patch(
-                    "bot.services.subscription_service.subscription_dal.get_active_subscription_by_user_id",
+                    "bot.services.subscription_service_impl._runtime.subscription_dal.get_active_subscription_by_user_id",
                     new=AsyncMock(return_value=sub),
                 ),
                 patch(
-                    "bot.services.subscription_service.tariff_dal.sum_active_hwid_devices",
+                    "bot.services.subscription_service_impl._runtime.tariff_dal.sum_active_hwid_devices",
                     new=AsyncMock(return_value=2),
                 ),
             ):
@@ -231,19 +231,19 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
 
             with (
                 patch(
-                    "bot.services.subscription_service.user_dal.get_user_by_id",
+                    "bot.services.subscription_service_impl._runtime.user_dal.get_user_by_id",
                     new=AsyncMock(return_value=db_user),
                 ),
                 patch(
-                    "bot.services.subscription_service.subscription_dal.get_active_subscription_by_user_id",
+                    "bot.services.subscription_service_impl._runtime.subscription_dal.get_active_subscription_by_user_id",
                     new=AsyncMock(return_value=sub),
                 ),
                 patch(
-                    "bot.services.subscription_service.subscription_dal.update_subscription",
+                    "bot.services.subscription_service_impl._runtime.subscription_dal.update_subscription",
                     new=AsyncMock(return_value=updated_sub),
                 ) as upd,
                 patch(
-                    "bot.services.subscription_service.tariff_dal.create_traffic_topup",
+                    "bot.services.subscription_service_impl._runtime.tariff_dal.create_traffic_topup",
                     new=AsyncMock(),
                 ) as topup_log,
             ):
@@ -313,11 +313,11 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
 
             with (
                 patch(
-                    "bot.services.subscription_service.user_dal.get_user_by_id",
+                    "bot.services.subscription_service_impl._runtime.user_dal.get_user_by_id",
                     new=AsyncMock(return_value=db_user),
                 ),
                 patch(
-                    "bot.services.subscription_service.subscription_dal.get_active_subscription_by_user_id",
+                    "bot.services.subscription_service_impl._runtime.subscription_dal.get_active_subscription_by_user_id",
                     new=AsyncMock(return_value=sub),
                 ),
             ):
@@ -368,19 +368,19 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
 
             with (
                 patch(
-                    "bot.services.subscription_service.user_dal.get_user_by_id",
+                    "bot.services.subscription_service_impl._runtime.user_dal.get_user_by_id",
                     new=AsyncMock(return_value=db_user),
                 ),
                 patch(
-                    "bot.services.subscription_service.subscription_dal.get_active_subscription_by_user_id",
+                    "bot.services.subscription_service_impl._runtime.subscription_dal.get_active_subscription_by_user_id",
                     new=AsyncMock(return_value=sub),
                 ),
                 patch(
-                    "bot.services.subscription_service.subscription_dal.update_subscription",
+                    "bot.services.subscription_service_impl._runtime.subscription_dal.update_subscription",
                     new=AsyncMock(return_value=updated_sub),
                 ) as upd,
                 patch(
-                    "bot.services.subscription_service.tariff_dal.create_traffic_topup",
+                    "bot.services.subscription_service_impl._runtime.tariff_dal.create_traffic_topup",
                     new=AsyncMock(),
                 ) as topup_log,
             ):
@@ -450,19 +450,19 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
 
             with (
                 patch(
-                    "bot.services.subscription_service.user_dal.get_user_by_id",
+                    "bot.services.subscription_service_impl._runtime.user_dal.get_user_by_id",
                     new=AsyncMock(return_value=db_user),
                 ),
                 patch(
-                    "bot.services.subscription_service.subscription_dal.get_active_subscription_by_user_id",
+                    "bot.services.subscription_service_impl._runtime.subscription_dal.get_active_subscription_by_user_id",
                     new=AsyncMock(return_value=sub),
                 ),
                 patch(
-                    "bot.services.subscription_service.subscription_dal.update_subscription",
+                    "bot.services.subscription_service_impl._runtime.subscription_dal.update_subscription",
                     new=AsyncMock(return_value=updated_sub),
                 ) as upd,
                 patch(
-                    "bot.services.subscription_service.tariff_dal.create_traffic_topup",
+                    "bot.services.subscription_service_impl._runtime.tariff_dal.create_traffic_topup",
                     new=AsyncMock(),
                 ) as topup_log,
             ):
@@ -493,11 +493,11 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
 
             with (
                 patch(
-                    "bot.services.subscription_service.user_dal.get_user_by_id",
+                    "bot.services.subscription_service_impl._runtime.user_dal.get_user_by_id",
                     new=AsyncMock(return_value=db_user),
                 ),
                 patch(
-                    "bot.services.subscription_service.subscription_dal.get_active_subscription_by_user_id",
+                    "bot.services.subscription_service_impl._runtime.subscription_dal.get_active_subscription_by_user_id",
                     new=AsyncMock(return_value=sub),
                 ),
             ):
@@ -533,15 +533,15 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
 
             with (
                 patch(
-                    "bot.services.subscription_service.user_dal.get_user_by_id",
+                    "bot.services.subscription_service_impl._runtime.user_dal.get_user_by_id",
                     new=AsyncMock(return_value=db_user),
                 ),
                 patch(
-                    "bot.services.subscription_service.subscription_dal.get_active_subscription_by_user_id",
+                    "bot.services.subscription_service_impl._runtime.subscription_dal.get_active_subscription_by_user_id",
                     new=AsyncMock(return_value=sub),
                 ),
                 patch(
-                    "bot.services.subscription_service.subscription_dal.update_subscription",
+                    "bot.services.subscription_service_impl._runtime.subscription_dal.update_subscription",
                     new=AsyncMock(return_value=sub),
                 ) as upd,
             ):

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from bot.services.panel_api_service import PanelApiService
-from bot.services.subscription_service import SubscriptionService
+from bot.services.subscription_service_impl.core import SubscriptionService
 from config.settings import Settings
 
 
