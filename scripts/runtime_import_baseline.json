@@ -1,27 +1,13 @@
 {
   "admin_api_impl_runtime": [],
   "webapp_runtime": [
-    "backend/bot/app/web/webapp/account.py",
     "backend/bot/app/web/webapp/assets.py",
     "backend/bot/app/web/webapp/assets_branding.py",
     "backend/bot/app/web/webapp/assets_static.py",
     "backend/bot/app/web/webapp/assets_theme.py",
     "backend/bot/app/web/webapp/auth_common.py",
-    "backend/bot/app/web/webapp/auth_email.py",
-    "backend/bot/app/web/webapp/auth_oauth.py",
-    "backend/bot/app/web/webapp/auth_panel.py",
-    "backend/bot/app/web/webapp/auth_referral.py",
-    "backend/bot/app/web/webapp/billing_common.py",
     "backend/bot/app/web/webapp/billing_options.py",
-    "backend/bot/app/web/webapp/billing_payments.py",
-    "backend/bot/app/web/webapp/billing_status.py",
-    "backend/bot/app/web/webapp/billing_subscription.py",
     "backend/bot/app/web/webapp/common.py",
-    "backend/bot/app/web/webapp/devices.py",
-    "backend/bot/app/web/webapp/guides.py",
-    "backend/bot/app/web/webapp/routes.py",
-    "backend/bot/app/web/webapp/serializers.py",
-    "backend/bot/app/web/webapp/support.py",
-    "backend/bot/app/web/webapp/telegram_notifications.py"
+    "backend/bot/app/web/webapp/routes.py"
   ]
 }

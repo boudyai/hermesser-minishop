@@ -42,6 +42,7 @@
       "backend/bot/app/web/webapp"
     ],
     "allowlist": [
+      "backend/bot/app/web/webapp/response_helpers.py",
       "backend/bot/app/web/admin_api_impl/common.py",
       "backend/bot/app/web/webapp/_runtime.py"
     ]

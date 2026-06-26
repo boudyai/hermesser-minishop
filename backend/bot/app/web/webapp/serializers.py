@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
@@ -34,9 +35,6 @@ from config.tariffs_config import default_currency_key_for_settings, payment_cur
 from config.webapp_themes_config import public_themes_catalog_payload
 from db.dal import subscription_dal, support_dal, user_dal
 
-from ._runtime import (
-    logger,
-)
 from .assets import (
     _get_cached_webapp_settings,
 )
@@ -58,6 +56,8 @@ from .serializers_billing_options import (
     _serialize_topup_packages,
     _traffic_percent,
 )
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "_build_user_payload",

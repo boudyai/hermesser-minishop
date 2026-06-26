@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict, Optional
 
 from aiohttp import web
@@ -27,9 +28,6 @@ from config.tariffs_config import (
 )
 from db.dal import subscription_dal, user_dal
 
-from ._runtime import (
-    logger,
-)
 from .billing_common import _parse_positive_int_units
 from .common import (
     _hwid_devices_payment_description,
@@ -37,6 +35,8 @@ from .common import (
     _resolve_numeric_option_key,
     _traffic_payment_description,
 )
+
+logger = logging.getLogger(__name__)
 
 
 async def create_payment_route(request: web.Request) -> web.Response:

@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -19,10 +20,6 @@ from bot.services.subscription_service_impl.core import SubscriptionService
 from config.settings import Settings
 from db.dal import user_dal
 
-from ._runtime import (
-    json_response,
-    logger,
-)
 from .assets import (
     _enforce_webapp_rate_limit,
 )
@@ -35,6 +32,9 @@ from .common import (
 from .payloads import (
     WebAppDeviceDisconnectPayload,
 )
+from .response_helpers import json_response
+
+logger = logging.getLogger(__name__)
 
 
 async def devices_route(request: web.Request) -> web.Response:

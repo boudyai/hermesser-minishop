@@ -12,9 +12,6 @@ from bot.services.support_service import TicketForbidden, TicketNotFound, Ticket
 from db.dal import support_dal, user_dal
 from db.models import SupportTicket, SupportTicketMessage
 
-from ._runtime import (
-    json_response,
-)
 from .common import (
     _json_error,
     _parse_model_payload,
@@ -24,6 +21,7 @@ from .payloads import (
     CreateTicketPayload,
     TicketReplyPayload,
 )
+from .response_helpers import json_response
 
 
 def _support_ticket_payload(ticket: SupportTicket) -> Dict[str, Any]:

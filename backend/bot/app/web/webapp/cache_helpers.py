@@ -1,5 +1,8 @@
+"""Helpers for webapp cache lifecycle and runtime invalidation."""
+
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from typing import Any, Awaitable, Callable, Optional
 
 from bot.infra.redis import cache_delete, cache_delete_pattern, redis_key
@@ -7,6 +10,35 @@ from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
 
 _WEBAPP_USER_PAYLOAD_CACHES: dict[tuple[int, str, int], AsyncTTLCache] = {}
+
+
+def _changed_setting_keys(
+    updates: Mapping[str, Any] | None = None,
+    deletes: Sequence[Any] | None = None,
+) -> set[str]:
+    keys = {str(key) for key in (updates or {}).keys()}
+    keys.update(str(key) for key in (deletes or []) if key is not None)
+    return keys
+
+
+WEBAPP_APPEARANCE_SETTING_KEYS = frozenset(
+    {
+        "WEBAPP_TITLE",
+        "WEBAPP_LOGO_URL",
+        "WEBAPP_FAVICON_URL",
+        "WEBAPP_FAVICON_USE_CUSTOM",
+        "WEBAPP_LOGO_FAVICON_URL",
+    }
+)
+
+WEBAPP_DEVICE_PAYLOAD_SETTING_KEYS = frozenset(
+    {
+        "MY_DEVICES_SECTION_ENABLED",
+        "USER_HWID_DEVICE_LIMIT",
+        "USER_TRAFFIC_LIMIT_GB",
+        "USER_TRAFFIC_STRATEGY",
+    }
+)
 
 
 def reset_webapp_settings_cache(app: Any) -> None:
@@ -151,3 +183,43 @@ async def invalidate_all_webapp_user_caches(
     include_devices: bool = False,
 ) -> None:
     await invalidate_all_webapp_user_payloads(settings, include_devices=include_devices)
+
+
+async def refresh_webapp_runtime_after_settings_change(
+    request: Any,
+    *,
+    updates: Mapping[str, Any] | None = None,
+    deletes: Sequence[Any] | None = None,
+    include_user_payloads: bool = True,
+) -> None:
+    from bot.app.web.context import get_settings
+
+    settings = get_settings(request)
+    keys = _changed_setting_keys(updates, deletes)
+    app = request.app
+
+    reset_webapp_settings_cache(app)
+    reset_subscription_guides_cache(app)
+
+    if include_user_payloads:
+        await invalidate_all_webapp_user_payloads(
+            settings,
+            include_devices=bool(keys & WEBAPP_DEVICE_PAYLOAD_SETTING_KEYS),
+        )
+
+    if keys & WEBAPP_APPEARANCE_SETTING_KEYS:
+        app["webapp_logo_cache"] = None
+        from bot.app.web.webapp.themes import prune_unused_appearance_assets
+
+        prune_unused_appearance_assets(settings)
+
+
+__all__ = [
+    "reset_webapp_settings_cache",
+    "reset_subscription_guides_cache",
+    "invalidate_all_webapp_user_payloads",
+    "invalidate_webapp_user_caches",
+    "invalidate_all_webapp_user_caches",
+    "webapp_cached_user_payload",
+    "refresh_webapp_runtime_after_settings_change",
+]

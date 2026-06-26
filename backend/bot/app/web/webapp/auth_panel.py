@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
@@ -14,9 +15,6 @@ from db.dal import subscription_dal, user_dal
 from db.dal.user_dal import UserMergeConflictError
 from db.models import User
 
-from ._runtime import (
-    logger,
-)
 from .auth_common import (
     _telegram_photo_url_value,
 )
@@ -25,6 +23,8 @@ from .common import (
     _normalize_language,
     _telegram_id_for_user,
 )
+
+logger = logging.getLogger(__name__)
 
 
 async def _sync_panel_identity_for_user(

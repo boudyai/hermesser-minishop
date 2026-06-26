@@ -1,4 +1,5 @@
 import html
+import logging
 import re
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -9,9 +10,7 @@ from bot.app.web.context import (
     get_i18n,
 )
 
-from ._runtime import (
-    logger,
-)
+logger = logging.getLogger(__name__)
 
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 _TRIAL_ACTIVATION_FAILURE_STATUSES = {

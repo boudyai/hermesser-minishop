@@ -1,4 +1,5 @@
 import base64
+import logging
 import secrets
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -24,10 +25,6 @@ from db.dal import user_dal
 from db.dal.user_dal import UserMergeConflictError
 from db.models import User
 
-from ._runtime import (
-    json_response,
-    logger,
-)
 from .assets import (
     _enforce_webapp_rate_limit,
     _get_shared_http_session,
@@ -64,7 +61,10 @@ from .common import (
 from .payloads import (
     WebAppTelegramAuthPayload,
 )
+from .response_helpers import json_response
 from .telegram_notifications import _probe_telegram_notifications_for_user_id
+
+logger = logging.getLogger(__name__)
 
 
 def _webapp_auth_max_age_seconds(settings: Settings) -> int:

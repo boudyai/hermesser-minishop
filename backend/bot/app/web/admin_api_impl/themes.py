@@ -31,6 +31,7 @@ from bot.app.web.route_contracts import (
     ok_envelope_with,
     register_contract,
 )
+from bot.app.web.webapp.cache_helpers import refresh_webapp_runtime_after_settings_change
 from bot.services.settings_override_service import update_overrides
 from config.settings import Settings
 from config.webapp_themes_config import (
@@ -48,7 +49,6 @@ from .common import (
     _ok,
     _webapp_themes_catalog_payload,
 )
-from .webapp_runtime import refresh_webapp_runtime_after_settings_change
 
 logger = logging.getLogger(__name__)
 

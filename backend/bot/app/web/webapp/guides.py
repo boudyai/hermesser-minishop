@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import json
+import logging
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
@@ -26,13 +27,12 @@ from config.subscription_guides_config import (
 )
 from db.dal import subscription_dal, user_dal
 
-from ._runtime import (
-    json_response,
-    logger,
-)
 from .common import (
     _require_user_id,
 )
+from .response_helpers import json_response
+
+logger = logging.getLogger(__name__)
 
 PANEL_DEFAULT_SUBPAGE_CONFIG_UUID = "00000000-0000-0000-0000-000000000000"
 SUBSCRIPTION_GUIDES_CACHE_ERROR_TTL_SECONDS = 30

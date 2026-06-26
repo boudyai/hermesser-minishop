@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict
 
 from aiohttp import web
@@ -24,10 +25,9 @@ from bot.infra.event_payloads import PaymentCanceledPayload
 from db.dal import payment_dal
 from db.models import Payment
 
-from ._runtime import (
-    json_response,
-    logger,
-)
+from .response_helpers import json_response
+
+logger = logging.getLogger(__name__)
 
 
 def _yookassa_payment_payload_for_processing(payload: Dict[str, Any]) -> Dict[str, Any]:

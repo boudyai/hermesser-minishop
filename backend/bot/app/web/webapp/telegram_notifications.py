@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict
 
 from aiohttp import web
@@ -18,15 +19,14 @@ from bot.services.telegram_notifications import (
 from config.settings import Settings
 from db.dal import user_dal
 
-from ._runtime import (
-    json_response,
-    logger,
-)
 from .common import (
     _invalidate_webapp_user_caches,
     _json_error,
     _require_user_id,
 )
+from .response_helpers import json_response
+
+logger = logging.getLogger(__name__)
 
 
 async def _probe_telegram_notifications_for_user_id(

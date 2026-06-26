@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
@@ -15,10 +16,6 @@ from config.settings import Settings
 from db.dal import security_dal, user_dal
 from db.models import User
 
-from ._runtime import (
-    json_response,
-    logger,
-)
 from .auth_common import (
     _build_webapp_auth_response,
     _verify_email_password,
@@ -41,6 +38,9 @@ from .payloads import (
     WebAppEmailPasswordPayload,
     WebAppEmailRequestPayload,
 )
+from .response_helpers import json_response
+
+logger = logging.getLogger(__name__)
 
 
 def _password_login_failure_response(

@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
@@ -18,10 +19,6 @@ from config.settings import Settings
 from db.dal import user_dal
 from db.models import User
 
-from ._runtime import (
-    json_response,
-    logger,
-)
 from .assets import (
     _enforce_webapp_rate_limit,
 )
@@ -37,6 +34,9 @@ from .common import (
     _normalize_language,
     _require_user_id,
 )
+from .response_helpers import json_response
+
+logger = logging.getLogger(__name__)
 
 
 async def _resolve_referrer_id(

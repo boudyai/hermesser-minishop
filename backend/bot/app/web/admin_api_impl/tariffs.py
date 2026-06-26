@@ -18,6 +18,7 @@ from bot.app.web.route_contracts import (
     ok_envelope_with,
     register_contract,
 )
+from bot.app.web.webapp.cache_helpers import refresh_webapp_runtime_after_settings_change
 from config.settings import Settings
 from config.tariffs_config import TariffsConfig, default_payment_currency_code_for_settings
 
@@ -31,7 +32,6 @@ from .common import (
     _tariffs_config_payload,
     _write_tariffs_config_file,
 )
-from .webapp_runtime import refresh_webapp_runtime_after_settings_change
 
 logger = logging.getLogger(__name__)
 

@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 from aiohttp import web
@@ -27,10 +28,6 @@ from bot.utils.config_link import prepare_config_links
 from config.settings import Settings
 from db.dal import message_log_dal, subscription_dal, user_dal
 
-from ._runtime import (
-    json_response,
-    logger,
-)
 from .billing_common import (
     _TRIAL_ACTIVATION_FAILURE_STATUSES,
     _localized_webapp_message,
@@ -39,6 +36,9 @@ from .billing_common import (
 from .common import (
     _format_webapp_datetime,
 )
+from .response_helpers import json_response
+
+logger = logging.getLogger(__name__)
 
 
 async def apply_promo_route(request: web.Request) -> web.Response:

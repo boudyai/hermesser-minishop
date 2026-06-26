@@ -18,6 +18,7 @@ from bot.app.web.route_contracts import (
     ok_envelope_with,
     register_contract,
 )
+from bot.app.web.webapp.cache_helpers import refresh_webapp_runtime_after_settings_change
 from bot.services.entitlements import features as entitlement_features
 from bot.services.settings_override_service import current_value, update_overrides
 from config.settings import Settings
@@ -35,7 +36,6 @@ from .common import (
     _error_payload,
     _ok,
 )
-from .webapp_runtime import refresh_webapp_runtime_after_settings_change
 
 register_contract(
     "admin_settings_get_route",
