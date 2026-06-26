@@ -231,3 +231,6 @@ Svelte + Vite. API-клиент **типизирован из OpenAPI-спека
   **не добавлять**.
 - Одно связное изменение на коммит; для рефакторов предпочитай move-only диффы для ревью.
 - После любого изменения контракта регенерируй затронутые артефакты (раздел 1) в том же изменении.
+- Compatibility facades (`admin_api`, `subscription_webapp`, `subscription_service`) are compatibility-only layers.
+  Implementation code must import concrete `*_impl`/domain modules first; avoid adding new first-party dependencies on facade modules
+  unless a public compatibility contract requires it.

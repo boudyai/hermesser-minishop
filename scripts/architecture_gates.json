@@ -63,6 +63,17 @@
       "backend/bot/services/subscription_service_impl/_runtime.py"
     ]
   },
+  "runtime_imports": {
+    "scopes": [
+      "backend"
+    ],
+    "runtime_modules": {
+      "admin_api_impl_runtime": "bot.app.web.admin_api_impl._runtime",
+      "webapp_runtime": "bot.app.web.webapp._runtime"
+    },
+    "baseline_path": "scripts/runtime_import_baseline.json",
+    "allowlist_paths": []
+  },
   "facade_imports": {
     "scopes": [
       "backend"

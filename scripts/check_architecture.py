@@ -162,6 +162,99 @@ def _collect_facade_importers(facade_modules: set[str], file: Path) -> set[str]:
     return imports
 
 
+def _collect_runtime_importers_with_aliases(
+    runtime_modules: dict[str, str], file: Path
+) -> set[str]:
+    imported_aliases: set[str] = set()
+    alias_to_module: dict[str, str] = runtime_modules
+    module_to_alias = {module: alias for alias, module in alias_to_module.items()}
+    expected_modules = set(alias_to_module.values())
+    file_path = file.as_posix()
+
+    try:
+        tree = ast.parse(file.read_text(encoding="utf-8", errors="ignore"))
+    except Exception:
+        return imported_aliases
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                for module in expected_modules:
+                    if alias.name == module or alias.name.startswith(f"{module}."):
+                        imported_aliases.add(module_to_alias[module])
+            continue
+
+        if not isinstance(node, ast.ImportFrom):
+            continue
+
+        module = node.module or ""
+        if node.level and module == "_runtime":
+            has_admin_runtime_alias = "admin_api_impl_runtime" in runtime_modules
+            has_webapp_runtime_alias = "webapp_runtime" in runtime_modules
+            if (
+                "backend/bot/app/web/admin_api_impl/" in file_path
+                and has_admin_runtime_alias
+            ):
+                imported_aliases.add("admin_api_impl_runtime")
+            elif "backend/bot/app/web/webapp/" in file_path and has_webapp_runtime_alias:
+                imported_aliases.add("webapp_runtime")
+            continue
+
+        if module in expected_modules:
+            imported_aliases.add(module_to_alias[module])
+
+    return imported_aliases
+
+
+def _check_runtime_import_contract(cfg: dict, issues: list[str]) -> None:
+    checks = cfg.get("runtime_imports")
+    if not checks:
+        return
+
+    runtime_modules = checks.get("runtime_modules", {})
+    expected_importer_path = checks.get("baseline_path")
+    if not expected_importer_path:
+        return
+
+    expected_path = ROOT / expected_importer_path
+    if not expected_path.exists():
+        issues.append(
+            f"[runtime-imports] Missing baseline path in config: {expected_importer_path}"
+        )
+        return
+
+    expected = __import__("json").loads(expected_path.read_text(encoding="utf-8"))
+    path_allowlist = checks.get("allowlist_paths", [])
+    actual: dict[str, set[str]] = {name: set() for name in runtime_modules}
+
+    for scope in checks.get("scopes", []):
+        base = ROOT / scope
+        if not base.exists():
+            continue
+
+        for file in base.rglob("*.py"):
+            if "tests" in file.parts:
+                continue
+
+            rel = _to_posix(file)
+            if _is_allowed(rel, path_allowlist):
+                continue
+
+            imported_aliases = _collect_runtime_importers_with_aliases(runtime_modules, file)
+            for alias in imported_aliases:
+                if alias in actual:
+                    actual[alias].add(rel)
+
+    for alias, expected_paths in expected.items():
+        allowed = {Path(p).as_posix() for p in expected_paths}
+        unexpected = sorted(actual.get(alias, set()) - allowed)
+        if unexpected:
+            module = runtime_modules.get(alias, alias)
+            issues.append(
+                f"[runtime-imports] Unexpected importers of {module}: {', '.join(unexpected)}"
+            )
+
+
 def _check_facade_import_contract(cfg: dict, issues: list[str]) -> None:
     checks = cfg.get("facade_imports")
     if not checks:
@@ -210,6 +303,7 @@ def main() -> int:
     _check_raw_json_response(config, issues)
     _check_frontend_weak_typing(config, issues)
     _check_runtime_all_exports(config, issues)
+    _check_runtime_import_contract(config, issues)
     _check_facade_import_contract(config, issues)
 
     if issues:
