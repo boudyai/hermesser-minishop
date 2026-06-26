@@ -1,7 +1,6 @@
 import { normalizeBrand } from "./browser.js";
+import { arrayField, recordArrayField, recordField, type WebappRecord } from "./domainTypes.js";
 import type { PaymentMethod } from "./tariffs.js";
-
-type WebappRecord = Record<string, unknown>;
 
 export type AppDataViewInput = {
   cfg: WebappRecord;
@@ -29,18 +28,6 @@ export type AppDataView = {
   subscriptionPurchaseDescription: string;
   supportEnabled: boolean;
 };
-
-function recordField(value: unknown): WebappRecord {
-  return value && typeof value === "object" ? (value as WebappRecord) : {};
-}
-
-function arrayField(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function recordArrayField(value: unknown): WebappRecord[] {
-  return Array.isArray(value) ? (value as WebappRecord[]) : [];
-}
 
 export function computeAppDataView({
   cfg,

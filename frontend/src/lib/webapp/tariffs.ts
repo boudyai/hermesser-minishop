@@ -1,6 +1,6 @@
 import { formatMoney, formatTrafficGb } from "./formatters.js";
+import type { WebappRecord } from "./domainTypes.js";
 
-type WebappRecord = Record<string, unknown>;
 type TranslateFn = (key: string, params?: Record<string, string>, fallback?: string) => string;
 type TermUnitLabel = (value: number, unit: "month") => string;
 

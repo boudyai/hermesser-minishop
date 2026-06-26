@@ -1,3 +1,5 @@
+import type { PublicSubscriptionGuidesPath } from "./publicApi";
+
 type WebappRecord = Record<string, unknown>;
 type PublicInstallState = WebappRecord & {
   subscription?: WebappRecord | null;
@@ -6,7 +8,7 @@ type PublicInstallPreload = {
   path?: PublicInstallPath;
   promise?: Promise<WebappRecord | null>;
 };
-type PublicInstallPath = `/subscription-guides/public/${string}`;
+type PublicInstallPath = PublicSubscriptionGuidesPath;
 type PublicInstallPreloadHost = Record<string, PublicInstallPreload | null | undefined>;
 type PublicInstallGuidesStore = {
   hydrate: (path: PublicInstallPath, payload: WebappRecord) => PublicInstallState;

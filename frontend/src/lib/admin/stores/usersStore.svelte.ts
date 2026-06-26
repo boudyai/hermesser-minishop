@@ -9,175 +9,31 @@ import {
   buildAdminPaymentsUserPath,
   buildAdminUserReferralsPath,
   buildAdminUsersPath,
-  type ApiClient,
-  type ApiResponse,
 } from "../../webapp/publicApi";
-import type { components, operations } from "../../api/openapi.generated";
+import {
+  USER_LOGS_PAGE_SIZE,
+  USERS_PAGE_SIZE,
+  closedUserModalState,
+  createInitialUsersState,
+  type AdminErrorResponse,
+  type AdminLogsResponse,
+  type AdminStoreState,
+  type AdminSubscription,
+  type AdminUser,
+  type AdminUserDetail,
+  type AdminUserDetailResponse,
+  type AdminUserReferralsResponse,
+  type AdminUsersListResponse,
+  type OpenUserOptions,
+  type PathContext,
+  type SnapshotOptions,
+  type UsersStoreOptions,
+} from "./usersStoreState";
 
-type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
-type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
-  path: Path,
-  options?: Parameters<ApiClient["api"]>[1]
-) => Promise<ApiResponse<Path> | AdminErrorResponse>;
-type AdminUsersListResponse = NonNullable<
-  operations["get_admin_users_list_route"]["responses"][200]["content"]["application/json"]
->;
-type AdminUserDetailResponse = NonNullable<
-  operations["get_admin_user_detail_route"]["responses"][200]["content"]["application/json"]
->;
-type AdminUserReferralsResponse = NonNullable<
-  operations["get_admin_user_referrals_route"]["responses"][200]["content"]["application/json"]
->;
-type AdminLogsResponse = NonNullable<
-  operations["get_admin_logs_route"]["responses"][200]["content"]["application/json"]
->;
-type AdminListUser = NonNullable<AdminUsersListResponse["users"]>[number];
-type AdminSubscription = components["schemas"]["AdminSubscriptionOut"];
-type AdminUserDetail = AdminUserDetailResponse & {
-  active_subscription: AdminSubscription | null;
-  subscriptions: AdminSubscription[];
-  user: AdminUser;
-};
-type UserLogRow = NonNullable<AdminLogsResponse["logs"]>[number];
-type DraftNumber = number | string;
-type AdminStoreState = {
-  users: AdminUser[];
-  usersTotal: number;
-  usersPage: number;
-  usersQuery: string;
-  usersFilter: string;
-  usersPanelStatus: string;
-  usersPremiumTraffic: string;
-  usersSort: string;
-  usersLoading: boolean;
-  openedUser: AdminUser | null;
-  openedUserDetail: AdminUserDetail | null;
-  userDetailLoading: boolean;
-  userMessageDraft: string;
-  userExtendDays: DraftNumber;
-  userExtendHwidDevices: boolean;
-  userExtendTariffKey: string;
-  userTariffActionKey: string;
-  userTariffActionBaselineKey: string;
-  userActionBusy: boolean;
-  userDeleteOpen: boolean;
-  userBanConfirmOpen: boolean;
-  userMessageConfirmOpen: boolean;
-  userReferralsOpen: boolean;
-  userReferralsLoading: boolean;
-  userReferrals: AdminUser[];
-  userReferralsTotal: number;
-  userReferralsPage: number;
-  userReferralsPageSize: number;
-  userReferralsInviter: AdminUser | null;
-  userDetailTab: string;
-  premiumUnlimitedDraft: boolean;
-  premiumUnlimitedBaseline: boolean;
-  premiumBonusGbDraft: DraftNumber;
-  premiumBonusGbBaseline: DraftNumber;
-  regularUnlimitedDraft: boolean;
-  regularUnlimitedBaseline: boolean;
-  regularBonusGbDraft: DraftNumber;
-  regularBonusGbBaseline: DraftNumber;
-  hwidUnlimitedDraft: boolean;
-  hwidUnlimitedBaseline: boolean;
-  hwidDeviceLimitDraft: DraftNumber;
-  hwidDeviceLimitBaseline: DraftNumber;
-  grantTrafficGbDraft: DraftNumber;
-  grantTrafficKindDraft: "regular" | "premium";
-  userLogs: UserLogRow[];
-  userLogsTotal: number;
-  userLogsPage: number;
-  userLogsLoading: boolean;
-  userLogsLoaded: boolean;
-  userLogsUserId: number | string | null;
-  userLogsPageSize: number;
-};
-export type AdminUser = Partial<
-  components["schemas"]["AdminUserOut"] &
-    components["schemas"]["AdminUserWithAvatarOut"] &
-    AdminListUser
-> & { user_id: number | string };
-type ToastFn = (message: string) => void;
-type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-type PathContext = "users" | "payments" | null;
-type OpenUserOptions = { pathContext?: PathContext; skipPush?: boolean };
-type SnapshotOptions = {
-  resetExtendTariff?: boolean;
-  resetTariffAction?: boolean;
-  resetPremium?: boolean;
-  resetRegular?: boolean;
-  resetHwid?: boolean;
-  resetGrant?: boolean;
-};
-
-type UsersStoreOptions = {
-  api: AdminApi;
-  onToast: ToastFn;
-  at: TranslateFn;
-  routePrefix?: string;
-};
+export type { AdminUser } from "./usersStoreState";
 
 export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersStoreOptions) {
-  const USERS_PAGE_SIZE = 25;
-  const USER_LOGS_PAGE_SIZE = 20;
-
-  const initialState: AdminStoreState = {
-    users: [],
-    usersTotal: 0,
-    usersPage: 0,
-    usersQuery: "",
-    usersFilter: "all",
-    usersPanelStatus: "all",
-    usersPremiumTraffic: "all",
-    usersSort: "",
-    usersLoading: false,
-
-    openedUser: null,
-    openedUserDetail: null,
-    userDetailLoading: false,
-    userMessageDraft: "",
-    userExtendDays: 30,
-    userExtendHwidDevices: true,
-    userExtendTariffKey: "",
-    userTariffActionKey: "",
-    userTariffActionBaselineKey: "",
-    userActionBusy: false,
-    userDeleteOpen: false,
-    userBanConfirmOpen: false,
-    userMessageConfirmOpen: false,
-    userReferralsOpen: false,
-    userReferralsLoading: false,
-    userReferrals: [],
-    userReferralsTotal: 0,
-    userReferralsPage: 0,
-    userReferralsPageSize: USERS_PAGE_SIZE,
-    userReferralsInviter: null,
-    userDetailTab: "profile",
-    premiumUnlimitedDraft: false,
-    premiumUnlimitedBaseline: false,
-    premiumBonusGbDraft: "",
-    premiumBonusGbBaseline: "",
-    regularUnlimitedDraft: false,
-    regularUnlimitedBaseline: false,
-    regularBonusGbDraft: "",
-    regularBonusGbBaseline: "",
-    hwidUnlimitedDraft: false,
-    hwidUnlimitedBaseline: false,
-    hwidDeviceLimitDraft: "",
-    hwidDeviceLimitBaseline: "",
-    grantTrafficGbDraft: "",
-    grantTrafficKindDraft: "regular",
-
-    userLogs: [],
-    userLogsTotal: 0,
-    userLogsPage: 0,
-    userLogsLoading: false,
-    userLogsLoaded: false,
-    userLogsUserId: null,
-    userLogsPageSize: USER_LOGS_PAGE_SIZE,
-  };
-
+  const initialState = createInitialUsersState();
   const state = $state<AdminStoreState>({ ...initialState });
 
   let _activeRef = "stats"; // fallback if active isn't tracked
@@ -190,56 +46,12 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
     Object.assign(state, next);
   }
 
-  function _closedUserModalState(): Partial<AdminStoreState> {
-    return {
-      openedUser: null,
-      openedUserDetail: null,
-      userDetailLoading: false,
-      userMessageDraft: "",
-      userExtendDays: 30,
-      userExtendHwidDevices: true,
-      userExtendTariffKey: "",
-      userTariffActionKey: "",
-      userTariffActionBaselineKey: "",
-      userDeleteOpen: false,
-      userBanConfirmOpen: false,
-      userMessageConfirmOpen: false,
-      userReferralsOpen: false,
-      userReferralsLoading: false,
-      userReferrals: [],
-      userReferralsTotal: 0,
-      userReferralsPage: 0,
-      userReferralsInviter: null,
-      userDetailTab: "profile",
-      premiumUnlimitedDraft: false,
-      premiumUnlimitedBaseline: false,
-      premiumBonusGbDraft: "",
-      premiumBonusGbBaseline: "",
-      regularUnlimitedDraft: false,
-      regularUnlimitedBaseline: false,
-      regularBonusGbDraft: "",
-      regularBonusGbBaseline: "",
-      hwidUnlimitedDraft: false,
-      hwidUnlimitedBaseline: false,
-      hwidDeviceLimitDraft: "",
-      hwidDeviceLimitBaseline: "",
-      grantTrafficGbDraft: "",
-      grantTrafficKindDraft: "regular",
-      userLogs: [],
-      userLogsTotal: 0,
-      userLogsPage: 0,
-      userLogsLoading: false,
-      userLogsLoaded: false,
-      userLogsUserId: null,
-    };
-  }
-
   function _openingUserModalState(
     user: AdminUser | null,
     userId: number
   ): Partial<AdminStoreState> {
     return {
-      ..._closedUserModalState(),
+      ...closedUserModalState(),
       openedUser: user,
       userDetailLoading: true,
       userDetailTab: "subscription",
@@ -436,7 +248,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
           shouldShowError = true;
           shouldClearPath = true;
           _pathContext = null;
-          return { ...s, ..._closedUserModalState() };
+          return { ...s, ...closedUserModalState() };
         });
         if (shouldShowError) onToast(adminErrorMessage(res, at, "load_failed"));
         if (shouldClearPath && !opts.skipPush) _pushUserPath(null);
@@ -479,7 +291,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
       wasOpen = Boolean(s.openedUser);
       return {
         ...s,
-        ..._closedUserModalState(),
+        ...closedUserModalState(),
       };
     });
     if (wasOpen && !opts.skipPush) _pushUserPath(null);

@@ -357,6 +357,25 @@ def _check_frontend_weak_typing(cfg: dict, issues: list[str]) -> None:
     pattern = re.compile(r"\b(?:as\s+any|Record<\s*string\s*,\s*any\s*>|\bAnyRecord\b)")
     extensions = set(checks["extensions"])
     allowlist = list(checks.get("allowlist", []))
+    allowed_counts = checks.get("allowed_counts", {})
+
+    if not isinstance(allowed_counts, dict):
+        issues.append("[frontend-weak-typing] allowed_counts must be an object")
+        return
+
+    parsed_allowed_counts: dict[str, int] = {}
+    for rel, allowed in allowed_counts.items():
+        if not isinstance(rel, str):
+            issues.append("[frontend-weak-typing] allowed_counts keys must be paths")
+            continue
+        if not isinstance(allowed, int) or allowed < 0:
+            issues.append(
+                f"[frontend-weak-typing] {rel}: allowed_counts value must be a non-negative integer"
+            )
+            continue
+        parsed_allowed_counts[rel] = allowed
+
+    actual_counts: dict[str, int] = {}
 
     for scope in checks["scopes"]:
         for file in _iter_text_files(scope, extensions):
@@ -365,11 +384,29 @@ def _check_frontend_weak_typing(cfg: dict, issues: list[str]) -> None:
                 continue
 
             content = file.read_text(encoding="utf-8", errors="ignore")
-            if pattern.search(content):
+            count = len(pattern.findall(content))
+            if count == 0:
+                continue
+
+            actual_counts[rel] = count
+            allowed = parsed_allowed_counts.get(rel, 0)
+            if count > allowed:
                 issues.append(
-                    f"[frontend-weak-typing] {rel}: uses forbidden weak typing patterns (as any / "
-                    "Record<string, any> / AnyRecord)"
+                    f"[frontend-weak-typing] {rel}: found {count} weak typing patterns, "
+                    f"allowed {allowed} (as any / Record<string, any> / AnyRecord)"
                 )
+            elif count < allowed:
+                issues.append(
+                    f"[frontend-weak-typing] {rel}: allowed_counts permits {allowed} weak typing "
+                    f"patterns, but only {count} remain"
+                )
+
+    for rel, allowed in sorted(parsed_allowed_counts.items()):
+        if allowed and rel not in actual_counts:
+            issues.append(
+                f"[frontend-weak-typing] {rel}: allowed_counts entry permits {allowed} weak typing "
+                "patterns, but none remain"
+            )
 
 
 def _check_frontend_api_calls(cfg: dict, issues: list[str]) -> None:

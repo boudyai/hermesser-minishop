@@ -5,6 +5,7 @@ import type {
   SubscriptionGuidesPath,
   SubscriptionGuidesResponse,
 } from "../publicApi";
+import { recordField, recordOrNull, stringField, type WebappRecord } from "../domainTypes";
 import { buildPublicSubscriptionGuidesPath, buildSubscriptionGuidesPath } from "../publicApi";
 import { unwrap } from "../publicApi";
 
@@ -12,12 +13,12 @@ type Translate = (key: string, params?: Record<string, unknown>, fallback?: stri
 type GuidesResponse =
   | SubscriptionGuidesResponse
   | PublicSubscriptionGuidesResponse
-  | (Record<string, unknown> & { ok?: boolean });
+  | (WebappRecord & { ok?: boolean });
 type InstallGuidesState = {
   enabled: boolean;
-  config: Record<string, unknown> | null;
+  config: WebappRecord | null;
   source: string | null;
-  subscription: Record<string, unknown> | null;
+  subscription: WebappRecord | null;
   error: string;
   loading: boolean;
   loaded: boolean;
@@ -37,18 +38,6 @@ const initialInstallGuidesState = (): InstallGuidesState => ({
   loaded: false,
 });
 
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-}
-
-function recordOrNull(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
-}
-
-function stringField(value: unknown): string {
-  return typeof value === "string" ? value : "";
-}
-
 export function createInstallGuidesStore({
   api,
   t,
@@ -65,12 +54,12 @@ export function createInstallGuidesStore({
   function stateFromResponse(response: GuidesResponse): InstallGuidesState {
     const payload =
       response.ok === true ? unwrap(response as GuidesResponse & { ok: boolean }) : response;
-    const payloadRecord = asRecord(payload);
+    const payloadRecord = recordField(payload);
     return {
       enabled: Boolean(payload?.enabled),
       config: recordOrNull(payload?.config),
       source: stringField(payload?.source) || null,
-      subscription: payloadRecord.subscription ? asRecord(payloadRecord.subscription) : null,
+      subscription: payloadRecord.subscription ? recordField(payloadRecord.subscription) : null,
       error: stringField(payloadRecord.error),
       loading: false,
       loaded: true,
@@ -120,7 +109,7 @@ export function createInstallGuidesStore({
         return next;
       } catch (error: unknown) {
         const message =
-          stringField(asRecord(error).message) ||
+          stringField(recordField(error).message) ||
           t("wa_install_unavailable", {}, "Instructions unavailable");
         if (typeof showToast === "function") showToast(message);
         const next = {

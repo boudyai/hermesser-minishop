@@ -9,6 +9,12 @@ import {
   buildTariffTopupOptionsPath,
 } from "./publicApi";
 import type {
+  WebappBillingAction,
+  WebappBillingPlan,
+  WebappBillingTarget,
+  WebappRecord,
+} from "./domainTypes";
+import type {
   ApiClient,
   DeviceTopupOptionsResponse,
   PaymentCreateResponse,
@@ -22,9 +28,9 @@ import type {
 } from "./publicApi";
 
 type BillingApi = ApiClient["api"];
-type BillingPlan = Record<string, unknown>;
-type BillingAction = Record<string, unknown> & { mode?: string };
-type BillingTarget = Record<string, unknown> & { tariff_key?: string };
+type BillingPlan = WebappBillingPlan;
+type BillingAction = WebappBillingAction;
+type BillingTarget = WebappBillingTarget;
 
 export type BillingActions = {
   fetchTopupOptions(kind: string): Promise<TariffTopupOptionsResponse>;
@@ -99,7 +105,7 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     });
   }
 
-  function setOptionalString(body: Record<string, unknown>, key: string, value: unknown) {
+  function setOptionalString(body: WebappRecord, key: string, value: unknown) {
     if (value !== null && typeof value !== "undefined" && String(value)) {
       body[key] = String(value);
     }
@@ -110,7 +116,7 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     method: string,
     options: { renewHwidDevices?: boolean } = {}
   ): PostPayload<"/api/payments"> {
-    const body: Record<string, unknown> = {
+    const body: WebappRecord = {
       months: plan.months,
       traffic_gb: plan.traffic_gb,
       device_count: plan.device_count,
@@ -127,7 +133,7 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     method: string,
     fallbackTariffKey?: string | null
   ): PostPayload<"/api/payments"> {
-    const body: Record<string, unknown> = {
+    const body: WebappRecord = {
       months: plan.months,
       traffic_gb: plan.traffic_gb,
       sale_mode: String(plan.sale_mode || "topup"),
@@ -142,7 +148,7 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     method: string,
     fallbackTariffKey?: string | null
   ): PostPayload<"/api/payments"> {
-    const body: Record<string, unknown> = {
+    const body: WebappRecord = {
       months: plan.device_count || plan.months,
       device_count: plan.device_count || plan.months,
       sale_mode: String(plan.sale_mode || "hwid_devices"),
@@ -157,9 +163,7 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     target: BillingTarget,
     method: string
   ): PostPayload<"/api/tariffs/change-payment"> {
-    const withTarget = (
-      body: Record<string, unknown>
-    ): PostPayload<"/api/tariffs/change-payment"> => {
+    const withTarget = (body: WebappRecord): PostPayload<"/api/tariffs/change-payment"> => {
       setOptionalString(body, "tariff_key", target.tariff_key);
       return body as PostPayload<"/api/tariffs/change-payment">;
     };

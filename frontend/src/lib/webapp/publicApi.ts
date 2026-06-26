@@ -9,10 +9,6 @@ type ExpandPathPath<Path extends string> = Path extends `${infer Prefix}/{${stri
   ? `${Prefix}/${string}${ExpandPathPath<Suffix>}`
   : Path;
 
-type ApiPathExpanded = {
-  [P in RawApiPath]: ExpandPathPath<P>;
-}[RawApiPath];
-
 type ApiPathFor<Path extends string> = Path extends `/api${string}` ? Path : `/api${Path}`;
 
 type StripQuery<Path extends string> = Path extends `${infer PathWithoutQuery}?${string}`
@@ -27,17 +23,31 @@ type ResolvedApiPath<Path extends string> = Path extends string
   ? MatchApiTemplatePath<StripQuery<ApiPathFor<Path>>>
   : never;
 
-type KnownApiPath<Path extends string> = Path extends ApiPathInput ? ResolvedApiPath<Path> : never;
+declare const API_PATH_TEMPLATE: unique symbol;
+export type BuiltApiPath<Template extends RawApiPath> = string & {
+  readonly [API_PATH_TEMPLATE]: Template;
+};
 
-type ApiPathInputWithApiPrefix = ApiPath | ApiPathExpanded;
-type ApiPathInputWithoutPrefix = ApiPathInputWithApiPrefix extends `/api${infer Rest}`
-  ? Rest
-  : never;
-type ApiPathInput =
-  | ApiPathInputWithApiPrefix
-  | `${ApiPathInputWithApiPrefix}?${string}`
-  | ApiPathInputWithoutPrefix
-  | `${ApiPathInputWithoutPrefix}?${string}`;
+type ExcludeParameterized<Path extends string> = Path extends `${string}{${string}}${string}`
+  ? never
+  : Path;
+type StaticApiPath = ExcludeParameterized<RawApiPath>;
+type StaticApiPathWithoutPrefix = StaticApiPath extends `/api${infer Rest}` ? Rest : never;
+type StaticApiPathInput =
+  | StaticApiPath
+  | `${StaticApiPath}?${string}`
+  | StaticApiPathWithoutPrefix
+  | `${StaticApiPathWithoutPrefix}?${string}`;
+type ApiPathInput = StaticApiPathInput | BuiltApiPath<RawApiPath>;
+
+type KnownApiPath<Path extends string> =
+  Path extends BuiltApiPath<infer Template>
+    ? Template
+    : Path extends RawApiPath
+      ? Path
+      : Path extends StaticApiPathInput
+        ? ResolvedApiPath<Path>
+        : never;
 
 type OperationFor<Path extends string, Method extends HttpMethod> =
   KnownApiPath<Path> extends never ? never : NonNullable<paths[KnownApiPath<Path>][Method]>;
@@ -122,7 +132,8 @@ export type TrialActivatePath = "/trial/activate";
 export type SupportTicketsListPath = "/support/tickets" | `/support/tickets?${string}`;
 export type SupportUnreadPath = "/support/unread";
 export type SubscriptionGuidesPath = "/subscription-guides";
-export type PublicSubscriptionGuidesPath = `/subscription-guides/public/${string}`;
+export type PublicSubscriptionGuidesPath =
+  BuiltApiPath<"/api/subscription-guides/public/{share_token}">;
 export type PaymentsPath = "/payments";
 
 type MockContext = Record<string, unknown>;
@@ -155,6 +166,10 @@ export type ApiClient = {
     options?: Pick<RequestInit, "signal">
   ): Promise<Record<string, unknown>>;
 };
+
+function builtApiPath<Template extends RawApiPath>(path: string): BuiltApiPath<Template> {
+  return path as BuiltApiPath<Template>;
+}
 
 export type MePath = "/me" | "/me?fresh=1";
 export function buildMePath(fresh: boolean = false): MePath {
@@ -231,14 +246,18 @@ export function buildTariffTopupOptionsPath(kind: string): TariffTopupOptionsPat
   return `/tariffs/topup-options?kind=${encodeURIComponent(String(kind))}`;
 }
 
-export type PaymentStatusPath = `/payments/${string}`;
+export type PaymentStatusPath = BuiltApiPath<"/api/payments/{payment_id}">;
 export function buildPaymentStatusPath(paymentId: string | number): PaymentStatusPath {
-  return `/payments/${encodeURIComponent(String(paymentId))}` as PaymentStatusPath;
+  return builtApiPath<"/api/payments/{payment_id}">(
+    `/payments/${encodeURIComponent(String(paymentId))}`
+  );
 }
 
-export type SupportTicketPath = "/support/tickets/{id}";
+export type SupportTicketPath = BuiltApiPath<"/api/support/tickets/{id}">;
 export function buildSupportTicketPath(ticketId: string | number): SupportTicketPath {
-  return `/support/tickets/${encodeURIComponent(String(ticketId))}` as SupportTicketPath;
+  return builtApiPath<"/api/support/tickets/{id}">(
+    `/support/tickets/${encodeURIComponent(String(ticketId))}`
+  );
 }
 
 export function buildSupportTicketsPath(params?: URLSearchParams): SupportTicketsListPath {
@@ -253,7 +272,9 @@ export function buildSupportUnreadPath(): SupportUnreadPath {
 export function buildPublicSubscriptionGuidesPath(
   token: string | number
 ): PublicSubscriptionGuidesPath {
-  return `/subscription-guides/public/${encodeURIComponent(String(token))}` as PublicSubscriptionGuidesPath;
+  return builtApiPath<"/api/subscription-guides/public/{share_token}">(
+    `/subscription-guides/public/${encodeURIComponent(String(token))}`
+  );
 }
 
 export function buildTariffChangeOptionsPath(): TariffChangeOptionsPath {
@@ -292,16 +313,20 @@ export function buildPaymentsPath(): PaymentsPath {
   return "/payments";
 }
 
-export type SupportTicketMessagesPath = "/support/tickets/{id}/messages";
+export type SupportTicketMessagesPath = BuiltApiPath<"/api/support/tickets/{id}/messages">;
 export function buildSupportTicketMessagesPath(
   ticketId: string | number
 ): SupportTicketMessagesPath {
-  return `/support/tickets/${encodeURIComponent(String(ticketId))}/messages` as SupportTicketMessagesPath;
+  return builtApiPath<"/api/support/tickets/{id}/messages">(
+    `/support/tickets/${encodeURIComponent(String(ticketId))}/messages`
+  );
 }
 
-export type SupportTicketReadPath = "/support/tickets/{id}/read";
+export type SupportTicketReadPath = BuiltApiPath<"/api/support/tickets/{id}/read">;
 export function buildSupportTicketReadPath(ticketId: string | number): SupportTicketReadPath {
-  return `/support/tickets/${encodeURIComponent(String(ticketId))}/read` as SupportTicketReadPath;
+  return builtApiPath<"/api/support/tickets/{id}/read">(
+    `/support/tickets/${encodeURIComponent(String(ticketId))}/read`
+  );
 }
 
 export type AdminSettingsPath = "/admin/settings";
@@ -325,9 +350,11 @@ export function buildAdminUsersPath(params?: URLSearchParams): AdminUsersPath {
   return (query ? `/admin/users?${query}` : "/admin/users") as AdminUsersPath;
 }
 
-export type AdminUserPath = "/admin/users/{user_id}";
+export type AdminUserPath = BuiltApiPath<"/api/admin/users/{user_id}">;
 export function buildAdminUserPath(userId: string | number): AdminUserPath {
-  return `/admin/users/${encodeURIComponent(String(userId))}` as AdminUserPath;
+  return builtApiPath<"/api/admin/users/{user_id}">(
+    `/admin/users/${encodeURIComponent(String(userId))}`
+  );
 }
 
 export type AdminUsersLogsPath = "/admin/logs" | `/admin/logs?${string}`;
@@ -336,16 +363,14 @@ export function buildAdminUserLogsPath(params?: URLSearchParams): AdminUsersLogs
   return (query ? `/admin/logs?${query}` : "/admin/logs") as AdminUsersLogsPath;
 }
 
-export type AdminUserReferralsPath =
-  | "/admin/users/{user_id}/referrals"
-  | `/admin/users/{user_id}/referrals?${string}`;
+export type AdminUserReferralsPath = BuiltApiPath<"/api/admin/users/{user_id}/referrals">;
 export function buildAdminUserReferralsPath(
   userId: string | number,
   params?: URLSearchParams
 ): AdminUserReferralsPath {
   const base = `/admin/users/${encodeURIComponent(String(userId))}/referrals`;
   const query = params?.toString();
-  return (query ? `${base}?${query}` : base) as AdminUserReferralsPath;
+  return builtApiPath<"/api/admin/users/{user_id}/referrals">(query ? `${base}?${query}` : base);
 }
 
 export type AdminUserAction =
@@ -360,12 +385,26 @@ export type AdminUserAction =
   | "regular-traffic-override"
   | "hwid-device-limit"
   | "traffic-grant";
-export type AdminUserActionPath = `/admin/users/{user_id}/${AdminUserAction}`;
+type AdminUserActionTemplate =
+  | "/api/admin/users/{user_id}/ban"
+  | "/api/admin/users/{user_id}/message"
+  | "/api/admin/users/{user_id}/message/preview"
+  | "/api/admin/users/{user_id}/telegram-profile-link"
+  | "/api/admin/users/{user_id}/extend"
+  | "/api/admin/users/{user_id}/tariff"
+  | "/api/admin/users/{user_id}/reset-trial"
+  | "/api/admin/users/{user_id}/premium-override"
+  | "/api/admin/users/{user_id}/regular-traffic-override"
+  | "/api/admin/users/{user_id}/hwid-device-limit"
+  | "/api/admin/users/{user_id}/traffic-grant";
+export type AdminUserActionPath = BuiltApiPath<AdminUserActionTemplate>;
 export function buildAdminUserActionPath(
   userId: string | number,
   action: AdminUserAction
 ): AdminUserActionPath {
-  return `/admin/users/${encodeURIComponent(String(userId))}/${action}` as AdminUserActionPath;
+  return builtApiPath<AdminUserActionTemplate>(
+    `/admin/users/${encodeURIComponent(String(userId))}/${action}`
+  );
 }
 
 export type AdminSupportTicketsPath = "/admin/support/tickets" | `/admin/support/tickets?${string}`;
@@ -373,23 +412,30 @@ export function buildAdminSupportTicketsPath(params: URLSearchParams): AdminSupp
   return `/admin/support/tickets?${params.toString()}` as AdminSupportTicketsPath;
 }
 
-export type AdminSupportTicketPath = "/admin/support/tickets/{id}";
+export type AdminSupportTicketPath = BuiltApiPath<"/api/admin/support/tickets/{id}">;
 export function buildAdminSupportTicketPath(ticketId: string | number): AdminSupportTicketPath {
-  return `/admin/support/tickets/${encodeURIComponent(String(ticketId))}` as AdminSupportTicketPath;
+  return builtApiPath<"/api/admin/support/tickets/{id}">(
+    `/admin/support/tickets/${encodeURIComponent(String(ticketId))}`
+  );
 }
 
-export type AdminSupportTicketMessagesPath = "/admin/support/tickets/{id}/messages";
+export type AdminSupportTicketMessagesPath =
+  BuiltApiPath<"/api/admin/support/tickets/{id}/messages">;
 export function buildAdminSupportTicketMessagesPath(
   ticketId: string | number
 ): AdminSupportTicketMessagesPath {
-  return `/admin/support/tickets/${encodeURIComponent(String(ticketId))}/messages` as AdminSupportTicketMessagesPath;
+  return builtApiPath<"/api/admin/support/tickets/{id}/messages">(
+    `/admin/support/tickets/${encodeURIComponent(String(ticketId))}/messages`
+  );
 }
 
-export type AdminSupportTicketReadPath = "/admin/support/tickets/{id}/read";
+export type AdminSupportTicketReadPath = BuiltApiPath<"/api/admin/support/tickets/{id}/read">;
 export function buildAdminSupportTicketReadPath(
   ticketId: string | number
 ): AdminSupportTicketReadPath {
-  return `/admin/support/tickets/${encodeURIComponent(String(ticketId))}/read` as AdminSupportTicketReadPath;
+  return builtApiPath<"/api/admin/support/tickets/{id}/read">(
+    `/admin/support/tickets/${encodeURIComponent(String(ticketId))}/read`
+  );
 }
 
 export type AdminSupportPath = "/admin/support" | "/admin/support/{id}";
@@ -471,9 +517,11 @@ export function buildAdminPromosPath(params?: URLSearchParams): AdminPromosPath 
   return (query ? `/admin/promos?${query}` : "/admin/promos") as AdminPromosPath;
 }
 
-export type AdminPromoPath = "/admin/promos/{promo_id}";
+export type AdminPromoPath = BuiltApiPath<"/api/admin/promos/{promo_id}">;
 export function buildAdminPromoPath(promoId: string | number): AdminPromoPath {
-  return `/admin/promos/${encodeURIComponent(String(promoId))}` as AdminPromoPath;
+  return builtApiPath<"/api/admin/promos/{promo_id}">(
+    `/admin/promos/${encodeURIComponent(String(promoId))}`
+  );
 }
 
 export type AdminAdsPath = "/admin/ads";
@@ -481,14 +529,18 @@ export function buildAdminAdsPath(): AdminAdsPath {
   return "/admin/ads";
 }
 
-export type AdminAdPath = "/admin/ads/{campaign_id}";
+export type AdminAdPath = BuiltApiPath<"/api/admin/ads/{campaign_id}">;
 export function buildAdminAdPath(campaignId: string | number): AdminAdPath {
-  return `/admin/ads/${encodeURIComponent(String(campaignId))}` as AdminAdPath;
+  return builtApiPath<"/api/admin/ads/{campaign_id}">(
+    `/admin/ads/${encodeURIComponent(String(campaignId))}`
+  );
 }
 
-export type AdminAdTogglePath = "/admin/ads/{campaign_id}/toggle";
+export type AdminAdTogglePath = BuiltApiPath<"/api/admin/ads/{campaign_id}/toggle">;
 export function buildAdminAdTogglePath(campaignId: string | number): AdminAdTogglePath {
-  return `/admin/ads/${encodeURIComponent(String(campaignId))}/toggle` as AdminAdTogglePath;
+  return builtApiPath<"/api/admin/ads/{campaign_id}/toggle">(
+    `/admin/ads/${encodeURIComponent(String(campaignId))}/toggle`
+  );
 }
 
 export type AdminSupportStatsPath = "/admin/support/stats";
@@ -509,9 +561,11 @@ export function buildAdminPaymentsUserPath(userId?: string | number | null): Adm
     : "/admin/payments/users";
 }
 
-export type AdminPaymentPath = "/admin/payments/{payment_id}";
+export type AdminPaymentPath = BuiltApiPath<"/api/admin/payments/{payment_id}">;
 export function buildAdminPaymentPath(paymentId: string | number): AdminPaymentPath {
-  return `/admin/payments/${encodeURIComponent(String(paymentId))}` as AdminPaymentPath;
+  return builtApiPath<"/api/admin/payments/{payment_id}">(
+    `/admin/payments/${encodeURIComponent(String(paymentId))}`
+  );
 }
 
 export type AdminPaymentsExportPath = "/api/admin/payments/export.csv";

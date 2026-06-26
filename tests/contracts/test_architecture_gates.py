@@ -154,6 +154,32 @@ def test_frontend_weak_typing_guard_rejects_as_any(
     assert "frontend/src/weak.ts" in output
 
 
+def test_frontend_weak_typing_guard_enforces_baseline_counts(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["frontend_weak_typing"] = {
+        "scopes": ["frontend/src"],
+        "extensions": [".svelte"],
+        "allowlist": [],
+        "allowed_counts": {"frontend/src/legacy.svelte": 1},
+    }
+    _write(
+        tmp_path,
+        "frontend/src/legacy.svelte",
+        "<script>const first = raw as any; const second = raw as any;</script>\n",
+    )
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 1
+    assert "[frontend-weak-typing]" in output
+    assert "frontend/src/legacy.svelte" in output
+    assert "allowed 1" in output
+
+
 def test_frontend_api_guard_rejects_untyped_api_paths(
     tmp_path,
     monkeypatch,
