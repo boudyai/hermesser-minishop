@@ -3,7 +3,7 @@
 import unittest
 from types import SimpleNamespace
 
-from bot.app.web.admin_api import _premium_traffic_list_payload
+from bot.app.web.admin_api_impl.common import _premium_traffic_list_payload
 
 
 class AdminPremiumTrafficPayloadTests(unittest.TestCase):
