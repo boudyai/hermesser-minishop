@@ -43,7 +43,5 @@
     "backend\\bot\\services\\tariff_worker_premium.py",
     "backend\\bot\\services\\tariff_worker_regular.py"
   ],
-  "subscription_webapp": [
-    "backend\\bot\\app\\web\\web_server.py"
-  ]
+  "subscription_webapp": []
 }

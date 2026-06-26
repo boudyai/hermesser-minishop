@@ -182,7 +182,7 @@ async def build_and_start_web_app(
 
     webapp_settings = settings.webapp_settings
     if webapp_settings.enabled:
-        from bot.app.web.subscription_webapp import create_subscription_webapp_application
+        from bot.app.web.webapp.application import create_subscription_webapp_application
 
         subscription_app = create_subscription_webapp_application(
             dp,
