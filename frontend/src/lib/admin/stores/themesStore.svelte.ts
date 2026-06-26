@@ -10,6 +10,8 @@ import {
   buildAdminAppearanceFaviconPath,
   buildAdminAppearanceLogoPath,
   buildAdminThemesPath,
+  type ApiResponse,
+  type ApiClient,
 } from "../../webapp/publicApi";
 
 export type ThemesState = {
@@ -20,7 +22,11 @@ export type ThemesState = {
   themesLoading: boolean;
   themesSaving: boolean;
 };
-type AdminApi = (path: string, options?: RequestInit) => Promise<Record<string, unknown>>;
+type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
+  path: Path,
+  options?: Parameters<ApiClient["api"]>[1]
+) => Promise<ApiResponse<Path> | AdminErrorResponse>;
+type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type ThemesStoreOptions = {
   api: AdminApi;
@@ -31,7 +37,7 @@ type ThemesStoreOptions = {
 type SaveThemesOptions = { silent?: boolean };
 type TokenOptions = { raw?: boolean; variant?: string | null };
 type LogoUploadResult = { logoUrl: string; faviconUrl: string };
-type FaviconUploadResult = { faviconUrl: string; variants: Record<string, unknown> };
+type FaviconUploadResult = { faviconUrl: string };
 export type ThemesStore = ThemesState & {
   loadThemes: () => Promise<void>;
   saveThemes: (options?: SaveThemesOptions) => Promise<boolean>;
@@ -406,7 +412,7 @@ export function createThemesStore({
       });
       if (data?.ok) {
         flash(at("appearance_favicon_uploaded_pending", {}, "Favicon загружена и применена."));
-        return { faviconUrl: String(data.favicon_url || ""), variants: asTokenMap(data.variants) };
+        return { faviconUrl: String(data.favicon_url || "") };
       }
       flash(
         adminErrorMessage(
@@ -432,7 +438,7 @@ export function createThemesStore({
       });
       if (data?.ok) {
         flash(at("appearance_favicon_uploaded_pending", {}, "Favicon загружена и применена."));
-        return { faviconUrl: String(data.favicon_url || ""), variants: asTokenMap(data.variants) };
+        return { faviconUrl: String(data.favicon_url || "") };
       }
       flash(
         adminErrorMessage(

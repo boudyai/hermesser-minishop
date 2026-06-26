@@ -2,6 +2,7 @@ import type { components } from "../../api/openapi.generated";
 import {
   unwrap,
   type ApiResponse,
+  type ApiClient,
   type GetResponse,
   type PostResponse,
   buildAdminSupportStatsPath,
@@ -14,10 +15,10 @@ import {
 import { withRoutePrefix } from "../../webapp/routes.js";
 import { adminErrorMessage } from "../errors.js";
 
-type AdminErrorResponse = { ok: false; error?: string; message?: string };
-type AdminApi = <Path extends string>(
+type AdminErrorResponse = { ok?: false; error?: string; message?: string };
+type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
   path: Path,
-  options?: RequestInit
+  options?: Parameters<ApiClient["api"]>[1]
 ) => Promise<ApiResponse<Path> | AdminErrorResponse>;
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -30,6 +31,7 @@ type BaseSupportTicket = components["schemas"]["SupportTicketOut"];
 type AdminSupportTicket = components["schemas"]["AdminSupportTicketOut"];
 type AdminSupportUser = components["schemas"]["AdminSupportUserOut"];
 type AdminSupportUserSnapshot = components["schemas"]["AdminSupportUserSnapshotOut"];
+type AdminSupportTicketsResponse = GetResponse<"/api/admin/support/tickets">;
 type AdminSupportTicketDetailResponse = GetResponse<"/api/admin/support/tickets/{id}">;
 type AdminSupportTicketReplyResponse = PostResponse<"/api/admin/support/tickets/{id}/messages">;
 type AdminSupportTicketPatchResponse = { ok: true; ticket: BaseSupportTicket };
@@ -237,11 +239,13 @@ export function createAdminSupportStore({
       for (const [key, value] of Object.entries(filters || {})) {
         if (value) params.set(key, value);
       }
-      const res = await api(buildAdminSupportTicketsPath(params));
+      const res = (await api(buildAdminSupportTicketsPath(params))) as
+        | AdminSupportTicketsResponse
+        | AdminErrorResponse;
       if (res?.ok) {
         const payload = unwrap(res);
         updateState((s) => ({ ...s, tickets: asTickets(payload.tickets) }));
-      } else if (res?.error) onToast(adminErrorMessage(res, at));
+      } else onToast(adminErrorMessage(res, at));
     } finally {
       if (!silent) updateState((s) => ({ ...s, loading: false }));
     }

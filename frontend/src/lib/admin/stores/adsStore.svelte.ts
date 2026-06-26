@@ -2,6 +2,7 @@ import { adminErrorMessage } from "../errors.js";
 import {
   unwrap,
   type ApiResponse,
+  type ApiClient,
   type GetResponse,
   type PostPayload,
   type PostResponse,
@@ -12,9 +13,9 @@ import {
 import type { components } from "../../api/openapi.generated";
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
-type AdminApi = <Path extends string>(
+type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
   path: Path,
-  options?: RequestInit
+  options?: Parameters<ApiClient["api"]>[1]
 ) => Promise<ApiResponse<Path> | AdminErrorResponse>;
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;

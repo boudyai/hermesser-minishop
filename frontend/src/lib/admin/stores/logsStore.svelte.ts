@@ -3,6 +3,7 @@ import {
   buildAdminLogsPath,
   unwrap,
   type ApiResponse,
+  type ApiClient,
   type GetResponse,
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
@@ -12,9 +13,9 @@ const LOGS_STALE_MS = 30 * 1000;
 const LOGS_PAGE_SIZE = 50;
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
-type AdminApi = <Path extends string>(
+type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
   path: Path,
-  options?: RequestInit
+  options?: Parameters<ApiClient["api"]>[1]
 ) => Promise<ApiResponse<Path> | AdminErrorResponse>;
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;

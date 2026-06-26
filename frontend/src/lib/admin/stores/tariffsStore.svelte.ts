@@ -4,6 +4,7 @@ import {
   buildAdminTariffsPath,
   unwrap,
   type ApiResponse,
+  type ApiClient,
   type GetResponse,
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
@@ -17,9 +18,9 @@ import {
 } from "../tariffDraft.js";
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
-type AdminApi = <Path extends string>(
+type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
   path: Path,
-  options?: RequestInit
+  options?: Parameters<ApiClient["api"]>[1]
 ) => Promise<ApiResponse<Path> | AdminErrorResponse>;
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;

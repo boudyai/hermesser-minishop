@@ -1,14 +1,14 @@
 import { adminErrorMessage } from "../errors.js";
 import { buildAdminHealthPath } from "../../webapp/publicApi";
-import { unwrap, type ApiResponse, type GetResponse } from "../../webapp/publicApi";
+import { unwrap, type ApiClient, type ApiResponse, type GetResponse } from "../../webapp/publicApi";
 
 const HEALTH_QUERY_KEY = ["admin", "health"] as const;
 const HEALTH_STALE_MS = 60 * 1000;
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
-type AdminApi = <Path extends string>(
+type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
   path: Path,
-  options?: RequestInit
+  options?: Parameters<ApiClient["api"]>[1]
 ) => Promise<ApiResponse<Path> | AdminErrorResponse>;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type HealthResponse = GetResponse<"/api/admin/health">;

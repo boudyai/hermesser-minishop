@@ -9,14 +9,15 @@ import {
   buildAdminPaymentsUserPath,
   buildAdminUserReferralsPath,
   buildAdminUsersPath,
+  type ApiClient,
   type ApiResponse,
 } from "../../webapp/publicApi";
 import type { components, operations } from "../../api/openapi.generated";
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
-type AdminApi = <Path extends string>(
+type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
   path: Path,
-  options?: RequestInit
+  options?: Parameters<ApiClient["api"]>[1]
 ) => Promise<ApiResponse<Path> | AdminErrorResponse>;
 type AdminUsersListResponse = NonNullable<
   operations["get_admin_users_list_route"]["responses"][200]["content"]["application/json"]
