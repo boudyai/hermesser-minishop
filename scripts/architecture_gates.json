@@ -54,6 +54,13 @@
     ],
     "allowlist": []
   },
+  "runtime_all_exports": {
+    "paths": [
+      "backend/bot/app/web/admin_api_impl/_runtime.py",
+      "backend/bot/app/web/webapp/_runtime.py",
+      "backend/bot/services/subscription_service_impl/_runtime.py"
+    ]
+  },
   "facade_imports": {
     "scopes": [
       "backend"

@@ -111,6 +111,28 @@ def _check_frontend_weak_typing(cfg: dict, issues: list[str]) -> None:
                 )
 
 
+def _check_runtime_all_exports(cfg: dict, issues: list[str]) -> None:
+    checks = cfg.get("runtime_all_exports")
+    if not checks:
+        return
+
+    pattern = re.compile(
+        r"__all__\s*=\s*\[name for name in globals\(\) if not name\\.startswith\(\"__\"\)\]"
+    )
+    for rel in checks["paths"]:
+        file = ROOT / rel
+        if not file.exists():
+            issues.append(f"[runtime-all-exports] Missing path in config: {rel}")
+            continue
+
+        text = file.read_text(encoding="utf-8", errors="ignore")
+        if pattern.search(text):
+            issues.append(
+                f"[runtime-all-exports] {rel}: dynamic __all__ export list still used; "
+                "replace with explicit exports."
+            )
+
+
 def _collect_facade_importers(facade_modules: set[str], file: Path) -> set[str]:
     imports: set[str] = set()
     try:
@@ -187,6 +209,7 @@ def main() -> int:
     _check_type_ignores(config, issues)
     _check_raw_json_response(config, issues)
     _check_frontend_weak_typing(config, issues)
+    _check_runtime_all_exports(config, issues)
     _check_facade_import_contract(config, issues)
 
     if issues:

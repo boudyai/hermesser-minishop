@@ -152,4 +152,4 @@ WEBAPP_CSRF_EXEMPT_PATHS = {
 _SHARED_HTTP_SESSION: Optional[ClientSession] = None
 _SHARED_HTTP_SESSION_LOCK = asyncio.Lock()
 
-__all__ = [name for name in globals() if not name.startswith("__")]
+__all__: list[str] = []
