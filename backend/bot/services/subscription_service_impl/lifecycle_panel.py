@@ -1,13 +1,8 @@
-from ._runtime import (
-    Any,
-    Dict,
-    Optional,
-    SubscriptionServiceMixinContract,
-    Tuple,
-    datetime,
-    logging,
-    timezone,
-)
+import logging
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional, Tuple
+
+from ._typing import SubscriptionServiceMixinContract
 
 
 class SubscriptionLifecyclePanelMixin(SubscriptionServiceMixinContract):

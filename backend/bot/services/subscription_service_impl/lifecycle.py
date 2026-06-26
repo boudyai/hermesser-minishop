@@ -1,11 +1,8 @@
-from ._runtime import (
-    SubscriptionServiceMixinContract,
-    logging,
-    payment_dal,
-    subscription_dal,
-    tariff_dal,
-    user_dal,
-)
+import logging
+
+from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
+
+from ._typing import SubscriptionServiceMixinContract
 from .lifecycle_activation import SubscriptionLifecycleActivationMixin
 from .lifecycle_details import SubscriptionLifecycleDetailsMixin
 from .lifecycle_panel import SubscriptionLifecyclePanelMixin

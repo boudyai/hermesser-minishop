@@ -1,17 +1,15 @@
-from ._runtime import (
-    Any,
-    AsyncSession,
-    Dict,
-    Optional,
-    SubscriptionServiceMixinContract,
-    Tuple,
-    User,
-    datetime,
-    logging,
-    normalize_traffic_limit_strategy,
-    panel_description_from_profile,
-    user_dal,
-)
+import logging
+from datetime import datetime
+from typing import Any, Dict, Optional, Tuple
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from bot.utils.text_sanitizer import panel_description_from_profile
+from config.traffic_strategy import normalize_traffic_limit_strategy
+from db.dal import user_dal
+from db.models import User
+
+from ._typing import SubscriptionServiceMixinContract
 
 
 class PanelIdentityMixin(SubscriptionServiceMixinContract):

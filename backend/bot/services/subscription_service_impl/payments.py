@@ -1,18 +1,16 @@
-from ._runtime import (
-    AsyncSession,
-    EmailAuthService,
-    Optional,
-    SubscriptionServiceMixinContract,
-    User,
-    datetime,
-    default_payment_currency_code_for_settings,
-    logging,
-    payment_dal,
-    render_payment_success,
-    subscription_dal,
-    timezone,
-    user_dal,
-)
+import logging
+from datetime import datetime, timezone
+from typing import Optional
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from bot.services.email_auth_service import EmailAuthService
+from bot.services.email_templates import render_payment_success
+from config.tariffs_config import default_payment_currency_code_for_settings
+from db.dal import payment_dal, subscription_dal, user_dal
+from db.models import User
+
+from ._typing import SubscriptionServiceMixinContract
 
 
 class PaymentContextMixin(SubscriptionServiceMixinContract):

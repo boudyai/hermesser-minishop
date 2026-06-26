@@ -1,23 +1,18 @@
-from ._runtime import (
-    Any,
-    AsyncSession,
-    Dict,
-    List,
-    Optional,
-    Subscription,
-    SubscriptionServiceMixinContract,
-    Tariff,
-    Tuple,
-    add_months,
-    datetime,
-    logging,
-    math,
-    payment_dal,
-    subscription_dal,
-    tariff_dal,
-    timezone,
-    user_dal,
-)
+from __future__ import annotations
+
+import logging
+import math
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from bot.utils.date_utils import add_months
+from config.tariffs_config import Tariff
+from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
+from db.models import Subscription
+
+from ._typing import SubscriptionServiceMixinContract
 
 
 class HwidDeviceMixin(SubscriptionServiceMixinContract):

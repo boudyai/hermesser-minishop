@@ -1,14 +1,18 @@
-from ._runtime import (
-    Any,
-    Bot,
-    Dict,
-    JsonI18n,
-    Optional,
-    PanelApiService,
-    RecurringProviderService,
-    Settings,
-    Tuple,
-)
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
+
+from aiogram import Bot
+
+from bot.middlewares.i18n import JsonI18n
+from bot.services.panel_api_service import PanelApiService
+from config.settings import Settings
+
+if TYPE_CHECKING:
+    from bot.payment_providers.shared import RecurringProviderService
+else:
+    RecurringProviderService = object
+
 from .devices import HwidDeviceMixin
 from .lifecycle import SubscriptionLifecycleMixin
 from .panel_identity import PanelIdentityMixin

@@ -1,18 +1,13 @@
-from ._runtime import (
-    Any,
-    AsyncSession,
-    Dict,
-    List,
-    Optional,
-    SubscriptionServiceMixinContract,
-    datetime,
-    logging,
-    prepare_config_links,
-    subscription_dal,
-    tariff_dal,
-    timezone,
-    user_dal,
-)
+import logging
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from bot.utils.config_link import prepare_config_links
+from db.dal import subscription_dal, tariff_dal, user_dal
+
+from ._typing import SubscriptionServiceMixinContract
 
 
 class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):

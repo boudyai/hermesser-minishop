@@ -1,19 +1,14 @@
+import logging
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, Optional
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from bot.infra import events
 from bot.infra.event_payloads import TrialActivatedPayload
+from db.dal import subscription_dal, user_dal
 
-from ._runtime import (
-    Any,
-    AsyncSession,
-    Dict,
-    Optional,
-    SubscriptionServiceMixinContract,
-    datetime,
-    logging,
-    subscription_dal,
-    timedelta,
-    timezone,
-    user_dal,
-)
+from ._typing import SubscriptionServiceMixinContract
 
 
 class TrialSubscriptionMixin(SubscriptionServiceMixinContract):

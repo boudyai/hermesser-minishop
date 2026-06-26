@@ -1,13 +1,16 @@
-from ._runtime import (
-    AsyncSession,
-    Optional,
-    RecurringProviderService,
-    Subscription,
-    SubscriptionServiceMixinContract,
+import logging
+from typing import Optional
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from bot.payment_providers.shared import RecurringProviderService
+from config.tariffs_config import (
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
-    logging,
 )
+from db.models import Subscription
+
+from ._typing import SubscriptionServiceMixinContract
 
 
 class RenewalMixin(SubscriptionServiceMixinContract):
