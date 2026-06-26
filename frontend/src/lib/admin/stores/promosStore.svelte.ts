@@ -5,6 +5,8 @@ import {
   type GetResponse,
   type PostPayload,
   type PostResponse,
+  buildAdminPromosPath,
+  buildAdminPromoPath,
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
 
@@ -20,9 +22,11 @@ type PromoDraft = Omit<components["schemas"]["PromoCreateBody"], "valid_days"> &
   valid_days: number;
 };
 type PromoPatch = components["schemas"]["PromoUpdateBody"];
-type PromoDetailPath = "/api/admin/promos/{promo_id}";
-type PromoPatchResponse = Extract<ApiResponse<PromoDetailPath>, { promo: Promo }>;
-type PromoDeleteResponse = Extract<ApiResponse<PromoDetailPath>, { ok: true; promo?: never }>;
+type PromoPatchResponse = Extract<ApiResponse<"/api/admin/promos/{promo_id}">, { promo: Promo }>;
+type PromoDeleteResponse = Extract<
+  ApiResponse<"/api/admin/promos/{promo_id}">,
+  { ok: true; promo?: never }
+>;
 type PromosListResponse = GetResponse<"/api/admin/promos">;
 type PromoCreateResponse = PostResponse<"/api/admin/promos">;
 type PromosState = {
@@ -80,9 +84,11 @@ export function createPromosStore({
     state.promosLoading = true;
     const currentPage = state.promosPage;
     try {
-      const data = (await api(
-        `/admin/promos?page=${currentPage}&page_size=${PROMOS_PAGE_SIZE}`
-      )) as PromosListResponse | AdminErrorResponse;
+      const params = new URLSearchParams({
+        page: String(currentPage),
+        page_size: String(PROMOS_PAGE_SIZE),
+      });
+      const data = (await api(buildAdminPromosPath(params))) as PromosListResponse | AdminErrorResponse;
       if (isOkResponse(data)) {
         const payload = unwrap(data);
         state.promos = payload.promos || [];
@@ -97,7 +103,7 @@ export function createPromosStore({
     const draft = state.promoDraft;
     if (!draft.code.trim()) return;
 
-    const res = (await api("/admin/promos", {
+    const res = (await api(buildAdminPromosPath(), {
       method: "POST",
       body: JSON.stringify(draft satisfies PostPayload<"/api/admin/promos">),
     })) as PromoCreateResponse | AdminErrorResponse;
@@ -113,7 +119,7 @@ export function createPromosStore({
   }
 
   async function togglePromo(promo: Promo): Promise<void> {
-    const path = `/admin/promos/${promo.id}` as PromoDetailPath;
+    const path = buildAdminPromoPath(promo.id);
     const body = { is_active: !promo.is_active } satisfies Partial<PromoPatch>;
     const res = (await api(path, {
       method: "PATCH",
@@ -128,7 +134,7 @@ export function createPromosStore({
   }
 
   async function deletePromo(promo: Promo): Promise<void> {
-    const path = `/admin/promos/${promo.id}` as PromoDetailPath;
+    const path = buildAdminPromoPath(promo.id);
     const res = (await api(path, { method: "DELETE" })) as PromoDeleteResponse | AdminErrorResponse;
     if (isOkResponse(res)) {
       state.promos = state.promos.filter((p) => p.id !== promo.id);

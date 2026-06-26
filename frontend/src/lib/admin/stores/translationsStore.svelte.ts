@@ -1,5 +1,10 @@
 import { adminErrorMessage } from "../errors.js";
-import { unwrap, type ApiResponse, type GetResponse } from "../../webapp/publicApi";
+import {
+  buildAdminTranslationsPath,
+  unwrap,
+  type ApiResponse,
+  type GetResponse,
+} from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
 
 type AdminErrorResponse = {
@@ -156,7 +161,8 @@ export function createTranslationsStore({
   async function loadTranslations(): Promise<void> {
     updateState((s) => ({ ...s, translationsLoading: true, translationsDirty: {} }));
     try {
-      const data = (await api("/admin/translations")) as TranslationsResponse | AdminErrorResponse;
+      const data = (await api(buildAdminTranslationsPath())) as
+        TranslationsResponse | AdminErrorResponse;
       if (isOkResponse(data)) {
         const result = unwrap(data);
         updateState((s) => ({
@@ -242,7 +248,7 @@ export function createTranslationsStore({
         updates[change.lang][change.key] = change.value;
       }
       const payload: TranslationsPatchPayload = { updates, deletes };
-      const res = (await api("/admin/translations", {
+      const res = (await api(buildAdminTranslationsPath(), {
         method: "PATCH",
         body: JSON.stringify(payload),
       })) as TranslationsPatchResponse | AdminErrorResponse;

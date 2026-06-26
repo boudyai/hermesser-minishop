@@ -5,6 +5,9 @@ import {
   type GetResponse,
   type PostPayload,
   type PostResponse,
+  buildAdminAdsPath,
+  buildAdminAdPath,
+  buildAdminAdTogglePath,
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
 
@@ -61,7 +64,7 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
   async function loadAds(): Promise<void> {
     state.adsLoading = true;
     try {
-      const data = (await api("/admin/ads")) as AdsListResponse | AdminErrorResponse;
+      const data = (await api(buildAdminAdsPath())) as AdsListResponse | AdminErrorResponse;
       if (isOkResponse(data)) {
         const payload = unwrap(data);
         state.ads = payload.campaigns || [];
@@ -76,7 +79,7 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
     const draft = state.adDraft;
     if (!draft.source.trim() || !draft.start_param.trim()) return;
 
-    const res = (await api("/admin/ads", {
+    const res = (await api(buildAdminAdsPath(), {
       method: "POST",
       body: JSON.stringify(draft satisfies PostPayload<"/api/admin/ads">),
     })) as AdCreateResponse | AdminErrorResponse;
@@ -92,7 +95,7 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
   }
 
   async function toggleAd(ad: Ad): Promise<void> {
-    const path = `/admin/ads/${ad.id}/toggle` as "/api/admin/ads/{campaign_id}/toggle";
+    const path = buildAdminAdTogglePath(ad.id);
     const body = { is_active: !ad.is_active } satisfies Partial<AdToggleBody>;
     const res = (await api(path, {
       method: "POST",
@@ -106,7 +109,7 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
   }
 
   async function deleteAd(ad: Ad): Promise<void> {
-    const path = `/admin/ads/${ad.id}` as "/api/admin/ads/{campaign_id}";
+    const path = buildAdminAdPath(ad.id);
     const res = (await api(path, { method: "DELETE" })) as AdDeleteResponse | AdminErrorResponse;
     if (isOkResponse(res)) {
       state.ads = state.ads.filter((c) => c.id !== ad.id);

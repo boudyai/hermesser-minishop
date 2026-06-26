@@ -5,6 +5,10 @@ import {
   type GetResponse,
   type PostPayload,
   type PostResponse,
+  buildAdminBackupsCreatePath,
+  buildAdminBackupsPath,
+  buildAdminBackupsRestorePath,
+  buildAdminBackupsUploadPath,
 } from "../../webapp/publicApi";
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
@@ -124,7 +128,7 @@ export function createBackupsStore({ api, onToast, at }: BackupsStoreOptions): B
   async function loadArchives(): Promise<void> {
     updateState((s) => ({ ...s, backupsLoading: true }));
     try {
-      const data = (await api("/admin/backups")) as BackupsListResponse | AdminErrorResponse;
+      const data = (await api(buildAdminBackupsPath())) as BackupsListResponse | AdminErrorResponse;
       if (isOkResponse(data)) {
         const result = unwrap(data);
         updateState((s) => ({
@@ -145,7 +149,7 @@ export function createBackupsStore({ api, onToast, at }: BackupsStoreOptions): B
   async function createBackup(): Promise<BackupArchive | null> {
     updateState((s) => ({ ...s, backupsCreating: true, lastCreated: null }));
     try {
-      const data = (await api("/admin/backups/create", {
+      const data = (await api(buildAdminBackupsCreatePath(), {
         method: "POST",
       })) as BackupCreateResponse | AdminErrorResponse;
       if (isOkResponse(data)) {
@@ -170,7 +174,7 @@ export function createBackupsStore({ api, onToast, at }: BackupsStoreOptions): B
     try {
       const body = new FormData();
       body.append("file", file);
-      const data = (await api("/admin/backups/upload", {
+      const data = (await api(buildAdminBackupsUploadPath(), {
         method: "POST",
         body,
       })) as BackupUploadResponse | AdminErrorResponse;
@@ -216,7 +220,7 @@ export function createBackupsStore({ api, onToast, at }: BackupsStoreOptions): B
         restore_compose: Boolean(restoreCompose),
         confirm: true,
       };
-      const data = (await api("/admin/backups/restore", {
+      const data = (await api(buildAdminBackupsRestorePath(), {
         method: "POST",
         body: JSON.stringify(payload),
       })) as BackupRestoreResponse | AdminErrorResponse;

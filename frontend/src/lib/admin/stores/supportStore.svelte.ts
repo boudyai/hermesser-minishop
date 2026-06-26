@@ -4,6 +4,7 @@ import {
   type ApiResponse,
   type GetResponse,
   type PostResponse,
+  buildAdminSupportStatsPath,
   buildAdminSupportTicketMessagesPath,
   buildAdminSupportTicketPath,
   buildAdminSupportTicketReadPath,
@@ -221,7 +222,7 @@ export function createAdminSupportStore({
   }
 
   async function loadStats() {
-    const res = await api("/admin/support/stats");
+    const res = await api(buildAdminSupportStatsPath());
     if (res?.ok) {
       const payload = unwrap(res);
       updateState((s) => ({ ...s, stats: asStats(payload.stats, s.stats) }));

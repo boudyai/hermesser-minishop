@@ -6,6 +6,11 @@ import type {
   TokenMap,
 } from "../appearanceOptions.js";
 import { adminErrorMessage } from "../errors.js";
+import {
+  buildAdminAppearanceFaviconPath,
+  buildAdminAppearanceLogoPath,
+  buildAdminThemesPath,
+} from "../../webapp/publicApi";
 
 export type ThemesState = {
   themesCatalog: ThemeCatalog;
@@ -289,7 +294,7 @@ export function createThemesStore({
   async function loadThemes(): Promise<void> {
     updateState((s) => ({ ...s, themesLoading: true }));
     try {
-      const data = await api("/admin/themes");
+      const data = await api(buildAdminThemesPath());
       if (data?.ok) {
         const catalog = normalizeThemeCatalog(data.catalog);
         updateState((s) => ({
@@ -312,7 +317,7 @@ export function createThemesStore({
     const catalog = normalizeThemeCatalog(state.themesCatalog);
     updateState((s) => ({ ...s, themesCatalog: catalog, themesSaving: true }));
     try {
-      const data = await api("/admin/themes", {
+      const data = await api(buildAdminThemesPath(), {
         method: "PUT",
         body: JSON.stringify({ catalog }),
       });
@@ -342,7 +347,7 @@ export function createThemesStore({
     try {
       const body = new FormData();
       body.append("file", file);
-      const data = await api("/admin/appearance/logo", {
+      const data = await api(buildAdminAppearanceLogoPath(), {
         method: "POST",
         body,
       });
@@ -368,7 +373,7 @@ export function createThemesStore({
     if (!sourceUrl) return null;
     updateState((s) => ({ ...s, themesSaving: true }));
     try {
-      const data = await api("/admin/appearance/logo", {
+      const data = await api(buildAdminAppearanceLogoPath(), {
         method: "POST",
         body: JSON.stringify({ url: sourceUrl }),
       });
@@ -395,7 +400,7 @@ export function createThemesStore({
     try {
       const body = new FormData();
       body.append("file", file);
-      const data = await api("/admin/appearance/favicon", {
+      const data = await api(buildAdminAppearanceFaviconPath(), {
         method: "POST",
         body,
       });
@@ -421,7 +426,7 @@ export function createThemesStore({
     if (!sourceUrl) return null;
     updateState((s) => ({ ...s, themesSaving: true }));
     try {
-      const data = await api("/admin/appearance/favicon", {
+      const data = await api(buildAdminAppearanceFaviconPath(), {
         method: "POST",
         body: JSON.stringify({ url: sourceUrl }),
       });

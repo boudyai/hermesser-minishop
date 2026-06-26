@@ -244,6 +244,87 @@ export function buildAdminSupportTicketReadPath(ticketId: string | number): Admi
   return `/admin/support/tickets/${encodeURIComponent(String(ticketId))}/read` as AdminSupportTicketReadPath;
 }
 
+export type AdminStatsPath = "/admin/stats";
+export function buildAdminStatsPath(): AdminStatsPath {
+  return "/admin/stats";
+}
+
+export type AdminSyncPath = "/admin/sync";
+export function buildAdminSyncPath(): AdminSyncPath {
+  return "/admin/sync";
+}
+
+export type AdminThemesPath = "/admin/themes";
+export function buildAdminThemesPath(): AdminThemesPath {
+  return "/admin/themes";
+}
+
+export type AdminAppearanceLogoPath = "/admin/appearance/logo";
+export function buildAdminAppearanceLogoPath(): AdminAppearanceLogoPath {
+  return "/admin/appearance/logo";
+}
+
+export type AdminAppearanceFaviconPath = "/admin/appearance/favicon";
+export function buildAdminAppearanceFaviconPath(): AdminAppearanceFaviconPath {
+  return "/admin/appearance/favicon";
+}
+
+export type AdminTranslationsPath = "/admin/translations";
+export function buildAdminTranslationsPath(): AdminTranslationsPath {
+  return "/admin/translations";
+}
+
+export type AdminBackupsPath = "/admin/backups";
+export function buildAdminBackupsPath(): AdminBackupsPath {
+  return "/admin/backups";
+}
+
+export type AdminBackupsCreatePath = "/admin/backups/create";
+export function buildAdminBackupsCreatePath(): AdminBackupsCreatePath {
+  return "/admin/backups/create";
+}
+
+export type AdminBackupsUploadPath = "/admin/backups/upload";
+export function buildAdminBackupsUploadPath(): AdminBackupsUploadPath {
+  return "/admin/backups/upload";
+}
+
+export type AdminBackupsRestorePath = "/admin/backups/restore";
+export function buildAdminBackupsRestorePath(): AdminBackupsRestorePath {
+  return "/admin/backups/restore";
+}
+
+export type AdminPromosPath = "/admin/promos" | `/admin/promos?${string}`;
+export function buildAdminPromosPath(params?: URLSearchParams): AdminPromosPath {
+  const query = params?.toString();
+  return (query ? `/admin/promos?${query}` : "/admin/promos") as AdminPromosPath;
+}
+
+export type AdminPromoPath = "/admin/promos/{promo_id}";
+export function buildAdminPromoPath(promoId: string | number): AdminPromoPath {
+  return `/admin/promos/${encodeURIComponent(String(promoId))}` as AdminPromoPath;
+}
+
+export type AdminAdsPath = "/admin/ads";
+export function buildAdminAdsPath(): AdminAdsPath {
+  return "/admin/ads";
+}
+
+export type AdminAdPath = "/admin/ads/{campaign_id}";
+export function buildAdminAdPath(campaignId: string | number): AdminAdPath {
+  return `/admin/ads/${encodeURIComponent(String(campaignId))}` as AdminAdPath;
+}
+
+export type AdminAdTogglePath = "/admin/ads/{campaign_id}/toggle";
+export function buildAdminAdTogglePath(campaignId: string | number): AdminAdTogglePath {
+  return `/admin/ads/${encodeURIComponent(String(campaignId))}/toggle` as AdminAdTogglePath;
+}
+
+export type AdminSupportStatsPath = "/admin/support/stats";
+export function buildAdminSupportStatsPath(): AdminSupportStatsPath {
+  return "/admin/support/stats";
+}
+
 export function unwrap<T extends { ok: boolean }>(response: T): Extract<T, { ok: true }> {
   if (!response.ok) throw response;
   return response as Extract<T, { ok: true }>;

@@ -4,6 +4,8 @@ import {
   type ApiResponse,
   type GetResponse,
   type PostResponse,
+  buildAdminStatsPath,
+  buildAdminSyncPath,
 } from "../../webapp/publicApi";
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
@@ -47,7 +49,7 @@ export function createStatsStore({ api, onToast, at }: StatsStoreOptions): Stats
     state.statsLoading = true;
     state.statsError = "";
     try {
-      const data = (await api("/admin/stats")) as StatsResponse | AdminErrorResponse;
+      const data = (await api(buildAdminStatsPath())) as StatsResponse | AdminErrorResponse;
       if (!isOkResponse(data)) {
         state.statsError = adminErrorMessage(data, at, "load_failed");
       } else {
@@ -65,7 +67,7 @@ export function createStatsStore({ api, onToast, at }: StatsStoreOptions): Stats
 
     state.syncBusy = true;
     try {
-      const res = (await api("/admin/sync", { method: "POST" })) as
+      const res = (await api(buildAdminSyncPath(), { method: "POST" })) as
         | SyncResponse
         | AdminErrorResponse;
       if (isOkResponse(res)) {
