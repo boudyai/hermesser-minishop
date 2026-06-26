@@ -59,7 +59,7 @@ class QaPaymentConfig(ProviderEnvConfig):
 
 
 def _runtime_allows_qa(settings: Any) -> bool:
-    runtime = str(getattr(settings, "APP_RUNTIME_MODE", "production") or "production")
+    runtime = str(settings.APP_RUNTIME_MODE or "production")
     return runtime.strip().lower() in QA_RUNTIME_MODES
 
 
@@ -79,8 +79,8 @@ def _qa_admin_only_enabled(source: Any) -> bool:
 
 def _public_payment_url(settings: Any, payment_id: int) -> str:
     for candidate in (
-        getattr(settings, "SUBSCRIPTION_MINI_APP_URL", None),
-        getattr(settings, "WEBHOOK_BASE_URL", None),
+        settings.SUBSCRIPTION_MINI_APP_URL,
+        settings.WEBHOOK_BASE_URL,
     ):
         base = str(candidate or "").strip()
         if base:

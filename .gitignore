@@ -5,7 +5,6 @@ bot_database.sqlite3
 .env
 .env.*
 !.env.example
-docker-compose-dev.yml
 scratch_*.py
 scratch/
 *.local.*

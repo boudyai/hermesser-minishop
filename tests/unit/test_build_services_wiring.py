@@ -184,6 +184,7 @@ class BuildServicesWiringTests(unittest.TestCase):
             "pally_service",
             "cloudpayments_service",
             "stripe_service",
+            "qa_service",
         }
         self.assertEqual(set(services), expected_keys)
         self.assertIsInstance(services, dict)
