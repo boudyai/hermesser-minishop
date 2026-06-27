@@ -1,26 +1,81 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+import json
+import logging
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
+from aiohttp import web
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import sessionmaker
+
+from bot.app.web.context import (
+    get_bot_username,
+    get_optional_subscription_service,
+    get_referral_service,
+    get_session_factory,
+    get_settings,
+    get_subscription_service,
+)
 from bot.app.web.webapp.auth import (
     _referral_welcome_telegram_required_reason,
     _trial_telegram_required_reason,
     _user_has_linked_telegram,
 )
-from config.subscription_guides_config import subscription_guides_available
-from config.webapp_themes_config import public_themes_catalog_payload
+from bot.services.referral_service import ReferralService
+from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.telegram_notifications import (
     TELEGRAM_NOTIFICATIONS_ENABLED,
     normalize_telegram_notification_status,
     telegram_notifications_need_prompt,
     telegram_notifications_start_link,
 )
+from config.settings import Settings
+from config.subscription_guides_config import subscription_guides_available
+from config.tariffs_config import default_currency_key_for_settings, payment_currency_code
+from config.webapp_themes_config import public_themes_catalog_payload
+from db.dal import subscription_dal, support_dal, user_dal
+
+from .assets import (
+    _get_cached_webapp_settings,
+)
+from .common import (
+    _coerce_int_or_none,
+    _ensure_cached_telegram_avatar,
+    _format_bytes,
+    _format_months_title,
+    _format_number_for_payload,
+    _format_remaining,
+    _format_traffic_title,
+    _normalize_language,
+    _telegram_avatar_url,
+)
+from .serializers_billing_options import (
+    _serialize_hwid_device_packages,
+    _serialize_payment_methods,
+    _serialize_tariff_change_target,
+    _serialize_topup_packages,
+    _traffic_percent,
+)
+
+logger = logging.getLogger(__name__)
+
+__all__ = [
+    "_build_user_payload",
+    "_serialize_hwid_device_packages",
+    "_serialize_payment_methods",
+    "_serialize_tariff_change_target",
+    "_serialize_topup_packages",
+    "_traffic_percent",
+]
 
 
 async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, Any]:
-    settings: Settings = request.app["settings"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
-    subscription_service: SubscriptionService = request.app["subscription_service"]
+    settings: Settings = get_settings(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
+    subscription_service: SubscriptionService = get_subscription_service(request)
     cached = _get_cached_webapp_settings(request)
+    referral_settings = settings.referral_settings
+    support_settings = settings.support_settings
 
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
@@ -32,8 +87,8 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
 
         active = await subscription_service.get_active_subscription_details(session, user_id)
         referral_code = await user_dal.ensure_referral_code(session, db_user)
-        referral_service: Optional[ReferralService] = request.app.get("referral_service")
-        bot_username = request.app.get("bot_username") or ""
+        referral_service: Optional[ReferralService] = get_referral_service(request)
+        bot_username = get_bot_username(request)
         referral_link = None
         if referral_service and bot_username:
             referral_link = await referral_service.generate_referral_link(
@@ -42,7 +97,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
                 user_id,
             )
         webapp_referral_link = _build_webapp_referral_link(
-            request.app["settings"].SUBSCRIPTION_MINI_APP_URL,
+            get_settings(request).SUBSCRIPTION_MINI_APP_URL,
             referral_code,
         )
         referral_stats = (
@@ -52,7 +107,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
         )
         support_unread_count = (
             await support_dal.count_user_unread(session, user_id)
-            if settings.SUPPORT_TICKETS_ENABLED
+            if support_settings.tickets_enabled
             else 0
         )
         local_sub = (
@@ -105,7 +160,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
     admin_ids = {int(x) for x in (settings.ADMIN_IDS or [])}
     is_admin = bool(db_user.telegram_id and int(db_user.telegram_id) in admin_ids)
     telegram_linked = _user_has_linked_telegram(db_user)
-    referral_welcome_days = max(0, int(getattr(settings, "REFERRAL_WELCOME_BONUS_DAYS", 0) or 0))
+    referral_welcome_days = max(0, int(referral_settings.welcome_bonus_days or 0))
     referral_welcome_telegram_required_reason = (
         _referral_welcome_telegram_required_reason(settings, db_user)
         if db_user.referred_by_id and not active and referral_welcome_days > 0
@@ -114,9 +169,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
     telegram_notifications_status = normalize_telegram_notification_status(
         getattr(db_user, "telegram_notifications_status", None)
     )
-    telegram_notifications_link = telegram_notifications_start_link(
-        request.app.get("bot_username") or ""
-    )
+    telegram_notifications_link = telegram_notifications_start_link(get_bot_username(request))
     return {
         "user": {
             "id": user_id,
@@ -155,15 +208,13 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             "purchased_count": referral_stats.get("purchased_count", 0),
             "welcome_bonus_days": referral_welcome_days,
             "welcome_bonus_without_telegram_enabled": bool(
-                getattr(settings, "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED", True)
+                referral_settings.welcome_bonus_without_telegram_enabled
             ),
             "welcome_bonus_requires_telegram": bool(
                 referral_welcome_telegram_required_reason and not telegram_linked
             ),
             "welcome_bonus_block_reason": referral_welcome_telegram_required_reason,
-            "one_bonus_per_referee": bool(
-                getattr(settings, "REFERRAL_ONE_BONUS_PER_REFEREE", False)
-            ),
+            "one_bonus_per_referee": bool(referral_settings.one_bonus_per_referee),
             "bonus_details": _serialize_referral_bonus_details(settings, lang),
         },
         "plans": plans_payload,
@@ -180,12 +231,12 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
         ),
         "support_unread_count": int(support_unread_count or 0),
         "settings": {
-            "support_url": settings.SUPPORT_LINK,
+            "support_url": support_settings.link,
             "server_status_url": settings.SERVER_STATUS_URL,
-            "support_tickets_enabled": bool(settings.SUPPORT_TICKETS_ENABLED),
-            "support_ticket_max_body_length": int(settings.SUPPORT_TICKET_MAX_BODY_LENGTH or 4000),
+            "support_tickets_enabled": bool(support_settings.tickets_enabled),
+            "support_ticket_max_body_length": int(support_settings.ticket_max_body_length or 4000),
             "support_ticket_max_subject_length": int(
-                settings.SUPPORT_TICKET_MAX_SUBJECT_LENGTH or 160
+                support_settings.ticket_max_subject_length or 160
             ),
             "traffic_mode": bool(settings.traffic_sale_mode),
             "my_devices_enabled": bool(settings.MY_DEVICES_SECTION_ENABLED),
@@ -196,14 +247,12 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             ),
             "trial_enabled": bool(settings.TRIAL_ENABLED),
             "trial_available": trial_available,
-            "trial_without_telegram_enabled": bool(
-                getattr(settings, "TRIAL_WITHOUT_TELEGRAM_ENABLED", True)
-            ),
+            "trial_without_telegram_enabled": bool(settings.TRIAL_WITHOUT_TELEGRAM_ENABLED),
             "trial_requires_telegram": bool(trial_telegram_required_reason and not telegram_linked),
             "trial_block_reason": trial_telegram_required_reason,
             "trial_duration_days": int(settings.TRIAL_DURATION_DAYS or 0),
             "trial_traffic_limit_gb": float(settings.TRIAL_TRAFFIC_LIMIT_GB or 0),
-            "trial_traffic_strategy": getattr(settings, "TRIAL_TRAFFIC_STRATEGY", "NO_RESET"),
+            "trial_traffic_strategy": settings.TRIAL_TRAFFIC_STRATEGY,
             "subscription_purchase_description": settings.subscription_purchase_description(lang),
             "subscription_guides_enabled": subscription_guides_available(settings),
             "email_auth_enabled": settings.email_auth_configured,
@@ -212,7 +261,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
 
 
 def _legacy_referral_bonus_periods(settings: Settings) -> List[int]:
-    if getattr(settings, "traffic_sale_mode", False):
+    if settings.traffic_sale_mode:
         return []
 
     return sorted(int(months) for months in settings.subscription_options)
@@ -421,7 +470,7 @@ def _serialize_subscription(
 
             auto_renew_supported = provider_supports_recurring(provider)
             if request is not None:
-                subscription_service = request.app.get("subscription_service")
+                subscription_service = get_optional_subscription_service(request)
                 recurring_service_for = getattr(subscription_service, "recurring_service_for", None)
                 service = (
                     recurring_service_for(provider) if callable(recurring_service_for) else None
@@ -609,7 +658,7 @@ def _build_install_share_link(
     share_token = subscription_dal.normalize_install_share_token(share_token)
     if not share_token or request is None:
         return None
-    configured_base = str(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", "") or "").strip()
+    configured_base = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
     if configured_base:
         parts = urlsplit(configured_base)
         if parts.scheme and parts.netloc:
@@ -638,7 +687,7 @@ def _serialize_plans(
     if tariffs_config:
         default_currency = default_currency_key_for_settings(settings)
         default_currency_code = payment_currency_code(default_currency)
-        plans: List[Dict[str, Any]] = []
+        plans = []
         for tariff in tariffs_config.enabled_tariffs:
             common = {
                 "tariff_key": tariff.key,
@@ -725,11 +774,11 @@ def _serialize_plans(
                     plans.append(plan)
         return plans
 
-    if getattr(settings, "traffic_sale_mode", False):
+    if settings.traffic_sale_mode:
         active_traffic_packages = traffic_packages or settings.traffic_packages
         active_stars_traffic_packages = stars_traffic_packages or settings.stars_traffic_packages
         traffic_units = sorted(set(active_traffic_packages) | set(active_stars_traffic_packages))
-        plans: List[Dict[str, Any]] = []
+        plans = []
         for traffic_gb in traffic_units:
             price = active_traffic_packages.get(traffic_gb)
             stars_price = active_stars_traffic_packages.get(traffic_gb)
@@ -753,7 +802,7 @@ def _serialize_plans(
     active_stars_subscription_options = (
         stars_subscription_options or settings.stars_subscription_options
     )
-    plans: List[Dict[str, Any]] = []
+    plans = []
     for months in sorted(set(active_subscription_options) | set(active_stars_subscription_options)):
         price = active_subscription_options.get(months)
         stars_price = active_stars_subscription_options.get(months)
@@ -770,222 +819,3 @@ def _serialize_plans(
             plan["stars_price"] = int(stars_price)
         plans.append(plan)
     return plans
-
-
-def _traffic_percent(used: Optional[int], limit: Optional[int]) -> int:
-    used_val = int(used or 0)
-    limit_val = int(limit or 0)
-    if limit_val <= 0:
-        return 0
-    return max(0, min(100, round((used_val / limit_val) * 100)))
-
-
-def _serialize_topup_packages(
-    settings: Settings,
-    tariff: Any,
-    packages: Optional[Any],
-    lang: str,
-    *,
-    sale_mode: str = "topup",
-    title_prefix: str = "",
-) -> List[Dict[str, Any]]:
-    default_currency = default_currency_key_for_settings(settings)
-    default_currency_code = payment_currency_code(default_currency)
-    currency_packages = {
-        float(package.gb): float(package.price)
-        for package in (packages.for_currency(default_currency) if packages else [])
-    }
-    stars_packages = {
-        float(package.gb): int(float(package.price))
-        for package in (packages.stars if packages else [])
-    }
-    plans: List[Dict[str, Any]] = []
-    for traffic_gb in sorted(set(currency_packages) | set(stars_packages)):
-        price = currency_packages.get(traffic_gb)
-        stars_price = stars_packages.get(traffic_gb)
-        if price is None and (stars_price is None or int(stars_price) <= 0):
-            continue
-        traffic_value = float(traffic_gb)
-        plan: Dict[str, Any] = {
-            "id": f"{tariff.key}:{sale_mode}:{_format_number_for_payload(traffic_value)}",
-            "tariff_key": tariff.key,
-            "tariff_name": tariff.name(lang),
-            "billing_model": tariff.billing_model,
-            "sale_mode": sale_mode,
-            "months": int(traffic_value) if traffic_value.is_integer() else traffic_value,
-            "traffic_gb": traffic_value,
-            "price": float(price or 0),
-            "currency": default_currency_code,
-            "title": f"{title_prefix}{_format_traffic_title(traffic_value, lang)}",
-            "subtitle": tariff.premium_name(lang)
-            if sale_mode == "premium_topup"
-            else tariff.name(lang),
-        }
-        if stars_price is not None and int(stars_price) > 0:
-            plan["stars_price"] = int(stars_price)
-        plans.append(plan)
-    return plans
-
-
-def _serialize_hwid_device_packages(
-    settings: Settings,
-    tariff: Any,
-    packages: Optional[Any],
-    lang: str,
-) -> List[Dict[str, Any]]:
-    default_currency = default_currency_key_for_settings(settings)
-    default_currency_code = payment_currency_code(default_currency)
-    currency_packages = {
-        int(package.count): float(package.price)
-        for package in (packages.for_currency(default_currency) if packages else [])
-    }
-    stars_packages = {
-        int(package.count): int(float(package.price))
-        for package in (packages.stars if packages else [])
-    }
-    plans: List[Dict[str, Any]] = []
-    for count in sorted(set(currency_packages) | set(stars_packages)):
-        price = currency_packages.get(count)
-        stars_price = stars_packages.get(count)
-        if price is None and (stars_price is None or int(stars_price) <= 0):
-            continue
-        plan: Dict[str, Any] = {
-            "id": f"{tariff.key}:hwid:{count}",
-            "tariff_key": tariff.key,
-            "tariff_name": tariff.name(lang),
-            "billing_model": tariff.billing_model,
-            "sale_mode": "hwid_devices",
-            "months": int(count),
-            "device_count": int(count),
-            "price": float(price or 0),
-            "currency": default_currency_code,
-            "title": f"+{count}",
-            "subtitle": tariff.name(lang),
-        }
-        if stars_price is not None and int(stars_price) > 0:
-            plan["stars_price"] = int(stars_price)
-        plans.append(plan)
-    return plans
-
-
-def _serialize_tariff_change_target(
-    settings: Settings,
-    config: Any,
-    tariff: Any,
-    options: Dict[str, Any],
-    lang: str,
-) -> Dict[str, Any]:
-    default_currency = default_currency_key_for_settings(settings)
-    default_currency_code = payment_currency_code(default_currency)
-    actions: List[Dict[str, Any]] = []
-    mode = str(options.get("mode") or "")
-    if mode == "period_to_period":
-        actions.append(
-            {
-                "mode": "recalc_days",
-                "kind": "free",
-                "title": "recalc_days",
-                "days_after": int(options.get("recalc_days") or 0),
-                "remaining_days": int(options.get("remaining_days") or 0),
-                "converted_hwid_value_rub": float(options.get("converted_hwid_value_rub") or 0),
-                "converted_hwid_days": int(options.get("converted_hwid_days") or 0),
-            }
-        )
-        paid_diff = float(options.get("paid_diff_rub") or 0)
-        if paid_diff > 0:
-            actions.append(
-                {
-                    "mode": "paid_diff",
-                    "kind": "payment",
-                    "title": "paid_diff",
-                    "price": paid_diff,
-                    "currency": default_currency_code,
-                }
-            )
-    elif mode == "period_to_traffic":
-        actions.append(
-            {
-                "mode": "convert_days_to_gb",
-                "kind": "free",
-                "title": "convert_days_to_gb",
-                "converted_gb": float(options.get("converted_gb") or 0),
-                "remaining_days": int(options.get("remaining_days") or 0),
-                "converted_hwid_value_rub": float(options.get("converted_hwid_value_rub") or 0),
-                "converted_hwid_gb": float(options.get("converted_hwid_gb") or 0),
-            }
-        )
-        actions.extend(
-            {
-                "mode": "buy_package",
-                "kind": "payment",
-                "title": f"+{package.gb:g} GB",
-                "traffic_gb": float(package.gb),
-                "price": float(package.price),
-                "currency": default_currency_code,
-            }
-            for package in (
-                tariff.traffic_packages.for_currency(default_currency)
-                if tariff.traffic_packages
-                else []
-            )
-        )
-    else:
-        for months in tariff.enabled_periods:
-            price = tariff.period_price(int(months), default_currency)
-            if price:
-                actions.append(
-                    {
-                        "mode": "buy_period",
-                        "kind": "payment",
-                        "months": int(months),
-                        "title": _format_months_title(int(months), lang),
-                        "price": float(price),
-                        "currency": default_currency_code,
-                    }
-                )
-    return {
-        "tariff_key": tariff.key,
-        "title": tariff.name(lang),
-        "description": tariff.description(lang),
-        "billing_model": tariff.billing_model,
-        "monthly_gb": tariff.monthly_gb,
-        "options": options,
-        "actions": actions,
-    }
-
-
-def _serialize_payment_methods(
-    settings: Settings,
-    app: web.Application,
-    lang: str = "ru",
-    *,
-    is_admin: bool = False,
-) -> List[Dict[str, Any]]:
-    from bot.payment_providers import get_provider_spec, resolve_provider_presentation
-
-    methods: List[Dict[str, Any]] = []
-    payment_currency = default_payment_currency_code_for_settings(settings)
-    for method in settings.payment_methods_order:
-        method = method.lower()
-        spec = get_provider_spec(method)
-        if (
-            spec
-            and spec.is_visible_for_user(settings, app, is_admin=is_admin)
-            and spec.is_usable_for_payment_currency(settings, payment_currency)
-        ):
-            presentation = resolve_provider_presentation(spec, settings, language=lang)
-            payload = {
-                "id": method,
-                "name": presentation.webapp_label,
-                "icon": presentation.webapp_icon,
-            }
-            minimum = spec.payment_minimum(settings, payment_currency)
-            if minimum:
-                payload.update(minimum)
-            methods.append(payload)
-    return methods
-
-
-def _service_configured(app: web.Application, key: str) -> bool:
-    service = app.get(key)
-    return bool(service and getattr(service, "configured", False))

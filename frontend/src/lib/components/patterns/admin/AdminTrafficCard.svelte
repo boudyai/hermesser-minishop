@@ -1,15 +1,17 @@
 <script>
   import { cn } from "$lib/utils.js";
 
-  export let title = "";
-  export let value = "";
-  export let left = "";
-  export let percent = 0;
-  export let warning = false;
-  export let premium = false;
-  export let label = "";
+  let {
+    title = "",
+    value = "",
+    left = "",
+    percent = 0,
+    warning = false,
+    premium = false,
+    label = "",
+  } = $props();
 
-  $: clamped = Math.max(0, Math.min(100, Number(percent) || 0));
+  const clamped = $derived(Math.max(0, Math.min(100, Number(percent) || 0)));
 </script>
 
 <div

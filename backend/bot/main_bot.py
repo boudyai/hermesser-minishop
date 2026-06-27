@@ -2,31 +2,39 @@ import asyncio
 import logging
 from typing import Awaitable, Callable, Optional
 
-from aiogram import Bot, Dispatcher
-from aiogram.exceptions import TelegramNetworkError
+from aiogram import Dispatcher
+from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError
 from aiogram.types import (
     BotCommand,
     BotCommandScopeAllChatAdministrators,
     BotCommandScopeAllGroupChats,
     BotCommandScopeAllPrivateChats,
+    BotCommandScopeChat,
     BotCommandScopeDefault,
+    BotCommandScopeUnion,
     MenuButtonDefault,
     MenuButtonWebApp,
     WebAppInfo,
 )
 
+from bot.app.controllers.dispatcher_context import (
+    get_dispatcher_bot,
+    get_dispatcher_i18n,
+    get_dispatcher_service,
+    get_dispatcher_settings,
+    set_dispatcher_bot_username,
+    set_dispatcher_queue_manager,
+    set_dispatcher_services,
+)
 from bot.app.controllers.dispatcher_controller import build_dispatcher
-from bot.app.factories.build_services import build_core_services
+from bot.app.factories.runtime import build_core_runtime, build_runtime_bootstrap
 from bot.app.web.web_server import build_and_start_web_app
 from bot.infra.redis import close_redis
-from bot.middlewares.i18n import JsonI18n
-from bot.plugins import PluginContext, apply_plugin_locales, run_setup
+from bot.plugins import PluginContext, run_setup
 from bot.routers import build_root_router
 from bot.services.event_reactions import register_core_reactions
-from bot.services.locale_override_service import load_locale_overrides
 from bot.utils.message_queue import init_queue_manager
 from config.settings import Settings
-from db.database_setup import init_db, init_db_connection
 
 TELEGRAM_STARTUP_RETRY_DELAY_SECONDS = 2.0
 
@@ -116,8 +124,8 @@ async def register_all_routers(
 
 
 async def configure_telegram_webhook(dispatcher: Dispatcher) -> None:
-    bot: Bot = dispatcher["bot_instance"]
-    settings: Settings = dispatcher["settings"]
+    bot = get_dispatcher_bot(dispatcher)
+    settings = get_dispatcher_settings(dispatcher)
 
     telegram_webhook_url_to_set = settings.WEBHOOK_BASE_URL
     if telegram_webhook_url_to_set:
@@ -175,9 +183,9 @@ async def configure_telegram_webhook(dispatcher: Dispatcher) -> None:
 
 
 async def on_startup_configured(dispatcher: Dispatcher):
-    bot: Bot = dispatcher["bot_instance"]
-    settings: Settings = dispatcher["settings"]
-    i18n_instance: JsonI18n = dispatcher["i18n_instance"]
+    bot = get_dispatcher_bot(dispatcher)
+    settings = get_dispatcher_settings(dispatcher)
+    i18n_instance = get_dispatcher_i18n(dispatcher)
 
     logging.info("STARTUP: on_startup_configured executing...")
 
@@ -209,7 +217,9 @@ async def on_startup_configured(dispatcher: Dispatcher):
             BotCommand(command="start", description=start_description),
             BotCommand(command="tg", description="Интерфейс в боте"),
         ]
-        command_scopes_to_clear = [
+        bot_menu_disabled = bool(settings.TELEGRAM_BOT_MENU_DISABLED)
+        public_bot_commands = [bot_commands[0]] if bot_menu_disabled else bot_commands
+        command_scopes_to_clear: list[BotCommandScopeUnion] = [
             BotCommandScopeDefault(),
             BotCommandScopeAllPrivateChats(),
             BotCommandScopeAllGroupChats(),
@@ -218,8 +228,22 @@ async def on_startup_configured(dispatcher: Dispatcher):
         for scope in command_scopes_to_clear:
             for language_code in _telegram_command_language_codes(settings):
                 await bot.delete_my_commands(scope=scope, language_code=language_code)
-        await bot.set_my_commands(bot_commands, scope=BotCommandScopeDefault())
-        await bot.set_my_commands(bot_commands, scope=BotCommandScopeAllPrivateChats())
+        if bot_menu_disabled:
+            for admin_id in settings.ADMIN_IDS or []:
+                for language_code in _telegram_command_language_codes(settings):
+                    try:
+                        await bot.delete_my_commands(
+                            scope=BotCommandScopeChat(chat_id=admin_id),
+                            language_code=language_code,
+                        )
+                    except TelegramBadRequest as exc:
+                        logging.warning(
+                            "STARTUP: Could not clear chat-specific bot commands for chat %s: %s",
+                            admin_id,
+                            exc,
+                        )
+        await bot.set_my_commands(public_bot_commands, scope=BotCommandScopeDefault())
+        await bot.set_my_commands(public_bot_commands, scope=BotCommandScopeAllPrivateChats())
         logging.info("STARTUP: bot command descriptions set.")
 
     await _run_telegram_startup_step(
@@ -231,7 +255,7 @@ async def on_startup_configured(dispatcher: Dispatcher):
     # Initialize message queue manager
     try:
         queue_manager = init_queue_manager(bot)
-        dispatcher["queue_manager"] = queue_manager
+        set_dispatcher_queue_manager(dispatcher, queue_manager)
         logging.info("STARTUP: Message queue manager initialized")
     except Exception:
         logging.exception("STARTUP: Failed to initialize message queue manager.")
@@ -243,7 +267,7 @@ async def on_shutdown_configured(dispatcher: Dispatcher):
     logging.warning("SHUTDOWN: on_shutdown_configured executing...")
 
     async def close_service(key: str) -> None:
-        service = dispatcher.get(key)
+        service = get_dispatcher_service(dispatcher, key)
         if not service:
             return
         close_coro = getattr(service, "close", None)
@@ -278,7 +302,7 @@ async def on_shutdown_configured(dispatcher: Dispatcher):
     ):
         await close_service(service_key)
 
-    bot: Bot = dispatcher["bot_instance"]
+    bot = get_dispatcher_bot(dispatcher)
     if bot and bot.session:
         try:
             await bot.session.close()
@@ -298,15 +322,16 @@ async def on_shutdown_configured(dispatcher: Dispatcher):
 
 
 async def run_bot(settings_param: Settings):
-    local_async_session_factory = init_db_connection(settings_param)
-    if local_async_session_factory is None:
-        logging.critical("Failed to initialize database connection and session factory. Exiting.")
-        return
-    await init_db(settings_param, local_async_session_factory)
-    dp, bot, extra = build_dispatcher(settings_param, local_async_session_factory)
-    i18n_instance = extra["i18n_instance"]
-    apply_plugin_locales(settings_param, i18n_instance)
-    await load_locale_overrides(i18n_instance, local_async_session_factory)
+    runtime = await build_runtime_bootstrap(settings_param)
+    bot = runtime.bot
+    i18n_instance = runtime.i18n
+    local_async_session_factory = runtime.session_factory
+    dp = build_dispatcher(
+        settings_param,
+        local_async_session_factory,
+        bot=bot,
+        i18n_instance=i18n_instance,
+    )
 
     # Get bot username for YooKassa default return URL if needed
     actual_bot_username = "your_bot_username"
@@ -316,7 +341,7 @@ async def run_bot(settings_param: Settings):
         bot_info = await bot.get_me()
         if bot_info.username:
             actual_bot_username = bot_info.username
-            dp["bot_username"] = actual_bot_username
+            set_dispatcher_bot_username(dp, actual_bot_username)
             logging.info(f"Bot username resolved: @{actual_bot_username}")
         else:
             logging.warning("Bot username is empty; Telegram Login Widget will be unavailable.")
@@ -329,29 +354,14 @@ async def run_bot(settings_param: Settings):
     if not bot_username_resolved:
         logging.warning("Using fallback bot username: %s", actual_bot_username)
 
-    services = build_core_services(
-        settings_param,
-        bot,
-        local_async_session_factory,
-        i18n_instance,
-        actual_bot_username,
-    )
-    plugin_context = PluginContext(
-        settings=settings_param,
-        session_factory=local_async_session_factory,
-        bot=bot,
-        i18n=i18n_instance,
-        dispatcher=dp,
-        services=services,
-    )
+    core_runtime = build_core_runtime(runtime, bot_username=actual_bot_username, dispatcher=dp)
+    plugin_context = core_runtime.plugin_context
+    services = core_runtime.services
     # Plugins may contribute services, so run setup before the dispatcher copy.
     run_setup(plugin_context)
     register_core_reactions(plugin_context)
 
-    for key, service in services.items():
-        dp[key] = service
-    dp["panel_service"] = services["panel_service"]
-    dp["async_session_factory"] = local_async_session_factory
+    set_dispatcher_services(dp, services)
 
     # Wrap startup/shutdown handlers to satisfy aiogram event signature (no args passed)
     async def _on_startup_wrapper():

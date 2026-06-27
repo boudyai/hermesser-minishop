@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { QueryClient } from "@tanstack/svelte-query";
   import {
     ArrowLeft,
@@ -20,7 +20,7 @@
   import PaymentDetailModal from "./sections/PaymentDetailModal.svelte";
   import TariffEditorModal from "./sections/TariffEditorModal.svelte";
   import UserDetailModal from "./sections/UserDetailModal.svelte";
-  import { ADMIN_SECTION_GROUPS, ADMIN_SECTIONS } from "./sections/registry.ts";
+  import { ADMIN_SECTION_GROUPS, ADMIN_SECTIONS } from "./sections/registry";
   import ConfigAlertsBanner from "./ConfigAlertsBanner.svelte";
   import { createAdsStore } from "../lib/admin/stores/adsStore.js";
   import { createBackupsStore } from "../lib/admin/stores/backupsStore.js";
@@ -60,99 +60,197 @@
     stripRoutePrefix,
     withRoutePrefix,
   } from "../lib/webapp/routes.js";
+  import { buildAdminPaymentsExportPath } from "../lib/webapp/publicApi";
+  import type { AdminSectionDescriptor } from "./sections/registry";
+  import type { SettingsSavedPayload } from "../lib/admin/stores/settingsStore";
+  import type { TariffsCatalog } from "../lib/admin/stores/tariffsStore";
+  import type { TranslationsSavedPayload } from "../lib/admin/stores/translationsStore";
+  import type { AdminUser } from "../lib/admin/stores/usersStore";
+  import type { ComponentType, SvelteComponent } from "svelte";
 
-  export let api;
-  export let onClose = () => {};
-  export let onToast = () => {};
-  export let initialSection = "stats";
-  export let initialSettingsPath = [];
-  export let initialPaymentId = null;
-  export let initialPaymentUserId = null;
-  export let initialUserId = null;
-  export let onSectionChange = () => {};
-  export let onSettingsSaved = () => {};
-  export let onTariffsSaved = () => {};
-  export let onThemesSaved = () => {};
-  export let onTranslationsSaved = () => {};
-  export let routePrefix = "";
-  export let brand = {};
-  export let brandTitle = "Subscription";
-  export let appFaviconUrl = "";
-  export let appFaviconUseCustom = false;
-  export let appVersion = "dev+local";
-  export let appRepositoryUrl = "https://minishop.minidoc.cc/";
-  export let currentLang = "ru";
-  export let languageOptions = [];
-  export let languageBusy = false;
-  export let onLanguageChange = () => {};
-  export let t = (key, _params = {}, fallback = "") => fallback || key;
+  type AdminApi = Parameters<typeof createAdsStore>[0]["api"] &
+    Parameters<typeof createThemesStore>[0]["api"];
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type AdminSectionId = string;
+  type SettingsPath = string[];
+  type LanguageOption = { value: string; label: string; flag?: string };
+  type LanguageChangeMeta = { section: "admin"; adminSection: string };
+  type SectionMeta = { title: string; subtitle: string };
+  type NavGroup = {
+    id: string;
+    order: number;
+    label: string;
+    items: Array<AdminSectionDescriptor & { label: string }>;
+  };
+  type PanelStatusBadge = { label: string; variant: "success" | "danger" | "warning" | "muted" };
+  type DynamicComponent = ComponentType<SvelteComponent<Record<string, unknown>>>;
 
-  const at = (key, params = {}, fallback = "") => t(`admin_${key}`, params, fallback || key);
+  let {
+    api,
+    onClose = () => {},
+    onToast = () => {},
+    initialSection = "stats",
+    initialSettingsPath = [],
+    initialPaymentId = null,
+    initialPaymentUserId = null,
+    initialUserId = null,
+    onSectionChange = () => {},
+    onSettingsSaved = () => {},
+    onTariffsSaved = () => {},
+    onThemesSaved = () => {},
+    onTranslationsSaved = () => {},
+    routePrefix = "",
+    brand = {},
+    brandTitle = "Subscription",
+    appFaviconUrl = "",
+    appFaviconUseCustom = false,
+    appVersion = "dev+local",
+    appRepositoryUrl = "https://minishop.minidoc.cc/",
+    currentLang = "ru",
+    languageOptions = [],
+    languageBusy = false,
+    onLanguageChange = () => {},
+    t = (key, _params = {}, fallback = "") => fallback || key,
+  }: {
+    api: AdminApi;
+    onClose?: () => void;
+    onToast?: (message: string) => void;
+    initialSection?: string;
+    initialSettingsPath?: SettingsPath;
+    initialPaymentId?: number | null;
+    initialPaymentUserId?: number | null;
+    initialUserId?: number | null;
+    onSectionChange?: (section: string, userId?: number) => void;
+    onSettingsSaved?: (payload: SettingsSavedPayload) => void | Promise<void>;
+    onTariffsSaved?: (catalog: TariffsCatalog) => void | Promise<void>;
+    onThemesSaved?: () => void | Promise<void>;
+    onTranslationsSaved?: (payload: TranslationsSavedPayload) => void | Promise<void>;
+    routePrefix?: string;
+    brand?: Record<string, unknown>;
+    brandTitle?: string;
+    appFaviconUrl?: string;
+    appFaviconUseCustom?: boolean;
+    appVersion?: string;
+    appRepositoryUrl?: string;
+    currentLang?: string;
+    languageOptions?: LanguageOption[];
+    languageBusy?: boolean;
+    onLanguageChange?: (value: string, meta: LanguageChangeMeta) => void;
+    t?: TranslateFn;
+  } = $props();
 
-  $: featureSet = new Set($settingsStore?.features || []);
-  $: visibleSections = ADMIN_SECTIONS.filter(
-    (section) => !section.feature || featureSet.has(section.feature)
-  );
-  $: NAV_GROUPS = ADMIN_SECTION_GROUPS.map((group) => ({
-    id: group.id,
-    order: group.order,
-    label: at(group.i18nKey, {}, group.fallbackLabel),
-    items: visibleSections
-      .filter((section) => section.group === group.id)
-      .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id))
-      .map((section) => ({
-        ...section,
-        label: at(section.i18nKey, {}, section.fallbackLabel),
-      })),
-  })).filter((group) => group.items.length);
-  $: SECTION_META = Object.fromEntries(
-    visibleSections.map((section) => [
-      section.id,
-      {
-        title: at(section.titleI18nKey, {}, section.fallbackTitle),
-        subtitle: at(section.subtitleI18nKey, {}, section.fallbackSubtitle),
-      },
-    ])
-  );
-  $: SECTION_BY_ID = new Map(visibleSections.map((section) => [section.id, section]));
+  const at: TranslateFn = (key, params = {}, fallback = "") =>
+    t(`admin_${key}`, params, fallback || key);
 
-  $: VALID_SECTIONS = (NAV_GROUPS || []).flatMap((group) =>
-    (group.items || []).map((item) => item.id)
-  );
-  const normalizeSection = (value) => ((VALID_SECTIONS || []).includes(value) ? value : "stats");
-  const settingsPathKey = (path) => (Array.isArray(path) ? path : []).join("/");
-
-  let active = normalizeSection(initialSection);
-  let lastInitialSection = active;
-  $: if (VALID_SECTIONS.length && !VALID_SECTIONS.includes(active)) {
-    active = normalizeSection(active);
+  function initialApi(): AdminApi {
+    return api;
   }
-  let settingsPath = Array.isArray(initialSettingsPath) ? initialSettingsPath : [];
-  let lastInitialSettingsPathKey = settingsPathKey(settingsPath);
-  $: {
+
+  function initialRoutePrefix(): string {
+    return routePrefix;
+  }
+
+  function initialTariffsSaved(): (catalog: TariffsCatalog) => void | Promise<void> {
+    return onTariffsSaved;
+  }
+
+  function initialThemesSaved(): () => void | Promise<void> {
+    return onThemesSaved;
+  }
+
+  const stableApi = initialApi();
+  const stableRoutePrefix = initialRoutePrefix();
+  const stableOnTariffsSaved = initialTariffsSaved();
+  const stableOnThemesSaved = initialThemesSaved();
+  const settingsStore = createSettingsStore({ api: stableApi, onToast: flash, at });
+
+  const featureSet = $derived(new Set<string>((settingsStore.features || []) as string[]));
+  const visibleSections: AdminSectionDescriptor[] = $derived(
+    ADMIN_SECTIONS.filter((section) => !section.feature || featureSet.has(section.feature))
+  );
+  const NAV_GROUPS: NavGroup[] = $derived(
+    ADMIN_SECTION_GROUPS.map((group) => ({
+      id: group.id,
+      order: group.order,
+      label: at(group.i18nKey, {}, group.fallbackLabel),
+      items: visibleSections
+        .filter((section) => section.group === group.id)
+        .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id))
+        .map((section) => ({
+          ...section,
+          label: at(section.i18nKey, {}, section.fallbackLabel),
+        })),
+    })).filter((group) => group.items.length)
+  );
+  const SECTION_META: Record<string, SectionMeta> = $derived(
+    Object.fromEntries(
+      visibleSections.map((section) => [
+        section.id,
+        {
+          title: at(section.titleI18nKey, {}, section.fallbackTitle),
+          subtitle: at(section.subtitleI18nKey, {}, section.fallbackSubtitle),
+        },
+      ])
+    )
+  );
+  const SECTION_BY_ID = $derived(new Map(visibleSections.map((section) => [section.id, section])));
+
+  const VALID_SECTIONS: string[] = $derived(
+    (NAV_GROUPS || []).flatMap((group) => (group.items || []).map((item) => item.id))
+  );
+  const normalizeSection = (value: unknown): AdminSectionId =>
+    (VALID_SECTIONS || []).includes(String(value)) ? String(value) : "stats";
+  const settingsPathKey = (path: unknown): string => (Array.isArray(path) ? path : []).join("/");
+
+  function initialActiveSection(): AdminSectionId {
+    return normalizeSection(initialSection);
+  }
+
+  function initialSettingsPathValue(): SettingsPath {
+    return Array.isArray(initialSettingsPath) ? initialSettingsPath : [];
+  }
+
+  const initialActive = initialActiveSection();
+  const initialSettingsPathSnapshot = initialSettingsPathValue();
+  let active = $state(initialActive);
+  let lastInitialSection = $state(initialActive);
+  let settingsPath = $state<SettingsPath>(initialSettingsPathSnapshot);
+  let lastInitialSettingsPathKey = $state(settingsPathKey(initialSettingsPathSnapshot));
+
+  $effect(() => {
+    if (VALID_SECTIONS.length && !VALID_SECTIONS.includes(active)) {
+      active = normalizeSection(active);
+    }
+  });
+
+  $effect(() => {
     const nextInitialSection = normalizeSection(initialSection);
     if (nextInitialSection !== lastInitialSection) {
       active = nextInitialSection;
       lastInitialSection = nextInitialSection;
     }
-  }
-  $: {
+  });
+
+  $effect(() => {
     const nextInitialSettingsPathKey = settingsPathKey(initialSettingsPath);
     if (nextInitialSettingsPathKey !== lastInitialSettingsPathKey) {
       settingsPath = Array.isArray(initialSettingsPath) ? initialSettingsPath : [];
       lastInitialSettingsPathKey = nextInitialSettingsPathKey;
     }
-  }
-  let sidebarOpen = false;
-  let isCompact = false;
-  let dismissedUserRouteKey = "";
-  let lastUserRouteKey = "";
-  let adminLanguageMenuOpen = false;
-  let adminLanguageClickGuard = false;
-  let adminLanguageClickGuardArmed = false;
-  let adminLanguageClickGuardTimer = null;
-  let adminLanguageClickGuardArmTimer = null;
-  $: adminLanguageGuardActive = isCompact && (adminLanguageMenuOpen || adminLanguageClickGuard);
+  });
+
+  let sidebarOpen = $state(false);
+  let isCompact = $state(false);
+  let dismissedUserRouteKey = $state("");
+  let lastUserRouteKey = $state("");
+  let adminLanguageMenuOpen = $state(false);
+  let adminLanguageClickGuard = $state(false);
+  let adminLanguageClickGuardArmed = $state(false);
+  let adminLanguageClickGuardTimer: ReturnType<typeof window.setTimeout> | null = null;
+  let adminLanguageClickGuardArmTimer: ReturnType<typeof window.setTimeout> | null = null;
+  const adminLanguageGuardActive = $derived(
+    isCompact && (adminLanguageMenuOpen || adminLanguageClickGuard)
+  );
 
   function readReduceMotion() {
     return (
@@ -160,10 +258,14 @@
     );
   }
 
-  let reduceMotion = readReduceMotion();
+  let reduceMotion = $state(readReduceMotion());
 
-  function flash(text) {
+  function flash(text: string): void {
     onToast(text);
+  }
+
+  function dynamicComponent(component: unknown): DynamicComponent {
+    return component as DynamicComponent;
   }
 
   const adminQueryClient = new QueryClient({
@@ -176,20 +278,49 @@
     },
   });
 
-  const adsStore = createAdsStore({ api, onToast: flash, at });
-  const backupsStore = createBackupsStore({ api, onToast: flash, at });
-  const broadcastStore = createBroadcastStore({ api, onToast: flash, at });
-  const healthStore = createHealthStore({ api, at, queryClient: adminQueryClient });
-  const logsStore = createLogsStore({ api, onToast: flash, at, queryClient: adminQueryClient });
-  const paymentsStore = createPaymentsStore({ api, onToast: flash, at, routePrefix });
-  const promosStore = createPromosStore({ api, onToast: flash, at });
-  const settingsStore = createSettingsStore({ api, onToast: flash, at });
-  const statsStore = createStatsStore({ api, onToast: flash, at });
-  const supportStore = createAdminSupportStore({ api, onToast: flash, at, routePrefix });
-  const tariffsStore = createTariffsStore({ api, onToast: flash, onTariffsSaved, flash, at });
-  const themesStore = createThemesStore({ api, onThemesSaved, flash, at });
-  const translationsStore = createTranslationsStore({ api, onToast: flash, at });
-  const usersStore = createUsersStore({ api, onToast: flash, at, routePrefix });
+  const adsStore = createAdsStore({ api: stableApi, onToast: flash, at });
+  const backupsStore = createBackupsStore({ api: stableApi, onToast: flash, at });
+  const broadcastStore = createBroadcastStore({ api: stableApi, onToast: flash, at });
+  const healthStore = createHealthStore({ api: stableApi, at, queryClient: adminQueryClient });
+  const logsStore = createLogsStore({
+    api: stableApi,
+    onToast: flash,
+    at,
+    queryClient: adminQueryClient,
+  });
+  const paymentsStore = createPaymentsStore({
+    api: stableApi,
+    onToast: flash,
+    at,
+    routePrefix: stableRoutePrefix,
+  });
+  const promosStore = createPromosStore({ api: stableApi, onToast: flash, at });
+  const statsStore = createStatsStore({ api: stableApi, onToast: flash, at });
+  const supportStore = createAdminSupportStore({
+    api: stableApi,
+    onToast: flash,
+    at,
+    routePrefix: stableRoutePrefix,
+  });
+  const tariffsStore = createTariffsStore({
+    api: stableApi,
+    onTariffsSaved: stableOnTariffsSaved,
+    flash,
+    at,
+  });
+  const themesStore = createThemesStore({
+    api: stableApi,
+    onThemesSaved: stableOnThemesSaved,
+    flash,
+    at,
+  });
+  const translationsStore = createTranslationsStore({ api: stableApi, onToast: flash, at });
+  const usersStore = createUsersStore({
+    api: stableApi,
+    onToast: flash,
+    at,
+    routePrefix: stableRoutePrefix,
+  });
 
   setContext("promosStore", promosStore);
   setContext("adsStore", adsStore);
@@ -206,28 +337,35 @@
   setContext("themesStore", themesStore);
   setContext("translationsStore", translationsStore);
 
-  $: usersStore.setActive(active);
-  $: paymentsStore.setActive(active);
-  $: supportStore.setActive(active);
-  $: dirtyCount = Object.keys($settingsStore.settingsDirty || {}).length;
-  $: translationsDirtyCount = Object.keys($translationsStore.translationsDirty || {}).length;
-  $: syncBusy = $statsStore.syncBusy;
-  $: settingsSaving = $settingsStore.settingsSaving;
-  $: translationsSaving = $translationsStore.translationsSaving;
-  $: meta = SECTION_META[active] || { title: active, subtitle: "" };
-  $: activeSection = SECTION_BY_ID.get(active);
-  $: openSectionUserCard =
+  $effect(() => {
+    usersStore.setActive(active);
+    paymentsStore.setActive(active);
+    supportStore.setActive(active);
+  });
+
+  const dirtyCount = $derived(Object.keys(settingsStore.settingsDirty || {}).length);
+  const translationsDirtyCount = $derived(
+    Object.keys(translationsStore.translationsDirty || {}).length
+  );
+  const syncBusy = $derived(statsStore.syncBusy);
+  const settingsSaving = $derived(settingsStore.settingsSaving);
+  const translationsSaving = $derived(translationsStore.translationsSaving);
+  const meta = $derived(SECTION_META[active] || { title: active, subtitle: "" });
+  const activeSection = $derived(SECTION_BY_ID.get(active));
+  const openSectionUserCard = $derived(
     active === "payments"
       ? openPaymentUserCard
       : active === "logs"
         ? openLogsUserCard
-        : openUserCard;
-  $: currentLanguageOption =
-    languageOptions.find((option) => option.value === currentLang) || languageOptions[0];
+        : openUserCard
+  );
+  const currentLanguageOption = $derived(
+    languageOptions.find((option) => option.value === currentLang) || languageOptions[0]
+  );
 
   const gravatarCache = createGravatarCache(() => usersStore.updateState({}));
 
-  function setActive(id) {
+  function setActive(id: string): void {
     const next = normalizeSection(id);
     sidebarOpen = false;
     if (active === next) return;
@@ -239,7 +377,7 @@
     onSectionChange(next);
   }
 
-  function openSettingsPath(path = []) {
+  function openSettingsPath(path: unknown = []): void {
     const nextPath = (Array.isArray(path) ? path : [])
       .map((segment) => String(segment || "").trim())
       .filter(Boolean)
@@ -264,53 +402,53 @@
     onSectionChange(next);
   }
 
-  function changeLanguage(value) {
+  function changeLanguage(value: string): void {
     adminLanguageMenuOpen = false;
     clearAdminLanguageClickGuard();
     onLanguageChange(value, { section: "admin", adminSection: active });
   }
 
-  function currentRoutePathname() {
+  function currentRoutePathname(): string {
     if (typeof window === "undefined") return "/";
     return stripRoutePrefix(window.location.pathname, routePrefix);
   }
 
-  function readSectionFromPath() {
+  function readSectionFromPath(): AdminSectionId {
     if (typeof window === "undefined") return "stats";
     const match = currentRoutePathname().match(/^\/admin\/([a-z0-9_-]+)(?:\/.*)?$/i);
     return normalizeSection(match ? match[1].toLowerCase() : "stats");
   }
 
-  function readSettingsPathFromPath() {
+  function readSettingsPathFromPath(): SettingsPath {
     if (typeof window === "undefined") return [];
     return adminSettingsPathFromPath(currentRoutePathname());
   }
 
-  function readUserIdFromPath() {
+  function readUserIdFromPath(): number | null {
     if (typeof window === "undefined") return null;
     const match = currentRoutePathname().match(/^\/admin\/users\/(-?\d+)$/);
     return match ? Number(match[1]) : null;
   }
 
-  function readSupportTicketIdFromPath() {
+  function readSupportTicketIdFromPath(): number | null {
     if (typeof window === "undefined") return null;
     const match = currentRoutePathname().match(/^\/admin\/support\/(\d+)$/);
     return match ? Number(match[1]) : null;
   }
 
-  function readPaymentIdFromPath() {
+  function readPaymentIdFromPath(): number | null {
     if (typeof window === "undefined") return null;
     const match = currentRoutePathname().match(/^\/admin\/payments\/(\d+)$/);
     return match ? Number(match[1]) : null;
   }
 
-  function readPaymentUserIdFromPath() {
+  function readPaymentUserIdFromPath(): number | null {
     if (typeof window === "undefined") return null;
     const match = currentRoutePathname().match(/^\/admin\/payments\/users\/(-?\d+)$/);
     return match ? Number(match[1]) : null;
   }
 
-  function onPopState() {
+  function onPopState(): void {
     active = readSectionFromPath();
     settingsPath = active === "settings" ? readSettingsPathFromPath() : [];
     sidebarOpen = false;
@@ -318,39 +456,39 @@
     const paymentUserId = active === "payments" ? readPaymentUserIdFromPath() : null;
     const contextualUserId = paymentUserId || userId;
     if (contextualUserId) {
-      if (!$usersStore.openedUser || $usersStore.openedUser.user_id !== contextualUserId) {
-        usersStore.openUser(contextualUserId, {
+      if (!usersStore.openedUser || usersStore.openedUser.user_id !== contextualUserId) {
+        void usersStore.openUser(contextualUserId, {
           skipPush: true,
           pathContext: paymentUserId ? "payments" : "users",
         });
       }
-    } else if ($usersStore.openedUser) {
+    } else if (usersStore.openedUser) {
       usersStore.closeUser({ skipPush: true });
     }
     const paymentId = readPaymentIdFromPath();
     if (active === "payments" && paymentId) {
-      if (!$paymentsStore.openedPaymentId || $paymentsStore.openedPaymentId !== paymentId) {
-        paymentsStore.openPayment(paymentId, { skipPush: true });
+      if (!paymentsStore.openedPaymentId || paymentsStore.openedPaymentId !== paymentId) {
+        void paymentsStore.openPayment(paymentId, { skipPush: true });
       }
-    } else if ($paymentsStore.openedPaymentId) {
+    } else if (paymentsStore.openedPaymentId) {
       paymentsStore.closePayment({ skipPush: true });
     }
     const ticketId = readSupportTicketIdFromPath();
     if (active === "support" && ticketId) {
-      if (!$supportStore.openedTicketId || $supportStore.openedTicketId !== ticketId) {
-        supportStore.openTicket(ticketId, { skipPush: true });
+      if (!supportStore.openedTicketId || supportStore.openedTicketId !== ticketId) {
+        void supportStore.openTicket(ticketId, { skipPush: true });
       }
-    } else if (active === "support" && $supportStore.openedTicketId) {
+    } else if (active === "support" && supportStore.openedTicketId) {
       supportStore.closeTicketView({ skipPush: true });
     }
   }
 
-  function exportPayments() {
+  function exportPayments(): void {
     if (typeof window === "undefined") return;
-    window.open("/api/admin/payments/export.csv", "_blank", "noopener");
+    window.open(buildAdminPaymentsExportPath(), "_blank", "noopener");
   }
 
-  function openPaymentUserCard(userId) {
+  function openPaymentUserCard(userId: unknown): void {
     const uid = Number(userId);
     // Synthetic email-only users use negative user_id; still a valid admin target.
     if (!Number.isFinite(uid) || uid === 0) return;
@@ -365,10 +503,10 @@
     }
     usersStore.setActive(next);
     paymentsStore.closePayment({ skipPush: true });
-    usersStore.openUser(uid, { pathContext: "payments" });
+    void usersStore.openUser(uid, { pathContext: "payments" });
   }
 
-  function openLogsUserCard(userId) {
+  function openLogsUserCard(userId: unknown): void {
     const uid = Number(userId);
     if (!Number.isFinite(uid) || uid === 0) return;
     dismissedUserRouteKey = "";
@@ -381,25 +519,28 @@
       onSectionChange(next);
     }
     usersStore.setActive(next);
-    usersStore.openUser(uid, { skipPush: true, pathContext: "logs" });
+    void usersStore.openUser(uid, { skipPush: true });
   }
 
-  function openUserCard(userId) {
+  function openUserCard(userId: unknown): void {
     const uid = Number(userId);
     if (!Number.isFinite(uid) || uid === 0) return;
     dismissedUserRouteKey = "";
     sidebarOpen = false;
     usersStore.setActive(active);
-    usersStore.openUser(uid, { skipPush: true, pathContext: active });
+    void usersStore.openUser(uid, {
+      skipPush: true,
+      pathContext: active === "users" || active === "payments" ? active : undefined,
+    });
   }
 
-  function userRouteKey(section = active) {
+  function userRouteKey(section = active): string {
     if (section === "users" && initialUserId) return `users:${initialUserId}`;
     if (section === "payments" && initialPaymentUserId) return `payments:${initialPaymentUserId}`;
     return "";
   }
 
-  function closeUserCard() {
+  function closeUserCard(): void {
     dismissedUserRouteKey = userRouteKey();
     usersStore.closeUser({ skipPush: true });
     if (active === "users" || active === "payments") {
@@ -407,11 +548,11 @@
     }
   }
 
-  function resolvedAvatarUrl(user) {
+  function resolvedAvatarUrl(user: AdminUser | null | undefined): string {
     return userAvatarUrl(user) || (user?.email ? gravatarCache.gravatarUrl(user.email) : "");
   }
 
-  function panelStatusBadge(user) {
+  function panelStatusBadge(user: AdminUser | null | undefined): PanelStatusBadge {
     const status = String(user?.panel_status || "").toLowerCase();
     if (user?.is_banned) return { label: at("status_banned", {}, "Бан"), variant: "danger" };
     switch (status) {
@@ -439,12 +580,12 @@
     }
   }
 
-  let compactMql = null;
-  function onCompactChange(event) {
+  let compactMql: MediaQueryList | null = null;
+  function onCompactChange(event: MediaQueryListEvent | MediaQueryList): void {
     isCompact = Boolean(event?.matches);
   }
 
-  function clearAdminLanguageClickGuard() {
+  function clearAdminLanguageClickGuard(): void {
     if (adminLanguageClickGuardTimer) {
       window.clearTimeout(adminLanguageClickGuardTimer);
       adminLanguageClickGuardTimer = null;
@@ -457,7 +598,7 @@
     adminLanguageClickGuardArmed = false;
   }
 
-  function setAdminLanguageMenuOpen(open) {
+  function setAdminLanguageMenuOpen(open: boolean): void {
     adminLanguageMenuOpen = Boolean(open);
     clearAdminLanguageClickGuard();
     if (!isCompact) return;
@@ -477,7 +618,7 @@
     }, 260);
   }
 
-  function closeAdminLanguageFromGuard(event) {
+  function closeAdminLanguageFromGuard(event: MouseEvent | PointerEvent): void {
     event.preventDefault();
     event.stopPropagation();
     if (adminLanguageClickGuardArmed) setAdminLanguageMenuOpen(false);
@@ -486,8 +627,8 @@
   onMount(() => {
     adminQueryClient.mount();
     reduceMotion = readReduceMotion();
-    let motionMql = null;
-    const onMotionChange = () => {
+    let motionMql: MediaQueryList | null = null;
+    const onMotionChange = (): void => {
       reduceMotion = readReduceMotion();
     };
     if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
@@ -509,7 +650,7 @@
     // load, feature-gated sections stay hidden until the admin happens to
     // open a section that fetches settings on its own.
     void settingsStore.loadSettings();
-    const healthTimer =
+    const healthTimer: ReturnType<typeof window.setInterval> | null =
       typeof window !== "undefined"
         ? window.setInterval(() => void healthStore.loadHealth(), 5 * 60 * 1000)
         : null;
@@ -527,42 +668,48 @@
     };
   });
 
-  $: sectionFade = reduceMotion ? { duration: 0 } : { duration: 200 };
-  $: sidebarBackdropFade = reduceMotion ? { duration: 0 } : { duration: 180 };
+  const sectionFade = $derived(reduceMotion ? { duration: 0 } : { duration: 200 });
+  const sidebarBackdropFade = $derived(reduceMotion ? { duration: 0 } : { duration: 180 });
 
-  $: {
+  $effect(() => {
     const currentUserRouteKey = userRouteKey();
     if (currentUserRouteKey !== lastUserRouteKey) {
       if (currentUserRouteKey !== dismissedUserRouteKey) dismissedUserRouteKey = "";
       lastUserRouteKey = currentUserRouteKey;
     }
-  }
+  });
 
-  $: if (
-    active === "users" &&
-    initialUserId &&
-    dismissedUserRouteKey !== `users:${initialUserId}` &&
-    (!$usersStore.openedUser || $usersStore.openedUser.user_id !== initialUserId)
-  ) {
-    usersStore.openUser(initialUserId, { skipPush: true });
-  }
+  $effect(() => {
+    if (
+      active === "users" &&
+      initialUserId &&
+      dismissedUserRouteKey !== `users:${initialUserId}` &&
+      (!usersStore.openedUser || usersStore.openedUser.user_id !== initialUserId)
+    ) {
+      void usersStore.openUser(initialUserId, { skipPush: true });
+    }
+  });
 
-  $: if (
-    active === "payments" &&
-    initialPaymentId &&
-    (!$paymentsStore.openedPaymentId || $paymentsStore.openedPaymentId !== initialPaymentId)
-  ) {
-    paymentsStore.openPayment(initialPaymentId, { skipPush: true });
-  }
+  $effect(() => {
+    if (
+      active === "payments" &&
+      initialPaymentId &&
+      (!paymentsStore.openedPaymentId || paymentsStore.openedPaymentId !== initialPaymentId)
+    ) {
+      void paymentsStore.openPayment(initialPaymentId, { skipPush: true });
+    }
+  });
 
-  $: if (
-    active === "payments" &&
-    initialPaymentUserId &&
-    dismissedUserRouteKey !== `payments:${initialPaymentUserId}` &&
-    (!$usersStore.openedUser || $usersStore.openedUser.user_id !== initialPaymentUserId)
-  ) {
-    usersStore.openUser(initialPaymentUserId, { skipPush: true, pathContext: "payments" });
-  }
+  $effect(() => {
+    if (
+      active === "payments" &&
+      initialPaymentUserId &&
+      dismissedUserRouteKey !== `payments:${initialPaymentUserId}` &&
+      (!usersStore.openedUser || usersStore.openedUser.user_id !== initialPaymentUserId)
+    ) {
+      void usersStore.openUser(initialPaymentUserId, { skipPush: true, pathContext: "payments" });
+    }
+  });
 </script>
 
 <div
@@ -577,7 +724,7 @@
       aria-label={at("close_menu", {}, "Закрыть меню")}
       in:fade={sidebarBackdropFade}
       out:fade={sidebarBackdropFade}
-      on:click={() => (sidebarOpen = false)}
+      onclick={() => (sidebarOpen = false)}
     ></button>
   {/if}
   {#if adminLanguageGuardActive}
@@ -586,8 +733,8 @@
       class:language-select-guard--armed={adminLanguageClickGuardArmed}
       type="button"
       aria-label={t("wa_close", {}, at("close", {}, "Закрыть"))}
-      on:pointerdown={closeAdminLanguageFromGuard}
-      on:click={closeAdminLanguageFromGuard}
+      onpointerdown={closeAdminLanguageFromGuard}
+      onclick={closeAdminLanguageFromGuard}
     ></button>
   {/if}
   <aside class="admin-sidebar" aria-label={at("sidebar_navigation", {}, "Навигация админки")}>
@@ -611,18 +758,19 @@
       <div class="admin-sidebar-section-label">{group.label}</div>
       <nav class="admin-nav" aria-label={group.label}>
         {#each group.items as item}
+          {@const NavIcon = dynamicComponent(item.icon)}
           <button
             type="button"
             class="admin-nav-item"
             class:active={active === item.id}
-            on:click={() => setActive(item.id)}
+            onclick={() => setActive(item.id)}
           >
-            <svelte:component this={item.icon} size={16} />
+            <NavIcon size={16} />
             <span>{item.label}</span>
             <span>
-              {#if item.id === "support" && $supportStore.stats?.total_unread_admin}
+              {#if item.id === "support" && supportStore.stats?.total_unread_admin}
                 <AdminBadge variant="danger">
-                  <span class="numeric-badge-value">{$supportStore.stats.total_unread_admin}</span>
+                  <span class="numeric-badge-value">{supportStore.stats.total_unread_admin}</span>
                 </AdminBadge>
               {/if}
             </span>
@@ -659,13 +807,7 @@
               </span>
               <ChevronsUpDown size={14} />
             </Select.Trigger>
-            <Select.Content
-              class="language-select-content"
-              side="top"
-              align="start"
-              sideOffset={8}
-              trapFocus={false}
-            >
+            <Select.Content class="language-select-content" side="top" align="start" sideOffset={8}>
               <Select.Viewport class="language-select-viewport">
                 {#each languageOptions as option (option.value)}
                   <Select.Item
@@ -704,7 +846,7 @@
         <button
           type="button"
           class="admin-mobile-toggle"
-          on:click={() => (sidebarOpen = !sidebarOpen)}
+          onclick={() => (sidebarOpen = !sidebarOpen)}
           aria-label={at("menu", {}, "Меню")}
         >
           <Menu size={18} />
@@ -796,8 +938,8 @@
       {#key active}
         <div class="admin-section-stage" in:fade={sectionFade} out:fade={sectionFade}>
           {#if activeSection}
-            <svelte:component
-              this={activeSection.component}
+            {@const ActiveSectionComponent = dynamicComponent(activeSection.component)}
+            <ActiveSectionComponent
               {at}
               {brand}
               {currentLang}
@@ -818,7 +960,7 @@
               {appFaviconUseCustom}
               onOpenUserCard={openSectionUserCard}
               onOpenSettingsPath={openSettingsPath}
-              onSettingsPathChange={(path) => (settingsPath = path)}
+              onSettingsPathChange={(path: SettingsPath) => (settingsPath = path)}
               initialTicketId={readSupportTicketIdFromPath()}
             />
           {/if}

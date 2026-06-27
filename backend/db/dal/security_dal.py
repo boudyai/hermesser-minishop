@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, cast
 
 from sqlalchemy import case, delete, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -65,7 +65,7 @@ async def check_throttle(
     if not row or not row.locked_until:
         return ThrottleDecision(locked=False)
 
-    locked_until = _utc_now(row.locked_until)
+    locked_until = _utc_now(cast(Optional[datetime], row.locked_until))
     if locked_until <= now:
         return ThrottleDecision(locked=False)
 

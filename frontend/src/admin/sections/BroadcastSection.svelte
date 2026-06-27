@@ -1,31 +1,39 @@
-<script>
+<script lang="ts">
   import { Textarea } from "$components/ui/index.js";
   import { Send } from "$components/ui/icons.js";
   import { getContext, onMount } from "svelte";
   import { Label } from "$components/ui/primitives.js";
   import { AdminButton, AdminSelect } from "$components/patterns/admin/index.js";
+  import type { BroadcastStore } from "../../lib/admin/stores/broadcastStore";
 
-  export let at;
-  const broadcastStore = getContext("broadcastStore");
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
-  $: ({
-    broadcastTarget,
-    broadcastText,
-    broadcastBusy,
-    broadcastResult,
-    broadcastCounts,
-    broadcastCountsLoading,
-  } = $broadcastStore);
+  let { at }: { at: TranslateFn } = $props();
+  const broadcastStore = getContext<BroadcastStore>("broadcastStore");
+
+  const broadcastTarget = $derived(broadcastStore.broadcastTarget);
+  const broadcastText = $derived(broadcastStore.broadcastText);
+  const broadcastBusy = $derived(broadcastStore.broadcastBusy);
+  const broadcastResult = $derived(
+    broadcastStore.broadcastResult as { queued: number; failed: number } | null
+  );
+  const broadcastCounts = $derived(broadcastStore.broadcastCounts as Record<string, number> | null);
+  const broadcastCountsLoading = $derived(Boolean(broadcastStore.broadcastCountsLoading));
+  const handleTargetChange = (value: string) => {
+    broadcastStore.updateField({ broadcastTarget: value });
+  };
 
   const BROADCAST_TARGET_OPTIONS = broadcastStore.BROADCAST_TARGET_OPTIONS;
 
   // Append the resolved audience size to each option once counts are loaded.
-  $: targetOptions = BROADCAST_TARGET_OPTIONS.map((option) => {
-    const count = broadcastCounts?.[option.value];
-    if (count != null) return { ...option, label: `${option.label} (${count})` };
-    if (broadcastCountsLoading) return { ...option, label: `${option.label} (...)` };
-    return option;
-  });
+  const targetOptions = $derived(
+    BROADCAST_TARGET_OPTIONS.map((option) => {
+      const count = broadcastCounts?.[option.value];
+      if (count != null) return { ...option, label: `${option.label} (${count})` };
+      if (broadcastCountsLoading) return { ...option, label: `${option.label} (...)` };
+      return option;
+    })
+  );
 
   onMount(() => {
     broadcastStore.loadCounts();
@@ -45,7 +53,7 @@
           value={broadcastTarget}
           items={targetOptions}
           ariaLabel={at("broadcast_label_audience", {}, "Аудитория")}
-          onValueChange={(value) => broadcastStore.updateField({ broadcastTarget: value })}
+          onValueChange={handleTargetChange}
         />
       </Label.Root>
       <Label.Root class="admin-field-label">
@@ -53,9 +61,12 @@
         <small>{at("broadcast_hint_text", {}, "Поддерживается HTML-разметка Telegram")}</small>
         <Textarea
           class="admin-textarea"
-          rows="6"
+          rows={6}
           value={broadcastText}
-          on:input={(e) => broadcastStore.updateField({ broadcastText: e.target.value })}
+          oninput={(e) =>
+            broadcastStore.updateField({
+              broadcastText: (e.currentTarget as HTMLTextAreaElement).value,
+            })}
         />
       </Label.Root>
       <div style="display:flex; gap:8px; align-items:center;">

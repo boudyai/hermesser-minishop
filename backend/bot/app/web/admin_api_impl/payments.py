@@ -1,10 +1,53 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+import csv
+import io
+
+from aiohttp import web
+from sqlalchemy import select
+from sqlalchemy.orm import sessionmaker
+
+from bot.app.web.context import (
+    get_session_factory,
+)
+from bot.app.web.route_contracts import RouteContract, ok_envelope_for, register_contract
+from db.dal import payment_dal
+from db.models import Payment
+
+from .auth import (
+    _require_admin_user_id,
+)
+from .common import (
+    _error,
+    _ok,
+    _payment_user_display_label,
+)
+from .schemas import AdminPaymentsListOut, PaymentDetailOut, PaymentOut
+
+register_contract(
+    "admin_payments_list_route",
+    RouteContract(
+        response_schema=ok_envelope_for(AdminPaymentsListOut),
+        models=(AdminPaymentsListOut, PaymentOut),
+    ),
+)
+register_contract(
+    "admin_payment_detail_route",
+    RouteContract(
+        response_schema=ok_envelope_for(PaymentDetailOut, key="payment"),
+        models=(PaymentDetailOut,),
+    ),
+)
+register_contract(
+    "admin_payments_export_route",
+    RouteContract(
+        response_schema={"type": "string", "contentMediaType": "text/csv"},
+        response_content_type="text/csv",
+    ),
+)
 
 
 async def admin_payments_list_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
 
     page = max(0, int(request.query.get("page", 0) or 0))
     page_size = min(100, max(1, int(request.query.get("page_size", 25) or 25)))
@@ -24,7 +67,7 @@ async def admin_payments_list_route(request: web.Request) -> web.Response:
 
     return _ok(
         {
-            "payments": [_serialize_payment(p) for p in rows],
+            "payments": [PaymentOut.from_orm_payment(p).model_dump(mode="json") for p in rows],
             "page": page,
             "page_size": page_size,
             "total": int(total or 0),
@@ -34,7 +77,7 @@ async def admin_payments_list_route(request: web.Request) -> web.Response:
 
 async def admin_payment_detail_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
 
     try:
         payment_id = int(request.match_info["payment_id"])
@@ -46,24 +89,14 @@ async def admin_payment_detail_route(request: web.Request) -> web.Response:
         if not payment:
             return _error(404, "not_found", "Payment not found")
 
-        payload = _serialize_payment(payment)
-        payload.update(
-            {
-                "yookassa_payment_id": payment.yookassa_payment_id,
-                "idempotence_key": payment.idempotence_key,
-                "promo_code": (
-                    payment.promo_code_used.code if payment.promo_code_used is not None else None
-                ),
-                "updated_at": payment.updated_at.isoformat() if payment.updated_at else None,
-            }
-        )
+        payload = PaymentDetailOut.from_orm_payment_detail(payment).model_dump(mode="json")
 
     return _ok({"payment": payload})
 
 
 async def admin_payments_export_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
 
     async with async_session_factory() as session:
         from sqlalchemy.orm import selectinload

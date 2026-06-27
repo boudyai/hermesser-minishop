@@ -5,7 +5,6 @@ bot_database.sqlite3
 .env
 .env.*
 !.env.example
-docker-compose-dev.yml
 scratch_*.py
 scratch/
 *.local.*
@@ -67,6 +66,12 @@ tmp
 
 # Игнорировать кэш Python
 __pycache__/
+
+# Игнорировать артефакты тестов и покрытия
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
 
 # Игнорировать настройки IDE (если используешь, например, PyCharm или VSCode)
 .idea/

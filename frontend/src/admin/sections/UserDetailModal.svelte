@@ -1,73 +1,93 @@
-<script>
-  import { Label, Separator, Tabs } from "$components/ui/primitives.js";
-  import { Checkbox, Input, ScrollArea, Textarea } from "$components/ui/index.js";
+<script lang="ts">
+  import { Separator, Tabs } from "$components/ui/primitives.js";
   import Dialog from "$components/ui/dialog.svelte";
-  import {
-    AdminBadge,
-    AdminButton,
-    AdminEmptyState,
-    AdminPagination,
-    AdminSectionHeader,
-    AdminSelect,
-    AdminTable,
-    AdminTableSkeleton,
-    AdminTrafficCard,
-  } from "$components/patterns/admin/index.js";
-  import {
-    Copy,
-    Eye,
-    ExternalLink,
-    RefreshCw,
-    Send,
-    Plus,
-    Trash2,
-    UserMinus,
-    UserPlus,
-    UsersRound,
-  } from "$components/ui/icons.js";
+  import UserActionsTab from "./user-detail/UserActionsTab.svelte";
+  import UserDetailDialogs from "./user-detail/UserDetailDialogs.svelte";
+  import UserLogsTab from "./user-detail/UserLogsTab.svelte";
+  import { AdminBadge, AdminButton, AdminTrafficCard } from "$components/patterns/admin/index.js";
+  import { Copy, ExternalLink, UsersRound } from "$components/ui/icons.js";
   import { getContext } from "svelte";
-  import { createAdminDatatable, syncAdminDatatable } from "../../lib/admin/datatables.js";
+  import { TableHandler } from "@vincjo/datatables";
 
-  export let at;
-  export let fmtDate;
-  export let fmtMoney;
-  export let resolvedAvatarUrl;
-  export let userDisplayName;
-  export let userSecondaryName;
-  export let paymentStatusVariant;
-  export let trafficPercentValue;
-  export let trafficLeftLabel;
-  export let trafficOfLabel;
-  export let userInitials = () => "";
-  export let fmtDateShort = (v) => v;
-  export let userTelegramProfileLink = () => "";
-  export let userTelegramProfileLinkKind = () => "";
-  export let openTelegramProfileLink = () => false;
-  export let onClose = () => usersStore.closeUser();
+  import type { Tariff, TariffsStore } from "$lib/admin/stores/tariffsStore";
+  import type { AdminUser, UsersStore } from "$lib/admin/stores/usersStore";
+  import "./UserDetailModal.css";
 
-  let avatarPreviewOpen = false;
-  let avatarPreviewUrl = "";
-  let avatarPreviewName = "";
-  let tariffsLoadRequested = false;
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type MoneyFormatter = (value: unknown, currency?: string | null) => string;
+  type DateFormatter = (value: unknown) => string;
+  type BadgeVariant = "success" | "danger" | "warning" | "muted";
+  type ComponentCallback = (...args: never[]) => void;
+  type SelectOption = { value: string; label: string };
+  type HwidDraftState = { key: string; valid: boolean };
+  type UserLogRow = Record<string, unknown> & { log_id?: number | string };
 
-  function pretty(val) {
+  const usersStore = getContext<UsersStore>("usersStore");
+  const tariffsStore = getContext<TariffsStore>("tariffsStore");
+  const userLogsTable = new TableHandler<UserLogRow>();
+  const userReferralsTable = new TableHandler<AdminUser>();
+
+  let {
+    at,
+    fmtDate,
+    fmtMoney,
+    resolvedAvatarUrl,
+    userDisplayName,
+    userSecondaryName,
+    paymentStatusVariant,
+    trafficPercentValue,
+    trafficLeftLabel,
+    trafficOfLabel,
+    userInitials = () => "",
+    fmtDateShort = (value) => String(value ?? ""),
+    userTelegramProfileLink = () => "",
+    userTelegramProfileLinkKind = () => "",
+    openTelegramProfileLink = () => false,
+    onClose = () => usersStore.closeUser(),
+  }: {
+    at: TranslateFn;
+    fmtDate: DateFormatter;
+    fmtMoney: MoneyFormatter;
+    resolvedAvatarUrl: (user: AdminUser) => string;
+    userDisplayName: (user: AdminUser) => string;
+    userSecondaryName: (user: AdminUser) => string;
+    paymentStatusVariant: (status: unknown) => BadgeVariant;
+    trafficPercentValue: (left: unknown, total: unknown) => number;
+    trafficLeftLabel: (used: unknown, limit: unknown) => string;
+    trafficOfLabel: (used: unknown, limit: unknown) => string;
+    userInitials?: (user: AdminUser) => string;
+    fmtDateShort?: DateFormatter;
+    userTelegramProfileLink?: (user: AdminUser) => string;
+    userTelegramProfileLinkKind?: (user: AdminUser) => string;
+    openTelegramProfileLink?: (url: string) => boolean;
+    onClose?: () => void;
+  } = $props();
+
+  let avatarPreviewOpen = $state(false);
+  let avatarPreviewUrl = $state("");
+  let avatarPreviewName = $state("");
+  let tariffsLoadRequested = $state(false);
+
+  function pretty(val: unknown): string {
     if (val === true) return at("yes", {}, "Да");
     if (val === false) return at("no", {}, "Нет");
     return String(val ?? "—");
   }
 
-  function isTrialSubscription(sub) {
+  function isTrialSubscription(sub: Record<string, unknown> | null | undefined): boolean {
     return Boolean(sub?.is_trial || String(sub?.provider || "").toLowerCase() === "trial");
   }
 
-  function subscriptionDisplayLabel(sub) {
+  function subscriptionDisplayLabel(sub: Record<string, unknown> | null | undefined): string {
     if (!sub) return "—";
     if (isTrialSubscription(sub)) return at("user_subscription_trial", {}, "Триал");
-    if (sub.display_label) return sub.display_label;
-    return sub.tariff_name || sub.tariff_key || at("user_history_no_tariff", {}, "Без тарифа");
+    if (sub.display_label) return String(sub.display_label);
+    return sub.tariff_name || sub.tariff_key
+      ? String(sub.tariff_name || sub.tariff_key)
+      : at("user_history_no_tariff", {}, "Без тарифа");
   }
 
-  function trialSummaryText(trial) {
+  function trialSummaryText(trial: Record<string, unknown> | null | undefined): string {
     if (!trial?.used) return at("user_trial_not_used", {}, "Не брал");
     const date = trial.latest_activated_at || trial.first_activated_at;
     const base = date
@@ -76,7 +96,7 @@
     return trial.active ? `${base} · ${at("user_trial_active", {}, "активен")}` : base;
   }
 
-  function hwidLimitLabel(sub) {
+  function hwidLimitLabel(sub: Record<string, unknown> | null | undefined): string {
     const rawBase = sub?.hwid_device_limit;
     const hasBase = rawBase !== null && rawBase !== undefined;
     const extra = Math.max(0, Number(sub?.extra_hwid_devices || 0));
@@ -93,7 +113,7 @@
     return at("user_hwid_limit_count", { count: base }, `${base}`);
   }
 
-  function vpnLastConnectionLabel(detail) {
+  function vpnLastConnectionLabel(detail: Record<string, unknown> | null | undefined): string {
     const connectedAt = detail?.last_vpn_connected_at;
     const status = detail?.vpn_connection_status;
     if (connectedAt) return fmtDate(connectedAt);
@@ -104,23 +124,30 @@
     return "—";
   }
 
-  const usersStore = getContext("usersStore");
-  const tariffsStore = getContext("tariffsStore");
-  const userLogsTable = createAdminDatatable();
-  const userReferralsTable = createAdminDatatable();
+  const selectExtendTariff = ((value: string) =>
+    usersStore.updateState({ userExtendTariffKey: value })) as ComponentCallback;
+  const selectTariffAction = ((value: string) =>
+    usersStore.updateState({ userTariffActionKey: value })) as ComponentCallback;
+  const selectGrantTrafficKind = ((value: string) =>
+    usersStore.updateState({
+      grantTrafficKindDraft: value === "premium" ? "premium" : "regular",
+    })) as ComponentCallback;
 
-  function tariffLabel(tariff) {
+  function tariffLabel(tariff: Tariff | Record<string, unknown> | null | undefined): string {
+    const raw = (tariff || {}) as Record<string, unknown>;
+    const names =
+      raw.names && typeof raw.names === "object" ? (raw.names as Record<string, unknown>) : {};
     return (
-      tariff?.names?.ru ||
-      tariff?.names?.en ||
-      tariff?.name ||
-      tariff?.key ||
+      String(names.ru || "") ||
+      String(names.en || "") ||
+      String(raw.name || "") ||
+      String(raw.key || "") ||
       at("user_history_no_tariff", {}, "No tariff")
     );
   }
 
-  function uniqueTariffsByKey(tariffs) {
-    const seen = new Set();
+  function uniqueTariffsByKey(tariffs: Tariff[]): Tariff[] {
+    const seen = new Set<string>();
     return tariffs.filter((tariff) => {
       const key = String(tariff?.key || "");
       if (!key || seen.has(key)) return false;
@@ -129,7 +156,10 @@
     });
   }
 
-  function tariffSelectItem(tariff, { currentKey = "", markCurrent = false } = {}) {
+  function tariffSelectItem(
+    tariff: Tariff,
+    { currentKey = "", markCurrent = false }: { currentKey?: string; markCurrent?: boolean } = {}
+  ): SelectOption {
     const value = String(tariff?.key || "");
     const label = tariffLabel(tariff);
     return {
@@ -141,20 +171,20 @@
     };
   }
 
-  function gbDraftNumber(value) {
+  function gbDraftNumber(value: unknown): number {
     if (value === "" || value === null || value === undefined) return 0;
     const num = Number(value);
     return Number.isFinite(num) ? num : NaN;
   }
 
-  function sameGbDraft(left, right) {
+  function sameGbDraft(left: unknown, right: unknown): boolean {
     const leftNum = gbDraftNumber(left);
     const rightNum = gbDraftNumber(right);
     if (!Number.isFinite(leftNum) || !Number.isFinite(rightNum)) return false;
     return Math.abs(leftNum - rightNum) < 0.000001;
   }
 
-  function hwidDraftState(unlimited, value) {
+  function hwidDraftState(unlimited: unknown, value: unknown): HwidDraftState {
     if (unlimited) return { key: "unlimited", valid: true };
     if (value === "" || value === null || value === undefined) {
       return { key: "default", valid: true };
@@ -167,153 +197,184 @@
     return { key: `limit:${limit}`, valid: true };
   }
 
-  $: ({
-    openedUser,
-    openedUserDetail,
-    userDetailLoading,
-    userMessageDraft,
-    userActionBusy,
-    userDeleteOpen,
-    userBanConfirmOpen,
-    userMessageConfirmOpen,
-    userReferralsOpen,
-    userReferralsLoading,
-    userReferrals,
-    userReferralsTotal,
-    userReferralsPage,
-    userReferralsPageSize,
-    premiumUnlimitedDraft,
-    premiumUnlimitedBaseline,
-    premiumBonusGbDraft,
-    premiumBonusGbBaseline,
-    regularUnlimitedDraft,
-    regularUnlimitedBaseline,
-    regularBonusGbDraft,
-    regularBonusGbBaseline,
-    hwidUnlimitedDraft,
-    hwidUnlimitedBaseline,
-    hwidDeviceLimitDraft,
-    hwidDeviceLimitBaseline,
-    userDetailTab,
-    userTariffActionKey,
-    userTariffActionBaselineKey,
-    grantTrafficGbDraft,
-    userLogs,
-    userLogsTotal,
-    userLogsPage,
-    userLogsLoading,
-    userLogsLoaded,
-    userLogsPageSize,
-  } = $usersStore);
-  $: syncAdminDatatable(userLogsTable, userLogs);
-  $: syncAdminDatatable(userReferralsTable, userReferrals);
+  const usersState = $derived(usersStore);
+  const tariffsState = $derived(tariffsStore);
+  const openedUser = $derived(usersState.openedUser);
+  const openedUserDetail = $derived(usersState.openedUserDetail);
+  const userDetailLoading = $derived(usersState.userDetailLoading);
+  const userMessageDraft = $derived(usersState.userMessageDraft);
+  const userActionBusy = $derived(usersState.userActionBusy);
+  const userDeleteOpen = $derived(usersState.userDeleteOpen);
+  const userBanConfirmOpen = $derived(usersState.userBanConfirmOpen);
+  const userMessageConfirmOpen = $derived(usersState.userMessageConfirmOpen);
+  const userReferralsOpen = $derived(usersState.userReferralsOpen);
+  const userReferralsLoading = $derived(usersState.userReferralsLoading);
+  const userReferrals = $derived(usersState.userReferrals);
+  const userReferralsTotal = $derived(usersState.userReferralsTotal);
+  const userReferralsPage = $derived(usersState.userReferralsPage);
+  const userReferralsPageSize = $derived(usersState.userReferralsPageSize);
+  const premiumUnlimitedDraft = $derived(usersState.premiumUnlimitedDraft);
+  const premiumUnlimitedBaseline = $derived(usersState.premiumUnlimitedBaseline);
+  const premiumBonusGbDraft = $derived(usersState.premiumBonusGbDraft);
+  const premiumBonusGbBaseline = $derived(usersState.premiumBonusGbBaseline);
+  const regularUnlimitedDraft = $derived(usersState.regularUnlimitedDraft);
+  const regularUnlimitedBaseline = $derived(usersState.regularUnlimitedBaseline);
+  const regularBonusGbDraft = $derived(usersState.regularBonusGbDraft);
+  const regularBonusGbBaseline = $derived(usersState.regularBonusGbBaseline);
+  const hwidUnlimitedDraft = $derived(usersState.hwidUnlimitedDraft);
+  const hwidUnlimitedBaseline = $derived(usersState.hwidUnlimitedBaseline);
+  const hwidDeviceLimitDraft = $derived(usersState.hwidDeviceLimitDraft);
+  const hwidDeviceLimitBaseline = $derived(usersState.hwidDeviceLimitBaseline);
+  const userDetailTab = $derived(usersState.userDetailTab);
+  const userTariffActionKey = $derived(usersState.userTariffActionKey);
+  const userTariffActionBaselineKey = $derived(usersState.userTariffActionBaselineKey);
+  const grantTrafficGbDraft = $derived(usersState.grantTrafficGbDraft);
+  const userLogs = $derived(usersState.userLogs);
+  const userLogsTotal = $derived(usersState.userLogsTotal);
+  const userLogsPage = $derived(usersState.userLogsPage);
+  const userLogsLoading = $derived(usersState.userLogsLoading);
+  const userLogsLoaded = $derived(usersState.userLogsLoaded);
+  const userLogsPageSize = $derived(usersState.userLogsPageSize);
 
-  $: userLogsPageCount = Math.max(
-    1,
-    Math.ceil(Number(userLogsTotal || 0) / Number(userLogsPageSize || 20))
+  $effect(() => userLogsTable.setRows(userLogs as UserLogRow[]));
+  $effect(() => userReferralsTable.setRows(userReferrals));
+
+  const userLogsPageCount = $derived(
+    Math.max(1, Math.ceil(Number(userLogsTotal || 0) / Number(userLogsPageSize || 20)))
   );
-  $: userReferralsPageCount = Math.max(
-    1,
-    Math.ceil(Number(userReferralsTotal || 0) / Number(userReferralsPageSize || 25))
+  const userReferralsPageCount = $derived(
+    Math.max(1, Math.ceil(Number(userReferralsTotal || 0) / Number(userReferralsPageSize || 25)))
   );
 
-  $: openedUserAvatarUrl = openedUser ? resolvedAvatarUrl(openedUser) : "";
-  $: referralInviter = openedUserDetail?.referral?.inviter || null;
-  $: referralInviteesTotal = Number(openedUserDetail?.referral?.invitees_total || 0);
-  $: openedUserTelegramProfileLink = openedUser ? userTelegramProfileLink(openedUser) : "";
-  $: openedUserTelegramProfileLinkKind = openedUser ? userTelegramProfileLinkKind(openedUser) : "";
-  $: openedUserTelegramProfileHint =
+  const openedUserAvatarUrl = $derived(openedUser ? resolvedAvatarUrl(openedUser) : "");
+  const referralInviter = $derived(openedUserDetail?.referral?.inviter || null);
+  const referralInviteesTotal = $derived(Number(openedUserDetail?.referral?.invitees_total || 0));
+  const openedUserTelegramProfileLink = $derived(
+    openedUser ? userTelegramProfileLink(openedUser) : ""
+  );
+  const openedUserTelegramProfileLinkKind = $derived(
+    openedUser ? userTelegramProfileLinkKind(openedUser) : ""
+  );
+  const openedUserTelegramProfileHint = $derived(
     openedUserTelegramProfileLinkKind === "id"
       ? at("user_open_tg_profile_id_hint", {}, "Бот отправит кнопку профиля в Telegram")
-      : at("user_open_tg_profile_hint", {}, "Открыть профиль Telegram");
+      : at("user_open_tg_profile_hint", {}, "Открыть профиль Telegram")
+  );
 
-  $: tariffCatalogItems = $tariffsStore.tariffsCatalog?.tariffs || [];
-  $: enabledTariffs = tariffCatalogItems.filter((tariff) => tariff?.enabled !== false);
-  $: currentSubscriptionTariffKey = String(openedUserDetail?.active_subscription?.tariff_key || "");
-  $: currentSubscriptionTariff =
+  const tariffCatalogItems = $derived((tariffsState.tariffsCatalog?.tariffs || []) as Tariff[]);
+  const enabledTariffs = $derived(tariffCatalogItems.filter((tariff) => tariff?.enabled !== false));
+  const currentSubscriptionTariffKey = $derived(
+    String(openedUserDetail?.active_subscription?.tariff_key || "")
+  );
+  const currentSubscriptionTariff = $derived(
     tariffCatalogItems.find(
       (tariff) => String(tariff?.key || "") === currentSubscriptionTariffKey
-    ) || null;
-  $: periodTariffs = enabledTariffs.filter((tariff) => tariff?.billing_model === "period");
-  $: periodTariffItems = periodTariffs.map((tariff) => tariffSelectItem(tariff));
-  $: extendPeriodTariffs = uniqueTariffsByKey([
-    ...periodTariffs,
-    ...(currentSubscriptionTariff?.billing_model === "period" ? [currentSubscriptionTariff] : []),
-  ]);
-  $: extendTariffItems = extendPeriodTariffs.map((tariff) =>
-    tariffSelectItem(tariff, { currentKey: currentSubscriptionTariffKey, markCurrent: true })
+    ) || null
   );
-  $: extendTariffRequired = extendTariffItems.length > 1;
-  $: userExtendTariffValid =
-    !$usersStore.userExtendTariffKey ||
-    !extendTariffItems.length ||
-    extendTariffItems.some((item) => item.value === $usersStore.userExtendTariffKey);
-  $: userExtendDaysValid = Number($usersStore.userExtendDays) > 0;
-  $: extendTariffsLoading = Boolean(
-    openedUser && $tariffsStore.tariffsLoading && !extendTariffItems.length
+  const periodTariffs = $derived(
+    enabledTariffs.filter((tariff) => tariff?.billing_model === "period")
   );
-  $: tariffActionDirty =
-    Boolean(userTariffActionKey) && userTariffActionKey !== userTariffActionBaselineKey;
-  $: premiumOverrideDraftValid = gbDraftNumber(premiumBonusGbDraft) >= 0;
-  $: premiumOverrideDirty =
+  const periodTariffItems = $derived(periodTariffs.map((tariff) => tariffSelectItem(tariff)));
+  const extendPeriodTariffs = $derived(
+    uniqueTariffsByKey([
+      ...periodTariffs,
+      ...(currentSubscriptionTariff?.billing_model === "period" ? [currentSubscriptionTariff] : []),
+    ])
+  );
+  const extendTariffItems = $derived(
+    extendPeriodTariffs.map((tariff) =>
+      tariffSelectItem(tariff, { currentKey: currentSubscriptionTariffKey, markCurrent: true })
+    )
+  );
+  const extendTariffRequired = $derived(extendTariffItems.length > 1);
+  const userExtendTariffValid = $derived(
+    !usersState.userExtendTariffKey ||
+      !extendTariffItems.length ||
+      extendTariffItems.some((item) => item.value === usersState.userExtendTariffKey)
+  );
+  const userExtendDaysValid = $derived(Number(usersState.userExtendDays) > 0);
+  const extendTariffsLoading = $derived(
+    Boolean(openedUser && tariffsState.tariffsLoading && !extendTariffItems.length)
+  );
+  const tariffActionDirty = $derived(
+    Boolean(userTariffActionKey) && userTariffActionKey !== userTariffActionBaselineKey
+  );
+  const premiumOverrideDraftValid = $derived(gbDraftNumber(premiumBonusGbDraft) >= 0);
+  const premiumOverrideDirty = $derived(
     Boolean(premiumUnlimitedDraft) !== Boolean(premiumUnlimitedBaseline) ||
-    !sameGbDraft(premiumBonusGbDraft, premiumBonusGbBaseline);
-  $: regularOverrideDraftValid = gbDraftNumber(regularBonusGbDraft) >= 0;
-  $: regularOverrideDirty =
+      !sameGbDraft(premiumBonusGbDraft, premiumBonusGbBaseline)
+  );
+  const regularOverrideDraftValid = $derived(gbDraftNumber(regularBonusGbDraft) >= 0);
+  const regularOverrideDirty = $derived(
     Boolean(regularUnlimitedDraft) !== Boolean(regularUnlimitedBaseline) ||
-    !sameGbDraft(regularBonusGbDraft, regularBonusGbBaseline);
-  $: hwidDraft = hwidDraftState(hwidUnlimitedDraft, hwidDeviceLimitDraft);
-  $: hwidBaseline = hwidDraftState(hwidUnlimitedBaseline, hwidDeviceLimitBaseline);
-  $: hwidLimitDraftValid = hwidDraft.valid;
-  $: hwidLimitDirty = hwidDraft.key !== hwidBaseline.key;
-  $: grantTrafficGbValid =
+      !sameGbDraft(regularBonusGbDraft, regularBonusGbBaseline)
+  );
+  const hwidDraft = $derived(hwidDraftState(hwidUnlimitedDraft, hwidDeviceLimitDraft));
+  const hwidBaseline = $derived(hwidDraftState(hwidUnlimitedBaseline, hwidDeviceLimitBaseline));
+  const hwidLimitDraftValid = $derived(hwidDraft.valid);
+  const hwidLimitDirty = $derived(hwidDraft.key !== hwidBaseline.key);
+  const grantTrafficGbValid = $derived(
     grantTrafficGbDraft !== "" &&
-    grantTrafficGbDraft !== null &&
-    grantTrafficGbDraft !== undefined &&
-    gbDraftNumber(grantTrafficGbDraft) > 0;
-  $: currentSubscriptionTariffLabel =
+      grantTrafficGbDraft !== null &&
+      grantTrafficGbDraft !== undefined &&
+      gbDraftNumber(grantTrafficGbDraft) > 0
+  );
+  const currentSubscriptionTariffLabel = $derived(
     (currentSubscriptionTariff ? tariffLabel(currentSubscriptionTariff) : "") ||
-    periodTariffItems.find((item) => item.value === currentSubscriptionTariffKey)?.label ||
-    currentSubscriptionTariffKey ||
-    at("user_tariff_none", {}, "No tariff");
+      periodTariffItems.find((item) => item.value === currentSubscriptionTariffKey)?.label ||
+      currentSubscriptionTariffKey ||
+      at("user_tariff_none", {}, "No tariff")
+  );
 
-  $: if (
-    openedUser &&
-    !tariffsLoadRequested &&
-    !$tariffsStore.tariffsLoading &&
-    enabledTariffs.length === 0
-  ) {
-    tariffsLoadRequested = true;
-    tariffsStore.loadTariffs();
-  }
+  $effect(() => {
+    if (
+      openedUser &&
+      !tariffsLoadRequested &&
+      !tariffsState.tariffsLoading &&
+      enabledTariffs.length === 0
+    ) {
+      tariffsLoadRequested = true;
+      tariffsStore.loadTariffs();
+    }
+  });
 
-  $: if (openedUser && extendTariffItems.length === 1 && !$usersStore.userExtendTariffKey) {
-    usersStore.updateState({ userExtendTariffKey: extendTariffItems[0].value });
-  }
+  $effect(() => {
+    if (openedUser && extendTariffItems.length === 1 && !usersState.userExtendTariffKey) {
+      usersStore.updateState({ userExtendTariffKey: extendTariffItems[0].value });
+    }
+  });
 
-  $: if (
-    openedUser &&
-    extendTariffItems.length > 0 &&
-    $usersStore.userExtendTariffKey &&
-    !userExtendTariffValid
-  ) {
-    usersStore.updateState({ userExtendTariffKey: "" });
-  }
+  $effect(() => {
+    if (
+      openedUser &&
+      extendTariffItems.length > 0 &&
+      usersState.userExtendTariffKey &&
+      !userExtendTariffValid
+    ) {
+      usersStore.updateState({ userExtendTariffKey: "" });
+    }
+  });
 
-  $: if (openedUser && currentSubscriptionTariffKey && !$usersStore.userTariffActionKey) {
-    usersStore.updateState({ userTariffActionKey: currentSubscriptionTariffKey });
-  }
+  $effect(() => {
+    if (openedUser && currentSubscriptionTariffKey && !usersState.userTariffActionKey) {
+      usersStore.updateState({ userTariffActionKey: currentSubscriptionTariffKey });
+    }
+  });
 
-  $: if (openedUser && userDetailTab === "logs" && !userLogsLoading && !userLogsLoaded) {
-    usersStore.loadUserLogs(0);
-  }
+  $effect(() => {
+    if (openedUser && userDetailTab === "logs" && !userLogsLoading && !userLogsLoaded) {
+      usersStore.loadUserLogs(0);
+    }
+  });
 
-  $: if (!openedUser) {
-    avatarPreviewOpen = false;
-    avatarPreviewUrl = "";
-    avatarPreviewName = "";
-    tariffsLoadRequested = false;
-  }
+  $effect(() => {
+    if (!openedUser) {
+      avatarPreviewOpen = false;
+      avatarPreviewUrl = "";
+      avatarPreviewName = "";
+      tariffsLoadRequested = false;
+    }
+  });
 
   function openAvatarPreview() {
     if (!openedUserAvatarUrl || !openedUser) return;
@@ -341,10 +402,10 @@
     openTelegramProfileLink(openedUserTelegramProfileLink);
   }
 
-  function openRelatedUser(user) {
+  function openRelatedUser(user: AdminUser | null | undefined): void {
     if (!user?.user_id) return;
     usersStore.closeUserReferrals();
-    usersStore.openUser(user);
+    void usersStore.openUser(user);
   }
 </script>
 
@@ -589,7 +650,7 @@
 
         <main class="admin-user-main">
           <Tabs.Root
-            bind:value={$usersStore.userDetailTab}
+            bind:value={usersStore.userDetailTab}
             class="admin-tabs-root admin-user-tabs-root"
           >
             <Tabs.List class="admin-tabs-list">
@@ -821,699 +882,49 @@
               {/if}
             </Tabs.Content>
 
-            <Tabs.Content value="logs" class="admin-tabs-content admin-user-logs-tab">
-              <div class="admin-user-logs-head">
-                <div class="admin-subsection-title">
-                  {at("user_logs_section_title", {}, "Логи пользователя")}
-                </div>
-                <div class="admin-user-logs-meta">
-                  <span class="admin-muted">{at("total", {}, "Всего")}</span>
-                  <strong>{userLogsTotal}</strong>
-                  <AdminButton
-                    size="sm"
-                    variant="ghost"
-                    disabled={userLogsLoading}
-                    onclick={() => usersStore.loadUserLogs(userLogsPage)}
-                    title={at("refresh", {}, "Обновить")}
-                  >
-                    <RefreshCw size={14} />
-                    {at("refresh", {}, "Обновить")}
-                  </AdminButton>
-                </div>
-              </div>
+            <UserLogsTab
+              {at}
+              {fmtDate}
+              {openedUser}
+              userLogsRows={userLogsTable.rows}
+              {userLogsTotal}
+              {userLogsPage}
+              {userLogsPageCount}
+              {userLogsPageSize}
+              {userLogsLoading}
+              {userLogsLoaded}
+            />
 
-              <ScrollArea class="admin-user-logs-wrap" maxHeight="min(52vh, 460px)">
-                {#if userLogsLoading}
-                  <AdminTableSkeleton
-                    headers={[
-                      at("date", {}, "Дата"),
-                      at("event", {}, "Событие"),
-                      at("content", {}, "Контент"),
-                    ]}
-                    rows={6}
-                    widths={["140px", "140px", "60%"]}
-                  />
-                {:else if !userLogsTable.rows.length}
-                  <AdminEmptyState tone="card">
-                    <span class="admin-muted">{at("logs_empty", {}, "Записей нет")}</span>
-                  </AdminEmptyState>
-                {:else}
-                  <AdminTable>
-                    <thead>
-                      <tr>
-                        <th>{at("date", {}, "Дата")}</th>
-                        <th>{at("event", {}, "Событие")}</th>
-                        <th>{at("content", {}, "Контент")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {#each userLogsTable.rows as entry (entry.log_id)}
-                        <tr>
-                          <td data-label={at("date", {}, "Дата")}>{fmtDate(entry.timestamp)}</td>
-                          <td class="admin-cell-mono" data-label={at("event", {}, "Событие")}>
-                            <span class="admin-user-log-event">
-                              <span>{entry.event_type || "—"}</span>
-                              {#if entry.is_admin_event}
-                                <AdminBadge variant="warning"
-                                  >{at("user_logs_admin_event", {}, "Админ")}</AdminBadge
-                                >
-                              {/if}
-                              {#if entry.target_user_id && entry.target_user_id !== openedUser?.user_id}
-                                <small class="admin-muted">→ {entry.target_user_id}</small>
-                              {/if}
-                            </span>
-                          </td>
-                          <td
-                            class="admin-cell-wrap admin-user-log-content"
-                            data-label={at("content", {}, "Контент")}
-                          >
-                            {entry.content || ""}
-                          </td>
-                        </tr>
-                      {/each}
-                    </tbody>
-                  </AdminTable>
-                {/if}
-              </ScrollArea>
-
-              {#if userLogsLoaded && userLogsTotal > userLogsPageSize}
-                <AdminPagination
-                  page={userLogsPage}
-                  pageCount={userLogsPageCount}
-                  total={userLogsTotal}
-                  pageLabel={at("page_short", {}, "Стр.")}
-                  ofLabel={at("pagination_of", {}, "из")}
-                  totalLabel={at("total", {}, "Всего")}
-                  jumpLabel={at("page_short", {}, "Стр.")}
-                  jumpAriaLabel={at("pagination_jump_aria", {}, "Перейти к странице")}
-                  goLabel={at("pagination_go", {}, "Перейти")}
-                  prevLabel={at("back", {}, "Назад")}
-                  nextLabel={at("next", {}, "Далее")}
-                  disabled={userLogsLoading}
-                  onPageChange={(page) => usersStore.setUserLogsPage(page)}
-                />
-              {/if}
-            </Tabs.Content>
-
-            <Tabs.Content value="actions" class="admin-tabs-content admin-actions-tab">
-              <div class="admin-user-quick-actions">
-                <section class="admin-user-action-sheet admin-user-action-sheet--extend">
-                  <AdminSectionHeader title={at("user_label_extend", {}, "Продлить подписку")} />
-                  <div class="admin-user-action-sheet-body admin-user-extend-stack">
-                    <div class="admin-user-extend-grid">
-                      <Label.Root
-                        class="admin-field-label admin-extend-field admin-user-extend-days-field"
-                      >
-                        <span>{at("user_label_extend_days", {}, "Дней")}</span>
-                        <Input
-                          class="input"
-                          type="number"
-                          min="1"
-                          max="3650"
-                          step="1"
-                          bind:value={$usersStore.userExtendDays}
-                          aria-label={at("user_label_extend_days", {}, "Дней")}
-                        />
-                      </Label.Root>
-                      {#if extendTariffItems.length}
-                        <Label.Root
-                          class="admin-field-label admin-extend-field admin-user-extend-tariff-field"
-                        >
-                          <span>{at("user_tariff_select_label", {}, "Tariff")}</span>
-                          <AdminSelect
-                            class="admin-user-tariff-select admin-user-extend-tariff-select"
-                            value={$usersStore.userExtendTariffKey}
-                            items={extendTariffItems}
-                            placeholder={at("user_tariff_select_placeholder", {}, "Select tariff")}
-                            ariaLabel={at("user_tariff_select_label", {}, "Tariff")}
-                            disabled={userActionBusy || extendTariffItems.length === 1}
-                            onValueChange={(value) =>
-                              usersStore.updateState({ userExtendTariffKey: value })}
-                          />
-                        </Label.Root>
-                      {/if}
-                      <AdminButton
-                        class="admin-user-extend-submit"
-                        variant="primary"
-                        onclick={usersStore.extendUser}
-                        disabled={userActionBusy ||
-                          extendTariffsLoading ||
-                          !userExtendDaysValid ||
-                          !userExtendTariffValid ||
-                          (extendTariffRequired && !$usersStore.userExtendTariffKey)}
-                      >
-                        <Plus size={14} />
-                        {at("user_btn_extend", {}, "Продлить")}
-                      </AdminButton>
-                    </div>
-                    {#if extendTariffItems.length && !userExtendTariffValid}
-                      <small class="admin-muted"
-                        >{at(
-                          "user_extend_tariff_required",
-                          {},
-                          "Select a tariff before adding days"
-                        )}</small
-                      >
-                    {:else if extendTariffRequired && !$usersStore.userExtendTariffKey}
-                      <small class="admin-muted"
-                        >{at(
-                          "user_extend_tariff_required",
-                          {},
-                          "Select a tariff before adding days"
-                        )}</small
-                      >
-                    {/if}
-                    {#if Number(openedUserDetail?.active_subscription?.extra_hwid_devices || 0) > 0}
-                      <label class="admin-extend-hwid-option">
-                        <Checkbox
-                          bind:checked={$usersStore.userExtendHwidDevices}
-                          disabled={userActionBusy}
-                          ariaLabel={at(
-                            "user_extend_hwid_devices_aria",
-                            {},
-                            "Продлить докупленные HWID-устройства"
-                          )}
-                        />
-                        <span>
-                          <strong>
-                            {at(
-                              "user_extend_hwid_devices",
-                              {
-                                count: Number(
-                                  openedUserDetail.active_subscription.extra_hwid_devices || 0
-                                ),
-                              },
-                              `Продлить также +${Number(
-                                openedUserDetail.active_subscription.extra_hwid_devices || 0
-                              )} HWID-устройств`
-                            )}
-                          </strong>
-                          <small>
-                            {at(
-                              "user_extend_hwid_devices_hint",
-                              {},
-                              "Срок действующих докупок увеличится на те же дни."
-                            )}
-                          </small>
-                        </span>
-                      </label>
-                    {/if}
-                  </div>
-                </section>
-                <AdminButton
-                  class="admin-reset-trial-btn"
-                  onclick={usersStore.resetTrialUser}
-                  disabled={userActionBusy}
-                >
-                  <RefreshCw size={14} />
-                  {at("user_btn_reset_trial", {}, "Сбросить триал")}
-                </AdminButton>
-              </div>
-
-              {#if openedUserDetail?.active_subscription}
-                {#if periodTariffItems.length}
-                  <section
-                    class="admin-user-action-sheet admin-user-action-sheet--tariff"
-                    class:is-dirty={tariffActionDirty}
-                  >
-                    <AdminSectionHeader
-                      title={at("user_tariff_card_title", {}, "Tariff")}
-                      description={at(
-                        "user_tariff_card_hint",
-                        {},
-                        "Change the user's tariff and sync panel squads immediately."
-                      )}
-                    />
-                    <div class="admin-user-action-sheet-body admin-user-tariff-stack">
-                      <Label.Root class="admin-field-label admin-extend-field">
-                        <span>{at("user_tariff_select_label", {}, "Tariff")}</span>
-                        <AdminSelect
-                          class="admin-user-tariff-select"
-                          value={$usersStore.userTariffActionKey}
-                          items={periodTariffItems}
-                          placeholder={at("user_tariff_select_placeholder", {}, "Select tariff")}
-                          ariaLabel={at("user_tariff_select_label", {}, "Tariff")}
-                          disabled={userActionBusy}
-                          onValueChange={(value) =>
-                            usersStore.updateState({ userTariffActionKey: value })}
-                        />
-                      </Label.Root>
-                    </div>
-                    <div class="admin-user-action-sheet-footer admin-override-card-footer">
-                      <div class="admin-override-card-toolbar">
-                        <span class="admin-meta-truncate">
-                          {at(
-                            "user_tariff_current",
-                            { tariff: currentSubscriptionTariffLabel },
-                            `Current: ${currentSubscriptionTariffLabel}`
-                          )}
-                        </span>
-                        <div class="admin-action-save-controls">
-                          {#if tariffActionDirty}
-                            <AdminBadge variant="warning"
-                              >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
-                            >
-                          {/if}
-                          <AdminButton
-                            variant="primary"
-                            onclick={usersStore.changeUserTariff}
-                            disabled={userActionBusy || !userTariffActionKey || !tariffActionDirty}
-                          >
-                            <RefreshCw size={14} />
-                            {at("user_tariff_save", {}, "Save tariff")}
-                          </AdminButton>
-                        </div>
-                      </div>
-                      {#if tariffActionDirty}
-                        <div class="admin-override-status-lines">
-                          <span class="admin-unsaved-hint">
-                            {at("user_action_unsaved_hint", {}, "Есть несохранённые изменения")}
-                          </span>
-                        </div>
-                      {/if}
-                    </div>
-                  </section>
-                {/if}
-                <section
-                  class="admin-user-action-sheet admin-user-action-sheet--premium-override"
-                  class:is-dirty={premiumOverrideDirty}
-                >
-                  <AdminSectionHeader
-                    title={at("user_premium_override_card_title", {}, "Премиум-трафик")}
-                    description={at(
-                      "user_premium_override_card_hint",
-                      {},
-                      "Безлимит и дополнительный объём для премиум-сквадов поверх тарифа."
-                    )}
-                  />
-                  <div class="admin-user-action-sheet-body admin-user-override-stack">
-                    <Label.Root class="admin-field-label admin-extend-field">
-                      <span>{at("user_premium_override_bonus", {}, "Доп. премиум-трафик, GB")}</span
-                      >
-                      <small>{at("user_premium_override_bonus_hint", {}, "")}</small>
-                      <Input
-                        class="input"
-                        type="number"
-                        min="0"
-                        step="1"
-                        placeholder="0"
-                        disabled={premiumUnlimitedDraft}
-                        aria-label={at(
-                          "user_premium_override_bonus",
-                          {},
-                          "Доп. премиум-трафик, GB"
-                        )}
-                        bind:value={$usersStore.premiumBonusGbDraft}
-                      />
-                    </Label.Root>
-                  </div>
-                  <div class="admin-user-action-sheet-footer admin-override-card-footer">
-                    <div class="admin-override-card-toolbar">
-                      <label class="admin-override-unlimited-label">
-                        <Checkbox
-                          bind:checked={$usersStore.premiumUnlimitedDraft}
-                          aria-label={at("user_override_unlimited_short", {}, "Безлимит")}
-                        />
-                        <span>{at("user_override_unlimited_short", {}, "Безлимит")}</span>
-                      </label>
-                      <div class="admin-action-save-controls">
-                        {#if premiumOverrideDirty}
-                          <AdminBadge variant="warning"
-                            >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
-                          >
-                        {/if}
-                        <AdminButton
-                          variant="primary"
-                          onclick={usersStore.savePremiumTrafficOverride}
-                          disabled={userActionBusy ||
-                            !premiumOverrideDirty ||
-                            !premiumOverrideDraftValid}
-                        >
-                          {at("user_premium_override_save", {}, "Сохранить")}
-                        </AdminButton>
-                      </div>
-                    </div>
-                    <div class="admin-override-status-lines">
-                      {#if premiumOverrideDirty}
-                        <span class="admin-unsaved-hint">
-                          {at("user_action_unsaved_hint", {}, "Есть несохранённые изменения")}
-                        </span>
-                      {/if}
-                      {#if !premiumOverrideDraftValid}
-                        <span class="admin-invalid-hint">
-                          {at("premium_override_invalid_bonus", {}, "Некорректное значение GB")}
-                        </span>
-                      {/if}
-                      {#if openedUserDetail.active_subscription.premium_unlimited_override}
-                        <span class="admin-meta-truncate">
-                          {at("user_premium_override_status_unlimited", {}, "Сейчас: безлимит")}
-                        </span>
-                      {:else if Number(openedUserDetail.active_subscription.premium_bonus_bytes || 0) > 0}
-                        <span class="admin-meta-truncate">
-                          {at(
-                            "user_premium_override_status_bonus",
-                            {
-                              gb: +(
-                                Number(openedUserDetail.active_subscription.premium_bonus_bytes) /
-                                1024 ** 3
-                              ).toFixed(2),
-                            },
-                            `Премиум сейчас: +${+(Number(openedUserDetail.active_subscription.premium_bonus_bytes) / 1024 ** 3).toFixed(2)} GB`
-                          )}
-                        </span>
-                      {:else}
-                        <span class="admin-muted"
-                          >{at(
-                            "user_premium_override_status_none",
-                            {},
-                            "Премиум-оверрайд не задан"
-                          )}</span
-                        >
-                      {/if}
-                    </div>
-                  </div>
-                </section>
-
-                <section
-                  class="admin-user-action-sheet admin-user-action-sheet--regular-override"
-                  class:is-dirty={regularOverrideDirty}
-                >
-                  <AdminSectionHeader
-                    title={at("user_regular_override_card_title", {}, "Основной трафик")}
-                    description={at(
-                      "user_regular_override_card_hint",
-                      {},
-                      "Безлимит и постоянный бонус к лимиту основного трафика."
-                    )}
-                  />
-                  <div class="admin-user-action-sheet-body admin-user-override-stack">
-                    <Label.Root class="admin-field-label admin-extend-field">
-                      <span
-                        >{at("user_regular_override_bonus", {}, "Доп. основной трафик, GB")}</span
-                      >
-                      <small>{at("user_regular_override_bonus_hint", {}, "")}</small>
-                      <Input
-                        class="input"
-                        type="number"
-                        min="0"
-                        step="1"
-                        placeholder="0"
-                        disabled={regularUnlimitedDraft}
-                        aria-label={at(
-                          "user_regular_override_bonus",
-                          {},
-                          "Доп. основной трафик, GB"
-                        )}
-                        bind:value={$usersStore.regularBonusGbDraft}
-                      />
-                    </Label.Root>
-                  </div>
-                  <div class="admin-user-action-sheet-footer admin-override-card-footer">
-                    <div class="admin-override-card-toolbar">
-                      <label class="admin-override-unlimited-label">
-                        <Checkbox
-                          bind:checked={$usersStore.regularUnlimitedDraft}
-                          aria-label={at("user_override_unlimited_short", {}, "Безлимит")}
-                        />
-                        <span>{at("user_override_unlimited_short", {}, "Безлимит")}</span>
-                      </label>
-                      <div class="admin-action-save-controls">
-                        {#if regularOverrideDirty}
-                          <AdminBadge variant="warning"
-                            >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
-                          >
-                        {/if}
-                        <AdminButton
-                          variant="primary"
-                          onclick={usersStore.saveRegularTrafficOverride}
-                          disabled={userActionBusy ||
-                            !regularOverrideDirty ||
-                            !regularOverrideDraftValid}
-                        >
-                          {at("user_regular_override_save", {}, "Сохранить")}
-                        </AdminButton>
-                      </div>
-                    </div>
-                    <div class="admin-override-status-lines">
-                      {#if regularOverrideDirty}
-                        <span class="admin-unsaved-hint">
-                          {at("user_action_unsaved_hint", {}, "Есть несохранённые изменения")}
-                        </span>
-                      {/if}
-                      {#if !regularOverrideDraftValid}
-                        <span class="admin-invalid-hint">
-                          {at(
-                            "regular_override_invalid_bonus",
-                            {},
-                            "Некорректное значение GB для основного трафика"
-                          )}
-                        </span>
-                      {/if}
-                      {#if openedUserDetail.active_subscription.regular_unlimited_override}
-                        <span class="admin-meta-truncate">
-                          {at("user_regular_override_status_unlimited", {}, "Сейчас: безлимит")}
-                        </span>
-                      {:else if Number(openedUserDetail.active_subscription.regular_bonus_bytes || 0) > 0}
-                        <span class="admin-meta-truncate">
-                          {at(
-                            "user_regular_override_status_bonus",
-                            {
-                              gb: +(
-                                Number(openedUserDetail.active_subscription.regular_bonus_bytes) /
-                                1024 ** 3
-                              ).toFixed(2),
-                            },
-                            `Основной сейчас: +${+(Number(openedUserDetail.active_subscription.regular_bonus_bytes) / 1024 ** 3).toFixed(2)} GB`
-                          )}
-                        </span>
-                      {:else}
-                        <span class="admin-muted"
-                          >{at(
-                            "user_regular_override_status_none",
-                            {},
-                            "Бонус основного трафика не задан"
-                          )}</span
-                        >
-                      {/if}
-                    </div>
-                  </div>
-                </section>
-
-                <section
-                  class="admin-user-action-sheet admin-user-action-sheet--hwid-limit"
-                  class:is-dirty={hwidLimitDirty}
-                >
-                  <AdminSectionHeader
-                    title={at("user_hwid_limit_card_title", {}, "HWID-устройства")}
-                    description={at(
-                      "user_hwid_limit_card_hint",
-                      {},
-                      "Ручной лимит устройств для пользователя. Пустое поле вернёт тарифный или default-лимит."
-                    )}
-                  />
-                  <div class="admin-user-action-sheet-body admin-user-override-stack">
-                    <Label.Root class="admin-field-label admin-extend-field">
-                      <span>{at("user_hwid_limit_input", {}, "Лимит устройств")}</span>
-                      <small
-                        >{at(
-                          "user_hwid_limit_input_hint",
-                          {},
-                          "Пусто — тариф/default; 0 или галочка — безлимит."
-                        )}</small
-                      >
-                      <Input
-                        class="input"
-                        type="number"
-                        min="0"
-                        step="1"
-                        placeholder={at("user_hwid_limit_default_placeholder", {}, "Тариф")}
-                        disabled={hwidUnlimitedDraft}
-                        aria-label={at("user_hwid_limit_input", {}, "Лимит устройств")}
-                        bind:value={$usersStore.hwidDeviceLimitDraft}
-                      />
-                    </Label.Root>
-                  </div>
-                  <div class="admin-user-action-sheet-footer admin-override-card-footer">
-                    <div class="admin-override-card-toolbar">
-                      <label class="admin-override-unlimited-label">
-                        <Checkbox
-                          bind:checked={$usersStore.hwidUnlimitedDraft}
-                          aria-label={at("user_override_unlimited_short", {}, "Безлимит")}
-                        />
-                        <span>{at("user_override_unlimited_short", {}, "Безлимит")}</span>
-                      </label>
-                      <div class="admin-action-save-controls">
-                        {#if hwidLimitDirty}
-                          <AdminBadge variant="warning"
-                            >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
-                          >
-                        {/if}
-                        <AdminButton
-                          variant="primary"
-                          onclick={usersStore.saveHwidDeviceLimit}
-                          disabled={userActionBusy || !hwidLimitDirty || !hwidLimitDraftValid}
-                        >
-                          {at("user_hwid_limit_save", {}, "Сохранить")}
-                        </AdminButton>
-                      </div>
-                    </div>
-                    <div class="admin-override-status-lines">
-                      {#if hwidLimitDirty}
-                        <span class="admin-unsaved-hint">
-                          {at("user_action_unsaved_hint", {}, "Есть несохранённые изменения")}
-                        </span>
-                      {/if}
-                      {#if !hwidLimitDraftValid}
-                        <span class="admin-invalid-hint">
-                          {at(
-                            "hwid_limit_invalid",
-                            {},
-                            "Введите целое число устройств от 0 до 1 000 000 или включите безлимит"
-                          )}
-                        </span>
-                      {/if}
-                      <span class="admin-meta-truncate">
-                        {at(
-                          "user_hwid_limit_status",
-                          { current: hwidLimitLabel(openedUserDetail.active_subscription) },
-                          `Сейчас: ${hwidLimitLabel(openedUserDetail.active_subscription)}`
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                </section>
-
-                <section class="admin-user-action-sheet admin-user-action-sheet--traffic-grant">
-                  <AdminSectionHeader
-                    title={at("user_traffic_grant_title", {}, "Выдать трафик")}
-                    description={at(
-                      "user_traffic_grant_hint",
-                      {},
-                      "Зачисление ГБ на баланс пользователя — как при докупке, но без оплаты. Лимит и сквады в панели обновятся сразу."
-                    )}
-                  />
-                  <div class="admin-user-action-sheet-body admin-user-grant-stack">
-                    <Label.Root class="admin-field-label admin-extend-field">
-                      <span>{at("user_traffic_grant_kind", {}, "Тип трафика")}</span>
-                      <AdminSelect
-                        class="admin-grant-kind-select"
-                        value={$usersStore.grantTrafficKindDraft}
-                        items={[
-                          {
-                            value: "regular",
-                            label: at("user_traffic_grant_kind_regular", {}, "Обычный"),
-                          },
-                          {
-                            value: "premium",
-                            label: at("user_traffic_grant_kind_premium", {}, "Премиум"),
-                          },
-                        ]}
-                        onValueChange={(v) => usersStore.updateState({ grantTrafficKindDraft: v })}
-                        ariaLabel={at("user_traffic_grant_kind", {}, "Тип трафика")}
-                      />
-                    </Label.Root>
-                    <Label.Root class="admin-field-label admin-extend-field">
-                      <span>{at("user_traffic_grant_gb", {}, "ГБ к выдаче")}</span>
-                      <div class="admin-extend-control">
-                        <Input
-                          class="input"
-                          type="number"
-                          min="0"
-                          step="1"
-                          placeholder="0"
-                          aria-label={at("user_traffic_grant_gb", {}, "ГБ к выдаче")}
-                          bind:value={$usersStore.grantTrafficGbDraft}
-                        />
-                        <AdminButton
-                          variant="primary"
-                          onclick={usersStore.grantTraffic}
-                          disabled={userActionBusy || !grantTrafficGbValid}
-                        >
-                          <Plus size={14} />
-                          {at("user_traffic_grant_submit", {}, "Выдать")}
-                        </AdminButton>
-                      </div>
-                    </Label.Root>
-                  </div>
-                </section>
-              {/if}
-
-              <Label.Root class="admin-field-label">
-                <span>{at("user_label_telegram_msg", {}, "Сообщение в Telegram")}</span>
-                <small
-                  >{at(
-                    "user_hint_telegram_msg",
-                    {},
-                    "Поддерживается HTML-разметка Telegram"
-                  )}</small
-                >
-                <Textarea
-                  class="admin-textarea"
-                  rows="3"
-                  placeholder={at("user_placeholder_msg", {}, "Текст сообщения")}
-                  bind:value={$usersStore.userMessageDraft}
-                />
-              </Label.Root>
-              <div class="admin-message-actions">
-                <AdminButton
-                  onclick={usersStore.previewUserMessage}
-                  disabled={userActionBusy || !userMessageDraft.trim()}
-                >
-                  <Eye size={14} />
-                  {at("btn_preview_tg", {}, "Превью в Telegram")}
-                </AdminButton>
-                <AdminButton
-                  variant="primary"
-                  onclick={usersStore.requestSendUserMessage}
-                  disabled={userActionBusy || !userMessageDraft.trim()}
-                >
-                  <Send size={14} />
-                  {at("btn_send_msg", {}, "Отправить сообщение")}
-                </AdminButton>
-              </div>
-
-              <section class="admin-danger-zone">
-                <header class="admin-danger-zone-head">
-                  <strong>{at("user_danger_zone_title", {}, "Опасные действия")}</strong>
-                  <small
-                    >{at(
-                      "user_danger_zone_subtitle",
-                      {},
-                      "Эти действия требуют подтверждения и (для удаления) необратимы"
-                    )}</small
-                  >
-                </header>
-                <div class="admin-action-grid">
-                  {#if openedUser.is_banned}
-                    <AdminButton
-                      variant="dangerSoft"
-                      onclick={usersStore.requestBanToggle}
-                      disabled={userActionBusy}
-                    >
-                      <UserPlus size={14} />
-                      {at("btn_unban", {}, "Разбанить пользователя")}
-                    </AdminButton>
-                  {:else}
-                    <AdminButton
-                      variant="danger"
-                      onclick={usersStore.requestBanToggle}
-                      disabled={userActionBusy}
-                    >
-                      <UserMinus size={14} />
-                      {at("btn_ban", {}, "Заблокировать")}
-                    </AdminButton>
-                  {/if}
-                  <AdminButton
-                    variant="danger"
-                    onclick={() => usersStore.updateState({ userDeleteOpen: true })}
-                    disabled={userActionBusy}
-                  >
-                    <Trash2 size={14} />
-                    {at("btn_delete_account", {}, "Удалить аккаунт")}
-                  </AdminButton>
-                </div>
-              </section>
-            </Tabs.Content>
+            <UserActionsTab
+              {at}
+              {openedUser}
+              {openedUserDetail}
+              {userActionBusy}
+              {userMessageDraft}
+              {extendTariffItems}
+              {extendTariffsLoading}
+              {userExtendDaysValid}
+              {userExtendTariffValid}
+              {extendTariffRequired}
+              {selectExtendTariff}
+              {periodTariffItems}
+              {tariffActionDirty}
+              {currentSubscriptionTariffLabel}
+              {userTariffActionKey}
+              {selectTariffAction}
+              {premiumOverrideDirty}
+              {premiumOverrideDraftValid}
+              {premiumUnlimitedDraft}
+              {regularOverrideDirty}
+              {regularOverrideDraftValid}
+              {regularUnlimitedDraft}
+              {hwidLimitDirty}
+              {hwidLimitDraftValid}
+              {hwidUnlimitedDraft}
+              {hwidLimitLabel}
+              {selectGrantTrafficKind}
+              {grantTrafficGbValid}
+            />
           </Tabs.Root>
         </main>
       </div>
@@ -1521,499 +932,27 @@
   {/if}
 </Dialog>
 
-<Dialog
-  open={userReferralsOpen}
-  title={at("user_invitees_title", {}, "Приглашённые пользователи")}
-  description={openedUser
-    ? at(
-        "user_invitees_description",
-        { name: userDisplayName(openedUser), count: userReferralsTotal },
-        `${userDisplayName(openedUser)} · ${userReferralsTotal}`
-      )
-    : ""}
-  closeLabel={at("close", {}, "Закрыть")}
-  onclose={usersStore.closeUserReferrals}
-  class="admin-dialog admin-user-referrals-dialog"
->
-  <div class="admin-user-referrals-body">
-    {#if userReferralsLoading}
-      <AdminTableSkeleton
-        headers={[
-          at("user_col_user", {}, "Пользователь"),
-          "ID",
-          at("user_label_registration", {}, "Регистрация"),
-          "",
-        ]}
-        rows={5}
-        widths={["42%", "18%", "26%", "14%"]}
-      />
-    {:else if !userReferralsTable.rows.length}
-      <AdminEmptyState tone="card">
-        <span class="admin-muted"
-          >{at("user_invitees_empty", {}, "Пользователь пока никого не пригласил")}</span
-        >
-      </AdminEmptyState>
-    {:else}
-      <ScrollArea class="admin-user-referrals-table-wrap" maxHeight="min(55vh, 460px)">
-        <AdminTable class="admin-user-referrals-table">
-          <thead>
-            <tr>
-              <th>{at("user_col_user", {}, "Пользователь")}</th>
-              <th>ID</th>
-              <th>{at("user_label_registration", {}, "Регистрация")}</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each userReferralsTable.rows as invitee (invitee.user_id)}
-              <tr>
-                <td data-label={at("user_col_user", {}, "Пользователь")}>
-                  <span class="admin-referral-user-cell">
-                    <strong>{userDisplayName(invitee)}</strong>
-                    <small>{userSecondaryName(invitee)}</small>
-                  </span>
-                </td>
-                <td class="admin-cell-mono" data-label="ID">{invitee.user_id}</td>
-                <td data-label={at("user_label_registration", {}, "Регистрация")}>
-                  {fmtDateShort(invitee.registration_date)}
-                </td>
-                <td class="admin-referral-user-actions">
-                  <AdminButton
-                    size="icon"
-                    variant="icon"
-                    title={at("user_open_related", {}, "Открыть карточку")}
-                    aria-label={at("user_open_related", {}, "Открыть карточку")}
-                    onclick={() => openRelatedUser(invitee)}
-                  >
-                    <ExternalLink size={14} />
-                  </AdminButton>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </AdminTable>
-      </ScrollArea>
-    {/if}
-
-    {#if userReferralsTotal > userReferralsPageSize}
-      <AdminPagination
-        page={userReferralsPage}
-        pageCount={userReferralsPageCount}
-        total={userReferralsTotal}
-        pageLabel={at("page_short", {}, "Стр.")}
-        ofLabel={at("pagination_of", {}, "из")}
-        totalLabel={at("total", {}, "Всего")}
-        jumpLabel={at("page_short", {}, "Стр.")}
-        jumpAriaLabel={at("pagination_jump_aria", {}, "Перейти к странице")}
-        goLabel={at("pagination_go", {}, "Перейти")}
-        prevLabel={at("prev_page", {}, "Назад")}
-        nextLabel={at("next_page", {}, "Вперёд")}
-        disabled={userReferralsLoading}
-        onPageChange={(page) => usersStore.setUserReferralsPage(page)}
-      />
-    {/if}
-  </div>
-</Dialog>
-
-<Dialog
-  open={avatarPreviewOpen}
-  title={avatarPreviewName || at("user_avatar_title", {}, "Аватар")}
-  closeLabel={at("close", {}, "Закрыть")}
-  onclose={closeAvatarPreview}
-  class="admin-dialog admin-avatar-dialog"
->
-  {#if avatarPreviewUrl}
-    <div class="admin-avatar-preview">
-      <img
-        src={avatarPreviewUrl}
-        alt={avatarPreviewName}
-        loading="eager"
-        referrerpolicy="no-referrer"
-      />
-    </div>
-  {/if}
-</Dialog>
-
-<Dialog
-  open={userMessageConfirmOpen}
-  title={at("user_msg_confirm_title", {}, "Отправить сообщение пользователю?")}
-  description={openedUser
-    ? at(
-        "user_msg_confirm_recipient",
-        { name: userDisplayName(openedUser) },
-        `Получатель: ${userDisplayName(openedUser)}`
-      )
-    : ""}
-  closeLabel={at("close", {}, "Закрыть")}
-  onclose={() => usersStore.updateState({ userMessageConfirmOpen: false })}
-  class="admin-dialog"
->
-  <ScrollArea class="admin-confirm-message-preview" maxHeight="min(280px, 45vh)">
-    {userMessageDraft}
-  </ScrollArea>
-  <div class="admin-dialog-actions">
-    <AdminButton onclick={() => usersStore.updateState({ userMessageConfirmOpen: false })}
-      >{at("btn_cancel", {}, "Отмена")}</AdminButton
-    >
-    <AdminButton
-      variant="primary"
-      onclick={usersStore.sendUserMessage}
-      disabled={userActionBusy || !userMessageDraft.trim()}
-    >
-      <Send size={14} />
-      {at("btn_confirm_send", {}, "Подтвердить отправку")}
-    </AdminButton>
-  </div>
-</Dialog>
-
-<Dialog
-  open={userBanConfirmOpen}
-  title={at("user_ban_confirm_title", {}, "Заблокировать пользователя?")}
-  description={openedUser
-    ? at(
-        "user_ban_confirm_subtitle",
-        { name: userDisplayName(openedUser) },
-        `${userDisplayName(openedUser)} больше не сможет взаимодействовать с ботом. Действие можно отменить позже.`
-      )
-    : ""}
-  closeLabel={at("close", {}, "Закрыть")}
-  onclose={() => usersStore.updateState({ userBanConfirmOpen: false })}
-  class="admin-dialog"
->
-  <div class="admin-dialog-actions">
-    <AdminButton onclick={() => usersStore.updateState({ userBanConfirmOpen: false })}
-      >{at("btn_cancel", {}, "Отмена")}</AdminButton
-    >
-    <AdminButton
-      variant="danger"
-      onclick={() => usersStore.applyBanToggle(true)}
-      disabled={userActionBusy}
-    >
-      <UserMinus size={14} />
-      {at("btn_ban", {}, "Заблокировать")}
-    </AdminButton>
-  </div>
-</Dialog>
-
-<Dialog
-  open={userDeleteOpen}
-  title={at("user_delete_confirm_title", {}, "Удалить пользователя?")}
-  description={at(
-    "user_delete_confirm_subtitle",
-    {},
-    "Действие необратимо. Удалятся записи в БД бота и пользователь в Remnawave Panel."
-  )}
-  closeLabel={at("close", {}, "Закрыть")}
-  onclose={() => usersStore.updateState({ userDeleteOpen: false })}
-  class="admin-dialog"
->
-  <div class="admin-form-row">
-    <AdminButton onclick={() => usersStore.updateState({ userDeleteOpen: false })}
-      >{at("btn_cancel", {}, "Отмена")}</AdminButton
-    >
-    <AdminButton variant="danger" onclick={usersStore.deleteUser} disabled={userActionBusy}>
-      <Trash2 size={14} />
-      {at("btn_confirm_delete", {}, "Подтвердить удаление")}
-    </AdminButton>
-  </div>
-</Dialog>
-
-<style>
-  .admin-user-action-sheet {
-    border: 1px solid var(--admin-border-muted, rgba(255, 255, 255, 0.08));
-    border-radius: 12px;
-    margin-bottom: 14px;
-    overflow: hidden;
-    background: var(--admin-surface-1, rgba(255, 255, 255, 0.02));
-  }
-  .admin-user-action-sheet.is-dirty {
-    border-color: color-mix(in srgb, var(--warning, #f5b84b) 46%, var(--admin-border-muted));
-    background: color-mix(in srgb, var(--warning, #f5b84b) 7%, var(--admin-surface-1));
-  }
-  .admin-user-action-sheet :global(.admin-dashboard-section-head) {
-    padding: 12px 14px 10px;
-    margin: 0;
-    border-bottom: 1px solid var(--admin-border-muted, rgba(255, 255, 255, 0.06));
-  }
-  .admin-user-action-sheet-body {
-    padding: 12px 14px 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .admin-user-override-stack {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-  .admin-user-grant-stack {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-  .admin-user-tariff-stack {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-  .admin-user-action-sheet-footer {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 4px 14px 12px;
-  }
-  .admin-override-card-footer {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
-  .admin-override-card-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px 14px;
-    width: 100%;
-  }
-  .admin-override-card-toolbar :global(.admin-btn) {
-    flex: 0 0 auto;
-    min-height: 36px;
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-  .admin-action-save-controls {
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    flex: 0 0 auto;
-  }
-  .admin-unsaved-hint {
-    color: var(--warning, #f5b84b);
-    font-weight: 600;
-  }
-  .admin-invalid-hint {
-    color: var(--danger, #ef4444);
-    font-weight: 600;
-  }
-  .admin-override-unlimited-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: var(--admin-text, inherit);
-    cursor: pointer;
-    user-select: none;
-    min-height: 36px;
-  }
-  @media (max-width: 520px) {
-    .admin-override-card-toolbar {
-      flex-direction: column;
-      align-items: stretch;
-    }
-    .admin-override-card-toolbar :global(.admin-btn) {
-      width: 100%;
-    }
-    .admin-action-save-controls {
-      width: 100%;
-      align-items: stretch;
-      justify-content: space-between;
-      flex-wrap: wrap;
-    }
-    .admin-action-save-controls :global(.admin-btn) {
-      flex: 1 1 180px;
-    }
-  }
-  .admin-override-status-lines {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    flex: 1;
-    min-width: 0;
-    font-size: 12px;
-    line-height: 1.35;
-  }
-  :global(.admin-user-dialog .admin-actions-tab) {
-    padding-bottom: 14px;
-  }
-  .admin-user-action-sheet--regular-override {
-    margin-top: 10px;
-  }
-  .admin-user-action-sheet--extend {
-    margin-bottom: 0;
-  }
-  .admin-user-action-sheet--tariff {
-    margin-top: 10px;
-  }
-  .admin-user-action-sheet--traffic-grant {
-    margin-top: 10px;
-  }
-  .admin-user-action-sheet :global(.admin-user-tariff-select) {
-    width: 100%;
-    max-width: 100%;
-  }
-  .admin-user-action-sheet :global(.admin-grant-kind-select) {
-    width: 100%;
-    max-width: 100%;
-  }
-  .admin-avatar-preview-trigger {
-    padding: 0;
-    appearance: none;
-  }
-  .admin-avatar-preview-trigger img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .admin-avatar-preview-trigger:disabled {
-    cursor: default;
-  }
-  .admin-avatar-preview-trigger.is-clickable {
-    cursor: zoom-in;
-  }
-  .admin-avatar-preview-trigger.is-clickable:hover,
-  .admin-avatar-preview-trigger.is-clickable:focus-visible {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
-  }
-  .admin-user-summary-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 6px;
-  }
-  .admin-user-ref-row {
-    grid-template-columns: 130px minmax(0, 1fr) auto;
-    align-items: center;
-  }
-  .admin-user-ref-row :global(.admin-btn) {
-    flex: 0 0 auto;
-  }
-  .admin-user-ref-value {
-    display: grid;
-    gap: 2px;
-    min-width: 0;
-  }
-  .admin-user-ref-value small {
-    color: var(--admin-muted);
-    font-size: 11px;
-    font-weight: 500;
-  }
-  :global(.admin-user-referrals-dialog) {
-    width: min(760px, calc(100vw - 28px));
-    max-height: min(760px, calc(100dvh - 28px));
-  }
-  .admin-user-referrals-body {
-    display: grid;
-    gap: 12px;
-    min-width: 0;
-  }
-  :global(.admin-user-referrals-table-wrap) {
-    min-height: 120px;
-  }
-  .admin-referral-user-cell {
-    display: grid;
-    gap: 2px;
-    min-width: 0;
-  }
-  .admin-referral-user-cell strong {
-    color: var(--admin-text);
-    font-weight: 650;
-    word-break: break-word;
-  }
-  .admin-referral-user-cell small {
-    color: var(--admin-muted);
-    font-size: 12px;
-    word-break: break-word;
-  }
-  .admin-referral-user-actions {
-    text-align: right;
-  }
-  @media (max-width: 560px) {
-    .admin-user-ref-row {
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 4px 8px;
-    }
-    .admin-user-ref-row > span {
-      grid-column: 1 / -1;
-    }
-  }
-  :global(.admin-avatar-dialog) {
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-    width: min(920px, calc(100vw - 28px));
-    height: min(820px, calc(100dvh - 28px));
-    max-height: calc(100dvh - 28px);
-    gap: 10px;
-    padding: 12px;
-    overflow: hidden;
-  }
-  .admin-avatar-preview {
-    display: grid;
-    place-items: center;
-    min-height: 0;
-    width: 100%;
-    height: 100%;
-    padding: 4px;
-    overflow: hidden;
-  }
-  .admin-avatar-preview img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    border-radius: 14px;
-    border: 1px solid var(--admin-border);
-    background: var(--admin-surface-2);
-  }
-  @media (max-width: 640px) {
-    :global(.dialog:has(.admin-avatar-dialog)) {
-      padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
-        max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
-    }
-    :global(.admin-avatar-dialog) {
-      width: calc(100vw - 16px);
-      height: min(88dvh, calc(100dvh - 16px));
-      max-height: calc(100dvh - 16px);
-      border-radius: 18px;
-      padding: 10px;
-    }
-  }
-  :global(.admin-user-dialog .admin-user-logs-tab) {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .admin-user-logs-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .admin-user-logs-meta {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-  }
-  :global(.admin-user-logs-wrap) {
-    min-height: 120px;
-  }
-  .admin-user-log-event {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-  :global(.admin-user-log-content) {
-    white-space: pre-wrap;
-    word-break: break-word;
-    max-width: 520px;
-  }
-  @media (max-width: 640px) {
-    :global(.admin-user-log-content) {
-      max-width: 100%;
-    }
-  }
-</style>
+<UserDetailDialogs
+  {at}
+  {fmtDateShort}
+  {userDisplayName}
+  {userSecondaryName}
+  {openRelatedUser}
+  {closeAvatarPreview}
+  {openedUser}
+  {userReferralsOpen}
+  {userReferralsLoading}
+  userReferralsRows={userReferralsTable.rows}
+  {userReferralsTotal}
+  {userReferralsPage}
+  {userReferralsPageCount}
+  {userReferralsPageSize}
+  {avatarPreviewOpen}
+  {avatarPreviewUrl}
+  {avatarPreviewName}
+  {userMessageConfirmOpen}
+  {userMessageDraft}
+  {userBanConfirmOpen}
+  {userDeleteOpen}
+  {userActionBusy}
+/>

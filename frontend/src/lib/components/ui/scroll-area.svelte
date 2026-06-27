@@ -1,22 +1,33 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
   import { ScrollArea as ScrollAreaPrimitive } from "./primitives.js";
 
-  export let maxHeight = "100%";
-  export let element = null;
-  export let type = "auto";
-  let className = "";
-  export { className as class };
+  type ScrollAreaType = "auto" | "always" | "scroll" | "hover";
+
+  type Props = ScrollAreaPrimitive.RootProps & {
+    maxHeight?: string;
+    element?: HTMLElement | null;
+    type?: ScrollAreaType;
+  };
+
+  let {
+    maxHeight = "100%",
+    element = $bindable(null),
+    type = "auto",
+    class: className = "",
+    children,
+    ...rest
+  }: Props = $props();
 </script>
 
 <ScrollAreaPrimitive.Root
   class={cn("scroll-area scroll-area--mono", className)}
   style={`max-height:${maxHeight};`}
   {type}
-  {...$$restProps}
+  {...rest}
 >
   <ScrollAreaPrimitive.Viewport bind:ref={element} class="scroll-area__viewport">
-    <slot />
+    {@render children?.()}
   </ScrollAreaPrimitive.Viewport>
   <ScrollAreaPrimitive.Scrollbar class="scroll-area__scrollbar" orientation="vertical">
     <ScrollAreaPrimitive.Thumb class="scroll-area__thumb" />

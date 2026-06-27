@@ -59,7 +59,7 @@ from db.models import (  # noqa: E402
 try:  # cryptography is already used by the app for payment webhook validation.
     from cryptography.fernet import Fernet
 except Exception:  # pragma: no cover - defensive fallback for minimal tooling.
-    Fernet = None  # type: ignore[assignment]
+    Fernet = None  # type: ignore[assignment,misc]
 
 SOURCE = "remnashop"
 REMNASHOP_ENCRYPTED_PREFIX = "enc_"
@@ -651,7 +651,7 @@ def remnashop_transaction_status(status: Any, gateway_type: Any = None) -> str:
 def remnashop_plan_type(plan_snapshot: Any) -> str:
     data = _jsonish(plan_snapshot)
     raw_value = data.get("type")
-    if hasattr(raw_value, "value"):
+    if raw_value is not None and hasattr(raw_value, "value"):
         raw_value = raw_value.value
     text_value = str(raw_value or "").strip().upper()
     if "." in text_value:
@@ -2280,7 +2280,7 @@ class RemnashopImporter:
         notification_import = remnashop_notification_overrides(
             source_settings.get("notifications") if source_settings else None
         )
-        notes = {
+        notes: dict[str, Any] = {
             "default_currency": (
                 source_settings.get("default_currency") if source_settings else None
             ),

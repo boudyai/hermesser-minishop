@@ -1,6 +1,19 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+import asyncio
+import hashlib
+import io
+import json
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple, TypeVar, cast
 
+from aiogram import Bot
+from aiohttp import web
+from pydantic import BaseModel, ValidationError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from bot.app.web.context import (
+    get_bot,
+)
+from bot.app.web.request_parsing import parse_body_or_400
 from bot.app.web.webapp.cache_helpers import (
     invalidate_webapp_user_caches as _invalidate_user_payload_caches,
 )
@@ -8,20 +21,28 @@ from bot.middlewares.i18n import (
     is_valid_locale_language_code,
     normalize_locale_language_code,
 )
+from config.settings import Settings
+from db.dal import user_dal
+from db.models import User, UserTelegramAvatar
 
+from ._runtime import (
+    WEBAPP_TELEGRAM_AVATAR_FETCH_TIMEOUT_SECONDS,
+    WEBAPP_TELEGRAM_AVATAR_MAX_BYTES,
+    WEBAPP_TELEGRAM_AVATAR_REFRESH_SECONDS,
+    json_response,
+    logger,
+)
 
-async def _read_json(request: web.Request) -> Dict[str, Any]:
-    try:
-        data = await request.json()
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
+BodyModelT = TypeVar("BodyModelT", bound=BaseModel)
 
 
 def _json_error(status: int, code: str, message: str) -> web.Response:
-    return web.json_response(
-        {"ok": False, "error": code, "message": message},
-        status=status,
+    return cast(
+        web.Response,
+        json_response(
+            {"ok": False, "error": code, "message": message},
+            status=status,
+        ),
     )
 
 
@@ -76,9 +97,200 @@ def _validate_model_payload(
         return None, _validation_error_response(exc)
 
 
+async def _parse_model_payload(
+    request: web.Request,
+    model_cls: type[BodyModelT],
+) -> BodyModelT:
+    return cast(
+        BodyModelT,
+        await parse_body_or_400(
+            request,
+            model_cls,
+            validation_error_response_factory=_validation_error_response,
+        ),
+    )
+
+
+def _resolve_telegram_bot_id(bot_token: str) -> Optional[int]:
+    token_prefix = str(bot_token or "").strip().split(":", 1)[0]
+    if not token_prefix.isdigit():
+        return None
+    try:
+        return int(token_prefix)
+    except ValueError:
+        return None
+
+
+def _resolve_telegram_oauth_client_id(settings: Settings) -> Optional[int]:
+    configured_client_id = settings.TELEGRAM_OAUTH_CLIENT_ID
+    if configured_client_id:
+        try:
+            return int(configured_client_id)
+        except (TypeError, ValueError):
+            return None
+    return _resolve_telegram_bot_id(settings.BOT_TOKEN)
+
+
+def _resolve_telegram_oauth_request_access(settings: Settings) -> List[str]:
+    raw_value = str(settings.TELEGRAM_OAUTH_REQUEST_ACCESS or "")
+    allowed = {"write", "phone"}
+    scopes = []
+    for item in raw_value.split(","):
+        value = item.strip().lower()
+        if value in allowed and value not in scopes:
+            scopes.append(value)
+    return scopes
+
+
+def _extract_authenticated_user_id(request: web.Request) -> Optional[int]:
+    from bot.app.web.session import extract_authenticated_user_id
+
+    user_id = extract_authenticated_user_id(request)
+    return user_id if isinstance(user_id, int) else None
+
+
+def _require_user_id(request: web.Request) -> int:
+    user_id = _extract_authenticated_user_id(request)
+    if not user_id:
+        raise web.HTTPUnauthorized(
+            text=json.dumps({"ok": False, "error": "unauthorized"}),
+            content_type="application/json",
+        )
+    return user_id
+
+
 def _normalize_language(lang: Optional[str]) -> str:
     value = normalize_locale_language_code(lang, prefer_known_base=False)
     return value if is_valid_locale_language_code(value) else "ru"
+
+
+def _format_webapp_datetime(value: Optional[datetime]) -> Optional[str]:
+    if not value:
+        return None
+    normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return normalized.strftime("%d.%m.%Y %H:%M")
+
+
+def _telegram_id_for_user(user: User) -> Optional[int]:
+    telegram_id = getattr(user, "telegram_id", None)
+    if telegram_id:
+        return int(telegram_id)
+    user_id = getattr(user, "user_id", None)
+    if user_id and int(user_id) > 0:
+        return int(user_id)
+    return None
+
+
+def _telegram_avatar_is_stale(avatar: Optional[UserTelegramAvatar]) -> bool:
+    if not avatar or not avatar.updated_at:
+        return True
+    updated_at = avatar.updated_at
+    if updated_at.tzinfo is None:
+        updated_at = updated_at.replace(tzinfo=timezone.utc)
+    is_stale = (
+        datetime.now(timezone.utc) - updated_at
+    ).total_seconds() >= WEBAPP_TELEGRAM_AVATAR_REFRESH_SECONDS
+    return bool(is_stale)
+
+
+def _telegram_avatar_url(avatar: Optional[UserTelegramAvatar]) -> str:
+    if not avatar:
+        return ""
+    updated_at = avatar.updated_at
+    if updated_at and updated_at.tzinfo is None:
+        updated_at = updated_at.replace(tzinfo=timezone.utc)
+    version = (
+        int(updated_at.timestamp())
+        if updated_at
+        else hashlib.sha256(bytes(avatar.image_bytes)).hexdigest()[:8]
+    )
+    return f"/api/account/avatar?v={version}"
+
+
+def _select_compact_telegram_photo_size(sizes: List[Any]) -> Optional[Any]:
+    if not sizes:
+        return None
+    suitable = [size for size in sizes if int(getattr(size, "width", 0) or 0) >= 160]
+    candidates = suitable or sizes
+    return min(
+        candidates,
+        key=lambda size: (
+            int(getattr(size, "file_size", 0) or 0)
+            or int(getattr(size, "width", 0) or 0) * int(getattr(size, "height", 0) or 0),
+            int(getattr(size, "width", 0) or 0),
+        ),
+    )
+
+
+def _telegram_file_content_type(file_path: Optional[str]) -> str:
+    path = str(file_path or "").lower()
+    if path.endswith(".png"):
+        return "image/png"
+    if path.endswith(".webp"):
+        return "image/webp"
+    return "image/jpeg"
+
+
+async def _fetch_compact_telegram_avatar(
+    bot: Bot, telegram_id: int
+) -> Optional[Tuple[bytes, str, Optional[str]]]:
+    photos = await bot.get_user_profile_photos(user_id=telegram_id, limit=1)
+    if not photos or not photos.photos:
+        return None
+
+    photo_size = _select_compact_telegram_photo_size(list(photos.photos[0] or []))
+    if not photo_size:
+        return None
+
+    file_info = await bot.get_file(photo_size.file_id)
+    file_path = file_info.file_path
+    if not file_path:
+        return None
+    destination = io.BytesIO()
+    await bot.download_file(file_path, destination=destination)
+    body = destination.getvalue()
+    if not body or len(body) > WEBAPP_TELEGRAM_AVATAR_MAX_BYTES:
+        return None
+    return (
+        body,
+        _telegram_file_content_type(file_path),
+        getattr(photo_size, "file_unique_id", None),
+    )
+
+
+async def _ensure_cached_telegram_avatar(
+    request: web.Request,
+    session: AsyncSession,
+    user: User,
+) -> Optional[UserTelegramAvatar]:
+    avatar = await user_dal.get_user_telegram_avatar(session, int(user.user_id))
+    telegram_id = _telegram_id_for_user(user)
+    if not telegram_id:
+        return avatar
+    if avatar and not _telegram_avatar_is_stale(avatar):
+        return avatar
+
+    bot: Bot = get_bot(request)
+    try:
+        fetched = await asyncio.wait_for(
+            _fetch_compact_telegram_avatar(bot, int(telegram_id)),
+            timeout=WEBAPP_TELEGRAM_AVATAR_FETCH_TIMEOUT_SECONDS,
+        )
+    except Exception as exc:
+        logger.info("Failed to refresh Telegram avatar for user %s: %s", user.user_id, exc)
+        return avatar
+
+    if not fetched:
+        return avatar
+
+    body, content_type, file_unique_id = fetched
+    return await user_dal.upsert_user_telegram_avatar(
+        session,
+        user_id=int(user.user_id),
+        file_unique_id=file_unique_id,
+        content_type=content_type,
+        image_bytes=body,
+    )
 
 
 def _format_remaining(seconds: int, lang: str) -> str:

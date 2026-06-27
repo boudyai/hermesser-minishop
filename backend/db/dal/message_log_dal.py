@@ -31,7 +31,7 @@ async def get_all_message_logs(session: AsyncSession, limit: int, offset: int) -
         .offset(offset)
     )
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def count_all_message_logs(session: AsyncSession) -> int:
@@ -57,7 +57,7 @@ async def get_user_message_logs(
         .offset(offset)
     )
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def count_user_message_logs(session: AsyncSession, user_id_to_search: int) -> int:

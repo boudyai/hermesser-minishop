@@ -1,5 +1,92 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+from aiohttp import web
+
+from .ads import (
+    admin_ad_create_route,
+    admin_ad_delete_route,
+    admin_ad_toggle_route,
+    admin_ads_list_route,
+)
+from .backups import (
+    admin_backups_create_route,
+    admin_backups_list_route,
+    admin_backups_restore_route,
+    admin_backups_upload_route,
+)
+from .broadcast import (
+    admin_broadcast_audience_counts_route,
+    admin_broadcast_route,
+)
+from .health import (
+    admin_health_route,
+)
+from .logs import (
+    admin_logs_route,
+)
+from .panel import (
+    admin_panel_internal_squads_route,
+)
+from .payments import (
+    admin_payment_detail_route,
+    admin_payments_export_route,
+    admin_payments_list_route,
+)
+from .promos import (
+    admin_promo_create_route,
+    admin_promo_delete_route,
+    admin_promo_update_route,
+    admin_promos_list_route,
+)
+from .settings import (
+    admin_settings_get_route,
+    admin_settings_patch_route,
+)
+from .stats import (
+    admin_me_route,
+    admin_stats_route,
+)
+from .support import (
+    admin_support_stats_route,
+    admin_support_ticket_detail_route,
+    admin_support_ticket_patch_route,
+    admin_support_ticket_read_route,
+    admin_support_ticket_reply_route,
+    admin_support_tickets_route,
+)
+from .sync import (
+    admin_sync_route,
+)
+from .tariffs import (
+    admin_tariffs_get_route,
+    admin_tariffs_save_route,
+)
+from .themes import (
+    admin_appearance_favicon_upload_route,
+    admin_appearance_logo_upload_route,
+    admin_themes_get_route,
+    admin_themes_save_route,
+)
+from .translations import (
+    admin_translations_get_route,
+    admin_translations_patch_route,
+)
+from .users import (
+    admin_user_avatar_route,
+    admin_user_ban_route,
+    admin_user_delete_route,
+    admin_user_detail_route,
+    admin_user_extend_route,
+    admin_user_hwid_device_limit_route,
+    admin_user_message_preview_route,
+    admin_user_message_route,
+    admin_user_premium_override_route,
+    admin_user_referrals_route,
+    admin_user_regular_traffic_override_route,
+    admin_user_reset_trial_route,
+    admin_user_tariff_route,
+    admin_user_telegram_profile_link_route,
+    admin_user_traffic_grant_route,
+    admin_users_list_route,
+)
 
 
 def setup_admin_routes(app: web.Application) -> None:

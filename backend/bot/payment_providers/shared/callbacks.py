@@ -14,6 +14,7 @@ from bot.keyboards.inline.user_keyboards import (
     sale_mode_has_token,
 )
 from bot.middlewares.i18n import JsonI18n
+from bot.utils.callback_answer import callback_message_or_none
 from db.dal import payment_dal
 from db.models import Payment
 
@@ -88,15 +89,16 @@ async def edit_or_answer(
     callback: types.CallbackQuery,
     text: str,
     *,
-    reply_markup=None,
+    reply_markup: Any = None,
     disable_web_page_preview: bool = False,
     log_prefix: str = "payment_providers",
 ) -> None:
     """Edit the callback message if possible, else send a fresh reply."""
-    if not callback.message:
+    message = callback_message_or_none(callback)
+    if message is None:
         return
     try:
-        await callback.message.edit_text(
+        await message.edit_text(
             text,
             reply_markup=reply_markup,
             disable_web_page_preview=disable_web_page_preview,
@@ -105,7 +107,7 @@ async def edit_or_answer(
     except Exception as exc:
         logging.warning("%s: failed to edit message (%s), sending new one.", log_prefix, exc)
     try:
-        await callback.message.answer(
+        await message.answer(
             text,
             reply_markup=reply_markup,
             disable_web_page_preview=disable_web_page_preview,
@@ -129,9 +131,9 @@ async def quote_hwid_callback_parts(
     session: AsyncSession,
     user_id: int,
     parts: PaymentCallbackParts,
-    subscription_service,
+    subscription_service: Any,
     currency: str = "rub",
-) -> tuple[Optional[PaymentCallbackParts], Optional[dict]]:
+) -> tuple[Optional[PaymentCallbackParts], Optional[dict[str, Any]]]:
     base = sale_mode_base(parts.sale_mode)
     if base == "subscription" and sale_mode_has_token(parts.sale_mode, HWID_RENEWAL_TOKEN):
         try:
@@ -242,9 +244,10 @@ async def notify_service_unavailable(
         translator("payment_service_unavailable_alert"),
         show_alert=True,
     )
-    if callback.message:
+    message = callback_message_or_none(callback)
+    if message is not None:
         try:
-            await callback.message.edit_text(translator("payment_service_unavailable"))
+            await message.edit_text(translator("payment_service_unavailable"))
         except Exception:
             pass
 
@@ -262,9 +265,10 @@ async def notify_payment_record_failure(
     translator: Translator,
 ) -> None:
     """Both error_creating_payment_record + error_try_again shown after DB failure."""
-    if callback.message:
+    message = callback_message_or_none(callback)
+    if message is not None:
         try:
-            await callback.message.edit_text(translator("error_creating_payment_record"))
+            await message.edit_text(translator("error_creating_payment_record"))
         except Exception:
             pass
     await safe_callback_answer(callback, translator("error_try_again"), show_alert=True)
@@ -275,9 +279,10 @@ async def notify_payment_gateway_failure(
     translator: Translator,
 ) -> None:
     """``error_payment_gateway`` shown both inline and as alert."""
-    if callback.message:
+    message = callback_message_or_none(callback)
+    if message is not None:
         try:
-            await callback.message.edit_text(translator("error_payment_gateway"))
+            await message.edit_text(translator("error_payment_gateway"))
         except Exception:
             pass
     await safe_callback_answer(

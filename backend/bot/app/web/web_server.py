@@ -2,7 +2,7 @@ import asyncio
 import functools
 import hmac
 import logging
-from typing import Awaitable, Callable, Optional
+from typing import Any, Awaitable, Callable, Optional, cast
 
 from aiogram import Bot, Dispatcher
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
@@ -10,6 +10,12 @@ from aiohttp import web
 from aiohttp.web_log import AccessLogger, KeyMethod
 from sqlalchemy.orm import sessionmaker
 
+from bot.app.controllers.dispatcher_context import iter_dispatcher_services
+from bot.app.web.context import (
+    get_app_settings,
+    set_core_context,
+    set_service_context,
+)
 from bot.payment_providers import iter_provider_specs, iter_service_keys
 from bot.plugins import (
     WEB_SCOPE_WEBAPP,
@@ -31,11 +37,11 @@ class SecureSimpleRequestHandler(SimpleRequestHandler):
 class TrustedProxyAccessLogger(AccessLogger):
     """Aiohttp access logger that respects trusted X-Forwarded-For headers."""
 
-    def compile_format(self, log_format):
+    def compile_format(self, log_format: str) -> tuple[str, list[KeyMethod]]:
         methods = []
         for atom in self.FORMAT_RE.findall(log_format):
             if atom[1] == "":
-                format_key = self.LOG_FORMAT_MAP[atom[0]]
+                format_key: str | tuple[str, str] = self.LOG_FORMAT_MAP[atom[0]]
                 method = getattr(type(self), f"_format_{atom[0]}", None)
                 if method is None:
                     method = getattr(AccessLogger, f"_format_{atom[0]}")
@@ -52,12 +58,13 @@ class TrustedProxyAccessLogger(AccessLogger):
         return compiled, methods
 
     @staticmethod
-    def _format_a(request, response, time):
+    def _format_a(request: web.BaseRequest, response: web.StreamResponse, time: float) -> str:
         if request is None:
             return "-"
-        settings = request.app.get("settings") if hasattr(request, "app") else None
-        trusted_proxies = getattr(settings, "trusted_proxies", None)
-        client_ip = request_client_ip(request, trusted_proxies=trusted_proxies)
+        app = getattr(request, "app", None)
+        settings = get_app_settings(app) if app is not None else None
+        trusted_proxies = settings.trusted_proxies if settings is not None else None
+        client_ip = request_client_ip(cast(web.Request, request), trusted_proxies=trusted_proxies)
         return client_ip or "-"
 
 
@@ -68,11 +75,13 @@ def _inject_shared_instances(
     settings: Settings,
     async_session_factory: sessionmaker,
 ) -> None:
-    app["bot"] = bot
-    app["dp"] = dp
-    app["settings"] = settings
-    app["async_session_factory"] = async_session_factory
-    app["i18n"] = dp.get("i18n_instance")
+    set_core_context(
+        app,
+        bot=bot,
+        dp=dp,
+        settings=settings,
+        async_session_factory=async_session_factory,
+    )
     shared_keys = [
         "subscription_service",
         "referral_service",
@@ -81,9 +90,8 @@ def _inject_shared_instances(
         "lknpd_service",
         *iter_service_keys(),
     ]
-    for key in shared_keys:
-        if hasattr(dp, "workflow_data") and key in dp.workflow_data:  # type: ignore
-            app[key] = dp.workflow_data[key]  # type: ignore
+    for key, service in iter_dispatcher_services(dp, shared_keys):
+        set_service_context(app, key, service)
 
 
 async def build_and_start_web_app(
@@ -94,12 +102,12 @@ async def build_and_start_web_app(
     *,
     after_webhooks_started: Optional[Callable[[], Awaitable[None]]] = None,
     plugin_context: Optional[PluginContext] = None,
-):
+) -> None:
     app = web.Application()
     _inject_shared_instances(app, dp, bot, settings, async_session_factory)
 
     async def _healthcheck(request: web.Request) -> web.Response:
-        payload = {"status": "ok"}
+        payload: dict[str, Any] = {"status": "ok"}
         try:
             from db.database_setup import async_engine
 
@@ -175,8 +183,9 @@ async def build_and_start_web_app(
     if after_webhooks_started is not None:
         await after_webhooks_started()
 
-    if settings.WEBAPP_ENABLED:
-        from bot.app.web.subscription_webapp import create_subscription_webapp_application
+    webapp_settings = settings.webapp_settings
+    if webapp_settings.enabled:
+        from bot.app.web.webapp.application import create_subscription_webapp_application
 
         subscription_app = create_subscription_webapp_application(
             dp,
@@ -194,14 +203,14 @@ async def build_and_start_web_app(
         runners.append(subscription_runner)
         subscription_site = web.TCPSite(
             subscription_runner,
-            host=settings.WEBAPP_SERVER_HOST,
-            port=settings.WEBAPP_SERVER_PORT,
+            host=webapp_settings.server_host,
+            port=webapp_settings.server_port,
         )
         await subscription_site.start()
         logging.info(
             "Subscription WebApp server started on http://%s:%s",
-            settings.WEBAPP_SERVER_HOST,
-            settings.WEBAPP_SERVER_PORT,
+            webapp_settings.server_host,
+            webapp_settings.server_port,
         )
 
     try:

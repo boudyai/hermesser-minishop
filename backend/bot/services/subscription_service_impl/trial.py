@@ -1,10 +1,17 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+import logging
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, Optional
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra import events
+from bot.infra.event_payloads import TrialActivatedPayload
+from db.dal import subscription_dal, user_dal
+
+from ._typing import SubscriptionServiceMixinContract
 
 
-class TrialSubscriptionMixin:
+class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
     async def activate_trial_subscription(
         self, session: AsyncSession, user_id: int
     ) -> Optional[Dict[str, Any]]:
@@ -53,6 +60,7 @@ class TrialSubscriptionMixin:
             session, panel_user_uuid, panel_sub_link_id
         )
 
+        trial_premium_baseline_bytes = self._trial_premium_baseline_bytes()
         trial_sub_data = {
             "user_id": user_id,
             "panel_user_uuid": panel_user_uuid,
@@ -63,6 +71,11 @@ class TrialSubscriptionMixin:
             "is_active": True,
             "status_from_panel": "TRIAL",
             "traffic_limit_bytes": self.settings.trial_traffic_limit_bytes,
+            "premium_baseline_bytes": trial_premium_baseline_bytes,
+            "premium_topup_balance_bytes": 0,
+            "premium_topup_used_bytes": 0,
+            "premium_used_bytes": 0,
+            "premium_is_limited": False,
             "auto_renew_enabled": False,
             "provider": "trial",
             # Short trial: only warn a few hours before it ends, not days ahead.
@@ -90,7 +103,7 @@ class TrialSubscriptionMixin:
             traffic_limit_strategy=self.settings.TRIAL_TRAFFIC_STRATEGY,
             include_default_squads=False,
         )
-        trial_squads = self.settings.parsed_trial_squad_uuids
+        trial_squads = self._trial_all_panel_squad_uuids()
         if trial_squads:
             panel_update_payload["activeInternalSquads"] = trial_squads
         if self.settings.parsed_user_external_squad_uuid:
@@ -116,14 +129,13 @@ class TrialSubscriptionMixin:
 
         await session.commit()
 
-        await events.emit(
-            events.TRIAL_ACTIVATED,
-            {
-                "user_id": user_id,
-                "end_date": events.iso(end_date),
-                "days": self.settings.TRIAL_DURATION_DAYS,
-                "traffic_gb": self.settings.TRIAL_TRAFFIC_LIMIT_GB,
-            },
+        await events.emit_model(
+            TrialActivatedPayload(
+                user_id=user_id,
+                end_date=end_date,
+                days=self.settings.TRIAL_DURATION_DAYS,
+                traffic_gb=self.settings.TRIAL_TRAFFIC_LIMIT_GB,
+            )
         )
 
         final_subscription_url = updated_panel_user.get("subscriptionUrl")

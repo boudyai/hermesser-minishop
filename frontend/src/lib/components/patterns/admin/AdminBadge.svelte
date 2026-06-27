@@ -1,9 +1,7 @@
 <script>
   import { cn } from "$lib/utils.js";
 
-  export let variant = "muted";
-  let className = "";
-  export { className as class };
+  let { variant = "muted", class: className = "", children, ...restProps } = $props();
 </script>
 
 <span
@@ -15,7 +13,7 @@
     variant === "muted" && "admin-badge-muted",
     className
   )}
-  {...$$restProps}
+  {...restProps}
 >
-  <slot />
+  {@render children?.()}
 </span>

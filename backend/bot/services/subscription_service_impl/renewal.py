@@ -1,15 +1,29 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+import logging
+from typing import Optional
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from bot.payment_providers.shared import RecurringProviderService
+from config.tariffs_config import (
+    default_currency_key_for_settings,
+    default_payment_currency_code_for_settings,
+)
+from db.models import Subscription
+
+from ._typing import SubscriptionServiceMixinContract
 
 
-class RenewalMixin:
-    def recurring_service_for(self, provider: Optional[str]) -> Any:
+class RenewalMixin(SubscriptionServiceMixinContract):
+    def recurring_service_for(self, provider: Optional[str]) -> RecurringProviderService | None:
         """Resolve a provider service that can charge a saved payment method."""
         provider_key = str(provider or "").strip().lower()
         if not provider_key:
             return None
-        services = getattr(self, "recurring_provider_services", {}) or {}
-        return services.get(provider_key)
+        try:
+            services = self.recurring_provider_services
+        except AttributeError:
+            return None
+        return (services or {}).get(provider_key)
 
     async def charge_subscription_renewal(
         self,

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { getContext, onMount } from "svelte";
   import {
     AdminBadge,
@@ -9,25 +9,40 @@
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
   import { FileText, User } from "$components/ui/icons.js";
-  import { createAdminDatatable, syncAdminDatatable } from "../../lib/admin/datatables.js";
+  import { TableHandler } from "@vincjo/datatables";
+  import type { PaymentOut, PaymentsStore } from "../../lib/admin/stores/paymentsStore";
 
-  export let at = (key) => key;
-  export let fmtDate = (value) => value;
-  export let fmtMoney = (value) => value;
-  export let paymentStatusVariant = () => "muted";
-  export let onOpenUserCard = () => {};
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
-  const paymentsStore = getContext("paymentsStore");
-  const paymentsTable = createAdminDatatable();
+  let {
+    at = (key) => key,
+    fmtDate = (value) => String(value || ""),
+    fmtMoney = (value) => String(value),
+    paymentStatusVariant = () => "muted",
+    onOpenUserCard = () => {},
+  }: {
+    at?: TranslateFn;
+    fmtDate?: (value: string | null | undefined) => string;
+    fmtMoney?: (value: number, currency?: string | null) => string;
+    paymentStatusVariant?: (status: string | null | undefined) => string;
+    onOpenUserCard?: (userId: number) => void;
+  } = $props();
+
+  const paymentsStore = getContext<PaymentsStore>("paymentsStore");
+  const paymentsTable = new TableHandler<PaymentOut>();
   const PAYMENTS_PAGE_SIZE = 25;
+  const payments = $derived(paymentsStore.payments as PaymentOut[]);
+  const paymentsTotal = $derived(Number(paymentsStore.paymentsTotal || 0));
+  const paymentsPage = $derived(Number(paymentsStore.paymentsPage || 0));
+  const paymentsLoading = $derived(Boolean(paymentsStore.paymentsLoading));
 
-  $: ({ payments, paymentsTotal, paymentsPage, paymentsLoading } = $paymentsStore);
-  $: syncAdminDatatable(paymentsTable, payments);
+  $effect(() => paymentsTable.setRows(payments));
 
-  $: paymentsPageCount = Math.max(1, Math.ceil(Number(paymentsTotal || 0) / PAYMENTS_PAGE_SIZE));
+  const paymentsPageCount = $derived(
+    Math.max(1, Math.ceil(Number(paymentsTotal || 0) / PAYMENTS_PAGE_SIZE))
+  );
 
-  /** @param {number|null|undefined} v */
-  function formatTrafficGbCell(v) {
+  function formatTrafficGbCell(v: number | string | null | undefined): string {
     if (v == null || v === "") return "—";
     const n = Number(v);
     if (Number.isNaN(n)) return "—";
@@ -40,8 +55,7 @@
     return `${s} GB`;
   }
 
-  /** @param {number|null|undefined} v */
-  function formatGbAmountPlain(v) {
+  function formatGbAmountPlain(v: number | string | null | undefined): string {
     if (v == null || v === "") return "";
     const n = Number(v);
     if (Number.isNaN(n)) return "";
@@ -49,8 +63,7 @@
     return String(Math.round(n * 100) / 100);
   }
 
-  /** @param {Record<string, unknown>} p */
-  function paymentDescriptionDisplay(p) {
+  function paymentDescriptionDisplay(p: PaymentOut): string {
     const r = p.traffic_regular_gb;
     const pr = p.traffic_premium_gb;
     if (r != null && pr == null) {
@@ -73,7 +86,7 @@
     return raw || "—";
   }
 
-  $: paymentHeaders = [
+  const paymentHeaders = $derived([
     at("id", {}, "ID"),
     at("user", {}, "Пользователь"),
     at("payments_col_user_id", {}, "ID"),
@@ -84,7 +97,7 @@
     at("description", {}, "Описание"),
     at("status", {}, "Статус"),
     at("date", {}, "Дата"),
-  ];
+  ]);
 
   onMount(() => {
     paymentsStore.loadPayments();
@@ -150,7 +163,7 @@
               </span>
             </td>
             <td class="admin-cell-mono" data-label={at("payments_col_user_id", {}, "ID")}>
-              {p.user_id != null && p.user_id !== "" ? p.user_id : "—"}
+              {p.user_id != null ? p.user_id : "—"}
             </td>
             <td
               class="admin-cell-traffic-gb"

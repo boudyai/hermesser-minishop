@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { getContext, onDestroy, onMount } from "svelte";
   import QRCode from "qrcode";
   import {
@@ -16,58 +16,78 @@
   import { Select } from "$components/ui/primitives.js";
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
+  import "./InstallGuideScreen.css";
   import { createHeightStageAnimator } from "$lib/webapp/motion/heightStage.js";
+  import {
+    detectInstallPlatformKey,
+    installIconColorStyle,
+    isUnsafeInstallUrl,
+    localizedInstallValue,
+    renderInstallQrDataUrl,
+    resolveInstallButtonAction,
+  } from "$lib/webapp/installGuideRuntime.js";
+  import type { InstallGuidesStore } from "$lib/webapp/stores/installGuidesStore";
 
-  export let currentLang = "ru";
-  export let telegramPlatform = "";
-  export let user = {};
-  export let subscription = {};
-  export let goHome = () => {};
-  export let openConnectLink = () => {};
-  export let openExternalLink = () => {};
-  export let openAppLink = null;
-  export let copyText = async () => {};
-  export let t = (key, _params = {}, fallback = "") => fallback || key;
-  export let publicMode = false;
+  type AnyRecord = Record<string, any>;
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type HeightStageAnimator = {
+    animate(update: () => void): void;
+    destroy(): void;
+  };
+  type HeightStageState = {
+    instant: boolean;
+    locked: boolean;
+    style: string;
+  };
 
-  const installGuidesStore = getContext("installGuidesStore");
+  const createInstallStageAnimator = createHeightStageAnimator as unknown as (options: {
+    durationMs: number;
+    getElement: () => HTMLElement | null;
+    settleDelayMs: number;
+    setState: (state: HeightStageState) => void;
+  }) => HeightStageAnimator;
+
+  let {
+    currentLang = "ru",
+    telegramPlatform = "",
+    user = {},
+    subscription = {},
+    goHome = () => {},
+    openConnectLink = () => {},
+    openExternalLink = () => {},
+    openAppLink = null,
+    copyText = async () => {},
+    t = (key, _params = {}, fallback = "") => fallback || key,
+    publicMode = false,
+  }: {
+    currentLang?: string;
+    telegramPlatform?: string;
+    user?: AnyRecord;
+    subscription?: AnyRecord;
+    goHome?: () => void;
+    openConnectLink?: (url?: string) => void;
+    openExternalLink?: (url: string) => void;
+    openAppLink?: ((url: string) => void) | null;
+    copyText?: (text: string, message?: string) => Promise<void>;
+    t?: Translate;
+    publicMode?: boolean;
+  } = $props();
+
+  const installGuidesStore = getContext("installGuidesStore") as InstallGuidesStore;
   const STAGE_HEIGHT_ANIMATION_MS = 360;
   const CARD_STAGGER_MS = 46;
   const QR_DELAY_EXTRA_MS = 90;
-  const colorTokens = {
-    amber: "#f59e0b",
-    blue: "#3b82f6",
-    cyan: "#06b6d4",
-    emerald: "#10b981",
-    fuchsia: "#d946ef",
-    gray: "#6b7280",
-    green: "#22c55e",
-    indigo: "#6366f1",
-    lime: "#84cc16",
-    neutral: "#737373",
-    orange: "#f97316",
-    pink: "#ec4899",
-    purple: "#a855f7",
-    red: "#ef4444",
-    rose: "#f43f5e",
-    sky: "#0ea5e9",
-    slate: "#64748b",
-    stone: "#78716c",
-    teal: "#14b8a6",
-    violet: "#8b5cf6",
-    yellow: "#eab308",
-    zinc: "#71717a",
-  };
-  let selectedPlatformKey = "";
-  let selectedAppIndex = 0;
-  let qrDataUrl = "";
-  let lastQrValue = "";
+  let selectedPlatformKey = $state("");
+  let selectedAppIndex = $state(0);
+  let qrDataUrl = $state("");
+  let lastQrValue = $state("");
   let qrRequestId = 0;
-  let installContentStage;
-  let stageHeightStyle = "";
-  let stageHeightLocked = false;
-  let stageHeightInstant = false;
-  const installStageAnimator = createHeightStageAnimator({
+  let installContentStage = $state<HTMLElement | null>(null);
+  let stageHeightStyle = $state("");
+  let stageHeightLocked = $state(false);
+  let stageHeightInstant = $state(false);
+  const selectContentProps = { trapFocus: false } as Record<string, unknown>;
+  const installStageAnimator = createInstallStageAnimator({
     durationMs: STAGE_HEIGHT_ANIMATION_MS,
     getElement: () => installContentStage,
     settleDelayMs: QR_DELAY_EXTRA_MS + 80,
@@ -80,84 +100,85 @@
 
   onDestroy(() => installStageAnimator.destroy());
 
-  $: guideState = $installGuidesStore;
-  $: config = guideState?.config || null;
-  $: platforms = Object.entries(config?.platforms || {})
-    .filter(([, platform]) => Array.isArray(platform?.apps) && platform.apps.length)
-    .map(([key, platform]) => ({ key, ...platform }));
-  $: platformOptions = platforms.map((platform) => ({
-    value: platform.key,
-    label: localized(platform.displayName, platform.key),
-  }));
-  $: detectedPlatformKey = detectPlatformKey(platforms.map((platform) => platform.key));
-  $: if (platforms.length && !selectedPlatformKey) {
+  const config = $derived((installGuidesStore?.config || null) as AnyRecord | null);
+  const platforms = $derived(
+    Object.entries((config?.platforms || {}) as Record<string, AnyRecord>)
+      .filter(([, platform]) => Array.isArray(platform?.apps) && platform.apps.length)
+      .map(([key, platform]) => ({ key, ...platform }) as AnyRecord & { key: string })
+  );
+  const platformOptions = $derived(
+    platforms.map((platform) => ({
+      value: platform.key,
+      label: localized(platform.displayName, platform.key),
+    }))
+  );
+  const detectedPlatformKey = $derived(
+    detectInstallPlatformKey(
+      platforms.map((platform) => platform.key),
+      telegramPlatform
+    )
+  );
+  $effect(() => {
+    if (!platforms.length || selectedPlatformKey) return;
     selectedPlatformKey = detectedPlatformKey || platforms[0].key;
-  }
-  $: if (
-    selectedPlatformKey &&
-    platforms.length &&
-    !platforms.some((p) => p.key === selectedPlatformKey)
-  ) {
+  });
+  $effect(() => {
+    if (!selectedPlatformKey || !platforms.length) return;
+    if (platforms.some((p) => p.key === selectedPlatformKey)) return;
     selectedPlatformKey = platforms[0].key;
-  }
-  $: selectedPlatform =
-    platforms.find((platform) => platform.key === selectedPlatformKey) || platforms[0] || null;
-  $: selectedPlatformLabel = selectedPlatform
-    ? localized(selectedPlatform.displayName, selectedPlatform.key)
-    : "";
-  $: apps = selectedPlatform?.apps || [];
-  $: if (selectedAppIndex >= apps.length) selectedAppIndex = 0;
-  $: selectedApp = apps[selectedAppIndex] || apps[0] || null;
-  $: selectedBlocks = Array.isArray(selectedApp?.blocks) ? selectedApp.blocks : [];
-  $: hasAppCard = apps.length > 0;
-  $: stepsDelayOffset = hasAppCard ? apps.length + 1 : 0;
-  $: qrDelayIndex = stepsDelayOffset + selectedBlocks.length + 1;
-  $: installStageStyle = `${stageHeightStyle} --motion-stage-duration:${STAGE_HEIGHT_ANIMATION_MS}ms;`;
-  $: guideSubscription = guideState?.subscription || subscription || {};
-  $: finalSubscriptionLink =
+  });
+  const selectedPlatform = $derived(
+    platforms.find((platform) => platform.key === selectedPlatformKey) || platforms[0] || null
+  );
+  const selectedPlatformLabel = $derived(
+    selectedPlatform ? localized(selectedPlatform.displayName, selectedPlatform.key) : ""
+  );
+  const apps = $derived(selectedPlatform?.apps || []);
+  $effect(() => {
+    if (selectedAppIndex >= apps.length) selectedAppIndex = 0;
+  });
+  const selectedApp = $derived(apps[selectedAppIndex] || apps[0] || null);
+  const selectedBlocks = $derived(Array.isArray(selectedApp?.blocks) ? selectedApp.blocks : []);
+  const hasAppCard = $derived(apps.length > 0);
+  const stepsDelayOffset = $derived(hasAppCard ? apps.length + 1 : 0);
+  const qrDelayIndex = $derived(stepsDelayOffset + selectedBlocks.length + 1);
+  const installStageStyle = $derived(
+    `${stageHeightStyle} --motion-stage-duration:${STAGE_HEIGHT_ANIMATION_MS}ms;`
+  );
+  const guideSubscription = $derived(installGuidesStore?.subscription || subscription || {});
+  const finalSubscriptionLink = $derived(
     guideSubscription?.config_link ||
-    guideSubscription?.connect_url ||
-    subscription?.config_link ||
-    "";
-  $: shareUrl = guideSubscription?.share_url || subscription?.install_share_url || "";
-  $: if (finalSubscriptionLink !== lastQrValue) {
+      guideSubscription?.connect_url ||
+      subscription?.config_link ||
+      ""
+  );
+  const shareUrl = $derived(guideSubscription?.share_url || subscription?.install_share_url || "");
+  $effect(() => {
+    if (finalSubscriptionLink === lastQrValue) return;
     lastQrValue = finalSubscriptionLink;
     updateQr(finalSubscriptionLink);
+  });
+
+  function localized(value: unknown, fallback = ""): string {
+    return localizedInstallValue(value, currentLang, fallback);
   }
 
-  function localized(value, fallback = "") {
-    if (typeof value === "string") return value;
-    if (!value || typeof value !== "object") return fallback;
-    const lang = String(currentLang || "ru")
-      .split("-")[0]
-      .toLowerCase();
-    return (
-      value[lang] ||
-      value.ru ||
-      value.en ||
-      Object.values(value).find((item) => typeof item === "string" && item.trim()) ||
-      fallback
-    );
-  }
-
-  function iconSvg(key) {
+  function iconSvg(key: unknown): string {
     const iconKey = String(key || "").trim();
     return iconKey ? config?.svgLibrary?.[iconKey] || "" : "";
   }
 
-  function iconColorStyle(color) {
-    const raw = String(color || "").trim();
-    const value = colorTokens[raw] || raw;
-    return value ? `--install-icon-color:${value};` : "";
+  function iconColorStyle(color: unknown): string {
+    return installIconColorStyle(color);
   }
 
-  function setInstallStageState({ instant, locked, style }) {
+  function setInstallStageState({ instant, locked, style }: HeightStageState) {
     stageHeightInstant = instant;
     stageHeightLocked = locked;
     stageHeightStyle = style;
   }
 
-  function selectPlatform(key) {
+  function selectPlatform(key: string) {
     if (key === selectedPlatformKey) return;
     installStageAnimator.animate(() => {
       selectedPlatformKey = key;
@@ -165,115 +186,46 @@
     });
   }
 
-  function selectApp(index) {
+  function selectApp(index: number) {
     if (index === selectedAppIndex) return;
     installStageAnimator.animate(() => {
       selectedAppIndex = index;
     });
   }
 
-  function installMotionStyle(index, extraDelay = 0) {
+  function installMotionStyle(index: number, extraDelay = 0) {
     const delay = Math.max(0, index) * CARD_STAGGER_MS + Math.max(0, extraDelay);
     return `--motion-delay:${delay}ms;`;
   }
 
-  function platformFallbackIcon(key) {
+  function platformFallbackIcon(key: string) {
     return key === "ios" || key === "android" || key === "androidTV" ? Smartphone : Monitor;
   }
 
-  function detectPlatformKey(availableKeys) {
-    const available = new Set(availableKeys || []);
-    const tgPlatform = String(telegramPlatform || "").toLowerCase();
-    const nav = typeof navigator === "undefined" ? {} : navigator;
-    const userAgentDataPlatform = String(nav?.userAgentData?.platform || "").toLowerCase();
-    const ua = String(nav?.userAgent || "").toLowerCase();
-    const candidates = [];
-
-    if (tgPlatform.includes("ios")) candidates.push("ios");
-    if (tgPlatform.includes("android")) candidates.push("android");
-    if (tgPlatform.includes("mac")) candidates.push("macos");
-    if (tgPlatform.includes("windows")) candidates.push("windows");
-    if (tgPlatform.includes("linux")) candidates.push("linux");
-
-    if (userAgentDataPlatform.includes("android")) candidates.push("android");
-    if (userAgentDataPlatform.includes("ios")) candidates.push("ios");
-    if (userAgentDataPlatform.includes("mac")) candidates.push("macos");
-    if (userAgentDataPlatform.includes("win")) candidates.push("windows");
-    if (userAgentDataPlatform.includes("linux")) candidates.push("linux");
-
-    if (ua.includes("apple tv")) candidates.push("appleTV");
-    if (ua.includes("android") && /\btv\b|aft|bravia|shield/i.test(ua))
-      candidates.push("androidTV");
-    if (/iphone|ipad|ipod/.test(ua)) candidates.push("ios");
-    if (ua.includes("android")) candidates.push("android");
-    if (ua.includes("windows")) candidates.push("windows");
-    if (ua.includes("macintosh") || ua.includes("mac os")) candidates.push("macos");
-    if (ua.includes("linux") || ua.includes("x11")) candidates.push("linux");
-
-    return candidates.find((candidate) => available.has(candidate)) || "";
-  }
-
-  function templateValues() {
-    const subscriptionLink = subscription?.config_link || subscription?.connect_url || "";
-    const username = user?.username || user?.first_name || user?.id || "";
-    return {
-      HAPP_CRYPT3_LINK: subscriptionLink,
-      HAPP_CRYPT4_LINK: subscriptionLink,
-      SUBSCRIPTION_LINK: subscriptionLink,
-      USERNAME: username,
-    };
-  }
-
-  function resolveTemplate(value) {
-    const replacements = templateValues();
-    return String(value || "").replace(/\{\{\s*([A-Z0-9_]+)\s*\}\}/g, (_match, key) =>
-      Object.prototype.hasOwnProperty.call(replacements, key) ? replacements[key] : ""
-    );
-  }
-
-  function isUnsafeUrl(value) {
-    const url = String(value || "")
-      .trim()
-      .toLowerCase();
-    return !url || hasControlChars(url) || /^(javascript|data|vbscript):/.test(url);
-  }
-
-  function hasControlChars(value) {
-    return Array.from(String(value || "")).some((char) => {
-      const code = char.charCodeAt(0);
-      return code <= 31 || code === 127;
-    });
-  }
-
-  function openResolvedLink(url) {
-    if (isUnsafeUrl(url)) {
+  function openResolvedLink(url: string) {
+    if (isUnsafeInstallUrl(url)) {
       openConnectLink();
       return;
     }
     (openAppLink || openExternalLink)(url);
   }
 
-  async function handleButton(button) {
-    const value = resolveTemplate(button?.link);
-    if (button?.type === "copyButton") {
+  async function handleButton(button: AnyRecord) {
+    const action = resolveInstallButtonAction(button, { subscription, user });
+    if (action.kind === "copy") {
       await copyText(
-        value,
+        action.value,
         localized(config?.baseTranslations?.linkCopiedToClipboard, t("wa_copied", {}, "Copied"))
       );
       return;
     }
-    openResolvedLink(value);
+    openResolvedLink(action.value);
   }
 
-  async function updateQr(value) {
-    const link = String(value || "").trim();
+  async function updateQr(value: unknown) {
     const requestId = ++qrRequestId;
-    if (!link) {
-      qrDataUrl = "";
-      return;
-    }
-    try {
-      const url = await QRCode.toDataURL(link, {
+    const url = await renderInstallQrDataUrl(value, (link) =>
+      QRCode.toDataURL(link, {
         errorCorrectionLevel: "M",
         margin: 1,
         width: 640,
@@ -281,11 +233,9 @@
           dark: "#000000",
           light: "#00000000",
         },
-      });
-      if (requestId === qrRequestId) qrDataUrl = url;
-    } catch (_error) {
-      if (requestId === qrRequestId) qrDataUrl = "";
-    }
+      })
+    );
+    if (requestId === qrRequestId) qrDataUrl = url;
   }
 
   async function copySubscriptionLink() {
@@ -336,7 +286,7 @@
       </h1>
       <p>{t("wa_install_subtitle", {}, "Choose your platform and app.")}</p>
     </div>
-    {#if guideState?.enabled && config && platforms.length}
+    {#if installGuidesStore?.enabled && config && platforms.length}
       <div class="install-platform-topbar">
         <Select.Root
           type="single"
@@ -356,7 +306,7 @@
                     >{@html iconSvg(selectedPlatform.svgIconKey)}</span
                   >
                 {:else}
-                  <svelte:component this={SelectedFallbackIcon} size={19} />
+                  <SelectedFallbackIcon size={19} />
                 {/if}
               {/if}
               <span>{selectedPlatformLabel}</span>
@@ -368,7 +318,7 @@
             side="bottom"
             align="start"
             sideOffset={6}
-            trapFocus={false}
+            {...selectContentProps}
           >
             <Select.Viewport class="install-platform-viewport">
               {#each platforms as platform}
@@ -384,7 +334,7 @@
                         >{@html iconSvg(platform.svgIconKey)}</span
                       >
                     {:else}
-                      <svelte:component this={PlatformFallbackIcon} size={18} />
+                      <PlatformFallbackIcon size={18} />
                     {/if}
                     <span>{localized(platform.displayName, platform.key)}</span>
                   </span>
@@ -398,7 +348,7 @@
     {/if}
   </div>
 
-  {#if guideState?.loading && !guideState?.loaded}
+  {#if installGuidesStore?.loading && !installGuidesStore?.loaded}
     <div
       class="install-loading motion-fade-up"
       role="status"
@@ -407,7 +357,7 @@
       <Spinner size="lg" />
       <span>{t("wa_install_loading", {}, "Loading instructions...")}</span>
     </div>
-  {:else if !guideState?.enabled || !config || !platforms.length}
+  {:else if !installGuidesStore?.enabled || !config || !platforms.length}
     <Card class="install-empty">
       <p>{t("wa_install_unavailable", {}, "Instructions are unavailable.")}</p>
       <Button class="wide" onclick={openConnectLink}>
@@ -576,607 +526,3 @@
     </div>
   {/if}
 </main>
-
-<style>
-  .install-layout {
-    display: grid;
-    gap: 16px;
-    padding: 18px 16px 96px;
-  }
-
-  .install-topbar {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    gap: 12px;
-  }
-
-  .install-topbar.public {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  :global(.install-back-btn) {
-    width: 44px;
-    min-width: 44px;
-    height: 44px;
-    min-height: 44px;
-    padding: 0;
-    border-color: var(--border-strong);
-    color: var(--text);
-  }
-
-  :global(.install-back-btn svg) {
-    width: 21px;
-    height: 21px;
-    stroke-width: 2.6;
-  }
-
-  .install-topbar h1 {
-    margin: 0;
-    color: var(--text);
-    font-size: 22px;
-    line-height: 1.15;
-  }
-
-  .install-platform-topbar {
-    grid-column: 1 / -1;
-    min-width: 0;
-  }
-
-  .install-topbar p,
-  :global(.install-empty) p,
-  .install-step-body p {
-    margin: 0;
-    color: var(--muted);
-    font-size: 13px;
-    line-height: 1.5;
-  }
-
-  :global(.install-empty) {
-    display: grid;
-    gap: 14px;
-  }
-
-  .install-loading {
-    display: grid;
-    min-height: min(360px, 48dvh);
-    place-items: center;
-    align-content: center;
-    gap: 12px;
-    color: var(--muted);
-    font-size: 13px;
-    font-weight: 700;
-  }
-
-  .install-loading :global(.ui-spinner) {
-    color: var(--accent);
-  }
-
-  .install-content-stage {
-    gap: 16px;
-  }
-
-  .install-selector-block {
-    display: grid;
-    gap: 9px;
-  }
-
-  .install-section-title {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    color: var(--muted);
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-  }
-
-  .install-apps {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  .install-apps.apps-mobile-remainder-one button:last-child {
-    grid-column: 1 / -1;
-  }
-
-  .install-apps button {
-    display: flex;
-    min-height: 48px;
-    align-items: center;
-    gap: 9px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--panel) 88%, transparent);
-    color: var(--text);
-    padding: 10px;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-    transform: translateY(0);
-    transition:
-      border-color 0.18s ease,
-      background 0.18s ease,
-      box-shadow 0.18s ease,
-      color 0.18s ease,
-      transform 0.18s ease;
-  }
-
-  .install-apps button.active {
-    border-color: color-mix(in srgb, var(--accent) 70%, var(--border));
-    background: color-mix(in srgb, var(--accent) 12%, var(--panel));
-    box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 12%, transparent);
-    transform: translateY(-1px);
-  }
-
-  .install-apps button:focus-visible {
-    outline: 0;
-    border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
-  }
-
-  .install-apps button:active {
-    transform: translateY(0) scale(0.99);
-  }
-
-  :global(.install-platform-trigger) {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    min-height: 48px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--panel) 88%, transparent);
-    color: var(--text);
-    padding: 0 12px;
-    font: inherit;
-    text-align: left;
-    box-shadow: var(--shadow-soft);
-  }
-
-  :global(.install-platform-trigger:focus-visible),
-  :global(.install-platform-trigger[data-state="open"]) {
-    outline: 0;
-    border-color: color-mix(in srgb, var(--accent) 68%, var(--border));
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent);
-  }
-
-  :global(.install-platform-trigger > svg) {
-    color: var(--muted);
-  }
-
-  .install-platform-trigger-main,
-  .install-platform-item-main {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-  }
-
-  .install-platform-trigger-main > span:last-child,
-  .install-platform-item-main > span:last-child {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  :global(.install-platform-content) {
-    z-index: 140;
-    width: min(300px, calc(100vw - 32px));
-    min-width: min(300px, calc(100vw - 32px));
-    border: 1px solid var(--border-strong);
-    border-radius: 8px;
-    background: var(--panel-3);
-    box-shadow: var(--shadow-popover);
-    overflow: hidden;
-    box-sizing: border-box;
-    animation: dropdown-enter 0.16s ease-out both;
-  }
-
-  :global(.install-platform-viewport) {
-    max-height: min(290px, 48dvh);
-    padding: 6px;
-  }
-
-  :global(.install-platform-item) {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    min-height: 40px;
-    border-radius: 6px;
-    padding: 8px 9px;
-    color: var(--text);
-    font-size: 13px;
-    cursor: pointer;
-  }
-
-  :global(.install-platform-item[data-highlighted]) {
-    background: var(--surface-hover);
-  }
-
-  :global(.install-platform-item-check) {
-    flex: 0 0 auto;
-    color: var(--accent);
-    opacity: 0;
-  }
-
-  :global(.install-platform-item[data-selected] .install-platform-item-check) {
-    opacity: 1;
-  }
-
-  .install-apps button {
-    position: relative;
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 5px;
-    overflow: visible;
-  }
-
-  .install-apps button > span {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  :global(.install-feature-star.attention-dot) {
-    top: 8px;
-    right: 8px;
-    width: 16px;
-    min-width: 16px;
-    height: 16px;
-    border-radius: 0;
-    background: #facc15;
-    clip-path: polygon(
-      50% 0%,
-      61% 35%,
-      98% 35%,
-      68% 56%,
-      79% 91%,
-      50% 70%,
-      21% 91%,
-      32% 56%,
-      2% 35%,
-      39% 35%
-    );
-    transform: none;
-    animation: install-star-pulse 1.6s ease-out infinite;
-  }
-
-  .install-svg,
-  .install-step-icon {
-    display: inline-flex;
-    flex: 0 0 auto;
-    color: var(--install-icon-color, var(--accent));
-  }
-
-  .install-svg :global(svg),
-  .install-step-icon :global(svg) {
-    width: 19px;
-    height: 19px;
-    color: currentColor;
-  }
-
-  .install-steps {
-    display: grid;
-    gap: 10px;
-  }
-
-  .install-step-motion {
-    min-width: 0;
-  }
-
-  :global(.install-step) {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 12px;
-    transition:
-      border-color 0.18s ease,
-      background 0.18s ease,
-      transform 0.18s ease,
-      box-shadow 0.18s ease;
-  }
-
-  :global(.install-step:hover) {
-    transform: translateY(-1px);
-    border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
-  }
-
-  .install-qr-divider {
-    display: grid;
-    place-items: center;
-    height: 24px;
-    color: var(--border-strong);
-    opacity: 0.72;
-  }
-
-  .install-qr-divider svg {
-    display: block;
-    width: 100%;
-    height: 18px;
-    overflow: visible;
-  }
-
-  .install-qr-divider path {
-    fill: none;
-    stroke: currentColor;
-    stroke-linecap: round;
-    stroke-width: 1.2;
-    vector-effect: non-scaling-stroke;
-  }
-
-  :global(.install-subscription-card) {
-    display: grid;
-    gap: 12px;
-    justify-self: stretch;
-    transition:
-      border-color 0.18s ease,
-      transform 0.18s ease,
-      box-shadow 0.18s ease;
-  }
-
-  .install-subscription-motion {
-    display: grid;
-    min-width: 0;
-  }
-
-  :global(.install-subscription-card:hover) {
-    transform: translateY(-1px);
-    border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
-  }
-
-  .install-subscription-header {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: start;
-    gap: 12px;
-    padding: 2px 0 12px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .install-subscription-header-icon {
-    display: inline-flex;
-    width: 38px;
-    height: 38px;
-    align-items: center;
-    justify-content: center;
-    color: var(--accent);
-    border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
-  }
-
-  .install-subscription-header-icon :global(svg) {
-    width: 20px;
-    height: 20px;
-  }
-
-  .install-subscription-heading {
-    min-width: 0;
-  }
-
-  .install-subscription-heading h2 {
-    margin: 0 0 4px;
-    color: var(--text);
-    font-size: 16px;
-    line-height: 1.25;
-  }
-
-  .install-subscription-heading p {
-    margin: 0;
-    color: var(--muted);
-    font-size: 13px;
-    line-height: 1.45;
-  }
-
-  .install-subscription-body {
-    display: grid;
-    gap: 10px;
-  }
-
-  .install-qr-wrap {
-    position: relative;
-    display: grid;
-    width: 60%;
-    aspect-ratio: 1;
-    min-width: 172px;
-    max-width: 236px;
-    place-items: center;
-    justify-self: center;
-    padding: 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--panel-3) 64%, transparent);
-    box-sizing: border-box;
-    overflow: hidden;
-    transition:
-      border-color 0.18s ease,
-      background 0.18s ease;
-  }
-
-  .install-qr-wrap.ready {
-    background: transparent;
-  }
-
-  .install-qr-wrap img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-
-  .install-qr-placeholder {
-    display: block;
-    width: 100%;
-    height: 100%;
-    border-radius: 6px;
-    background: linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--muted) 9%, transparent) 0%,
-      color-mix(in srgb, var(--muted) 18%, transparent) 42%,
-      color-mix(in srgb, var(--muted) 9%, transparent) 84%
-    );
-    background-size: 220% 100%;
-  }
-
-  :global(.theme-dark) .install-qr-wrap img {
-    filter: brightness(0) invert(1);
-  }
-
-  .install-step-icon {
-    width: 36px;
-    height: 36px;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid color-mix(in srgb, currentColor 38%, var(--border));
-    border-radius: 8px;
-    background: color-mix(in srgb, currentColor 12%, transparent);
-  }
-
-  .install-step-body {
-    display: grid;
-    align-content: center;
-    gap: 7px;
-    min-width: 0;
-  }
-
-  .install-step-body h2 {
-    margin: 0;
-    color: var(--text);
-    font-size: 16px;
-    line-height: 1.25;
-  }
-
-  .install-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding-top: 3px;
-  }
-
-  .install-actions :global(.btn) {
-    flex: 1 1 150px;
-  }
-
-  .install-subscription-actions {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
-    align-content: start;
-    padding-top: 0;
-  }
-
-  .install-subscription-actions :global(.btn) {
-    width: 100%;
-    flex: 0 0 auto;
-  }
-
-  @media (min-width: 520px) {
-    .install-apps {
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-    }
-
-    .install-apps button,
-    .install-apps.apps-mobile-remainder-one button:last-child {
-      grid-column: span 2;
-    }
-
-    .install-apps.apps-remainder-one button:last-child {
-      grid-column: 1 / -1;
-    }
-
-    .install-apps.apps-remainder-two button:nth-last-child(-n + 2) {
-      grid-column: span 3;
-    }
-  }
-
-  @media (hover: hover) {
-    .install-apps button:hover {
-      border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
-      background: color-mix(in srgb, var(--text) 4%, var(--panel));
-      transform: translateY(-1px);
-    }
-
-    .install-apps button.active:hover {
-      background: color-mix(in srgb, var(--accent) 15%, var(--panel));
-      transform: translateY(-2px);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .install-apps button,
-    :global(.install-step),
-    :global(.install-subscription-card) {
-      transition: none;
-      transform: none;
-    }
-
-    :global(.install-feature-star.attention-dot) {
-      animation: none;
-    }
-
-    .install-apps button.active,
-    .install-apps button:active,
-    .install-apps button:hover,
-    .install-apps button.active:hover,
-    :global(.install-step:hover),
-    :global(.install-subscription-card:hover) {
-      transform: none;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .install-topbar {
-      grid-template-columns: auto minmax(0, 1fr) minmax(260px, 340px);
-    }
-
-    .install-topbar.public {
-      grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
-    }
-
-    .install-platform-topbar {
-      grid-column: auto;
-    }
-
-    .install-platform-topbar :global(.install-platform-trigger) {
-      min-height: 44px;
-    }
-
-    :global(.install-subscription-card) {
-      width: fit-content;
-      max-width: 100%;
-      justify-self: center;
-      padding: 16px;
-    }
-
-    .install-subscription-header,
-    .install-subscription-body {
-      width: clamp(300px, 28vw, 340px);
-      max-width: 100%;
-    }
-
-    .install-qr-wrap {
-      justify-self: center;
-    }
-  }
-
-  @keyframes install-star-pulse {
-    0% {
-      filter: drop-shadow(0 0 0 rgba(250, 204, 21, 0.72));
-      transform: scale(1);
-    }
-
-    65% {
-      filter: drop-shadow(0 0 9px rgba(250, 204, 21, 0));
-      transform: scale(1.18);
-    }
-
-    100% {
-      filter: drop-shadow(0 0 0 rgba(250, 204, 21, 0));
-      transform: scale(1);
-    }
-  }
-</style>

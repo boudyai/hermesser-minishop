@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Optional
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from aiogram import Bot
@@ -90,7 +90,10 @@ class SubscriptionLifecycleNotificationService:
             fallback=telegram_user_name,
         )
 
-        kwargs = {"user_name": telegram_user_name, "end_date": final_end_date_text}
+        kwargs: dict[str, Any] = {
+            "user_name": telegram_user_name,
+            "end_date": final_end_date_text,
+        }
         if stage.hours_before is not None:
             kwargs["hours"] = stage.hours_before
 
@@ -109,7 +112,13 @@ class SubscriptionLifecycleNotificationService:
             resolved_user,
             lang=lang,
             message_text=message_text,
-            markup=telegram_markup or get_subscribe_only_markup(lang, self.i18n),
+            markup=telegram_markup
+            or get_subscribe_only_markup(
+                lang,
+                self.i18n,
+                self.settings,
+                tariff_key=self._renewal_tariff_key(sub),
+            ),
             sent_at=sent_at,
         )
         email_sent = await self._send_email(

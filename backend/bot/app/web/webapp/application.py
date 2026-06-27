@@ -1,6 +1,36 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+from aiogram import Bot, Dispatcher
+from aiohttp import web
+from sqlalchemy.orm import sessionmaker
+
+from bot.app.controllers.dispatcher_context import (
+    get_dispatcher_bot_username,
+    iter_dispatcher_services,
+)
+from bot.app.web.admin_api_impl.auth import (
+    admin_auth_middleware,
+)
+from bot.app.web.context import (
+    EMAIL_AUTH_SERVICE,
+    get_app_i18n,
+    initialize_webapp_runtime_context,
+    set_bot_username,
+    set_core_context,
+    set_service_context,
+)
+from bot.services.email_auth_service import EmailAuthService
+from config.settings import Settings
+
+from .assets import (
+    _close_shared_http_session,
+    _csrf_protection_middleware,
+    _ensure_shared_http_session,
+    _security_headers_middleware,
+    _warm_webapp_logo_cache,
+)
 from .guides import warm_subscription_guides_config
+from .routes import (
+    setup_subscription_webapp_routes,
+)
 
 
 def create_subscription_webapp_application(
@@ -16,25 +46,16 @@ def create_subscription_webapp_application(
             admin_auth_middleware,
         ]
     )
-    app["bot"] = bot
-    app["dp"] = dp
-    app["settings"] = settings
-    app["async_session_factory"] = async_session_factory
-    app["i18n"] = dp.get("i18n_instance")
-    app["email_auth_service"] = EmailAuthService(settings, app["i18n"])
-    app["webapp_logo_cache"] = None
-    app["webapp_logo_cache_lock"] = asyncio.Lock()
-    app["webapp_settings_cache"] = {"ts": 0.0, "data": {}}
-    app["subscription_guides_config_cache"] = {"fingerprint": None, "status": None}
-    app["subscription_guides_config_lock"] = asyncio.Lock()
-    app["subscription_guides_panel_config_cache"] = {}
-    app["subscription_guides_panel_config_lock"] = asyncio.Lock()
-    app["subscription_guides_resolved_config_cache"] = {}
-    app["subscription_guides_resolved_config_lock"] = asyncio.Lock()
-    app["subscription_guides_public_subscription_cache"] = {}
-    app["subscription_guides_public_subscription_lock"] = asyncio.Lock()
-    app["webapp_rate_limit_buckets"] = {}
-    app["webapp_rate_limit_lock"] = asyncio.Lock()
+    set_core_context(
+        app,
+        bot=bot,
+        dp=dp,
+        settings=settings,
+        async_session_factory=async_session_factory,
+    )
+    initialize_webapp_runtime_context(app)
+    app[EMAIL_AUTH_SERVICE] = EmailAuthService(settings, get_app_i18n(app))
+    set_service_context(app, "email_auth_service", app[EMAIL_AUTH_SERVICE])
 
     async def _startup(app_obj: web.Application) -> None:
         await _ensure_shared_http_session()
@@ -49,21 +70,24 @@ def create_subscription_webapp_application(
 
     from bot.payment_providers import iter_service_keys
 
-    for key in (
-        "subscription_service",
-        "promo_code_service",
-        "referral_service",
-        "support_service",
-        "notification_service",
-        "email_auth_service",
-        "panel_service",
-        *iter_service_keys(),
+    for key, service in iter_dispatcher_services(
+        dp,
+        (
+            "subscription_service",
+            "promo_code_service",
+            "referral_service",
+            "support_service",
+            "notification_service",
+            "email_auth_service",
+            "panel_service",
+            *iter_service_keys(),
+        ),
     ):
-        if hasattr(dp, "workflow_data") and key in dp.workflow_data:  # type: ignore[attr-defined]
-            app[key] = dp.workflow_data[key]  # type: ignore[index]
+        set_service_context(app, key, service)
 
-    if hasattr(dp, "workflow_data") and "bot_username" in dp.workflow_data:  # type: ignore[attr-defined]
-        app["bot_username"] = dp.workflow_data["bot_username"]  # type: ignore[index]
+    bot_username = get_dispatcher_bot_username(dp)
+    if bot_username:
+        set_bot_username(app, bot_username)
 
     setup_subscription_webapp_routes(app)
     return app

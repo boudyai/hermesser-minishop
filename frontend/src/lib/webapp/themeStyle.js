@@ -62,6 +62,18 @@ const TOKEN_TO_CSS_VAR = {
   admin_chart_fill: "--admin-chart-fill",
 };
 
+const ADMIN_TOKEN_FALLBACKS = {
+  admin_bg: "bg",
+  admin_surface: "panel",
+  admin_surface_2: "panel_2",
+  admin_elev: "panel_3",
+  admin_border: "border",
+  admin_border_strong: "border_strong",
+  admin_text: "text",
+  admin_muted: "muted",
+  admin_dim: "dim",
+};
+
 const LOGO_SCALE_TOKEN_KEYS = new Set([
   "home_logo_scale",
   "home_logo_scale_desktop",
@@ -100,7 +112,10 @@ export function themeTokensToInlineStyle(tokens, primaryFallback = "#00fe7a", op
   if (accent) parts.push(`--accent:${accent}`);
   for (const [key, cssVar] of Object.entries(TOKEN_TO_CSS_VAR)) {
     if (key === "accent") continue;
-    const value = t[key];
+    let value = t[key];
+    if ((value === undefined || value === null || value === "") && ADMIN_TOKEN_FALLBACKS[key]) {
+      value = t[ADMIN_TOKEN_FALLBACKS[key]];
+    }
     if (value === undefined || value === null || value === "") continue;
     if (LOGO_SCALE_TOKEN_KEYS.has(key)) {
       const scale = Number(value);

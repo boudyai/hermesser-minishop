@@ -9,6 +9,13 @@ from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra import events
+from bot.infra.event_payloads import (
+    PaymentSucceededPayload,
+    ReferralBonusGrantedPayload,
+    SubscriptionCreatedPayload,
+    SubscriptionExtendedPayload,
+)
+from bot.infra.payment_events import build_payment_succeeded_payload
 from bot.keyboards.inline.user_keyboards import get_connect_and_main_keyboard
 from bot.utils.config_link import prepare_config_links
 from bot.utils.install_links import ensure_user_install_guide_links
@@ -46,7 +53,7 @@ async def resolve_user_language(
     language = (
         db_user.language_code if db_user and db_user.language_code else settings.DEFAULT_LANGUAGE
     )
-    return db_user, language
+    return db_user, str(language)
 
 
 async def resolve_inviter_name(
@@ -64,9 +71,9 @@ async def resolve_inviter_name(
     if inviter.first_name:
         safe_name = sanitize_display_name(inviter.first_name)
         if safe_name:
-            return safe_name
+            return str(safe_name)
     if inviter.username:
-        return username_for_display(inviter.username, with_at=False)
+        return str(username_for_display(inviter.username, with_at=False))
     return placeholder
 
 
@@ -244,6 +251,7 @@ class PaymentSuccessRequest:
     log_prefix: str = "payment_providers"
     activation_extra_kwargs: dict = field(default_factory=dict)
     skip_keyboard: bool = False
+    skip_user_notification: bool = False
     text_prefix: Optional[str] = None
 
 
@@ -334,43 +342,48 @@ async def finalize_successful_payment(
             )
         return None
 
-    await events.emit(
-        events.PAYMENT_SUCCEEDED,
-        {
-            "user_id": req.user_id,
-            "payment_db_id": req.payment.payment_id,
-            "provider": req.provider_subscription,
-            "notification_provider": req.provider_notification,
-            "amount": req.amount,
-            "currency": req.currency,
-            "sale_mode": req.sale_mode,
-            "tariff_key": effective_tariff_key,
-            "months": activation_months if is_subscription else None,
-            "traffic_gb": traffic_gb_for_activation,
-            "end_date": events.iso(activation.get("end_date") if activation else None),
-            "is_auto_renew": False,
-        },
+    await events.emit_model(
+        PaymentSucceededPayload.model_validate(
+            build_payment_succeeded_payload(
+                user_id=req.user_id,
+                payment_db_id=req.payment.payment_id,
+                provider=req.provider_subscription,
+                notification_provider=req.provider_notification,
+                amount=req.amount,
+                currency=req.currency,
+                sale_mode=req.sale_mode,
+                tariff_key=effective_tariff_key,
+                months=activation_months if is_subscription else None,
+                traffic_gb=traffic_gb_for_activation,
+                payment=req.payment,
+                activation=activation,
+                end_date=events.iso(activation.get("end_date") if activation else None),
+                is_auto_renew=False,
+            )
+        )
     )
     if is_subscription and activation:
-        await events.emit(
-            events.SUBSCRIPTION_EXTENDED
+        subscription_payload_cls = (
+            SubscriptionExtendedPayload
             if activation.get("was_extension")
-            else events.SUBSCRIPTION_CREATED,
-            {
-                "user_id": req.user_id,
-                "subscription_id": activation.get("subscription_id"),
-                "tariff_key": activation.get("tariff_key"),
-                "end_date": events.iso(activation.get("end_date")),
-                "provider": req.provider_subscription,
-                "months": activation_months,
-                "payment_db_id": req.payment.payment_id,
-            },
+            else SubscriptionCreatedPayload
+        )
+        await events.emit_model(
+            subscription_payload_cls(
+                user_id=req.user_id,
+                subscription_id=activation.get("subscription_id"),
+                tariff_key=activation.get("tariff_key"),
+                end_date=activation.get("end_date"),
+                provider=req.provider_subscription,
+                months=activation_months,
+                payment_db_id=req.payment.payment_id,
+            )
         )
     referral_event_payload = (
         referral_bonus.get("event_payload") if isinstance(referral_bonus, dict) else None
     )
     if referral_event_payload:
-        await events.emit(events.REFERRAL_BONUS_GRANTED, referral_event_payload)
+        await events.emit_model(ReferralBonusGrantedPayload.model_validate(referral_event_payload))
 
     db_user, language = await resolve_user_language(
         req.session,
@@ -450,19 +463,20 @@ async def finalize_successful_payment(
                 )
                 install_share_url = None
 
-    await send_success_message_to_user(
-        bot=req.bot,
-        user_id=req.user_id,
-        text=success_text,
-        language=language,
-        i18n=req.i18n,
-        settings=req.settings,
-        config_link_display=config_link_display,
-        connect_button_url=connect_button_url,
-        install_share_url=install_share_url,
-        include_keyboard=not req.skip_keyboard,
-        log_prefix=req.log_prefix,
-    )
+    if not req.skip_user_notification:
+        await send_success_message_to_user(
+            bot=req.bot,
+            user_id=req.user_id,
+            text=success_text,
+            language=language,
+            i18n=req.i18n,
+            settings=req.settings,
+            config_link_display=config_link_display,
+            connect_button_url=connect_button_url,
+            install_share_url=install_share_url,
+            include_keyboard=not req.skip_keyboard,
+            log_prefix=req.log_prefix,
+        )
 
     return PaymentSuccessOutcome(
         activation=activation,

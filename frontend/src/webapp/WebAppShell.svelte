@@ -2,24 +2,27 @@
   import BrandMark from "$lib/webapp/BrandMark.svelte";
   import BottomNav from "./BottomNav.svelte";
 
-  export let screen;
-  export let activeTab;
-  export let brand = {};
-  export let brandTitle;
-  export let devicesEnabled;
-  export let supportEnabled = true;
-  export let supportUnreadCount = 0;
-  export let supportUnreadLoading = false;
-  export let supportUnreadLoaded = false;
-  export let hasUnlinkedIdentity;
-  export let isAdmin;
-  export let openAdminPanel;
-  export let goDevices;
-  export let goHome;
-  export let goInvite;
-  export let goSupport;
-  export let goSettings;
-  export let t;
+  let {
+    screen,
+    activeTab,
+    brand = {},
+    brandTitle,
+    devicesEnabled,
+    supportEnabled = true,
+    supportUnreadCount = 0,
+    supportUnreadLoading = false,
+    supportUnreadLoaded = false,
+    hasUnlinkedIdentity,
+    isAdmin,
+    openAdminPanel,
+    goDevices,
+    goHome,
+    goInvite,
+    goSupport,
+    goSettings,
+    t,
+    children,
+  } = $props();
 </script>
 
 <div class="phone-screen" class:home-screen={screen === "home"}>
@@ -32,7 +35,7 @@
     </header>
   {/if}
 
-  <slot />
+  {@render children?.()}
 
   <BottomNav
     {activeTab}

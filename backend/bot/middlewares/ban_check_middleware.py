@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Awaitable, Callable, Dict, Optional, Union
+from typing import Any, Awaitable, Callable, Dict, Optional, Union, cast
 
 from aiogram import BaseMiddleware, Bot
 from aiogram.exceptions import (
@@ -7,13 +7,13 @@ from aiogram.exceptions import (
     TelegramAPIError,
     TelegramForbiddenError,
 )
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message, Update, User
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message, TelegramObject, Update, User
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.keyboards.inline.user_keyboards import get_user_banned_keyboard
 from config.settings import Settings
 from db.dal import user_dal
 
-from ..keyboards.inline.user_keyboards import get_user_banned_keyboard
 from .i18n import JsonI18n
 
 
@@ -25,10 +25,12 @@ class BanCheckMiddleware(BaseMiddleware):
 
     async def __call__(
         self,
-        handler: Callable[[Update, Dict[str, Any]], Awaitable[Any]],
-        event: Update,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
         data: Dict[str, Any],
     ) -> Any:
+        update = cast(Update, event)
+
         session: AsyncSession = data["session"]
         event_user: Optional[User] = data.get("event_from_user")
         bot_instance: Bot = data["bot"]
@@ -62,32 +64,31 @@ class BanCheckMiddleware(BaseMiddleware):
 
             ban_message_text = "You are banned. Please contact support."
             keyboard: Optional[InlineKeyboardMarkup] = None
+            support_link = self.settings.support_settings.link
 
             if i18n_to_use:
                 _ = lambda k, **kw: i18n_to_use.gettext(current_lang, k, **kw)
                 ban_message_text = _("user_is_banned")
-                keyboard = get_user_banned_keyboard(
-                    self.settings.SUPPORT_LINK, current_lang, i18n_to_use
-                )
-            elif self.settings.SUPPORT_LINK:
+                keyboard = get_user_banned_keyboard(support_link, current_lang, i18n_to_use)
+            elif support_link:
                 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
                 builder = InlineKeyboardBuilder()
-                builder.button(text="Support", url=self.settings.SUPPORT_LINK)
+                builder.button(text="Support", url=support_link)
                 keyboard = builder.as_markup()
 
             actual_event_object: Optional[Union[Message, CallbackQuery]] = None
-            if event.message:
-                actual_event_object = event.message
-            elif event.callback_query:
-                actual_event_object = event.callback_query
+            if update.message:
+                actual_event_object = update.message
+            elif update.callback_query:
+                actual_event_object = update.callback_query
 
             try:
                 if isinstance(actual_event_object, Message):
                     await actual_event_object.answer(ban_message_text, reply_markup=keyboard)
                 elif isinstance(actual_event_object, CallbackQuery):
                     await actual_event_object.answer(ban_message_text, show_alert=True)
-                    if actual_event_object.message:
+                    if isinstance(actual_event_object.message, Message):
                         try:
                             await actual_event_object.message.edit_text(
                                 ban_message_text, reply_markup=keyboard

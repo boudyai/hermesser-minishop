@@ -1,8 +1,18 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+import logging
+from datetime import datetime
+from typing import Any, Dict, Optional, Tuple
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from bot.utils.text_sanitizer import panel_description_from_profile
+from config.traffic_strategy import normalize_traffic_limit_strategy
+from db.dal import user_dal
+from db.models import User
+
+from ._typing import SubscriptionServiceMixinContract
 
 
-class PanelIdentityMixin:
+class PanelIdentityMixin(SubscriptionServiceMixinContract):
     def _extract_panel_traffic_details(
         self, panel_user_data: Dict[str, Any]
     ) -> Tuple[Optional[int], Optional[int], Optional[str]]:
@@ -28,7 +38,7 @@ class PanelIdentityMixin:
         except (TypeError, ValueError):
             return None
 
-    async def _notify_admin_panel_user_creation_failed(self, user_id: int):
+    async def _notify_admin_panel_user_creation_failed(self, user_id: int) -> None:
         if not self.bot or not self.i18n or not self.settings.ADMIN_IDS:
             return
         admin_lang = self.settings.DEFAULT_LANGUAGE
@@ -57,10 +67,12 @@ class PanelIdentityMixin:
         return f"em_{referral_code}"
 
     def _panel_description_for_user(self, db_user: User) -> str:
-        return panel_description_from_profile(
-            db_user.username,
-            db_user.first_name,
-            db_user.last_name,
+        return str(
+            panel_description_from_profile(
+                db_user.username,
+                db_user.first_name,
+                db_user.last_name,
+            )
         )
 
     def _panel_identity_payload_for_user(self, db_user: User) -> Dict[str, Any]:

@@ -27,15 +27,14 @@
   import PreviewMethods from "./preview/PreviewMethods.svelte";
   import PreviewNav from "./preview/PreviewNav.svelte";
 
-  export let config = {};
-  export let mockData = {};
+  let { config = {}, mockData = {} } = $props();
 
-  const title = config.title || "Subscription";
-  const logoUrl = config.logoUrl || "/webapp-default-logo.webp";
-  const plans = mockData.plans || [];
-  const sub = mockData.subscription || {};
-  const methods = mockData.payment_methods || [];
-  const user = mockData.user || {};
+  const title = $derived(config.title || "Subscription");
+  const logoUrl = $derived(config.logoUrl || "/webapp-default-logo.webp");
+  const plans = $derived(mockData.plans || []);
+  const sub = $derived(mockData.subscription || {});
+  const methods = $derived(mockData.payment_methods || []);
+  const user = $derived(mockData.user || {});
   const tariffs = [
     [
       "subscription",
@@ -53,7 +52,7 @@
     [100, 990],
     [300, 2190],
   ];
-  const settingsRows = [
+  const settingsRows = $derived([
     [Globe2, "Язык интерфейса", "Русский"],
     [
       Send,
@@ -62,12 +61,15 @@
     ],
     [Mail, "Привязка почты", user.email || "Не привязана"],
     [UserRound, "Выйти", "Завершить сессию"],
-  ];
-  const previewTelegramName =
-    user.first_name || (user.username ? `@${user.username}` : "Telegram не привязан");
-  const previewEmail = user.email || "Почта не привязана";
-  const previewTelegramId = user.telegram_id ? `TG ID ${user.telegram_id}` : "TG ID не привязан";
-  const previewAvatar = user.telegram_photo_url || "";
+  ]);
+  const previewTelegramName = $derived(
+    user.first_name || (user.username ? `@${user.username}` : "Telegram не привязан")
+  );
+  const previewEmail = $derived(user.email || "Почта не привязана");
+  const previewTelegramId = $derived(
+    user.telegram_id ? `TG ID ${user.telegram_id}` : "TG ID не привязан"
+  );
+  const previewAvatar = $derived(user.telegram_photo_url || "");
 
   function money(value) {
     return `${value} ₽`;
@@ -119,8 +121,9 @@
     </div>
     <div class="tariff-list">
       {#each tariffs as tariff, index}
+        {@const TariffIcon = tariff[4]}
         <div class:active={index === 0} class="select-card">
-          <span class="select-icon"><svelte:component this={tariff[4]} size={24} /></span>
+          <span class="select-icon"><TariffIcon size={24} /></span>
           <span><strong>{tariff[1]}</strong><small>{tariff[2]}</small><em>{tariff[3]}</em></span>
           {#if index === 0}<CheckCircle2 size={21} />{:else}<Circle size={21} />{/if}
         </div>
@@ -241,8 +244,9 @@
     </Card>
     <div class="settings-list">
       {#each settingsRows as row}
+        {@const RowIcon = row[0]}
         <div class="settings-row">
-          <svelte:component this={row[0]} size={20} />
+          <RowIcon size={20} />
           <span><strong>{row[1]}</strong><small>{row[2]}</small></span>
           <ArrowRight size={16} />
         </div>

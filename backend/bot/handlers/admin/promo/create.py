@@ -14,6 +14,7 @@ from bot.keyboards.inline.admin_keyboards import (
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.states.admin_states import AdminStates
+from bot.utils.callback_answer import callback_message
 from config.settings import Settings
 from db.dal import promo_code_dal
 
@@ -26,7 +27,7 @@ async def create_promo_prompt_handler(
     i18n_data: dict,
     settings: Settings,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
@@ -38,14 +39,14 @@ async def create_promo_prompt_handler(
     prompt_text = _("admin_promo_step1_code")
 
     try:
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             prompt_text,
             reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
             parse_mode="HTML",
         )
     except Exception as e:
         logging.warning(f"Could not edit message for promo prompt: {e}. Sending new.")
-        await callback.message.answer(
+        await callback_message(callback).answer(
             prompt_text,
             reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
             parse_mode="HTML",
@@ -62,7 +63,7 @@ async def process_promo_code_handler(
     i18n_data: dict,
     settings: Settings,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n:
@@ -71,7 +72,7 @@ async def process_promo_code_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     try:
-        code_str = message.text.strip().upper()
+        code_str = (message.text or "").strip().upper()
         if not (3 <= len(code_str) <= 30 and code_str.isalnum()):
             await message.answer(_("admin_promo_invalid_code_format"))
             return
@@ -103,7 +104,7 @@ async def process_promo_code_handler(
 @router.message(AdminStates.waiting_for_promo_bonus_days, F.text)
 async def process_promo_bonus_days_handler(
     message: types.Message, state: FSMContext, i18n_data: dict, settings: Settings
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n:
@@ -112,7 +113,7 @@ async def process_promo_bonus_days_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     try:
-        bonus_days = int(message.text.strip())
+        bonus_days = int((message.text or "").strip())
         if not (1 <= bonus_days <= 365):
             await message.answer(_("admin_promo_invalid_bonus_days"))
             return
@@ -143,7 +144,7 @@ async def process_promo_bonus_days_handler(
 @router.message(AdminStates.waiting_for_promo_max_activations, F.text)
 async def process_promo_max_activations_handler(
     message: types.Message, state: FSMContext, i18n_data: dict, settings: Settings
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n:
@@ -152,7 +153,7 @@ async def process_promo_max_activations_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     try:
-        max_activations = int(message.text.strip())
+        max_activations = int((message.text or "").strip())
         if not (1 <= max_activations <= 10000):
             await message.answer(_("admin_promo_invalid_max_activations"))
             return
@@ -204,7 +205,7 @@ async def process_promo_unlimited_validity(
     i18n_data: dict,
     settings: Settings,
     session: AsyncSession,
-):
+) -> None:
     await state.update_data(validity_days=None)
     await create_promo_code_final(callback, state, i18n_data, settings, session)
 
@@ -215,7 +216,7 @@ async def process_promo_unlimited_validity(
 )
 async def process_promo_set_validity(
     callback: types.CallbackQuery, state: FSMContext, i18n_data: dict, settings: Settings
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
@@ -232,13 +233,13 @@ async def process_promo_set_validity(
     )
 
     try:
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             prompt_text,
             reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
             parse_mode="HTML",
         )
     except Exception:
-        await callback.message.answer(
+        await callback_message(callback).answer(
             prompt_text,
             reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
             parse_mode="HTML",
@@ -254,7 +255,7 @@ async def process_promo_validity_days_handler(
     i18n_data: dict,
     settings: Settings,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n:
@@ -263,7 +264,7 @@ async def process_promo_validity_days_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     try:
-        validity_days = int(message.text.strip())
+        validity_days = int((message.text or "").strip())
         if not (1 <= validity_days <= 365):
             await message.answer(_("admin_promo_invalid_validity_days"))
             return
@@ -279,12 +280,12 @@ async def process_promo_validity_days_handler(
 
 
 async def create_promo_code_final(
-    callback_or_message,
+    callback_or_message: types.Message | types.CallbackQuery,
     state: FSMContext,
     i18n_data: dict,
     settings: Settings,
     session: AsyncSession,
-):
+) -> None:
     """Final step - create the promo code in database"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -294,6 +295,8 @@ async def create_promo_code_final(
 
     try:
         data = await state.get_data()
+        actor = getattr(callback_or_message, "from_user", None)
+        created_by_admin_id = int(getattr(actor, "id", 0) or 0)
 
         # Prepare promo code data
         promo_data = {
@@ -302,7 +305,7 @@ async def create_promo_code_final(
             "max_activations": data["max_activations"],
             "current_activations": 0,
             "is_active": True,
-            "created_by_admin_id": callback_or_message.from_user.id,
+            "created_by_admin_id": created_by_admin_id,
             "created_at": datetime.now(timezone.utc),
         }
 
@@ -337,15 +340,16 @@ async def create_promo_code_final(
             valid_until_str=valid_until_str,
         )
 
-        if hasattr(callback_or_message, "message"):  # CallbackQuery
+        if isinstance(callback_or_message, types.CallbackQuery):
+            message = callback_message(callback_or_message)
             try:
-                await callback_or_message.message.edit_text(
+                await message.edit_text(
                     success_text,
                     reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
                     parse_mode="HTML",
                 )
             except Exception:
-                await callback_or_message.message.answer(
+                await message.answer(
                     success_text,
                     reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
                     parse_mode="HTML",
@@ -364,8 +368,8 @@ async def create_promo_code_final(
         logging.error(f"Error creating promo code: {e}")
         error_text = _("error_occurred_try_again")
 
-        if hasattr(callback_or_message, "message"):  # CallbackQuery
-            await callback_or_message.message.answer(error_text)
+        if isinstance(callback_or_message, types.CallbackQuery):
+            await callback_message(callback_or_message).answer(error_text)
             await callback_or_message.answer()
         else:  # Message
             await callback_or_message.answer(error_text)
@@ -389,7 +393,7 @@ async def cancel_promo_creation_state_to_menu(
     settings: Settings,
     i18n_data: dict,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
@@ -398,12 +402,12 @@ async def cancel_promo_creation_state_to_menu(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     try:
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             _(key="admin_panel_title"),
             reply_markup=get_admin_panel_keyboard(i18n, current_lang, settings),
         )
     except Exception:
-        await callback.message.answer(
+        await callback_message(callback).answer(
             _(key="admin_panel_title"),
             reply_markup=get_admin_panel_keyboard(i18n, current_lang, settings),
         )

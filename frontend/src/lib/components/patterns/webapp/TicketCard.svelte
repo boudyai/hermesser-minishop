@@ -1,17 +1,40 @@
-<script>
+<script lang="ts">
   import { AttentionDot, Badge } from "$components/ui/index.js";
   import { MessageSquare } from "$components/ui/icons.js";
 
-  export let ticket;
-  export let t = (key) => key;
-  export let onOpen = () => {};
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type TicketRecord = Record<string, unknown> & {
+    created_at?: string;
+    last_message_at?: string;
+    priority?: string;
+    status?: string;
+    subject?: string;
+    ticket_id?: number;
+    unread_user_count?: number;
+    updated_at?: string;
+  };
 
-  $: unread = Number(ticket?.unread_user_count || 0);
-  $: timeLabel = formatTime(ticket?.last_message_at || ticket?.updated_at || ticket?.created_at);
+  let {
+    ticket,
+    t = (key) => key,
+    onOpen = () => {},
+  }: {
+    ticket: TicketRecord;
+    t?: Translate;
+    onOpen?: (ticket: TicketRecord) => void;
+  } = $props();
 
-  function formatTime(value) {
+  const unread = $derived(Number(ticket?.unread_user_count || 0));
+  const timeLabel = $derived(
+    formatTime(ticket?.last_message_at || ticket?.updated_at || ticket?.created_at)
+  );
+
+  function formatTime(value: unknown) {
     if (!value) return "";
-    const date = new Date(value);
+    const raw =
+      typeof value === "string" || typeof value === "number" || value instanceof Date ? value : "";
+    if (!raw) return "";
+    const date = new Date(raw);
     if (Number.isNaN(date.getTime())) return "";
     return date.toLocaleString(undefined, {
       day: "2-digit",
@@ -27,7 +50,7 @@
   type="button"
   data-status={ticket?.status}
   data-priority={ticket?.priority}
-  on:click={() => onOpen(ticket)}
+  onclick={() => onOpen(ticket)}
 >
   <span class="ticket-card-main">
     <span class="ticket-card-title">

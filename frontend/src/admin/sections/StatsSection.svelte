@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import {
     Activity,
     FileText,
@@ -11,7 +11,6 @@
   } from "$components/ui/icons.js";
   import { getContext, onMount } from "svelte";
 
-  import { fmtTrafficBytes } from "../../lib/admin/format.js";
   import Badge from "$components/ui/badge.svelte";
   import { ScrollArea } from "$components/ui/index.js";
   import * as Card from "$components/ui/card/index.js";
@@ -33,31 +32,74 @@
     inclusiveDaySpan,
     sliceLastDays,
   } from "../../lib/admin/revenueSeriesAgg.js";
+  import {
+    computeRevenueKpis,
+    formatTrafficGbCell,
+    growthBadgeVariant,
+    parsePanelBandwidth,
+    parsePanelNodeTraffic,
+    parsePanelSystem,
+    paymentDescriptionDisplay,
+    type AdminStats,
+    type CustomRangeApply,
+    type PanelNodeTraffic,
+    type PanelStats,
+    type PanelSystemMetrics,
+    type RevenueKpis,
+    type RevenuePoint,
+  } from "$lib/admin/statsDerivations";
+  import type { PaymentOut, PaymentsStore } from "$lib/admin/stores/paymentsStore";
+  import type { StatsState, StatsStore } from "$lib/admin/stores/statsStore";
 
-  export let at;
-  export let fmtDate = (value) => value;
-  export let fmtDateShort = (value) => value;
-  export let fmtMoney = (value) => value;
-  export let paymentStatusVariant = () => "muted";
-  export let onOpenUserCard = () => {};
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type FormatterFn = (value: unknown, currency?: string) => string;
+  type DateFormatterFn = (value: unknown) => string;
+  type AdminBadgeVariant = "success" | "danger" | "warning" | "muted";
+  type RevenueGranularity = "day" | "week" | "month";
+  type RevenueRangeMode = "preset" | "custom";
+  type IsoRange = { from: string; to: string };
 
-  const paymentsStore = getContext("paymentsStore");
-  const statsStore = getContext("statsStore");
+  let {
+    at,
+    fmtDate = (value) => String(value ?? ""),
+    fmtDateShort = (value) => String(value ?? ""),
+    fmtMoney = (value) => String(value ?? ""),
+    paymentStatusVariant = () => "muted",
+    onOpenUserCard = () => {},
+  }: {
+    at: TranslateFn;
+    fmtDate?: DateFormatterFn;
+    fmtDateShort?: DateFormatterFn;
+    fmtMoney?: FormatterFn;
+    paymentStatusVariant?: (status: unknown) => AdminBadgeVariant;
+    onOpenUserCard?: (userId: unknown) => void;
+  } = $props();
 
-  $: ({ stats, statsError, statsLoading } = $statsStore);
+  const paymentsStore = getContext<PaymentsStore>("paymentsStore");
+  const statsStore = getContext<StatsStore>("statsStore");
 
-  $: showSkeleton = !stats && !statsError;
+  const statsState = $derived(statsStore);
+  const rawStats: StatsState["stats"] = $derived(statsState.stats);
+  const stats: AdminStats | null = $derived(rawStats as AdminStats | null);
+  const statsError = $derived(statsState.statsError || "");
+  const statsLoading = $derived(Boolean(statsState.statsLoading));
+  const showSkeleton = $derived(!stats && !statsError);
+  const currency = $derived(stats?.currency_symbol || "RUB");
+  const fin: AdminStats["financial"] = $derived(stats?.financial || {});
+  const users: AdminStats["users"] = $derived(stats?.users || {});
+  const panelPayload: PanelStats | null = $derived(stats?.panel ?? null);
+  const panelMetrics: PanelSystemMetrics | null = $derived(
+    panelPayload && !panelPayload.error ? parsePanelSystem(panelPayload) : null
+  );
+  const panelBw: { week: unknown; month: unknown } | null = $derived(
+    panelPayload && !panelPayload.error ? parsePanelBandwidth(panelPayload) : null
+  );
+  const panelNodeTraffic: PanelNodeTraffic | null = $derived(
+    panelPayload && !panelPayload.error ? parsePanelNodeTraffic(panelPayload) : null
+  );
 
-  $: currency = stats?.currency_symbol || "RUB";
-  $: fin = stats?.financial || {};
-  $: users = stats?.users || {};
-  $: panelPayload = stats?.panel;
-  $: panelMetrics = panelPayload && !panelPayload.error ? parsePanelSystem(panelPayload) : null;
-  $: panelBw = panelPayload && !panelPayload.error ? parsePanelBandwidth(panelPayload) : null;
-  $: panelNodeTraffic =
-    panelPayload && !panelPayload.error ? parsePanelNodeTraffic(panelPayload) : null;
   /** Same rows as the «Per node (7 days)» block — not system.nodes.totalOnline from /system/stats */
-  $: panelNodesListedCount = panelNodeTraffic?.seven?.length ?? 0;
+  const panelNodesListedCount = $derived(panelNodeTraffic?.seven?.length ?? 0);
 
   const PANEL_NODE_TILE_LIMIT = 10;
 
@@ -65,35 +107,39 @@
 
   const REVENUE_PRESET_DAYS = [7, 14, 30, 90, 180, 365];
 
-  /** @type {"preset" | "custom"} */
-  let revenueRangeMode = "preset";
-  let revenuePresetDays = 14;
-  /** @type {{ from: string; to: string } | null} */
-  let revenueCustomIso = null;
-  /** @type {"day" | "week" | "month"} */
-  let revenueGranularity = "day";
-  let revenueCustomPopoverOpen = false;
+  let revenueRangeMode = $state<RevenueRangeMode>("preset");
+  let revenuePresetDays = $state(14);
+  let revenueCustomIso = $state<IsoRange | null>(null);
+  let revenueGranularity = $state<RevenueGranularity>("day");
+  let revenueCustomPopoverOpen = $state(false);
 
-  $: dailySeries = Array.isArray(fin.daily_series) ? fin.daily_series : [];
-  $: revenueBoundsIso =
+  const dailySeries: RevenuePoint[] = $derived(
+    Array.isArray(fin.daily_series) ? fin.daily_series : []
+  );
+  const revenueBoundsIso: { min: string; max: string } | null = $derived(
     dailySeries.length > 0
       ? { min: dailySeries[0].date, max: dailySeries[dailySeries.length - 1].date }
-      : null;
+      : null
+  );
 
-  $: revenueDailyFiltered = (() => {
+  const revenueDailyFiltered: RevenuePoint[] = $derived.by(() => {
     if (!dailySeries.length) return [];
     if (revenueRangeMode === "custom" && revenueCustomIso) {
       return filterDailyByIsoRange(dailySeries, revenueCustomIso.from, revenueCustomIso.to);
     }
     return sliceLastDays(dailySeries, revenuePresetDays);
-  })();
+  });
 
-  $: revenueChartSeries = aggregateRevenueSeries(revenueDailyFiltered, revenueGranularity);
+  const revenueChartSeries: RevenuePoint[] = $derived(
+    aggregateRevenueSeries(revenueDailyFiltered, revenueGranularity)
+  );
 
-  $: revenueKpis = computeRevenueKpis(fin, dailySeries);
-  $: chartRangeSum = revenueChartSeries.reduce((a, p) => a + (Number(p.amount) || 0), 0);
+  const revenueKpis: RevenueKpis = $derived(computeRevenueKpis(fin, dailySeries));
+  const chartRangeSum = $derived(
+    revenueChartSeries.reduce((a, p) => a + (Number(p.amount) || 0), 0)
+  );
 
-  function setRevenuePresetDays(days) {
+  function setRevenuePresetDays(days: number): void {
     const next = Number(days);
     if (!REVENUE_PRESET_DAYS.includes(next)) return;
     revenueRangeMode = "preset";
@@ -101,34 +147,36 @@
     revenueCustomPopoverOpen = false;
   }
 
-  function onCustomRangeApply({ fromIso, toIso }) {
+  function onCustomRangeApply({ fromIso, toIso }: CustomRangeApply): void {
     revenueRangeMode = "custom";
     revenueCustomIso = { from: fromIso, to: toIso };
   }
 
-  function setRevenueGranularity(next) {
+  function setRevenueGranularity(next: unknown): void {
     const g = String(next);
     if (g !== "day" && g !== "week" && g !== "month") return;
     revenueGranularity = g;
   }
 
-  function revenuePeriodLabel(days) {
+  function revenuePeriodLabel(days: number): string {
     return at(`stats_revenue_period_${days}`, {}, `${days}d`);
   }
 
-  function revenueChartHintKey() {
+  function revenueChartHintKey(): string {
     if (revenueGranularity === "week") return "stats_revenue_chart_hint_week";
     if (revenueGranularity === "month") return "stats_revenue_chart_hint_month";
     return "stats_revenue_chart_hint";
   }
 
-  $: revenueChartShortfall =
-    revenueRangeMode === "preset" && dailySeries.length < revenuePresetDays;
-  $: revenueCustomDaySpan =
+  const revenueChartShortfall = $derived(
+    revenueRangeMode === "preset" && dailySeries.length < revenuePresetDays
+  );
+  const revenueCustomDaySpan = $derived(
     revenueRangeMode === "custom" && revenueCustomIso
       ? inclusiveDaySpan(revenueCustomIso.from, revenueCustomIso.to)
-      : 0;
-  $: recentPaymentHeaders = [
+      : 0
+  );
+  const recentPaymentHeaders = $derived([
     at("id", {}, "ID"),
     at("user", {}, "Пользователь"),
     at("payments_col_user_id", {}, "ID"),
@@ -139,414 +187,11 @@
     at("description", {}, "Описание"),
     at("status", {}, "Статус"),
     at("date", {}, "Дата"),
-  ];
-  $: recentPayments = (stats?.recent_payments || []).slice(0, 10);
-
-  /** @param {number|null|undefined} v */
-  function formatTrafficGbCell(v) {
-    if (v == null || v === "") return "—";
-    const n = Number(v);
-    if (Number.isNaN(n)) return "—";
-    let s;
-    if (Math.abs(n - Math.round(n)) < 1e-9) {
-      s = String(Math.round(n));
-    } else {
-      s = String(Math.round(n * 100) / 100);
-    }
-    return `${s} GB`;
-  }
-
-  /** @param {number|null|undefined} v */
-  function formatGbAmountPlain(v) {
-    if (v == null || v === "") return "";
-    const n = Number(v);
-    if (Number.isNaN(n)) return "";
-    if (Math.abs(n - Math.round(n)) < 1e-9) return String(Math.round(n));
-    return String(Math.round(n * 100) / 100);
-  }
-
-  /** @param {Record<string, unknown>} p */
-  function paymentDescriptionDisplay(p) {
-    const r = p.traffic_regular_gb;
-    const pr = p.traffic_premium_gb;
-    if (r != null && pr == null) {
-      const gb = formatGbAmountPlain(r);
-      return at(
-        "payments_desc_traffic_package_regular",
-        { gb },
-        `Пакет трафика ${gb} ГБ (обычный)`
-      );
-    }
-    if (pr != null && r == null) {
-      const gb = formatGbAmountPlain(pr);
-      return at(
-        "payments_desc_traffic_package_premium",
-        { gb },
-        `Пакет трафика ${gb} ГБ (премиум)`
-      );
-    }
-    const raw = p.description && String(p.description).trim();
-    return raw || "—";
-  }
-
-  function parsePanelSystem(panel) {
-    const system = panel?.system;
-    if (!system || typeof system !== "object") return null;
-    const u = system.users || {};
-    const statusCounts = u.statusCounts || {};
-    const onlineStats = system.onlineStats || {};
-    const mem = system.memory || {};
-    const memTotal = Number(mem.total) || 0;
-    const memUsed = Number(mem.used) || 0;
-    const memPct = memTotal > 0 ? (memUsed / memTotal) * 100 : null;
-    const cpuRaw =
-      system.cpu?.usage ??
-      system.cpu?.usedPercent ??
-      system.cpu?.percent ??
-      system.cpuUsage ??
-      system.cpuLoad;
-    const cpuPct = Number(cpuRaw);
-    return {
-      onlineNow: onlineStats.onlineNow ?? 0,
-      active: statusCounts.ACTIVE ?? 0,
-      disabled: statusCounts.DISABLED ?? 0,
-      expired: statusCounts.EXPIRED ?? 0,
-      limited: statusCounts.LIMITED ?? 0,
-      totalPanelUsers: u.totalUsers ?? 0,
-      memPct,
-      cpuPct: Number.isFinite(cpuPct) ? cpuPct : null,
-    };
-  }
-
-  function parsePanelBandwidth(panel) {
-    const bw = panel?.bandwidth;
-    if (!bw || typeof bw !== "object") return null;
-    const week = bw.bandwidthLastSevenDays?.current;
-    const month = bw.bandwidthLast30Days?.current ?? bw.bandwidthLastThirtyDays?.current;
-    if (week == null && month == null) return null;
-    return { week, month };
-  }
-
-  function panelRowBytes(row) {
-    if (!row || typeof row !== "object") return 0;
-    const total = Number(row.total);
-    if (Number.isFinite(total) && total > 0) return total;
-    const up = Number(row.uploadBytes ?? row.uplinkBytes ?? row.uplink ?? row.up ?? row.upload);
-    const down = Number(
-      row.downloadBytes ?? row.downlinkBytes ?? row.downlink ?? row.down ?? row.download
-    );
-    const sum = (Number.isFinite(up) ? up : 0) + (Number.isFinite(down) ? down : 0);
-    return sum > 0 ? sum : 0;
-  }
-
-  /** Remnawave node metrics: inboundsStats / outboundsStats use uplink+downlink per tag. */
-  function sumDirectionPair(item) {
-    if (!item || typeof item !== "object") return 0;
-    const combined = Number(item.total ?? item.bytes ?? item.value);
-    if (Number.isFinite(combined) && combined > 0) return combined;
-    const up = Number(
-      item.uplink ?? item.upload ?? item.uploadBytes ?? item.up ?? item.tx ?? item.sent
-    );
-    const down = Number(
-      item.downlink ?? item.download ?? item.downloadBytes ?? item.down ?? item.rx ?? item.received
-    );
-    return (Number.isFinite(up) ? up : 0) + (Number.isFinite(down) ? down : 0);
-  }
-
-  function sumTaggedStatsList(arr) {
-    if (!Array.isArray(arr)) return 0;
-    return arr.reduce((acc, item) => acc + sumDirectionPair(item), 0);
-  }
-
-  /** Traffic bytes for one node record from GET /system/stats/nodes (current panel shape). */
-  function trafficBytesFromNodeRecord(node) {
-    if (!node || typeof node !== "object") return 0;
-    let b =
-      sumTaggedStatsList(node.inboundsStats) +
-      sumTaggedStatsList(node.outboundsStats) +
-      sumTaggedStatsList(node.inbounds_stats) +
-      sumTaggedStatsList(node.outbounds_stats);
-    if (b <= 0) b = panelRowBytes(node);
-    const life = Number(
-      node.totalBytesLifetime ?? node.totalBytes ?? node.bytesLifetime ?? node.totalTrafficBytes
-    );
-    if (b <= 0 && Number.isFinite(life) && life > 0) b = life;
-    return b;
-  }
-
-  function isNodeMetricsShape(row) {
-    if (!row || typeof row !== "object") return false;
-    return (
-      Array.isArray(row.inboundsStats) ||
-      Array.isArray(row.outboundsStats) ||
-      Array.isArray(row.inbounds_stats) ||
-      Array.isArray(row.outbounds_stats)
-    );
-  }
-
-  function panelRowLabel(row) {
-    if (!row || typeof row !== "object") return "—";
-    for (const k of ["nodeName", "node_name", "name", "nodeRemark", "remark", "label", "title"]) {
-      const v = row[k];
-      if (v != null && String(v).trim()) return String(v).trim();
-    }
-    const u = row.nodeUuid ?? row.node_uuid ?? row.uuid;
-    if (u) return `${String(u).slice(0, 8)}…`;
-    return "—";
-  }
-
-  function nodeRecordUuid(row) {
-    if (!row || typeof row !== "object") return "";
-    const u = row.nodeUuid ?? row.node_uuid ?? row.uuid ?? row.id;
-    return u != null ? String(u) : "";
-  }
-
-  function nodeRecordDisplayName(row) {
-    if (!row || typeof row !== "object") return "";
-    for (const k of ["nodeName", "node_name", "name", "label", "title", "hostname"]) {
-      const v = row[k];
-      if (v != null && String(v).trim()) return String(v).trim();
-    }
-    return "";
-  }
-
-  function nodeRecordUsersOnline(row) {
-    if (!row || typeof row !== "object") return null;
-    const raw =
-      row.usersOnline ??
-      row.users_online ??
-      row.onlineUsers ??
-      row.online_users ??
-      row.onlineUserCount ??
-      row.online_user_count ??
-      row.connectedUsers ??
-      row.connected_users ??
-      row.onlineNow;
-    const n = Number(raw);
-    if (Number.isFinite(n)) return n;
-    const mg = row.metricGroups;
-    if (mg && typeof mg === "object") {
-      const v = Number(mg.onlineUsers ?? mg.online_users);
-      if (Number.isFinite(v)) return v;
-    }
-    return null;
-  }
-
-  /** Node list shapes from GET /system/stats/nodes (varies by panel version). */
-  function extractPanelNodesList(raw) {
-    if (!raw) return [];
-    if (Array.isArray(raw)) return raw;
-    if (typeof raw !== "object") return [];
-    if (Array.isArray(raw.nodes)) return raw.nodes;
-    if (Array.isArray(raw.items)) return raw.items;
-    if (Array.isArray(raw.data)) return raw.data;
-    if (Array.isArray(raw.response)) return raw.response;
-    return [];
-  }
-
-  /** UUID + display name -> online count from panel node metrics. */
-  function buildNodeOnlineLookup(panel) {
-    const byUuid = new Map();
-    const byName = new Map();
-    const list = extractPanelNodesList(panel?.nodes);
-    for (const node of list) {
-      if (!node || typeof node !== "object") continue;
-      const online = nodeRecordUsersOnline(node);
-      if (online == null) continue;
-      const id = nodeRecordUuid(node);
-      if (id) byUuid.set(id.toLowerCase(), online);
-      const nm = nodeRecordDisplayName(node);
-      if (nm) byName.set(nm.toLowerCase(), online);
-    }
-    return { byUuid, byName };
-  }
-
-  function formatTrafficCell(bytes, row, stringHint) {
-    if (bytes > 0) return fmtTrafficBytes(bytes);
-    const cur = row?.current;
-    if (typeof cur === "string" && cur.trim()) return cur.trim();
-    if (typeof stringHint === "string" && stringHint.trim()) return stringHint.trim();
-    if (isNodeMetricsShape(row) && !bytes) return fmtTrafficBytes(0);
-    return "—";
-  }
-
-  function buildNodeMetricsRows(nodes) {
-    return nodes
-      .filter((n) => n && typeof n === "object")
-      .map((node) => {
-        const bytes = trafficBytesFromNodeRecord(node);
-        const uid = nodeRecordUuid(node);
-        return {
-          label: panelRowLabel(node),
-          value: formatTrafficCell(bytes, node, ""),
-          sort: bytes,
-          uuid: uid || null,
-          online: nodeRecordUsersOnline(node),
-        };
-      })
-      .sort((a, b) => b.sort - a.sort);
-  }
-
-  /** Aggregate legacy arrays (daily rows per node, etc.). */
-  function aggregatePanelNodeRows(rows) {
-    if (!Array.isArray(rows) || !rows.length) return [];
-    const map = new Map();
-    for (const row of rows) {
-      if (!row || typeof row !== "object") continue;
-      const key = String(
-        row.nodeUuid ?? row.node_uuid ?? row.uuid ?? row.nodeName ?? row.name ?? panelRowLabel(row)
-      );
-      const prev = map.get(key) || { label: panelRowLabel(row), bytes: 0, stringHint: "" };
-      const add = isNodeMetricsShape(row) ? trafficBytesFromNodeRecord(row) : panelRowBytes(row);
-      prev.bytes += add;
-      const cur = row.current;
-      if (typeof cur === "string" && cur.trim()) prev.stringHint = cur.trim();
-      prev.label = panelRowLabel(row) || prev.label;
-      map.set(key, prev);
-    }
-    return [...map.values()]
-      .map((x) => ({
-        label: x.label,
-        value:
-          x.bytes > 0
-            ? fmtTrafficBytes(x.bytes)
-            : x.stringHint && String(x.stringHint).trim()
-              ? String(x.stringHint).trim()
-              : "—",
-        sort: x.bytes,
-        uuid: null,
-        online: null,
-      }))
-      .sort((a, b) => b.sort - a.sort);
-  }
-
-  function bandwidthRowUuid(n) {
-    if (!n || typeof n !== "object") return "";
-    const u = n.uuid ?? n.nodeUuid ?? n.node_uuid ?? n.id;
-    return u != null ? String(u) : "";
-  }
-
-  function attachNodeOnlineToRows(rows, lookup) {
-    if (!Array.isArray(rows) || !lookup) return rows;
-    const { byUuid, byName } = lookup;
-    if (!byUuid.size && !byName.size) return rows;
-    return rows.map((r) => {
-      let o = r.online;
-      if (o == null && r.uuid) {
-        const hit = byUuid.get(String(r.uuid).toLowerCase());
-        if (hit != null) o = hit;
-      }
-      if (o == null && r.label && typeof r.label === "string") {
-        const hit = byName.get(r.label.trim().toLowerCase());
-        if (hit != null) o = hit;
-      }
-      if (o != null) return { ...r, online: o };
-      return r;
-    });
-  }
-
-  /** Panel analytics: GET /bandwidth-stats/nodes — totals per node for the selected range (bytes). */
-  function parseNodesBandwidthTop(panel) {
-    const nb = panel?.nodes_bandwidth;
-    if (!nb || typeof nb !== "object") return null;
-    const top = nb.topNodes;
-    if (Array.isArray(top) && top.length) {
-      const rows = top.map((n) => {
-        const total = Number(n?.total ?? n?.bytes ?? 0);
-        const uuid = bandwidthRowUuid(n);
-        const label =
-          (typeof n?.name === "string" && n.name.trim()) ||
-          (typeof n?.nodeName === "string" && n.nodeName.trim()) ||
-          (uuid ? `${uuid.slice(0, 8)}…` : "—");
-        const directOn = Number(n?.usersOnline ?? n?.users_online ?? n?.onlineUsers);
-        const onlineInit = Number.isFinite(directOn) ? directOn : null;
-        return {
-          label,
-          value: total > 0 ? fmtTrafficBytes(total) : fmtTrafficBytes(0),
-          sort: total,
-          uuid: uuid || null,
-          online: onlineInit,
-        };
-      });
-      return { seven: rows.sort((a, b) => b.sort - a.sort) };
-    }
-    const series = nb.series;
-    if (Array.isArray(series) && series.length) {
-      const rows = series.map((s) => {
-        const total = Number(s?.total ?? 0);
-        const uuid = bandwidthRowUuid(s);
-        const label =
-          (typeof s?.name === "string" && s.name.trim()) ||
-          (typeof s?.nodeName === "string" && s.nodeName.trim()) ||
-          (uuid ? `${uuid.slice(0, 8)}…` : "—");
-        const directOn = Number(s?.usersOnline ?? s?.users_online ?? s?.onlineUsers);
-        const onlineInit = Number.isFinite(directOn) ? directOn : null;
-        return {
-          label,
-          value: total > 0 ? fmtTrafficBytes(total) : fmtTrafficBytes(0),
-          sort: total,
-          uuid: uuid || null,
-          online: onlineInit,
-        };
-      });
-      return { seven: rows.sort((a, b) => b.sort - a.sort) };
-    }
-    return null;
-  }
-
-  function parsePanelNodeTraffic(panel) {
-    const onlineLookup = buildNodeOnlineLookup(panel);
-    const fromBw = parseNodesBandwidthTop(panel);
-    if (fromBw?.seven?.length) return { seven: attachNodeOnlineToRows(fromBw.seven, onlineLookup) };
-
-    const raw = panel?.nodes;
-    if (raw == null) return { seven: [] };
-
-    if (Array.isArray(raw)) {
-      if (raw.length && isNodeMetricsShape(raw[0])) {
-        return { seven: attachNodeOnlineToRows(buildNodeMetricsRows(raw), onlineLookup) };
-      }
-      return { seven: attachNodeOnlineToRows(aggregatePanelNodeRows(raw), onlineLookup) };
-    }
-
-    if (typeof raw === "object") {
-      if (Array.isArray(raw.nodes) && raw.nodes.length) {
-        return { seven: attachNodeOnlineToRows(buildNodeMetricsRows(raw.nodes), onlineLookup) };
-      }
-      if (Array.isArray(raw.lastSevenDays) && raw.lastSevenDays.length) {
-        return {
-          seven: attachNodeOnlineToRows(aggregatePanelNodeRows(raw.lastSevenDays), onlineLookup),
-        };
-      }
-    }
-
-    return { seven: [] };
-  }
-
-  function computeRevenueKpis(financial, series) {
-    const amounts = series.map((p) => Number(p.amount) || 0);
-    const n = amounts.length;
-    const last7 = n ? amounts.slice(-7).reduce((a, b) => a + b, 0) : 0;
-    const prev7 = n > 7 ? amounts.slice(-14, -7).reduce((a, b) => a + b, 0) : 0;
-    let growthPct = null;
-    if (n >= 14 && prev7 > 0) growthPct = ((last7 - prev7) / prev7) * 100;
-    const tc = Number(financial.today_payments_count) || 0;
-    const tr = Number(financial.today_revenue) || 0;
-    const avgToday = tc > 0 ? tr / tc : null;
-    const tail14 = n >= 14 ? amounts.slice(-14) : amounts;
-    const total14 = tail14.reduce((a, b) => a + b, 0);
-    const maxY = amounts.length ? Math.max(...amounts, 1e-9) : 1e-9;
-    return { last7, prev7, growthPct, avgToday, total14, maxY, amounts, n };
-  }
-
-  function growthBadgeVariant(pct) {
-    if (pct == null) return "outline";
-    if (pct >= 0) return "default";
-    return "destructive";
-  }
+  ]);
+  const recentPayments: PaymentOut[] = $derived((stats?.recent_payments || []).slice(0, 10));
 
   onMount(() => {
-    statsStore.loadStats();
+    void statsStore.loadStats();
   });
 </script>
 
@@ -904,7 +549,7 @@
                     class:is-active={revenueRangeMode === "preset" && revenuePresetDays === d}
                     role="tab"
                     aria-selected={revenueRangeMode === "preset" && revenuePresetDays === d}
-                    on:click={() => setRevenuePresetDays(d)}
+                    onclick={() => setRevenuePresetDays(d)}
                   >
                     {revenuePeriodLabel(d)}
                   </button>
@@ -936,7 +581,7 @@
                 class:is-active={revenueGranularity === g}
                 role="tab"
                 aria-selected={revenueGranularity === g}
-                on:click={() => setRevenueGranularity(g)}
+                onclick={() => setRevenueGranularity(g)}
               >
                 {at(`stats_revenue_granularity_${g}`, {}, g)}
               </button>
@@ -1249,7 +894,7 @@
                       </span>
                     </td>
                     <td class="admin-cell-mono" data-label={at("payments_col_user_id", {}, "ID")}>
-                      {p.user_id != null && p.user_id !== "" ? p.user_id : "—"}
+                      {p.user_id != null ? p.user_id : "—"}
                     </td>
                     <td
                       class="admin-cell-traffic-gb"
@@ -1263,10 +908,12 @@
                     >
                       {formatTrafficGbCell(p.traffic_premium_gb)}
                     </td>
-                    <td data-label={at("amount", {}, "Сумма")}>{fmtMoney(p.amount, p.currency)}</td>
+                    <td data-label={at("amount", {}, "Сумма")}>
+                      {fmtMoney(p.amount, p.currency ?? undefined)}
+                    </td>
                     <td data-label={at("provider", {}, "Провайдер")}>{p.provider}</td>
                     <td class="admin-cell-wrap" data-label={at("description", {}, "Описание")}
-                      >{paymentDescriptionDisplay(p)}</td
+                      >{paymentDescriptionDisplay(p, at)}</td
                     >
                     <td data-label={at("status", {}, "Статус")}>
                       <AdminBadge variant={paymentStatusVariant(p.status)}>{p.status}</AdminBadge>

@@ -2,23 +2,25 @@
   import { AdminBadge, AdminButton } from "$components/patterns/admin/index.js";
   import { User } from "$components/ui/icons.js";
 
-  export let ticket;
-  export let snapshot = {};
-  export let at = (key) => key;
-  export let onOpenUser = () => {};
+  let { ticket, snapshot = {}, at = (key) => key, onOpenUser = () => {} } = $props();
 
-  $: user = ticket?.user || {};
-  $: displayName = snapshot?.name || user.username || user.email || user.user_id || "-";
-  $: avatarUrl = user?.avatar_url || user?.photo_url || "";
-  $: avatarInitials = computeInitials(user, displayName);
-  $: canOpenUser = user.user_id !== undefined && user.user_id !== null && user.user_id !== "";
-  $: identityMeta =
-    [user.email, canOpenUser ? `ID ${user.user_id}` : ""].filter(Boolean).join(" / ") || "-";
-  $: contextItems = [
+  const user = $derived(ticket?.user || {});
+  const displayName = $derived(
+    snapshot?.name || user.username || user.email || user.user_id || "-"
+  );
+  const avatarUrl = $derived(user?.avatar_url || user?.photo_url || "");
+  const avatarInitials = $derived(computeInitials(user, displayName));
+  const canOpenUser = $derived(
+    user.user_id !== undefined && user.user_id !== null && user.user_id !== ""
+  );
+  const identityMeta = $derived(
+    [user.email, canOpenUser ? `ID ${user.user_id}` : ""].filter(Boolean).join(" / ") || "-"
+  );
+  const contextItems = $derived([
     { label: at("support_tariff", {}, "Тариф"), value: snapshot?.tariff || "-" },
     { label: at("support_status", {}, "Статус"), value: snapshot?.panel_status || "-" },
     { label: at("support_remaining", {}, "Осталось"), value: snapshot?.remaining || "-" },
-  ];
+  ]);
 
   function computeInitials(u, fallback) {
     const source =

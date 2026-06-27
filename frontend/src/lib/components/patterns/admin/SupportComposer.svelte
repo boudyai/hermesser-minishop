@@ -4,12 +4,14 @@
   import { Switch } from "$components/ui/primitives.js";
   import { AdminButton } from "$components/patterns/admin/index.js";
 
-  export let value = "";
-  export let internal = false;
-  export let sending = false;
-  export let at = (key) => key;
-  export let onToggleInternal = () => {};
-  export let onSend = () => {};
+  let {
+    value = $bindable(""),
+    internal = false,
+    sending = false,
+    at = (key) => key,
+    onToggleInternal = () => {},
+    onSend = () => {},
+  } = $props();
 
   function submit() {
     if (sending || !value.trim()) return;

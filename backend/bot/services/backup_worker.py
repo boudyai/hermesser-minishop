@@ -12,6 +12,7 @@ from typing import Iterable, Optional
 
 from aiogram import Bot
 from aiogram.types import FSInputFile
+from sqlalchemy.orm import sessionmaker
 
 from bot.infra.redis import redis_lock
 from bot.services.backup_archive import (
@@ -87,7 +88,9 @@ class BackupResult:
 class BackupWorker:
     SETTINGS_REFRESH_SECONDS = 60
 
-    def __init__(self, settings: Settings, bot: Bot, session_factory=None):
+    def __init__(
+        self, settings: Settings, bot: Bot, session_factory: Optional[sessionmaker] = None
+    ) -> None:
         self.settings = settings
         self.bot = bot
         self.session_factory = session_factory
@@ -329,15 +332,12 @@ class BackupWorker:
             )
             return
 
-        kwargs = {
-            "chat_id": chat_id,
-            "document": FSInputFile(result.archive_path),
-            "caption": self._caption(result),
-        }
-        thread_id = self._target_thread_id()
-        if thread_id is not None:
-            kwargs["message_thread_id"] = thread_id
-        await self.bot.send_document(**kwargs)
+        await self.bot.send_document(
+            chat_id=chat_id,
+            document=FSInputFile(result.archive_path),
+            caption=self._caption(result),
+            message_thread_id=self._target_thread_id(),
+        )
 
     def prune_old_backups(self) -> None:
         retention = int(getattr(self.settings, "BACKUP_LOCAL_RETENTION", 3) or 0)
@@ -357,10 +357,12 @@ class BackupWorker:
                 logging.exception("Failed to delete old backup archive %s", archive)
 
     def _target_chat_id(self) -> Optional[int]:
-        return self.settings.BACKUP_CHAT_ID or self.settings.LOG_CHAT_ID
+        value = self.settings.BACKUP_CHAT_ID or self.settings.LOG_CHAT_ID
+        return int(value) if value is not None else None
 
     def _target_thread_id(self) -> Optional[int]:
-        return self.settings.BACKUP_THREAD_ID or self.settings.LOG_THREAD_ID
+        value = self.settings.BACKUP_THREAD_ID or self.settings.LOG_THREAD_ID
+        return int(value) if value is not None else None
 
     def _caption(self, result: BackupResult) -> str:
         completed_at = result.completed_at.astimezone()
@@ -466,14 +468,13 @@ class BackupWorker:
         chat_id = self._target_chat_id()
         if chat_id is None:
             return
-        kwargs = {
-            "chat_id": chat_id,
-            "text": f"Remnawave Minishop backup failed: {type(exc).__name__}. Check worker logs.",
-        }
-        thread_id = self._target_thread_id()
-        if thread_id is not None:
-            kwargs["message_thread_id"] = thread_id
         try:
-            await self.bot.send_message(**kwargs)
+            await self.bot.send_message(
+                chat_id=chat_id,
+                text=(
+                    f"Remnawave Minishop backup failed: {type(exc).__name__}. Check worker logs."
+                ),
+                message_thread_id=self._target_thread_id(),
+            )
         except Exception:
             logging.exception("Failed to send backup failure notification")

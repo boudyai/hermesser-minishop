@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.keyboards.inline.admin_keyboards import get_back_to_admin_panel_keyboard
 from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers import pending_statuses, provider_label_map
+from bot.utils.callback_answer import callback_data, callback_message
 from config.settings import Settings
 from db.dal import payment_dal
 from db.models import Payment
@@ -90,7 +91,7 @@ async def view_payments_handler(
     settings: Settings,
     session: AsyncSession,
     page: int = 0,
-):
+) -> None:
     """Display paginated list of all payments."""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -104,7 +105,7 @@ async def view_payments_handler(
     total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1
 
     if not payments and page == 0:
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             _("admin_no_payments_found"),
             reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
             parse_mode="HTML",
@@ -168,7 +169,7 @@ async def view_payments_handler(
         )
     )
 
-    await callback.message.edit_text(
+    await callback_message(callback).edit_text(
         "\n".join(text_parts), reply_markup=builder.as_markup(), parse_mode="HTML"
     )
     await callback.answer()
@@ -177,10 +178,10 @@ async def view_payments_handler(
 @router.callback_query(F.data.startswith("payments_page:"))
 async def payments_pagination_handler(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
-):
+) -> None:
     """Handle pagination for payments list."""
     try:
-        page = int(callback.data.split(":")[1])
+        page = int(callback_data(callback).split(":")[1])
         await view_payments_handler(callback, i18n_data, settings, session, page)
     except (ValueError, IndexError):
         await callback.answer("Error processing pagination.", show_alert=True)
@@ -189,7 +190,7 @@ async def payments_pagination_handler(
 @router.callback_query(F.data == "payments_export_csv")
 async def export_payments_csv_handler(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
-):
+) -> None:
     """Export all successful payments to CSV file."""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -274,7 +275,7 @@ async def export_payments_csv_handler(
 
         file = BufferedInputFile(csv_content, filename=filename)
 
-        await callback.message.reply_document(
+        await callback_message(callback).reply_document(
             document=file, caption=_("admin_payments_export_success", count=len(all_payments))
         )
 
@@ -286,6 +287,6 @@ async def export_payments_csv_handler(
 
 
 @router.callback_query(F.data == "noop")
-async def noop_handler(callback: types.CallbackQuery):
+async def noop_handler(callback: types.CallbackQuery) -> None:
     """Handle no-op callback (for pagination display)."""
     await callback.answer()

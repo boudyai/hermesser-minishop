@@ -1,3 +1,8 @@
+# Normalize every text file to LF in the index and on checkout. Binary files are
+# auto-detected and left untouched. Prevents CRLF churn on Windows working copies.
+* text=auto eol=lf
+
+# Explicit overrides below (redundant with the catch-all, kept for clarity).
 .gitattributes text eol=lf
 *.sh text eol=lf
 .github/workflows/*.yml text eol=lf

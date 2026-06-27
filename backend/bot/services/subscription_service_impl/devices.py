@@ -1,8 +1,21 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+from __future__ import annotations
+
+import logging
+import math
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from bot.utils.date_utils import add_months
+from config.tariffs_config import Tariff
+from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
+from db.models import Subscription
+
+from ._typing import SubscriptionServiceMixinContract
 
 
-class HwidDeviceMixin:
+class HwidDeviceMixin(SubscriptionServiceMixinContract):
     @staticmethod
     def _as_aware_utc(value: Optional[datetime]) -> Optional[datetime]:
         if value is None:
@@ -19,11 +32,12 @@ class HwidDeviceMixin:
         at: Optional[datetime] = None,
     ) -> int:
         try:
-            return await tariff_dal.sum_active_hwid_devices(
+            active_devices = await tariff_dal.sum_active_hwid_devices(
                 session,
                 subscription_id=sub.subscription_id,
                 at=at or datetime.now(timezone.utc),
             )
+            return int(active_devices)
         except Exception:
             logging.exception(
                 "Failed to recalculate active HWID devices for subscription %s",
@@ -72,7 +86,7 @@ class HwidDeviceMixin:
             )
         except Exception:
             logging.exception("sync_hwid_device_limit_to_panel failed for user %s", user_id)
-        return effective_hwid_limit
+        return int(effective_hwid_limit)
 
     async def _hwid_topup_validity_window(
         self,

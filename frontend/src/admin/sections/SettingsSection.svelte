@@ -1,18 +1,9 @@
-<script>
-  import { ColorInput, FileInput, Input, ScrollArea, Textarea } from "$components/ui/index.js";
-  import {
-    Check,
-    ChevronRight,
-    Copy,
-    Eye,
-    EyeOff,
-    FileText,
-    Search,
-    X,
-  } from "$components/ui/icons.js";
+<script lang="ts">
+  import { ColorInput, FileInput, Input, Textarea } from "$components/ui/index.js";
+  import { Check, ChevronRight, Copy, Eye, EyeOff, FileText, X } from "$components/ui/icons.js";
   import * as UiIcons from "$components/ui/icons.js";
   import { Accordion, Switch } from "$components/ui/primitives.js";
-  import Dialog from "$components/ui/dialog.svelte";
+  import SettingsIconPicker from "./settings/SettingsIconPicker.svelte";
   import {
     AdminBadge,
     AdminButton,
@@ -21,105 +12,113 @@
   } from "$components/patterns/admin/index.js";
   import { getContext, onDestroy, onMount, tick } from "svelte";
   import { withRoutePrefix } from "$lib/webapp/routes.js";
+  import {
+    SETTINGS_SECTION_IDS_HIDDEN_IN_GENERAL_SETTINGS,
+    arrayValue,
+    groupSectionFields,
+    normalizeSettingsPath,
+    resolveSettingsPath,
+    semanticFieldGroups,
+    settingsFieldGroupAnchorKey,
+    settingsPathAnchorKey,
+    settingsPathKey,
+    settingsSectionAnchorKey,
+    settingsSectionRoute,
+    settingsSubsectionAnchorKey,
+    settingsSubsectionRoute,
+  } from "$lib/admin/settingsSections";
+  import type { ComponentType, SvelteComponent } from "svelte";
+  import type {
+    SettingField,
+    SettingsDirtyEntry,
+    SettingsSavedPayload,
+    SettingsSection,
+    SettingsStore,
+  } from "$lib/admin/stores/settingsStore";
+  import type {
+    AdminSettingField,
+    AdminSettingsSection,
+    GroupWebhook,
+    SemanticFieldGroup,
+    SettingsPath,
+    SettingsSubsection,
+  } from "$lib/admin/settingsSections";
 
-  export let at;
-  export let onSettingsSaved;
-  export let currentLang = "ru";
-  export let settingsPath = [];
-  export let routePrefix = "";
-  export let onSettingsPathChange = () => {};
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type SettingsDirtyState = Record<string, SettingsDirtyEntry>;
+  type DynamicComponent = ComponentType<SvelteComponent<Record<string, unknown>>>;
+  type ScrollOptions = { focus?: boolean };
+  type WindowListenerTuple = [
+    type: string,
+    handler: (event: Event) => void,
+    options: boolean | { passive: boolean },
+  ];
 
-  const settingsStore = getContext("settingsStore");
+  let {
+    at,
+    onSettingsSaved,
+    currentLang = "ru",
+    settingsPath = [],
+    routePrefix = "",
+    onSettingsPathChange = () => {},
+  }: {
+    at: TranslateFn;
+    onSettingsSaved: (payload: SettingsSavedPayload) => void | Promise<void>;
+    currentLang?: string;
+    settingsPath?: SettingsPath;
+    routePrefix?: string;
+    onSettingsPathChange?: (path: SettingsPath) => void;
+  } = $props();
 
-  $: ({ settingsSections, settingsLoading, settingsDirty, settingsSaving } = $settingsStore);
+  const settingsStore = getContext<SettingsStore>("settingsStore");
 
-  const SETTINGS_SECTION_IDS_HIDDEN_IN_GENERAL_SETTINGS = new Set(["appearance", "pricing"]);
-
-  $: visibleSettingsSections = settingsSections.filter(
-    (section) => !SETTINGS_SECTION_IDS_HIDDEN_IN_GENERAL_SETTINGS.has(section.id)
+  const rawSettingsSections = $derived((settingsStore.settingsSections || []) as SettingsSection[]);
+  const settingsSections = $derived(rawSettingsSections as AdminSettingsSection[]);
+  const settingsLoading = $derived(Boolean(settingsStore.settingsLoading));
+  const settingsDirty = $derived((settingsStore.settingsDirty || {}) as SettingsDirtyState);
+  const settingsSaving = $derived(Boolean(settingsStore.settingsSaving));
+  const visibleSettingsSections = $derived(
+    settingsSections.filter(
+      (section) => !SETTINGS_SECTION_IDS_HIDDEN_IN_GENERAL_SETTINGS.has(section.id)
+    )
   );
 
-  let settingsOpenSections = [];
-  let settingsOpenSubsections = {};
-  let revealedSecrets = new Set();
-  let iconPickerField = null;
-  let iconPickerSearch = "";
-  let copiedWebhookKey = "";
-  let copiedWebhookTimer = null;
-  let lastAppliedSettingsPathKey = "";
-  let settingsPathSyncing = false;
-  let settingsAnchorScrollTimers = [];
-  let settingsAnchorScrollFrames = [];
-  let settingsAnchorScrollCleanup = null;
+  let settingsOpenSections = $state<string[]>([]);
+  let settingsOpenSubsections = $state<Record<string, string[]>>({});
+  let revealedSecrets = $state(new Set<string>());
+  let iconPickerField = $state<SettingField | null>(null);
+  let iconPickerSearch = $state("");
+  let copiedWebhookKey = $state("");
+  let copiedWebhookTimer = $state<ReturnType<typeof window.setTimeout> | null>(null);
+  let lastAppliedSettingsPathKey = $state("");
+  let settingsPathSyncing = $state(false);
+  let settingsAnchorScrollTimers = $state<Array<ReturnType<typeof window.setTimeout>>>([]);
+  let settingsAnchorScrollFrames = $state<number[]>([]);
+  let settingsAnchorScrollCleanup = $state<(() => void) | null>(null);
 
-  const PLATEGA_SBP_KEYS = new Set([
-    "PLATEGA_SBP_ENABLED",
-    "PLATEGA_SBP_ADMIN_ONLY_ENABLED",
-    "PLATEGA_SBP_METHOD",
-  ]);
-  const PLATEGA_CRYPTO_KEYS = new Set([
-    "PLATEGA_CRYPTO_ENABLED",
-    "PLATEGA_CRYPTO_ADMIN_ONLY_ENABLED",
-    "PLATEGA_CRYPTO_METHOD",
-  ]);
-  const PLATEGA_LEGACY_KEYS = new Set(["PLATEGA_PAYMENT_METHOD"]);
-  const WATA_FIAT_KEYS = new Set([
-    "WATA_ENABLED",
-    "WATA_ADMIN_ONLY_ENABLED",
-    "WATA_API_TOKEN",
-    "WATA_TERMINAL_ID",
-    "WATA_TERMINAL_PUBLIC_ID",
-    "WATA_RETURN_URL",
-    "WATA_FAILED_URL",
-    "WATA_LINK_TTL_MINUTES",
-    "WATA_SUPPORTED_CURRENCIES",
-  ]);
-  const WATA_CRYPTO_KEYS = new Set([
-    "WATA_CRYPTO_ENABLED",
-    "WATA_CRYPTO_ADMIN_ONLY_ENABLED",
-    "WATA_CRYPTO_API_TOKEN",
-    "WATA_CRYPTO_TERMINAL_ID",
-    "WATA_CRYPTO_TERMINAL_PUBLIC_ID",
-    "WATA_CRYPTO_RETURN_URL",
-    "WATA_CRYPTO_FAILED_URL",
-    "WATA_CRYPTO_LINK_TTL_MINUTES",
-    "WATA_CRYPTO_SUPPORTED_CURRENCIES",
-  ]);
-  const WATA_WEBHOOK_KEYS = new Set([
-    "WATA_WEBHOOK_VERIFY_SIGNATURE",
-    "WATA_PUBLIC_KEY",
-    "WATA_CRYPTO_PUBLIC_KEY",
-    "WATA_TRUSTED_IPS",
-  ]);
-  const SEMANTIC_FIELD_GROUP_ORDER = {
-    platega_common: 1,
-    platega_sbp: 2,
-    platega_crypto: 3,
-    platega_legacy: 4,
-    wata_common: 1,
-    wata_fiat: 2,
-    wata_crypto: 3,
-    wata_webhook: 4,
-  };
-
-  $: settingsAllOpen =
+  const settingsAllOpen = $derived(
     visibleSettingsSections.length > 0 &&
-    settingsOpenSections.length === visibleSettingsSections.length;
-  $: iconOptions = Object.keys(UiIcons)
-    .filter((name) => /^[A-Z]/.test(name))
-    .sort((a, b) => a.localeCompare(b));
-  $: filteredIconOptions = iconOptions.filter((name) =>
-    name.toLowerCase().includes(iconPickerSearch.trim().toLowerCase())
+      settingsOpenSections.length === visibleSettingsSections.length
   );
-  $: currentSettingsPathKey = settingsPathKey(settingsPath);
-  $: if (visibleSettingsSections.length && currentSettingsPathKey) {
-    if (currentSettingsPathKey !== lastAppliedSettingsPathKey) {
-      lastAppliedSettingsPathKey = currentSettingsPathKey;
-      void applySettingsPath(settingsPath);
+  const iconOptions = $derived(
+    Object.keys(UiIcons)
+      .filter((name) => /^[A-Z]/.test(name))
+      .sort((a, b) => a.localeCompare(b))
+  );
+  const filteredIconOptions = $derived(
+    iconOptions.filter((name) => name.toLowerCase().includes(iconPickerSearch.trim().toLowerCase()))
+  );
+  const currentSettingsPathKey = $derived(settingsPathKey(settingsPath));
+  $effect(() => {
+    if (visibleSettingsSections.length && currentSettingsPathKey) {
+      if (currentSettingsPathKey !== lastAppliedSettingsPathKey) {
+        lastAppliedSettingsPathKey = currentSettingsPathKey;
+        void applySettingsPath(settingsPath);
+      }
+      return;
     }
-  } else if (!currentSettingsPathKey) {
-    lastAppliedSettingsPathKey = "";
-  }
+    if (!currentSettingsPathKey) lastAppliedSettingsPathKey = "";
+  });
 
   onMount(() => {
     settingsStore.loadSettings();
@@ -132,7 +131,7 @@
     cancelPendingSettingsAnchorScroll();
   });
 
-  function toggleAllSections() {
+  function toggleAllSections(): void {
     if (settingsOpenSections.length === visibleSettingsSections.length) {
       settingsOpenSections = [];
     } else {
@@ -140,15 +139,7 @@
     }
   }
 
-  function normalizeSettingsPath(path) {
-    const parts = Array.isArray(path) ? path : String(path || "").split("/");
-    return parts
-      .map((part) => String(part || "").trim())
-      .filter(Boolean)
-      .slice(0, 3);
-  }
-
-  function currentUrlSettingsPath() {
+  function currentUrlSettingsPath(): SettingsPath {
     if (typeof window === "undefined") return [];
     const prefix = String(routePrefix || "").replace(/\/+$/, "");
     const pathname = window.location.pathname;
@@ -169,168 +160,13 @@
     );
   }
 
-  function effectiveSettingsPath(path) {
+  function effectiveSettingsPath(path: unknown): SettingsPath {
     const normalized = normalizeSettingsPath(path);
     const fromUrl = currentUrlSettingsPath();
     return fromUrl.length > normalized.length ? fromUrl : normalized;
   }
 
-  function settingsPathKey(path) {
-    return normalizeSettingsPath(path)
-      .map((part) => settingsPathToken(part))
-      .join("/");
-  }
-
-  function settingsPathToken(value) {
-    return String(value || "")
-      .normalize("NFKD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .trim()
-      .toLowerCase()
-      .replace(/&/g, " and ")
-      .replace(/[_\s]+/g, "-")
-      .replace(/[^a-z0-9-]+/g, "")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "");
-  }
-
-  function compactSettingsPathToken(value) {
-    return settingsPathToken(value).replace(/-/g, "");
-  }
-
-  function settingsPathMatches(segment, value) {
-    const segmentToken = settingsPathToken(segment);
-    const valueToken = settingsPathToken(value);
-    if (!segmentToken || !valueToken) return false;
-    return (
-      segmentToken === valueToken ||
-      compactSettingsPathToken(segment) === compactSettingsPathToken(value)
-    );
-  }
-
-  function settingsRouteSegment(value) {
-    return encodeURIComponent(settingsPathToken(value) || String(value || "").trim());
-  }
-
-  function settingsFieldGroupRouteSegment(group, fieldGroup) {
-    const groupToken = settingsPathToken(group?.id);
-    const fieldGroupToken = settingsPathToken(fieldGroup?.id);
-    if (groupToken && fieldGroupToken.startsWith(`${groupToken}-`)) {
-      return fieldGroupToken.slice(groupToken.length + 1);
-    }
-    return fieldGroupToken;
-  }
-
-  function settingsSectionAnchorKey(sectionId) {
-    return `settings-section:${sectionId}`;
-  }
-
-  function settingsSubsectionAnchorKey(sectionId, groupId) {
-    return `settings-subsection:${sectionId}:${groupId}`;
-  }
-
-  function settingsFieldGroupAnchorKey(sectionId, groupId, fieldGroupId) {
-    return `settings-field-group:${sectionId}:${groupId}:${fieldGroupId}`;
-  }
-
-  function settingsSectionRoute(sectionId) {
-    return [settingsRouteSegment(sectionId)].filter(Boolean);
-  }
-
-  function settingsSubsectionRoute(sectionId, groupId) {
-    return [settingsRouteSegment(sectionId), settingsRouteSegment(groupId)].filter(Boolean);
-  }
-
-  function findSettingsSubsection(section, segment) {
-    return groupSectionFields(section).find(
-      (group) => group.label && settingsPathMatches(segment, group.id)
-    );
-  }
-
-  function findSettingsFieldGroup(section, group, segment) {
-    return semanticFieldGroups(section, group).find((fieldGroup) => {
-      if (!fieldGroup.titleKey) return false;
-      return [
-        fieldGroup.id,
-        fieldGroup.titleFallback,
-        settingsFieldGroupRouteSegment(group, fieldGroup),
-      ].some((value) => settingsPathMatches(segment, value));
-    });
-  }
-
-  function resolveSettingsPath(path) {
-    const [sectionSegment, subsectionSegment, fieldGroupSegment] = normalizeSettingsPath(path);
-    if (!sectionSegment) return null;
-    const section = visibleSettingsSections.find((item) =>
-      settingsPathMatches(sectionSegment, item.id)
-    );
-    if (!section) return null;
-
-    let group = null;
-    let fieldGroup = null;
-    let anchorKey = settingsSectionAnchorKey(section.id);
-
-    if (subsectionSegment) {
-      group = findSettingsSubsection(section, subsectionSegment);
-      if (group) {
-        anchorKey = settingsSubsectionAnchorKey(section.id, group.id);
-      }
-    }
-
-    if (group && fieldGroupSegment) {
-      fieldGroup = findSettingsFieldGroup(section, group, fieldGroupSegment);
-      if (fieldGroup) {
-        anchorKey = settingsFieldGroupAnchorKey(section.id, group.id, fieldGroup.id);
-      }
-    }
-
-    return { section, group, fieldGroup, anchorKey };
-  }
-
-  function settingsPathAnchorKey(path, target) {
-    const [sectionSegment, subsectionSegment, fieldGroupSegment] = normalizeSettingsPath(path);
-    if (!target?.group || !fieldGroupSegment) return target?.anchorKey;
-    const sectionToken = settingsPathToken(sectionSegment);
-    const subsectionToken = compactSettingsPathToken(subsectionSegment);
-    const fieldGroupToken = compactSettingsPathToken(fieldGroupSegment);
-    if (sectionToken === "payments" && subsectionToken === "platega") {
-      if (fieldGroupToken === "crypto" || fieldGroupToken === "plategacrypto") {
-        return settingsFieldGroupAnchorKey("payments", "Platega", "platega_crypto");
-      }
-      if (
-        fieldGroupToken === "sbp" ||
-        fieldGroupToken === "card" ||
-        fieldGroupToken === "plategasbp"
-      ) {
-        return settingsFieldGroupAnchorKey("payments", "Platega", "platega_sbp");
-      }
-    }
-    if (sectionToken === "payments" && subsectionToken === "wata") {
-      if (fieldGroupToken === "crypto" || fieldGroupToken === "watacrypto") {
-        return settingsFieldGroupAnchorKey("payments", "Wata", "wata_crypto");
-      }
-      if (
-        fieldGroupToken === "card" ||
-        fieldGroupToken === "fiat" ||
-        fieldGroupToken === "sbp" ||
-        fieldGroupToken === "watafiat"
-      ) {
-        return settingsFieldGroupAnchorKey("payments", "Wata", "wata_fiat");
-      }
-      if (fieldGroupToken === "webhook" || fieldGroupToken === "webhooks") {
-        return settingsFieldGroupAnchorKey("payments", "Wata", "wata_webhook");
-      }
-    }
-    const fieldGroup = findSettingsFieldGroup(target.section, target.group, fieldGroupSegment);
-    if (!fieldGroup) return target.anchorKey;
-    return settingsFieldGroupAnchorKey(target.section.id, target.group.id, fieldGroup.id);
-  }
-
-  function arrayValue(value) {
-    return Array.isArray(value) ? value : value ? [value] : [];
-  }
-
-  function updateSettingsRoute(segments, replace = false) {
+  function updateSettingsRoute(segments: unknown, replace = false): void {
     if (settingsPathSyncing || typeof window === "undefined") return;
     if (window.location.protocol === "file:") return;
     const pathSegments = arrayValue(segments).filter(Boolean);
@@ -346,7 +182,7 @@
     onSettingsPathChange(pathSegments);
   }
 
-  function handleSettingsSectionsOpenChange(value) {
+  function handleSettingsSectionsOpenChange(value: unknown): void {
     const next = arrayValue(value);
     const openedSection = next.find((sectionId) => !settingsOpenSections.includes(sectionId));
     settingsOpenSections = next;
@@ -354,7 +190,7 @@
     updateSettingsRoute(settingsSectionRoute(openedSection));
   }
 
-  function handleSettingsSubsectionsOpenChange(sectionId, value) {
+  function handleSettingsSubsectionsOpenChange(sectionId: string, value: unknown): void {
     const previous = settingsOpenSubsections[sectionId] || [];
     const next = arrayValue(value);
     const openedGroup = next.find((groupId) => !previous.includes(groupId));
@@ -363,14 +199,20 @@
     updateSettingsRoute(settingsSubsectionRoute(sectionId, openedGroup));
   }
 
-  function findSettingsAnchor(anchorKey) {
+  function settingsSubsectionOpenHandler(sectionId: string): (value: string[]) => void {
+    return (value: string[]) => handleSettingsSubsectionsOpenChange(sectionId, value);
+  }
+
+  function findSettingsAnchor(anchorKey: string): HTMLElement | null {
     if (typeof document === "undefined" || !anchorKey) return null;
-    return Array.from(document.querySelectorAll("[data-settings-anchor]")).find(
-      (element) => element.dataset.settingsAnchor === anchorKey
+    return (
+      Array.from(document.querySelectorAll<HTMLElement>("[data-settings-anchor]")).find(
+        (element) => element.dataset.settingsAnchor === anchorKey
+      ) || null
     );
   }
 
-  function prefersReducedMotion() {
+  function prefersReducedMotion(): boolean {
     return (
       typeof window !== "undefined" &&
       typeof window.matchMedia === "function" &&
@@ -378,7 +220,11 @@
     );
   }
 
-  function scrollSettingsAnchorIntoView(anchorKey, behavior, options = {}) {
+  function scrollSettingsAnchorIntoView(
+    anchorKey: string,
+    behavior: "auto" | "smooth" | "instant",
+    options: ScrollOptions = {}
+  ): void {
     const element = findSettingsAnchor(anchorKey);
     if (!element) return;
     const scrollParent = scrollContainerFor(element);
@@ -399,7 +245,7 @@
     }
   }
 
-  function scrollContainerFor(element) {
+  function scrollContainerFor(element: HTMLElement): HTMLElement | null {
     let parent = element?.parentElement || null;
     while (parent) {
       const style = window.getComputedStyle(parent);
@@ -413,13 +259,13 @@
     return null;
   }
 
-  function clearSettingsAnchorScrollListeners() {
+  function clearSettingsAnchorScrollListeners(): void {
     if (!settingsAnchorScrollCleanup) return;
     settingsAnchorScrollCleanup();
     settingsAnchorScrollCleanup = null;
   }
 
-  function cancelPendingSettingsAnchorScroll() {
+  function cancelPendingSettingsAnchorScroll(): void {
     if (typeof window !== "undefined") {
       for (const timer of settingsAnchorScrollTimers) window.clearTimeout(timer);
       for (const frame of settingsAnchorScrollFrames) window.cancelAnimationFrame(frame);
@@ -429,7 +275,10 @@
     clearSettingsAnchorScrollListeners();
   }
 
-  function scheduleSettingsAnchorScrollTimeout(callback, delay) {
+  function scheduleSettingsAnchorScrollTimeout(
+    callback: () => void,
+    delay: number
+  ): ReturnType<typeof window.setTimeout> {
     const timer = window.setTimeout(() => {
       settingsAnchorScrollTimers = settingsAnchorScrollTimers.filter((id) => id !== timer);
       callback();
@@ -438,7 +287,7 @@
     return timer;
   }
 
-  function scheduleSettingsAnchorScrollFrame(callback) {
+  function scheduleSettingsAnchorScrollFrame(callback: () => void): number {
     const frame = window.requestAnimationFrame(() => {
       settingsAnchorScrollFrames = settingsAnchorScrollFrames.filter((id) => id !== frame);
       callback();
@@ -447,10 +296,10 @@
     return frame;
   }
 
-  function armSettingsAnchorScrollCancel() {
+  function armSettingsAnchorScrollCancel(): void {
     clearSettingsAnchorScrollListeners();
     const cancel = () => cancelPendingSettingsAnchorScroll();
-    const listeners = [
+    const listeners: WindowListenerTuple[] = [
       ["wheel", cancel, { passive: true }],
       ["touchstart", cancel, { passive: true }],
       ["pointerdown", cancel, false],
@@ -461,7 +310,7 @@
     }
     settingsAnchorScrollCleanup = () => {
       for (const [type, handler, options] of listeners) {
-        window.removeEventListener(type, handler, options);
+        window.removeEventListener(type, handler, typeof options === "boolean" ? options : false);
       }
     };
     scheduleSettingsAnchorScrollTimeout(() => {
@@ -469,7 +318,7 @@
     }, 700);
   }
 
-  function scrollToSettingsAnchor(anchorKey) {
+  function scrollToSettingsAnchor(anchorKey: string): void {
     if (typeof window === "undefined") return;
     cancelPendingSettingsAnchorScroll();
     armSettingsAnchorScrollCancel();
@@ -488,9 +337,9 @@
     });
   }
 
-  async function applySettingsPath(path) {
+  async function applySettingsPath(path: unknown): Promise<void> {
     const resolvedPath = effectiveSettingsPath(path);
-    const target = resolveSettingsPath(resolvedPath);
+    const target = resolveSettingsPath(resolvedPath, visibleSettingsSections);
     if (!target) return;
 
     settingsPathSyncing = true;
@@ -520,7 +369,7 @@
     }
   }
 
-  function valueFor(field) {
+  function valueFor(field: AdminSettingField): unknown {
     if (settingsDirty[field.key]?.deleted) return "";
     if (Object.prototype.hasOwnProperty.call(settingsDirty, field.key)) {
       return settingsDirty[field.key].value;
@@ -528,114 +377,94 @@
     return field.value ?? "";
   }
 
-  function isOverridden(field) {
+  function fieldTextValue(field: AdminSettingField): string {
+    const value = valueFor(field);
+    return value == null ? "" : String(value);
+  }
+
+  function fieldInputValue(field: AdminSettingField): string | number {
+    const value = valueFor(field);
+    return typeof value === "string" || typeof value === "number" ? value : "";
+  }
+
+  function isOverridden(field: AdminSettingField): boolean {
     return Boolean(field.overridden) && !settingsDirty[field.key]?.deleted;
   }
 
-  function isSecretRevealed(key) {
+  function isSecretRevealed(key: string): boolean {
     return revealedSecrets.has(key);
   }
 
-  function toggleSecretReveal(key) {
+  function toggleSecretReveal(key: string): void {
     const next = new Set(revealedSecrets);
     if (next.has(key)) next.delete(key);
     else next.add(key);
     revealedSecrets = next;
   }
 
-  function secretPlaceholder(field) {
+  function secretPlaceholder(field: AdminSettingField): string {
     if (settingsDirty[field.key]?.deleted) return fieldPlaceholderText(field) || "********";
     if (field.has_value) return at("settings_secret_configured", {}, "Secret is set");
     return fieldPlaceholderText(field) || at("settings_secret_empty", {}, "Not set");
   }
 
-  function iconComponent(name) {
+  function iconComponent(name: unknown): DynamicComponent | null {
     const key = String(name || "").trim();
-    return key ? UiIcons[key] || null : null;
+    return key ? ((UiIcons as Record<string, unknown>)[key] as DynamicComponent) || null : null;
   }
 
-  function iconValue(field) {
-    return String(valueFor(field) || field?.placeholder || "").trim();
+  function iconValue(field: AdminSettingField | null): string {
+    if (!field) return "";
+    return String(valueFor(field) || field.placeholder || "").trim();
   }
 
-  function iconIsDefault(field) {
+  function iconIsDefault(field: AdminSettingField): boolean {
     return !String(valueFor(field) || "").trim();
   }
 
-  function iconLabel(field) {
+  function iconLabel(field: AdminSettingField | null): string {
     const iconName = iconValue(field);
     if (!iconName) return at("settings_icon_empty", {}, "Default icon");
-    if (iconIsDefault(field)) {
+    if (field && iconIsDefault(field)) {
       return at("settings_icon_default_value", { icon: iconName }, `Default: ${iconName}`);
     }
     return iconName;
   }
 
-  function openIconPicker(field) {
+  function openIconPicker(field: AdminSettingField): void {
     iconPickerField = field;
     iconPickerSearch = "";
   }
 
-  function closeIconPicker() {
+  function closeIconPicker(): void {
     iconPickerField = null;
     iconPickerSearch = "";
   }
 
-  function selectIcon(name) {
+  function selectIcon(name: string): void {
     if (!iconPickerField) return;
     settingsStore.markDirty(iconPickerField.key, name);
     closeIconPicker();
   }
 
-  async function handleJsonFile(field, event) {
-    const file = event?.currentTarget?.files?.[0];
+  function clearIconPickerField(): void {
+    if (!iconPickerField) return;
+    settingsStore.markDirty(iconPickerField.key, "");
+  }
+
+  async function handleJsonFile(field: AdminSettingField, event: Event): Promise<void> {
+    const input = event.currentTarget as HTMLInputElement | null;
+    const file = input?.files?.[0];
     if (!file) return;
     try {
       const text = await file.text();
       settingsStore.markDirty(field.key, text);
     } finally {
-      event.currentTarget.value = "";
+      if (input) input.value = "";
     }
   }
 
-  function normalizeWebhookPath(path) {
-    const normalized = String(path || "").trim();
-    if (!normalized) return "";
-    return normalized.startsWith("/") ? normalized : `/${normalized}`;
-  }
-
-  function webhookUrlForField(field) {
-    const explicit = String(field?.webhook_url || "").trim();
-    if (explicit) return explicit;
-    const path = normalizeWebhookPath(field?.webhook_path);
-    if (!path) return "";
-    if (field?.webhook_requires_base_url && field?.webhook_base_url_configured === false) {
-      return "";
-    }
-    if (typeof window !== "undefined" && window.location?.origin) {
-      return `${window.location.origin}${path}`;
-    }
-    return path;
-  }
-
-  function groupWebhook(fields) {
-    const field = (fields || []).find((item) => item.webhook_path || item.webhook_url);
-    if (!field) return null;
-    const path = normalizeWebhookPath(field.webhook_path);
-    const url = webhookUrlForField(field);
-    if (!url && !path) return null;
-    return {
-      key: `${field.provider_id || field.key || "provider"}:${path || url}`,
-      path,
-      url,
-      requiresBaseUrl: Boolean(field.webhook_requires_base_url),
-      baseConfigured: field.webhook_base_url_configured !== false,
-      hintI18nKey: field.webhook_hint_i18n_key || "",
-      hintFallback: field.webhook_hint || "",
-    };
-  }
-
-  async function copyWebhookUrl(webhook) {
+  async function copyWebhookUrl(webhook: GroupWebhook): Promise<void> {
     if (!webhook?.url) return;
     try {
       await navigator.clipboard.writeText(webhook.url);
@@ -654,158 +483,24 @@
     }
   }
 
-  function groupSectionFields(section) {
-    const groups = new Map();
-    for (const field of section.fields || []) {
-      const key = field.subsection || "_root";
-      if (!groups.has(key)) {
-        groups.set(key, { fields: [], i18nLabelKey: field.i18n_subsection_key || null });
-      }
-      const group = groups.get(key);
-      group.fields.push(field);
-      if (!group.i18nLabelKey && field.i18n_subsection_key) {
-        group.i18nLabelKey = field.i18n_subsection_key;
-      }
-    }
-    return Array.from(groups.entries()).map(([id, group]) => ({
-      id,
-      label: id === "_root" ? null : id,
-      i18nLabelKey: group.i18nLabelKey,
-      webhook: groupWebhook(group.fields),
-      fields: group.fields,
-    }));
-  }
-
-  function fieldGroupMeta(
-    id,
-    titleKey,
-    titleFallback,
-    descriptionKey = "",
-    descriptionFallback = ""
-  ) {
-    return { id, titleKey, titleFallback, descriptionKey, descriptionFallback };
-  }
-
-  function plategaSemanticGroup(field) {
-    const key = String(field?.key || "");
-    if (PLATEGA_SBP_KEYS.has(key) || key.startsWith("PAYMENT_PLATEGA_SBP_")) {
-      return fieldGroupMeta(
-        "platega_sbp",
-        "settings_group_platega_sbp",
-        "SBP/card button",
-        "settings_group_platega_sbp_hint",
-        "Visibility, method ID, and labels for the SBP/card payment button."
-      );
-    }
-    if (PLATEGA_CRYPTO_KEYS.has(key) || key.startsWith("PAYMENT_PLATEGA_CRYPTO_")) {
-      return fieldGroupMeta(
-        "platega_crypto",
-        "settings_group_platega_crypto",
-        "Crypto button",
-        "settings_group_platega_crypto_hint",
-        "Visibility, method ID, and labels for the crypto payment button."
-      );
-    }
-    if (PLATEGA_LEGACY_KEYS.has(key)) {
-      return fieldGroupMeta(
-        "platega_legacy",
-        "settings_group_platega_legacy",
-        "Legacy compatibility",
-        "settings_group_platega_legacy_hint",
-        "Fallback method for old Platega callbacks and deployments."
-      );
-    }
-    return fieldGroupMeta(
-      "platega_common",
-      "settings_group_platega_common",
-      "Common settings",
-      "settings_group_platega_common_hint",
-      "Shared merchant credentials, redirects, and API endpoint."
-    );
-  }
-
-  function wataSemanticGroup(field) {
-    const key = String(field?.key || "");
-    if (WATA_WEBHOOK_KEYS.has(key)) {
-      return fieldGroupMeta(
-        "wata_webhook",
-        "settings_group_wata_webhook",
-        "Webhook verification",
-        "settings_group_wata_webhook_hint",
-        "Signature, public keys, trusted IPs, and the shared webhook URL."
-      );
-    }
-    if (WATA_CRYPTO_KEYS.has(key) || key.startsWith("PAYMENT_WATA_CRYPTO_")) {
-      return fieldGroupMeta(
-        "wata_crypto",
-        "settings_group_wata_crypto",
-        "Crypto terminal",
-        "settings_group_wata_crypto_hint",
-        "Visibility, credentials, redirects, currencies, and labels for the crypto button."
-      );
-    }
-    if (WATA_FIAT_KEYS.has(key) || key.startsWith("PAYMENT_WATA_")) {
-      return fieldGroupMeta(
-        "wata_fiat",
-        "settings_group_wata_fiat",
-        "Card/SBP terminal",
-        "settings_group_wata_fiat_hint",
-        "Visibility, credentials, redirects, currencies, and labels for the card/SBP button."
-      );
-    }
-    return fieldGroupMeta(
-      "wata_common",
-      "settings_group_wata_common",
-      "Common settings",
-      "settings_group_wata_common_hint",
-      "API endpoint shared by all Wata terminal profiles."
-    );
-  }
-
-  function semanticFieldGroup(section, group, field) {
-    if (section?.id === "payments" && group?.id === "Platega") {
-      return plategaSemanticGroup(field);
-    }
-    if (section?.id === "payments" && group?.id === "Wata") {
-      return wataSemanticGroup(field);
-    }
-    return null;
-  }
-
-  function semanticFieldGroups(section, group) {
-    const fields = group?.fields || [];
-    const result = new Map();
-    for (const field of fields) {
-      const meta = semanticFieldGroup(section, group, field) || fieldGroupMeta("_default", "", "");
-      if (!result.has(meta.id)) {
-        result.set(meta.id, { ...meta, fields: [] });
-      }
-      result.get(meta.id).fields.push(field);
-    }
-    return Array.from(result.values()).sort(
-      (a, b) =>
-        (SEMANTIC_FIELD_GROUP_ORDER[a.id] || 999) - (SEMANTIC_FIELD_GROUP_ORDER[b.id] || 999)
-    );
-  }
-
-  function fieldGroupTitle(group) {
+  function fieldGroupTitle(group: SemanticFieldGroup): string {
     return group.titleKey ? at(group.titleKey, {}, group.titleFallback) : "";
   }
 
-  function fieldGroupDescription(group) {
+  function fieldGroupDescription(group: SemanticFieldGroup): string {
     return group.descriptionKey ? at(group.descriptionKey, {}, group.descriptionFallback) : "";
   }
 
-  function adminLocaleKey(key) {
+  function adminLocaleKey(key: unknown): string {
     const raw = String(key || "");
     return raw.startsWith("admin_") ? raw.slice("admin_".length) : raw;
   }
 
-  function adminText(key, params = {}, fallback = "") {
+  function adminText(key: unknown, params: Record<string, unknown> = {}, fallback = ""): string {
     return key ? at(adminLocaleKey(key), params, fallback) : fallback;
   }
 
-  function sectionTitle(id) {
+  function sectionTitle(id: string): string {
     const map = {
       general: "Общие",
       remnawave: "Remnawave Panel",
@@ -822,10 +517,10 @@
       system: "Система",
       migrations: "Миграции",
     };
-    return adminText(`settings_section_${id}`, {}, map[id] || id);
+    return adminText(`settings_section_${id}`, {}, map[id as keyof typeof map] || id);
   }
 
-  function englishFieldLabelFallback(key, originalLabel) {
+  function englishFieldLabelFallback(key: string, originalLabel: string | undefined): string {
     if (!key) return originalLabel || "";
     return String(key)
       .toLowerCase()
@@ -841,7 +536,7 @@
       .join(" ");
   }
 
-  function fieldLabelText(field) {
+  function fieldLabelText(field: AdminSettingField): string {
     const isEnglish = String(currentLang || "")
       .toLowerCase()
       .startsWith("en");
@@ -849,26 +544,26 @@
     return field.i18n_label_key ? adminText(field.i18n_label_key, {}, fallback) : fallback;
   }
 
-  function fieldDescriptionText(field) {
+  function fieldDescriptionText(field: AdminSettingField): string {
     if (!field.description) return "";
     return field.i18n_description_key
       ? adminText(field.i18n_description_key, {}, field.description)
       : field.description;
   }
 
-  function fieldPlaceholderText(field) {
+  function fieldPlaceholderText(field: AdminSettingField): string {
     const fallback = field.placeholder || "";
     return field.i18n_placeholder_key
       ? adminText(field.i18n_placeholder_key, {}, fallback)
       : fallback;
   }
 
-  function subsectionTitle(group) {
+  function subsectionTitle(group: SettingsSubsection): string {
     if (!group?.label) return "";
     return group.i18nLabelKey ? adminText(group.i18nLabelKey, {}, group.label) : group.label;
   }
 
-  function choiceItems(field) {
+  function choiceItems(field: AdminSettingField): Array<{ value: string; label: string }> {
     return (field.choices || []).map((choice) => ({
       ...choice,
       label: choice.i18n_label_key
@@ -877,15 +572,34 @@
     }));
   }
 
-  function setBoolField(field, checked) {
+  function setBoolField(field: AdminSettingField, checked: boolean): void {
     settingsStore.markDirty(field.key, checked);
     if (checked && field.mutually_exclusive_key) {
       settingsStore.markDirty(field.mutually_exclusive_key, false);
     }
   }
+
+  function fieldInputHandler(field: AdminSettingField): (event: Event) => void {
+    return (event: Event) => {
+      const input = event.currentTarget as HTMLInputElement | HTMLTextAreaElement | null;
+      settingsStore.markDirty(field.key, input?.value ?? "");
+    };
+  }
+
+  function fieldSelectHandler(field: AdminSettingField): (...args: never[]) => void {
+    return ((value: string) => settingsStore.markDirty(field.key, value)) as (
+      ...args: never[]
+    ) => void;
+  }
+
+  function jsonFileHandler(field: AdminSettingField): (event: Event) => void {
+    return (event: Event) => {
+      void handleJsonFile(field, event);
+    };
+  }
 </script>
 
-{#snippet renderWebhookHint(webhook)}
+{#snippet renderWebhookHint(webhook: NonNullable<GroupWebhook>)}
   {@const displayValue = webhook.url || webhook.path}
   <div class="admin-webhook-hint">
     <div class="admin-webhook-hint-meta">
@@ -926,7 +640,7 @@
   </div>
 {/snippet}
 
-{#snippet renderGroupedFields(section, group)}
+{#snippet renderGroupedFields(section: AdminSettingsSection, group: SettingsSubsection)}
   {@const fieldGroups = semanticFieldGroups(section, group)}
   {#if fieldGroups.length === 1 && !fieldGroups[0].titleKey}
     {#each fieldGroups[0].fields as field}
@@ -960,7 +674,7 @@
   {/if}
 {/snippet}
 
-{#snippet renderField(field)}
+{#snippet renderField(field: AdminSettingField)}
   {@const revealed = isSecretRevealed(field.key)}
   <div class="admin-setting" class:is-overridden={isOverridden(field)}>
     <div class="admin-setting-meta">
@@ -997,15 +711,15 @@
       {:else if field.type === "color"}
         <ColorInput
           class="admin-color"
-          value={valueFor(field) || "#00fe7a"}
+          value={fieldTextValue(field) || "#00fe7a"}
           ariaLabel={fieldLabelText(field)}
-          oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
+          oninput={fieldInputHandler(field)}
         />
         <Input
           class="input"
           type="text"
-          value={valueFor(field) || ""}
-          oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
+          value={fieldInputValue(field)}
+          oninput={fieldInputHandler(field)}
         />
       {:else if field.type === "icon"}
         {@const selectedIconName = iconValue(field)}
@@ -1016,7 +730,7 @@
           onclick={() => openIconPicker(field)}
         >
           {#if SelectedIcon}
-            <svelte:component this={SelectedIcon} size={16} />
+            <SelectedIcon size={16} />
           {/if}
           <span>{iconLabel(field)}</span>
         </AdminButton>
@@ -1033,11 +747,11 @@
       {:else if field.choices && field.choices.length > 0}
         <AdminSelect
           class="admin-setting-select"
-          value={valueFor(field) || ""}
+          value={fieldTextValue(field)}
           items={choiceItems(field)}
           ariaLabel={fieldLabelText(field)}
           placeholder={fieldPlaceholderText(field) || fieldLabelText(field)}
-          onValueChange={(value) => settingsStore.markDirty(field.key, value)}
+          onValueChange={fieldSelectHandler(field)}
         />
       {:else if field.type === "int" || field.type === "float"}
         <Input
@@ -1047,16 +761,16 @@
           min={field.min ?? undefined}
           max={field.max ?? undefined}
           placeholder={fieldPlaceholderText(field)}
-          value={valueFor(field) ?? ""}
-          oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
+          value={fieldInputValue(field)}
+          oninput={fieldInputHandler(field)}
         />
       {:else if field.type === "text"}
         <Textarea
           class="admin-setting-textarea"
-          rows="4"
+          rows={4}
           placeholder={fieldPlaceholderText(field)}
-          value={valueFor(field) ?? ""}
-          oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
+          value={fieldTextValue(field)}
+          oninput={fieldInputHandler(field)}
         />
       {:else if field.type === "json"}
         <div class="admin-json-toolbar">
@@ -1064,7 +778,7 @@
             id={"json-file-" + field.key}
             class="admin-json-file-input"
             accept="application/json,.json"
-            onchange={(event) => handleJsonFile(field, event)}
+            onchange={jsonFileHandler(field)}
           />
           <label
             class="admin-btn admin-btn-sm admin-btn-ghost admin-json-upload"
@@ -1086,11 +800,11 @@
         </div>
         <Textarea
           class="admin-setting-textarea admin-setting-json-textarea"
-          rows="10"
+          rows={10}
           spellcheck="false"
           placeholder={fieldPlaceholderText(field)}
-          value={valueFor(field) ?? ""}
-          oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
+          value={fieldTextValue(field)}
+          oninput={fieldInputHandler(field)}
         />
       {:else if field.secret}
         <Input
@@ -1098,8 +812,8 @@
           type={revealed ? "text" : "password"}
           placeholder={secretPlaceholder(field)}
           autocomplete="off"
-          value={valueFor(field) ?? ""}
-          oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
+          value={fieldInputValue(field)}
+          oninput={fieldInputHandler(field)}
         />
         <AdminButton
           size="sm"
@@ -1114,8 +828,8 @@
           class="input"
           type="text"
           placeholder={fieldPlaceholderText(field)}
-          value={valueFor(field) ?? ""}
-          oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
+          value={fieldInputValue(field)}
+          oninput={fieldInputHandler(field)}
         />
       {/if}
       {#if isOverridden(field) || settingsDirty[field.key]}
@@ -1214,7 +928,7 @@
               <Accordion.Root
                 type="multiple"
                 value={settingsOpenSubsections[section.id] || []}
-                onValueChange={(v) => handleSettingsSubsectionsOpenChange(section.id, v)}
+                onValueChange={settingsSubsectionOpenHandler(section.id)}
                 class="admin-subsection-accordion"
               >
                 {#each labelGroups as group}
@@ -1268,68 +982,17 @@
   </Accordion.Root>
 {/if}
 
-<Dialog
-  open={Boolean(iconPickerField)}
-  title={at("settings_icon_picker_title", {}, "Choose icon")}
-  description={iconPickerField ? fieldLabelText(iconPickerField) : ""}
-  closeLabel={at("close", {}, "Close")}
-  onclose={closeIconPicker}
-  class="admin-icon-picker-dialog"
->
-  <div class="admin-icon-picker-body">
-    {#if iconPickerField}
-      {@const currentIconName = iconValue(iconPickerField)}
-      {@const CurrentIcon = iconComponent(currentIconName)}
-      <div class="admin-icon-picker-current">
-        <span class="admin-icon-picker-current-preview" aria-hidden="true">
-          {#if CurrentIcon}
-            <svelte:component this={CurrentIcon} size={24} />
-          {/if}
-        </span>
-        <span class="admin-icon-picker-current-meta">
-          <small>{at("settings_icon_current", {}, "Current icon")}</small>
-          <strong>{iconLabel(iconPickerField)}</strong>
-        </span>
-        {#if !iconIsDefault(iconPickerField)}
-          <AdminButton
-            size="sm"
-            variant="ghost"
-            onclick={() => settingsStore.markDirty(iconPickerField.key, "")}
-          >
-            <X size={12} />
-            {at("settings_icon_use_default", {}, "Use default")}
-          </AdminButton>
-        {/if}
-      </div>
-    {/if}
-    <div class="admin-icon-picker-toolbar">
-      <label class="admin-icon-picker-search">
-        <Search size={15} />
-        <Input
-          bind:value={iconPickerSearch}
-          class="input"
-          type="text"
-          placeholder={at("search", {}, "Search")}
-        />
-      </label>
-    </div>
-    <ScrollArea class="admin-icon-picker-scroll" maxHeight="min(52vh, 460px)">
-      <div class="admin-icon-picker-grid">
-        {#each filteredIconOptions as iconName}
-          {@const Icon = iconComponent(iconName)}
-          <button
-            class:active={iconPickerField && iconValue(iconPickerField) === iconName}
-            class="admin-icon-picker-option"
-            type="button"
-            onclick={() => selectIcon(iconName)}
-          >
-            {#if Icon}
-              <svelte:component this={Icon} size={18} />
-            {/if}
-            <span>{iconName}</span>
-          </button>
-        {/each}
-      </div>
-    </ScrollArea>
-  </div>
-</Dialog>
+<SettingsIconPicker
+  {at}
+  {iconPickerField}
+  bind:iconPickerSearch
+  {filteredIconOptions}
+  {fieldLabelText}
+  {iconComponent}
+  {iconValue}
+  {iconLabel}
+  {iconIsDefault}
+  {closeIconPicker}
+  {clearIconPickerField}
+  {selectIcon}
+/>

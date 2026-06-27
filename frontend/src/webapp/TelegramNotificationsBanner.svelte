@@ -4,18 +4,19 @@
   import Card from "$components/ui/card.svelte";
   import { AttentionDot } from "$components/ui/index.js";
 
-  export let startLink = "";
-  export let status = "unknown";
-  export let onOpenBot = () => {};
-  export let t = (key) => key;
+  let { startLink = "", status = "unknown", onOpenBot = () => {}, t = (key) => key } = $props();
 
-  $: isBlocked = status === "blocked";
-  $: title = isBlocked
-    ? t("wa_telegram_notifications_blocked_title")
-    : t("wa_telegram_notifications_banner_title");
-  $: description = isBlocked
-    ? t("wa_telegram_notifications_blocked_text")
-    : t("wa_telegram_notifications_banner_text");
+  const isBlocked = $derived(status === "blocked");
+  const title = $derived(
+    isBlocked
+      ? t("wa_telegram_notifications_blocked_title")
+      : t("wa_telegram_notifications_banner_title")
+  );
+  const description = $derived(
+    isBlocked
+      ? t("wa_telegram_notifications_blocked_text")
+      : t("wa_telegram_notifications_banner_text")
+  );
 </script>
 
 <Card class="telegram-notifications-card attention-wrap">

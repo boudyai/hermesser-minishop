@@ -1,12 +1,28 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+from aiohttp import web
+from sqlalchemy.orm import sessionmaker
+
+from bot.app.web.context import (
+    get_session_factory,
+)
+from bot.app.web.route_contracts import RouteContract, ok_envelope_for, register_contract
+from db.dal import message_log_dal
+
 from .auth import _require_admin_user_id
 from .common import _error, _ok, _serialize_log
+from .schemas import AdminLogsListOut, LogOut
+
+register_contract(
+    "admin_logs_route",
+    RouteContract(
+        response_schema=ok_envelope_for(AdminLogsListOut),
+        models=(AdminLogsListOut, LogOut),
+    ),
+)
 
 
 async def admin_logs_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
 
     page = max(0, int(request.query.get("page", 0) or 0))
     page_size = min(200, max(1, int(request.query.get("page_size", 50) or 50)))

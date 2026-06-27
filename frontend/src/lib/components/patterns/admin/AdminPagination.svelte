@@ -1,66 +1,102 @@
-<script>
+<script lang="ts">
   import { ArrowRight, ChevronLeft, ChevronRight } from "$components/ui/icons.js";
-  import { watchAdminDatatable } from "$lib/admin/datatables.js";
   import AdminButton from "./AdminButton.svelte";
 
-  export let meta = "";
-  export let prevLabel = "Back";
-  export let nextLabel = "Next";
-  export let table = null;
-  export let page = null;
-  export let pageCount = null;
-  export let total = null;
-  export let pageLabel = "Page";
-  export let ofLabel = "of";
-  export let totalLabel = "Total";
-  export let jumpLabel = "Page";
-  export let jumpAriaLabel = "Go to page";
-  export let goLabel = "Go";
-  export let disabled = false;
-  export let prevDisabled = false;
-  export let nextDisabled = false;
-  export let onPrev = () => {};
-  export let onNext = () => {};
-  export let onPageChange = null;
+  type AdminTableLike = {
+    currentPage?: number;
+    pageCount?: number;
+    rowCount?: { total?: number | string | null };
+    setPage: (page: number) => void;
+  };
+  type PageItem =
+    | { type: "ellipsis"; key: string }
+    | { type: "page"; key: string; index: number; label: number };
 
-  let jumpValue = "";
+  let {
+    meta = "",
+    prevLabel = "Back",
+    nextLabel = "Next",
+    table = null,
+    page = null,
+    pageCount = null,
+    total = null,
+    pageLabel = "Page",
+    ofLabel = "of",
+    totalLabel = "Total",
+    jumpLabel = "Page",
+    jumpAriaLabel = "Go to page",
+    goLabel = "Go",
+    disabled = false,
+    prevDisabled = false,
+    nextDisabled = false,
+    onPrev = () => {},
+    onNext = () => {},
+    onPageChange = null,
+  }: {
+    meta?: string;
+    prevLabel?: string;
+    nextLabel?: string;
+    table?: AdminTableLike | null;
+    page?: number | null;
+    pageCount?: number | null;
+    total?: number | string | null;
+    pageLabel?: string;
+    ofLabel?: string;
+    totalLabel?: string;
+    jumpLabel?: string;
+    jumpAriaLabel?: string;
+    goLabel?: string;
+    disabled?: boolean;
+    prevDisabled?: boolean;
+    nextDisabled?: boolean;
+    onPrev?: () => void;
+    onNext?: () => void;
+    onPageChange?: ((page: number) => void) | null;
+  } = $props();
 
-  // Bridge the runes-based handler into a store so paging re-renders this
-  // legacy component (direct reads of table.* are untracked by Svelte).
-  $: tableSignal = watchAdminDatatable(table);
-  $: liveTable = $tableSignal;
-  $: tablePage = liveTable ? Number(liveTable.currentPage || 1) - 1 : null;
-  $: tablePageCount = liveTable ? Number(liveTable.pageCount || 0) : null;
-  $: tableTotal = liveTable ? liveTable.rowCount?.total : total;
-  $: normalizedPage = Number(table ? tablePage : page);
-  $: normalizedPageCount = Math.max(1, Math.ceil(Number(table ? tablePageCount : pageCount) || 1));
-  $: hasPageNavigation =
-    Number.isFinite(normalizedPage) && (table || typeof onPageChange === "function");
-  $: currentPage = hasPageNavigation
-    ? Math.min(Math.max(0, Math.floor(normalizedPage)), normalizedPageCount - 1)
-    : 0;
-  $: pages = hasPageNavigation ? visiblePages(currentPage, normalizedPageCount) : [];
-  $: paginationDisabled = Boolean(disabled);
-  $: computedPrevDisabled =
-    paginationDisabled || prevDisabled || (hasPageNavigation ? currentPage <= 0 : false);
-  $: computedNextDisabled =
+  let jumpValue = $state("");
+
+  const liveTable = $derived(table);
+  const tablePage = $derived(liveTable ? Number(liveTable.currentPage || 1) - 1 : null);
+  const tablePageCount = $derived(liveTable ? Number(liveTable.pageCount || 0) : null);
+  const tableTotal = $derived(liveTable ? liveTable.rowCount?.total : total);
+  const normalizedPage = $derived(Number(table ? tablePage : page));
+  const normalizedPageCount = $derived(
+    Math.max(1, Math.ceil(Number(table ? tablePageCount : pageCount) || 1))
+  );
+  const hasPageNavigation = $derived(
+    Number.isFinite(normalizedPage) && (table || typeof onPageChange === "function")
+  );
+  const currentPage = $derived(
+    hasPageNavigation
+      ? Math.min(Math.max(0, Math.floor(normalizedPage)), normalizedPageCount - 1)
+      : 0
+  );
+  const pages = $derived(hasPageNavigation ? visiblePages(currentPage, normalizedPageCount) : []);
+  const paginationDisabled = $derived(Boolean(disabled));
+  const computedPrevDisabled = $derived(
+    paginationDisabled || prevDisabled || (hasPageNavigation ? currentPage <= 0 : false)
+  );
+  const computedNextDisabled = $derived(
     paginationDisabled ||
-    nextDisabled ||
-    (hasPageNavigation ? currentPage >= normalizedPageCount - 1 : false);
-  $: hasTotal = tableTotal !== null && tableTotal !== undefined && tableTotal !== "";
-  $: totalValue = Number(tableTotal);
-  $: showTotal = hasTotal && Number.isFinite(totalValue) && totalValue >= 0;
-  $: jumpTarget = Number(jumpValue);
-  $: canJump =
+      nextDisabled ||
+      (hasPageNavigation ? currentPage >= normalizedPageCount - 1 : false)
+  );
+  const hasTotal = $derived(tableTotal !== null && tableTotal !== undefined && tableTotal !== "");
+  const totalValue = $derived(Number(tableTotal));
+  const showTotal = $derived(hasTotal && Number.isFinite(totalValue) && totalValue >= 0);
+  const jumpTarget = $derived(Number(jumpValue));
+  const canJump = $derived(
     hasPageNavigation &&
-    !paginationDisabled &&
-    jumpValue !== "" &&
-    Number.isFinite(jumpTarget) &&
-    Number.isInteger(jumpTarget) &&
-    jumpTarget >= 1 &&
-    jumpTarget <= normalizedPageCount;
+      !paginationDisabled &&
+      jumpValue !== "" &&
+      Number.isFinite(jumpTarget) &&
+      Number.isInteger(jumpTarget) &&
+      jumpTarget >= 1 &&
+      jumpTarget <= normalizedPageCount
+  );
 
-  function visiblePages(activePage, count) {
+  function visiblePages(activePage: number, count: number): PageItem[] {
     const pageIndexes = new Set([0, count - 1, activePage - 1, activePage, activePage + 1]);
 
     if (activePage <= 2) {
@@ -76,10 +112,10 @@
       .filter((value) => value >= 0 && value < count)
       .sort((a, b) => a - b);
 
-    const result = [];
+    const result: PageItem[] = [];
     sorted.forEach((value, index) => {
       const previous = sorted[index - 1];
-      if (index > 0 && value - previous > 1) {
+      if (previous !== undefined && value - previous > 1) {
         result.push({ type: "ellipsis", key: `ellipsis-${previous}-${value}` });
       }
       result.push({ type: "page", key: `page-${value}`, index: value, label: value + 1 });
@@ -87,7 +123,7 @@
     return result;
   }
 
-  function goToPage(nextPage) {
+  function goToPage(nextPage: number) {
     if (!hasPageNavigation || paginationDisabled) return;
     const clamped = Math.min(
       Math.max(0, Math.floor(Number(nextPage) || 0)),
@@ -177,7 +213,13 @@
     </AdminButton>
   </div>
   {#if hasPageNavigation}
-    <form class="admin-pagination-jump" on:submit|preventDefault={submitJump}>
+    <form
+      class="admin-pagination-jump"
+      onsubmit={(event) => {
+        event.preventDefault();
+        submitJump();
+      }}
+    >
       <label class="admin-pagination-jump-label">
         <span>{jumpLabel}</span>
         <input
@@ -190,7 +232,7 @@
           aria-label={jumpAriaLabel}
           placeholder={String(currentPage + 1)}
           value={jumpValue}
-          on:input={(event) => (jumpValue = event.currentTarget.value)}
+          oninput={(event) => (jumpValue = event.currentTarget.value)}
           disabled={paginationDisabled}
         />
       </label>

@@ -11,26 +11,28 @@
 
   import BrandMark from "$lib/webapp/BrandMark.svelte";
 
-  export let activeTab = "home";
-  export let brand = {};
-  export let brandTitle = "";
-  export let devicesEnabled = false;
-  export let supportEnabled = true;
-  export let supportUnreadCount = 0;
-  export let supportUnreadLoading = false;
-  export let supportUnreadLoaded = false;
-  export let hasUnlinkedIdentity = false;
-  export let isAdmin = false;
-  export let onAdmin = () => {};
-  export let onDevices = () => {};
-  export let onHome = () => {};
-  export let onInvite = () => {};
-  export let onSupport = () => {};
-  export let onSettings = () => {};
-  export let t = (key) => key;
+  let {
+    activeTab = "home",
+    brand = {},
+    brandTitle = "",
+    devicesEnabled = false,
+    supportEnabled = true,
+    supportUnreadCount = 0,
+    supportUnreadLoading = false,
+    supportUnreadLoaded = false,
+    hasUnlinkedIdentity = false,
+    isAdmin = false,
+    onAdmin = () => {},
+    onDevices = () => {},
+    onHome = () => {},
+    onInvite = () => {},
+    onSupport = () => {},
+    onSettings = () => {},
+    t = (key) => key,
+  } = $props();
 
-  $: visibleNavItems = 3 + (devicesEnabled ? 1 : 0) + (supportEnabled ? 1 : 0);
-  $: adminLabel = t("admin_nav_title", {}, "Админ-панель");
+  const visibleNavItems = $derived(3 + (devicesEnabled ? 1 : 0) + (supportEnabled ? 1 : 0));
+  const adminLabel = $derived(t("admin_nav_title", {}, "Админ-панель"));
 </script>
 
 <nav

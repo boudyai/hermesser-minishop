@@ -1,0 +1,151 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+
+import swaggerUiBundleUrl from 'swagger-ui-dist/swagger-ui-bundle.js?url';
+import swaggerUiStylesUrl from 'swagger-ui-dist/swagger-ui.css?url';
+
+const editUrl =
+  'https://github.com/3252a8/remnawave-minishop/edit/main/docs-site/src/pages/api/reference.astro';
+---
+
+<StarlightPage
+  frontmatter={{
+    title: 'Интерактивная спецификация API',
+    description:
+      'Swagger UI для OpenAPI-контракта Remnawave Minishop HTTP API.',
+    editUrl,
+  }}
+>
+  <link rel="stylesheet" href={swaggerUiStylesUrl} />
+
+  <p>
+    Эта страница показывает тот же OpenAPI-контракт, который публикуется как
+    <a href="/openapi.json"><code>/openapi.json</code></a>. Спецификация
+    генерируется из живого <code>aiohttp</code>-роутера и используется для
+    frontend-типов.
+  </p>
+
+  <div class="api-reference-actions">
+    <a class="api-reference-button" href="/openapi.json">Открыть OpenAPI JSON</a>
+    <a class="api-reference-button" href="/architecture/http-api/">
+      Правила HTTP-контрактов
+    </a>
+  </div>
+
+  <section class="api-reference-shell" aria-label="Swagger UI">
+    <div id="swagger-ui" data-openapi-url="/openapi.json"></div>
+  </section>
+
+  <script src={swaggerUiBundleUrl}></script>
+  <script is:inline>
+    window.addEventListener('DOMContentLoaded', () => {
+      const target = document.getElementById('swagger-ui');
+      if (!target || !window.SwaggerUIBundle) {
+        return;
+      }
+
+      window.SwaggerUIBundle({
+        url: target.dataset.openapiUrl || '/openapi.json',
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        displayRequestDuration: true,
+        supportedSubmitMethods: [],
+        presets: [window.SwaggerUIBundle.presets.apis],
+        layout: 'BaseLayout',
+      });
+    });
+  </script>
+</StarlightPage>
+
+<style is:global>
+  .api-reference-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin: 1.25rem 0;
+  }
+
+  .api-reference-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.35rem;
+    border: 1px solid color-mix(in srgb, #00fe7a 44%, var(--sl-color-gray-5));
+    border-radius: 7px;
+    padding: 0.48rem 0.75rem;
+    color: var(--sl-color-white);
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-decoration: none;
+  }
+
+  .api-reference-button:hover,
+  .api-reference-button:focus-visible {
+    border-color: #00fe7a;
+    color: #00fe7a;
+  }
+
+  :root[data-theme='light'] .api-reference-button {
+    color: #073b25;
+  }
+
+  .api-reference-shell {
+    overflow: hidden;
+    min-height: 42rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 8px;
+    margin-top: 1.25rem;
+    background: #ffffff;
+    color-scheme: light;
+  }
+
+  .api-reference-shell .swagger-ui {
+    font-family:
+      Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+      sans-serif;
+  }
+
+  .api-reference-shell .swagger-ui .topbar,
+  .api-reference-shell .swagger-ui .scheme-container {
+    display: none;
+  }
+
+  .api-reference-shell .swagger-ui .information-container.wrapper {
+    padding-top: 1.35rem;
+  }
+
+  .api-reference-shell .swagger-ui .info {
+    margin: 0 0 1.5rem;
+  }
+
+  .api-reference-shell .swagger-ui .info .title {
+    color: #111827;
+    font-size: clamp(1.45rem, 3vw, 2rem);
+    line-height: 1.15;
+  }
+
+  .api-reference-shell .swagger-ui .opblock-tag,
+  .api-reference-shell .swagger-ui .opblock .opblock-summary-path,
+  .api-reference-shell .swagger-ui .opblock .opblock-summary-description {
+    color: #111827;
+  }
+
+  .api-reference-shell .swagger-ui .wrapper {
+    max-width: none;
+    padding-inline: clamp(0.75rem, 2vw, 1.4rem);
+  }
+
+  @media (max-width: 46rem) {
+    .api-reference-shell {
+      margin-inline: calc(var(--sl-content-pad-x) * -1);
+      border-right: 0;
+      border-left: 0;
+      border-radius: 0;
+    }
+
+    .api-reference-shell .swagger-ui .wrapper {
+      padding-inline: 0.65rem;
+    }
+  }
+</style>

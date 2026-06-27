@@ -10,6 +10,7 @@ from bot.keyboards.inline.user_keyboards import (
     subscription_options_callback,
 )
 from bot.middlewares.i18n import JsonI18n
+from bot.utils.callback_answer import callback_data, callback_message
 from config.settings import Settings
 
 router = Router(name="user_subscription_payments_selection_router")
@@ -21,7 +22,7 @@ async def select_subscription_period_callback_handler(
     settings: Settings,
     i18n_data: dict,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -33,10 +34,10 @@ async def select_subscription_period_callback_handler(
             pass
         return
 
-    traffic_packages = getattr(settings, "traffic_packages", {}) or {}
-    stars_traffic_packages = getattr(settings, "stars_traffic_packages", {}) or {}
-    traffic_mode = bool(getattr(settings, "traffic_sale_mode", False) or stars_traffic_packages)
-    parts = callback.data.split(":")
+    traffic_packages = settings.traffic_packages or {}
+    stars_traffic_packages = settings.stars_traffic_packages or {}
+    traffic_mode = bool(settings.traffic_sale_mode or stars_traffic_packages)
+    parts = callback_data(callback).split(":")
     callback_context = parts[2] if len(parts) > 2 else None
     try:
         months = float(parts[1])
@@ -113,12 +114,12 @@ async def select_subscription_period_callback_handler(
     )
 
     try:
-        await callback.message.edit_text(text_content, reply_markup=reply_markup)
+        await callback_message(callback).edit_text(text_content, reply_markup=reply_markup)
     except Exception as e_edit:
         logging.warning(
             f"Edit message for payment method selection failed: {e_edit}. Sending new one."
         )
-        await callback.message.answer(text_content, reply_markup=reply_markup)
+        await callback_message(callback).answer(text_content, reply_markup=reply_markup)
     try:
         await callback.answer()
     except Exception:

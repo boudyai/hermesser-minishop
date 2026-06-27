@@ -16,7 +16,18 @@
     "format:check:js": "npm --prefix frontend run format:check",
     "format:check": "npm run format:check:py && npm run format:check:js",
     "bench:bot": "python scripts/perf_benchmarks.py",
+    "dev:stand:config": "docker compose --env-file .env.remnawave-dev -f docker-compose-dev.yml -f docker-compose.remnawave-dev.yml --profile seed config --quiet",
+    "dev:stand:up": "docker compose --env-file .env.remnawave-dev -f docker-compose-dev.yml -f docker-compose.remnawave-dev.yml --profile seed up -d --build postgres redis remnawave-db remnawave-redis remnawave remnawave-dev-seed remnawave-subscription-page migrate dev-seed backend frontend",
+    "dev:stand:down": "docker compose --env-file .env.remnawave-dev -f docker-compose-dev.yml -f docker-compose.remnawave-dev.yml --profile seed down",
+    "dev:stand:ps": "docker compose --env-file .env.remnawave-dev -f docker-compose-dev.yml -f docker-compose.remnawave-dev.yml --profile seed ps",
+    "dev:stand:logs": "docker compose --env-file .env.remnawave-dev -f docker-compose-dev.yml -f docker-compose.remnawave-dev.yml --profile seed logs -f backend frontend remnawave remnawave-subscription-page",
+    "qa:fullstack": "python -m pytest -q tests/qa",
     "test": "pytest -q",
-    "check": "npm run lint && npm test && npm run build:webapp"
+    "typecheck:py": "python -m mypy --explicit-package-bases backend/config backend/db backend/bot/infra backend/bot/middlewares backend/bot/utils backend/bot/plugins backend/bot/keyboards backend/bot/payment_providers backend/bot/services backend/bot/handlers backend/bot/app/factories backend/bot/app/controllers backend/bot/app/web backend/main_backend.py backend/main_worker.py",
+    "check:architecture": "python scripts/check_architecture.py",
+    "check:backend": "python scripts/check_architecture.py && npm test && npm run lint:py && npm run format:check:py && npm run typecheck:py",
+    "check:frontend": "npm --prefix frontend run check && npm --prefix frontend run test && npm --prefix frontend run build",
+    "check:quick": "npm run lint && npm test && npm run build:webapp",
+    "check": "npm run check:backend && npm run check:frontend"
   }
 }

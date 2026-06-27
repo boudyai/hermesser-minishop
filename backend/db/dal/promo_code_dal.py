@@ -78,7 +78,7 @@ async def get_all_active_promo_codes(
         .offset(offset)
     )
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def get_all_promo_codes_with_details(
@@ -87,7 +87,7 @@ async def get_all_promo_codes_with_details(
     """Get all promo codes (active and inactive) with pagination for management"""
     stmt = select(PromoCode).order_by(PromoCode.created_at.desc()).limit(limit).offset(offset)
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def get_promo_codes_count(session: AsyncSession) -> int:
@@ -112,7 +112,7 @@ async def get_promo_activations_by_code_id(
     if limit is not None:
         stmt = stmt.limit(limit)
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def count_promo_activations_by_code_id(session: AsyncSession, promo_code_id: int) -> int:

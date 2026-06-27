@@ -163,17 +163,22 @@ a {
 
 .brand-mark-spinner {
   position: absolute;
-  width: 42%;
-  height: 42%;
-  border: 2px solid color-mix(in srgb, var(--accent) 24%, transparent);
-  border-top-color: var(--accent);
+  top: 50%;
+  left: 50%;
+  width: clamp(1rem, 42%, 2.5rem);
+  height: clamp(1rem, 42%, 2.5rem);
+  border: 2px solid color-mix(in srgb, currentColor 24%, transparent);
+  border-top-color: currentColor;
   border-radius: 999px;
+  opacity: 0.65;
   animation: brand-mark-spin 0.72s linear infinite;
+  transform: translate(-50%, -50%) rotate(0deg);
+  transform-origin: center;
 }
 
 @keyframes brand-mark-spin {
   to {
-    transform: rotate(360deg);
+    transform: translate(-50%, -50%) rotate(360deg);
   }
 }
 
@@ -2710,14 +2715,19 @@ a {
 .app-toast {
   width: var(--width);
   max-width: min(420px, calc(100vw - 32px));
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
   box-shadow: var(--shadow-popover);
   color: var(--text);
   padding: 12px 14px;
   font-size: 13px;
   font-weight: 800;
+  line-height: 1.35;
+  backdrop-filter: blur(16px);
 }
 
 .app-toast [data-content] {

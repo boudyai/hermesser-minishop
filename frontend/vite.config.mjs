@@ -6,7 +6,14 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig } from "vite";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const srcDir = path.resolve(__dirname, "src");
 const templateDir = path.resolve(__dirname, "../backend/bot/app/web/templates");
+
+function firstPartyRunesOptions({ filename }) {
+  if (filename && path.resolve(filename).startsWith(srcDir)) {
+    return { runes: true };
+  }
+}
 
 export default defineConfig(({ command, mode }) => {
   const isAdminBuild = mode === "admin";
@@ -36,7 +43,7 @@ export default defineConfig(({ command, mode }) => {
     plugins: [
       tailwindcss(),
       svelte({
-        compilerOptions: isAdminBuild ? { compatibility: { componentApi: 4 } } : {},
+        dynamicCompileOptions: firstPartyRunesOptions,
       }),
     ],
     build: {

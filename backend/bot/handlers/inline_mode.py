@@ -2,7 +2,12 @@ import logging
 from typing import List, Optional
 
 from aiogram import Bot, Router
-from aiogram.types import InlineQuery, InlineQueryResultArticle, InputTextMessageContent
+from aiogram.types import (
+    InlineQuery,
+    InlineQueryResultArticle,
+    InlineQueryResultUnion,
+    InputTextMessageContent,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.middlewares.i18n import JsonI18n
@@ -20,7 +25,7 @@ async def inline_query_handler(
     referral_service: ReferralService,
     bot: Bot,
     session: AsyncSession,
-):
+) -> None:
     """Handle inline queries for referral links and admin statistics"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -31,7 +36,7 @@ async def inline_query_handler(
     user_id = inline_query.from_user.id
     query = inline_query.query.lower().strip()
 
-    results: List[InlineQueryResultArticle] = []
+    results: List[InlineQueryResultUnion] = []
 
     # Check if user is admin
     is_admin = user_id in settings.ADMIN_IDS if settings.ADMIN_IDS else False
@@ -77,7 +82,7 @@ async def create_referral_result(
     inline_query: InlineQuery,
     bot: Bot,
     referral_service: ReferralService,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
     settings: Settings,
     session: AsyncSession,
@@ -119,11 +124,11 @@ async def create_referral_result(
 
 
 async def create_admin_stats_results(
-    session: AsyncSession, i18n_instance, lang: str, settings: Settings
-) -> List[InlineQueryResultArticle]:
+    session: AsyncSession, i18n_instance: JsonI18n, lang: str, settings: Settings
+) -> List[InlineQueryResultUnion]:
     """Create admin statistics results for inline query"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
-    results = []
+    results: List[InlineQueryResultUnion] = []
 
     try:
         # Quick user stats
@@ -152,7 +157,7 @@ async def create_admin_stats_results(
 
 
 async def create_user_stats_result(
-    session: AsyncSession, i18n_instance, lang: str, settings: Settings
+    session: AsyncSession, i18n_instance: JsonI18n, lang: str, settings: Settings
 ) -> Optional[InlineQueryResultArticle]:
     """Create user statistics result"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -195,7 +200,7 @@ async def create_user_stats_result(
 
 
 async def create_financial_stats_result(
-    session: AsyncSession, i18n_instance, lang: str, settings: Settings
+    session: AsyncSession, i18n_instance: JsonI18n, lang: str, settings: Settings
 ) -> Optional[InlineQueryResultArticle]:
     """Create financial statistics result"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -232,7 +237,7 @@ async def create_financial_stats_result(
 
 
 async def create_system_stats_result(
-    session: AsyncSession, i18n_instance, lang: str, settings: Settings
+    session: AsyncSession, i18n_instance: JsonI18n, lang: str, settings: Settings
 ) -> Optional[InlineQueryResultArticle]:
     """Create panel statistics result with system/nodes/bandwidth info"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)

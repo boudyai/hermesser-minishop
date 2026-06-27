@@ -33,6 +33,9 @@ Remnawave Minishop - Telegram-бот и Web App (Mini App) для продажи
 ## Документация
 
 - [Входная страница документации](docs/index.md) - маршрут по установке, настройке, платежам, админке и диагностике.
+- [Единый dev stand](docs/development/dev-stand.md) - локальный Docker Compose стенд
+  с Mini Shop, Remnawave Panel, Subscription Page, тестовыми сидами и
+  full-stack QA (`npm run qa:fullstack`).
 - [Развертывание](docs/getting-started/deployment.md) - Docker Compose, Caddy, Nginx, Pangolin/Newt и запуск без обратного прокси.
 - [Настройка окружения](docs/getting-started/configuration.md) - bootstrap `.env` и рекомендуемая настройка через Web App админку.
 - [Переменные `.env`](docs/configuration/env-vars.md) - полный справочник всех env-ключей по разделам.
@@ -45,6 +48,7 @@ Remnawave Minishop - Telegram-бот и Web App (Mini App) для продажи
 - [Темы Web App](docs/features/webapp-themes.md) - кастомные темы, настройка внешнего вида, логотипы, CSS/ассеты и пайплайн создания новой темы.
 - [Миграции](docs/migrations/index.md) - готовые сценарии переноса с `remnawave-tg-shop` и Remnashop.
 - [Миграция с remnawave-tg-shop](docs/migrations/remnawave-tg-shop.md) и [Remnashop](docs/migrations/remnashop.md) - сценарии через общий install wizard.
+- [Рецепты для контрибьюторов](docs/development/how-to.md) - пошагово: добавить платёжного провайдера, доменное событие или HTTP-эндпоинт (см. также [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## Совместимость
 
@@ -113,6 +117,12 @@ chmod -R u+rwX data
 ## Полезные команды
 
 ```bash
+# Полная локальная проверка перед PR
+npm run check
+
+# Быстрый smoke-прогон во время разработки
+npm run check:quick
+
 # Локальная сборка и запуск
 docker compose up -d --build
 

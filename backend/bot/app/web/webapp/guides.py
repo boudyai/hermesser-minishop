@@ -1,11 +1,46 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+import asyncio
+import hashlib
+import json
+import logging
+import time
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional, Tuple
+from urllib.parse import quote, urlsplit, urlunsplit
 
+from aiohttp import web
+from sqlalchemy.orm import sessionmaker
+
+from bot.app.web.context import (
+    get_app_optional_subscription_service,
+    get_app_panel_service,
+    get_app_settings,
+    get_or_create_subscription_guides_config_cache,
+    get_or_create_subscription_guides_config_lock,
+    get_or_create_subscription_guides_panel_config_cache,
+    get_or_create_subscription_guides_panel_config_lock,
+    get_or_create_subscription_guides_public_subscription_cache,
+    get_or_create_subscription_guides_public_subscription_lock,
+    get_or_create_subscription_guides_resolved_config_cache,
+    get_or_create_subscription_guides_resolved_config_lock,
+    get_session_factory,
+    get_settings,
+)
+from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.utils.config_link import prepare_config_links
+from config.settings import Settings
 from config.subscription_guides_config import (
     SubscriptionGuidesConfigError,
     subscription_guides_status,
     validate_panel_subscription_guides_config,
 )
+from db.dal import subscription_dal, user_dal
+
+from .common import (
+    _require_user_id,
+)
+from .response_helpers import json_response
+
+logger = logging.getLogger(__name__)
 
 PANEL_DEFAULT_SUBPAGE_CONFIG_UUID = "00000000-0000-0000-0000-000000000000"
 SUBSCRIPTION_GUIDES_CACHE_ERROR_TTL_SECONDS = 30
@@ -29,7 +64,7 @@ def _subscription_guides_json_response(
     status: int = 200,
     cache_control: Optional[str] = None,
 ) -> web.Response:
-    response = web.json_response(payload, status=status, dumps=_subscription_guides_json_dumps)
+    response = json_response(payload, status=status, dumps=_subscription_guides_json_dumps)
     if cache_control:
         response.headers["Cache-Control"] = cache_control
     return response
@@ -69,7 +104,7 @@ async def public_subscription_guides_route(request: web.Request) -> web.Response
         request.match_info.get("share_token")
     )
     if not share_token:
-        return web.json_response({"ok": False, "error": "invalid_share_token"}, status=404)
+        return json_response({"ok": False, "error": "invalid_share_token"}, status=404)
 
     subscription = await _public_subscription_payload_cached(request, share_token)
     if not subscription.get("active"):
@@ -108,9 +143,9 @@ async def public_subscription_guides_route(request: web.Request) -> web.Response
 
 
 async def _subscription_guides_status_shared(app: web.Application) -> Dict[str, Any]:
-    settings: Settings = app["settings"]
-    cache = app.setdefault("subscription_guides_config_cache", {})
-    lock: asyncio.Lock = app.setdefault("subscription_guides_config_lock", asyncio.Lock())
+    settings: Settings = get_app_settings(app)
+    cache = get_or_create_subscription_guides_config_cache(app)
+    lock: asyncio.Lock = get_or_create_subscription_guides_config_lock(app)
     fingerprint = _subscription_guides_settings_fingerprint(settings)
     now = time.monotonic()
 
@@ -143,7 +178,7 @@ async def _subscription_guides_status_for_request(
     panel_short_uuid: Optional[str] = None,
     panel_user_uuid: Optional[str] = None,
 ) -> Dict[str, Any]:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not _subscription_guides_should_try_resolved_panel_config(settings):
         return await _subscription_guides_status_shared(request.app)
 
@@ -172,13 +207,13 @@ async def _load_subscription_guides_status(
     app: web.Application,
     settings: Settings,
 ) -> Dict[str, Any]:
-    if not bool(getattr(settings, "SUBSCRIPTION_GUIDES_ENABLED", False)):
+    if not bool(settings.SUBSCRIPTION_GUIDES_ENABLED):
         return {"enabled": False, "config": None, "source": None, "error": None}
 
     if _subscription_guides_admin_json_override_enabled(settings):
         return subscription_guides_status(settings)
 
-    if bool(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED", True)):
+    if bool(settings.SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED):
         panel_status = await _subscription_guides_status_from_panel_config(app, settings)
         if panel_status.get("enabled"):
             return panel_status
@@ -235,14 +270,7 @@ async def _subscription_guides_status_from_panel_short_uuid_cached(
 ) -> Dict[str, Any]:
     ttl_seconds = max(
         0,
-        int(
-            getattr(
-                settings,
-                "SUBSCRIPTION_GUIDES_RESOLVED_CACHE_TTL_SECONDS",
-                SUBSCRIPTION_GUIDES_RESOLVED_CACHE_TTL_SECONDS,
-            )
-            or 0
-        ),
+        int(settings.SUBSCRIPTION_GUIDES_RESOLVED_CACHE_TTL_SECONDS or 0),
     )
     if ttl_seconds <= 0:
         return await _subscription_guides_status_from_panel_short_uuid(
@@ -253,11 +281,8 @@ async def _subscription_guides_status_from_panel_short_uuid_cached(
             request_headers=request_headers,
         )
 
-    cache = app.setdefault("subscription_guides_resolved_config_cache", {})
-    lock: asyncio.Lock = app.setdefault(
-        "subscription_guides_resolved_config_lock",
-        asyncio.Lock(),
-    )
+    cache = get_or_create_subscription_guides_resolved_config_cache(app)
+    lock: asyncio.Lock = get_or_create_subscription_guides_resolved_config_lock(app)
     key = (
         _subscription_guides_settings_fingerprint(settings),
         str(short_uuid or "").strip(),
@@ -359,23 +384,13 @@ async def _panel_subscription_page_config_by_uuid_cached(
 
     ttl_seconds = max(
         0,
-        int(
-            getattr(
-                settings,
-                "SUBSCRIPTION_GUIDES_CONFIG_CACHE_TTL_SECONDS",
-                300,
-            )
-            or 0
-        ),
+        int(settings.SUBSCRIPTION_GUIDES_CONFIG_CACHE_TTL_SECONDS or 0),
     )
     if ttl_seconds <= 0:
         return await _load_panel_subscription_page_config_by_uuid(app, config_uuid)
 
-    cache = app.setdefault("subscription_guides_panel_config_cache", {})
-    lock: asyncio.Lock = app.setdefault(
-        "subscription_guides_panel_config_lock",
-        asyncio.Lock(),
-    )
+    cache = get_or_create_subscription_guides_panel_config_cache(app)
+    lock: asyncio.Lock = get_or_create_subscription_guides_panel_config_lock(app)
     key = (_subscription_guides_settings_fingerprint(settings), config_uuid)
     now = time.monotonic()
 
@@ -529,7 +544,7 @@ async def _default_panel_subscription_page_config_uuid(panel_service: Any) -> st
 
 
 async def _warm_panel_subscription_page_configs(app: web.Application) -> None:
-    settings: Settings = app["settings"]
+    settings: Settings = get_app_settings(app)
     if not _subscription_guides_should_try_resolved_panel_config(settings):
         return
 
@@ -593,7 +608,7 @@ async def _active_panel_subscription_context_for_user(
     if not callable(get_user):
         return {}
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         panel_user_uuid = str(getattr(db_user, "panel_user_uuid", "") or "").strip()
@@ -629,26 +644,16 @@ async def _public_subscription_payload_cached(
     request: web.Request,
     share_token: str,
 ) -> Dict[str, Any]:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     ttl_seconds = max(
         0,
-        int(
-            getattr(
-                settings,
-                "SUBSCRIPTION_GUIDES_PUBLIC_CACHE_TTL_SECONDS",
-                SUBSCRIPTION_GUIDES_PUBLIC_CACHE_TTL_SECONDS,
-            )
-            or 0
-        ),
+        int(settings.SUBSCRIPTION_GUIDES_PUBLIC_CACHE_TTL_SECONDS or 0),
     )
     if ttl_seconds <= 0:
         return await _public_subscription_payload_uncached(request, share_token)
 
-    cache = request.app.setdefault("subscription_guides_public_subscription_cache", {})
-    lock: asyncio.Lock = request.app.setdefault(
-        "subscription_guides_public_subscription_lock",
-        asyncio.Lock(),
-    )
+    cache = get_or_create_subscription_guides_public_subscription_cache(request.app)
+    lock: asyncio.Lock = get_or_create_subscription_guides_public_subscription_lock(request.app)
     key = (
         str(share_token or "").strip(),
         _public_subscription_payload_fingerprint(request),
@@ -676,13 +681,13 @@ async def _public_subscription_payload_uncached(
     request: web.Request,
     share_token: str,
 ) -> Dict[str, Any]:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     panel_service = _panel_service_from_app(request.app)
     raw_link = ""
     username = ""
     resolved_short_uuid = ""
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         local_sub = await subscription_dal.get_subscription_by_install_share_token(
             session,
@@ -717,26 +722,26 @@ async def _public_subscription_payload_uncached(
 
 
 def _public_subscription_payload_fingerprint(request: web.Request) -> Tuple[str, ...]:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     headers = request.headers
     host = headers.get("X-Forwarded-Host") or headers.get("Host") or request.host
     proto = headers.get("X-Forwarded-Proto") or request.scheme or "https"
     return (
-        str(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", "") or "").strip(),
-        str(getattr(settings, "PANEL_API_URL", "") or "").strip(),
-        str(getattr(settings, "CRYPT4_REDIRECT_URL", "") or "").strip(),
-        str(bool(getattr(settings, "CRYPT4_ENABLED", False))),
+        str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip(),
+        str(settings.PANEL_API_URL or "").strip(),
+        str(settings.CRYPT4_REDIRECT_URL or "").strip(),
+        str(bool(settings.CRYPT4_ENABLED)),
         str(host or "").strip().lower(),
         str(proto or "").strip().lower(),
     )
 
 
 def _panel_service_from_app(app: web.Application) -> Any:
-    subscription_service: Optional[SubscriptionService] = app.get("subscription_service")
+    subscription_service: Optional[SubscriptionService] = get_app_optional_subscription_service(app)
     panel_service = (
         getattr(subscription_service, "panel_service", None) if subscription_service else None
     )
-    return panel_service or app.get("panel_service")
+    return panel_service or get_app_panel_service(app)
 
 
 def _panel_short_uuid_from_user(panel_user: Any) -> str:
@@ -803,32 +808,29 @@ def _looks_like_panel_subscription_page_config(payload: Dict[str, Any]) -> bool:
 
 
 def _subscription_guides_admin_json_override_enabled(settings: Settings) -> bool:
-    admin_json = str(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_JSON", "") or "").strip()
-    return bool(
-        admin_json
-        and bool(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED", False))
-    )
+    admin_json = str(settings.SUBSCRIPTION_PAGE_CONFIG_JSON or "").strip()
+    return bool(admin_json and bool(settings.SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED))
 
 
 def _subscription_guides_should_try_resolved_panel_config(settings: Settings) -> bool:
     return bool(
-        getattr(settings, "SUBSCRIPTION_GUIDES_ENABLED", False)
-        and getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED", True)
+        settings.SUBSCRIPTION_GUIDES_ENABLED
+        and settings.SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED
         and not _subscription_guides_admin_json_override_enabled(settings)
     )
 
 
 def _subscription_guides_settings_fingerprint(settings: Settings) -> Tuple[Any, ...]:
-    admin_json = str(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_JSON", "") or "")
+    admin_json = str(settings.SUBSCRIPTION_PAGE_CONFIG_JSON or "")
     return (
-        bool(getattr(settings, "SUBSCRIPTION_GUIDES_ENABLED", False)),
-        bool(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED", True)),
-        bool(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED", False)),
-        str(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_PATH", "") or ""),
+        bool(settings.SUBSCRIPTION_GUIDES_ENABLED),
+        bool(settings.SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED),
+        bool(settings.SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED),
+        str(settings.SUBSCRIPTION_PAGE_CONFIG_PATH or ""),
         str(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_UUID", "") or ""),
         hashlib.sha256(admin_json.encode("utf-8")).hexdigest(),
-        str(getattr(settings, "PANEL_API_URL", "") or ""),
-        bool(getattr(settings, "PANEL_API_KEY", "") or ""),
+        str(settings.PANEL_API_URL or ""),
+        bool(settings.PANEL_API_KEY or ""),
     )
 
 
@@ -870,8 +872,8 @@ def _local_subscription_is_publicly_active(subscription: Any) -> bool:
 
 
 def _public_install_url(request: web.Request, share_token: str) -> str:
-    settings: Settings = request.app["settings"]
-    configured_base = str(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", "") or "").strip()
+    settings: Settings = get_settings(request)
+    configured_base = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
     if configured_base:
         parts = urlsplit(configured_base)
         if parts.scheme and parts.netloc:

@@ -2,20 +2,20 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Iterable, Optional
 
 from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
 from bot.infra import events
+from bot.infra.payment_events import PaymentPurchase, resolve_payment_success_snapshot
 from bot.payment_providers.shared.common import (
     make_translator,
-    sale_mode_base,
-    sale_mode_tariff_key,
 )
 from bot.plugins import PluginContext
 from bot.services.email_templates import render_account_merged
 from bot.services.notification_service import NotificationService
 from bot.services.user_email_notifications import send_user_notification_email
 from db.dal import payment_dal, subscription_dal, user_dal
+from db.models import Payment, Subscription, User
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ _ACCOUNT_MERGE_NOTIFY_REASONS = {"email_link", "telegram_link", "login"}
 
 def _parse_datetime(value: Any) -> Optional[datetime]:
     if isinstance(value, datetime):
-        return value
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
     if not value:
         return None
     try:
@@ -52,12 +52,196 @@ def _truthy(value: Any) -> bool:
     return bool(value)
 
 
+def _payment_status_timestamp(payment: Any) -> Optional[datetime]:
+    """Best-effort time when a payment reached its current status."""
+
+    updated_at = _parse_datetime(getattr(payment, "updated_at", None))
+    created_at = _parse_datetime(getattr(payment, "created_at", None))
+    if updated_at and created_at:
+        return max(updated_at, created_at)
+    return updated_at or created_at
+
+
+def _int_or_none(value: Any) -> Optional[int]:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _has_superseding_success(
+    canceled_payment: Any,
+    successful_payments: Iterable[Any],
+) -> bool:
+    canceled_created_at = _parse_datetime(getattr(canceled_payment, "created_at", None))
+    if canceled_created_at is None:
+        return False
+    canceled_payment_id = _int_or_none(getattr(canceled_payment, "payment_id", None))
+    for payment in successful_payments:
+        if (
+            canceled_payment_id is not None
+            and _int_or_none(getattr(payment, "payment_id", None)) == canceled_payment_id
+        ):
+            continue
+        success_at = _payment_status_timestamp(payment)
+        if success_at is not None and success_at >= canceled_created_at:
+            return True
+    return False
+
+
+def _format_plain_amount(value: float) -> str:
+    amount = float(value)
+    if amount.is_integer():
+        return str(int(amount))
+    return f"{amount:g}"
+
+
+def _tariff_display_name(settings: Any, tariff_key: Optional[str], language: str) -> str:
+    if not tariff_key:
+        return ""
+    cfg = settings.tariffs_config
+    if not cfg:
+        return str(tariff_key)
+    try:
+        tariff = cfg.require(str(tariff_key))
+        return str(tariff.name(language))
+    except Exception:
+        return str(tariff_key)
+
+
+def _format_failed_payment_purchase(
+    translate: Callable[..., str], purchase: PaymentPurchase
+) -> str:
+    if purchase.kind == "traffic":
+        traffic_kind = translate(
+            "payment_failed_traffic_kind_premium"
+            if purchase.scope == "premium"
+            else "payment_failed_traffic_kind_regular"
+        )
+        return translate(
+            "payment_failed_detail_purchase_traffic",
+            gb=_format_plain_amount(float(purchase.amount)),
+            kind=traffic_kind,
+        )
+    if purchase.kind == "hwid_devices":
+        return translate(
+            "payment_failed_detail_purchase_hwid_devices",
+            count=int(float(purchase.amount)),
+        )
+    label_kwargs = {
+        "amount": _format_plain_amount(float(purchase.amount)),
+        "unit": purchase.unit,
+        "kind": purchase.kind,
+        "scope": purchase.scope or "",
+        **dict(purchase.label_kwargs),
+    }
+    if purchase.label_key:
+        return translate(purchase.label_key, **label_kwargs)
+    return translate("payment_failed_detail_purchase_generic", **label_kwargs)
+
+
+def _failed_payment_provider_detail(
+    settings: Any,
+    payment: Any,
+    payload: Dict[str, Any],
+    language: str,
+) -> str:
+    provider = str(
+        payload.get("provider")
+        or getattr(payment, "provider", None)
+        or payload.get("notification_provider")
+        or ""
+    ).strip()
+    if not provider:
+        return ""
+    try:
+        from bot.payment_providers import (
+            iter_provider_specs,
+            provider_label_map,
+            resolve_provider_presentation,
+        )
+
+        specs = tuple(iter_provider_specs())
+        exact_spec = next((spec for spec in specs if provider == spec.id), None)
+        provider_specs = [spec for spec in specs if provider == spec.provider_key]
+        provider_label = provider_label_map(settings, language=language).get(provider, provider)
+        if exact_spec is not None:
+            button_label = resolve_provider_presentation(
+                exact_spec,
+                settings,
+                language=language,
+            ).webapp_label
+            return f"{button_label} ({provider_label}; {provider})"
+        if len(provider_specs) == 1:
+            button_label = resolve_provider_presentation(
+                provider_specs[0],
+                settings,
+                language=language,
+            ).webapp_label
+            return f"{button_label} ({provider_label}; {provider})"
+        return f"{provider_label} ({provider})"
+    except Exception:
+        logger.exception("Failed to resolve payment provider label for %s.", provider)
+        return provider
+
+
+def _format_failed_payment_details(
+    *,
+    translate: Callable[..., str],
+    settings: Any,
+    language: str,
+    payment: Any,
+    payload: Dict[str, Any],
+) -> str:
+    snapshot = resolve_payment_success_snapshot(
+        payload,
+        payment,
+        default_currency=getattr(settings, "DEFAULT_CURRENCY", "RUB"),
+    )
+    lines: list[str] = []
+
+    tariff_name = _tariff_display_name(settings, snapshot.tariff_key, language)
+    if snapshot.months > 0:
+        key = (
+            "payment_failed_detail_subscription_with_tariff"
+            if tariff_name
+            else "payment_failed_detail_subscription"
+        )
+        lines.append(translate(key, months=snapshot.months, tariff=tariff_name))
+
+    for purchase in snapshot.purchases:
+        detail = _format_failed_payment_purchase(translate, purchase)
+        if detail:
+            lines.append(detail)
+
+    if not lines:
+        description = str(getattr(payment, "description", "") or "").strip()
+        if description:
+            lines.append(description)
+
+    details = [translate("payment_failed_detail_item", item=line) for line in lines if line]
+    details.append(
+        translate(
+            "payment_failed_detail_amount",
+            amount=_format_plain_amount(snapshot.amount),
+            currency=snapshot.currency,
+        )
+    )
+    provider_detail = _failed_payment_provider_detail(settings, payment, payload, language)
+    if provider_detail:
+        details.append(translate("payment_failed_detail_provider", provider=provider_detail))
+    payment_id = getattr(payment, "payment_id", None)
+    if payment_id is not None:
+        details.append(translate("payment_failed_detail_payment_id", payment_id=payment_id))
+    return "\n".join(details)
+
+
 class CoreEventReactions:
-    def __init__(self, ctx: PluginContext):
+    def __init__(self, ctx: PluginContext) -> None:
         self.ctx = ctx
 
     def _notification_service(self) -> Optional[NotificationService]:
-        service = self.ctx.services.get("notification_service")
+        service = self.ctx.notification_service
         if service is not None:
             return service
         if self.ctx.bot is None:
@@ -67,10 +251,10 @@ class CoreEventReactions:
             self.ctx.settings,
             self.ctx.i18n,
             session_factory=self.ctx.session_factory,
-            email_auth_service=self.ctx.services.get("email_auth_service"),
+            email_auth_service=self.ctx.email_auth_service,
         )
 
-    async def _load_user(self, user_id: Any):
+    async def _load_user(self, user_id: Any) -> Optional[User]:
         if self.ctx.session_factory is None or user_id is None:
             return None
         try:
@@ -80,7 +264,7 @@ class CoreEventReactions:
             logger.exception("Failed to load user %s for event reaction.", user_id)
             return None
 
-    async def _load_payment(self, payment_db_id: Any):
+    async def _load_payment(self, payment_db_id: Any) -> Optional[Payment]:
         if self.ctx.session_factory is None or payment_db_id is None:
             return None
         try:
@@ -90,7 +274,9 @@ class CoreEventReactions:
             logger.exception("Failed to load payment %s for event reaction.", payment_db_id)
             return None
 
-    async def _load_active_subscription(self, user_id: Any, panel_user_uuid: Optional[str] = None):
+    async def _load_active_subscription(
+        self, user_id: Any, panel_user_uuid: Optional[str] = None
+    ) -> Optional[Subscription]:
         if self.ctx.session_factory is None or user_id is None:
             return None
         try:
@@ -106,6 +292,33 @@ class CoreEventReactions:
                 user_id,
             )
             return None
+
+    async def _payment_failure_is_superseded(self, payment: Any, user_id: Any) -> bool:
+        payment_user_id = _int_or_none(getattr(payment, "user_id", None))
+        event_user_id = _int_or_none(user_id)
+        if payment_user_id is None or event_user_id is None or payment_user_id != event_user_id:
+            return False
+        if str(getattr(payment, "status", "") or "").lower() == "succeeded":
+            return True
+        created_at = _parse_datetime(getattr(payment, "created_at", None))
+        if created_at is None or self.ctx.session_factory is None:
+            return False
+
+        try:
+            async with self.ctx.session_factory() as session:
+                successful_payments = await payment_dal.get_user_succeeded_payments_after(
+                    session,
+                    payment_user_id,
+                    created_at,
+                    exclude_payment_id=_int_or_none(getattr(payment, "payment_id", None)),
+                )
+        except Exception:
+            logger.exception(
+                "Failed to check superseding successful payments for payment %s.",
+                getattr(payment, "payment_id", None),
+            )
+            return False
+        return _has_superseding_success(payment, successful_payments)
 
     async def on_trial_activated(self, event_name: str, payload: Dict[str, Any]) -> None:
         del event_name
@@ -245,34 +458,24 @@ class CoreEventReactions:
         service = self._notification_service()
         if service is not None:
             try:
-                mode_base = sale_mode_base(
-                    payload.get("sale_mode") or getattr(payment, "sale_mode", "")
+                snapshot = resolve_payment_success_snapshot(
+                    payload,
+                    payment,
+                    default_currency=getattr(self.ctx.settings, "DEFAULT_CURRENCY", "RUB"),
                 )
-                tariff_key = (
-                    payload.get("tariff_key")
-                    or getattr(payment, "tariff_key", None)
-                    or sale_mode_tariff_key(payload.get("sale_mode") or "")
-                )
-                traffic_gb = payload.get("traffic_gb")
                 await service.notify_payment_received(
                     user_id=int(user_id),
-                    amount=float(payload.get("amount") or getattr(payment, "amount", 0.0) or 0.0),
-                    currency=str(
-                        payload.get("currency")
-                        or getattr(payment, "currency", None)
-                        or getattr(self.ctx.settings, "DEFAULT_CURRENCY", "RUB")
-                    ),
-                    months=int(payload.get("months") or 0),
-                    traffic_gb=float(traffic_gb) if traffic_gb is not None else None,
-                    payment_provider=str(
-                        payload.get("notification_provider")
-                        or payload.get("provider")
-                        or getattr(payment, "provider", "")
-                    ),
+                    amount=snapshot.amount,
+                    currency=snapshot.currency,
+                    months=snapshot.months,
+                    traffic_gb=snapshot.traffic_gb,
+                    payment_provider=snapshot.notification_provider,
                     username=getattr(user, "username", None),
                     email=getattr(user, "email", None),
-                    traffic_is_premium=mode_base == "premium_topup",
-                    tariff_key=tariff_key,
+                    traffic_is_premium=snapshot.traffic_is_premium,
+                    tariff_key=snapshot.tariff_key,
+                    purchased_hwid_devices=snapshot.purchased_hwid_devices,
+                    purchases=snapshot.purchases,
                 )
             except Exception:
                 logger.exception("Failed to react to successful payment for user %s.", user_id)
@@ -294,6 +497,15 @@ class CoreEventReactions:
         user_id = payload.get("user_id")
         if user_id is None or self.ctx.bot is None:
             return
+        payment = await self._load_payment(payload.get("payment_db_id"))
+        if payment is not None and await self._payment_failure_is_superseded(payment, user_id):
+            logger.info(
+                "Suppressing canceled payment notification for user %s payment %s: "
+                "a newer successful payment already superseded it.",
+                user_id,
+                getattr(payment, "payment_id", None),
+            )
+            return
         user = await self._load_user(user_id)
         language = (
             getattr(user, "language_code", None)
@@ -302,6 +514,26 @@ class CoreEventReactions:
         )
         translator = make_translator(self.ctx.i18n, language)
         message_text = translator(payload.get("message_key") or "payment_failed")
+        if payment is not None:
+            try:
+                payment_details = _format_failed_payment_details(
+                    translate=translator,
+                    settings=self.ctx.settings,
+                    language=language,
+                    payment=payment,
+                    payload=payload,
+                )
+                if payment_details:
+                    message_text = translator(
+                        "payment_failed_with_details",
+                        message=message_text,
+                        details=payment_details,
+                    )
+            except Exception:
+                logger.exception(
+                    "Failed to format canceled payment details for payment %s.",
+                    getattr(payment, "payment_id", None),
+                )
         try:
             await self.ctx.bot.send_message(int(user_id), message_text)
         except Exception:
@@ -401,7 +633,7 @@ class CoreEventReactions:
                     target_user_id,
                 )
 
-        email_service = self.ctx.services.get("email_auth_service")
+        email_service = self.ctx.email_auth_service
         email = str(payload.get("email") or "").strip()
         if email_service is not None and email and _truthy(payload.get("send_user_email")):
             try:

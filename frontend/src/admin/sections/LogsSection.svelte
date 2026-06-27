@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Input } from "$components/ui/index.js";
   import { getContext, onMount } from "svelte";
   import {
@@ -9,29 +9,49 @@
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
   import { RefreshCw, TriangleAlert, User } from "$components/ui/icons.js";
-  import { createAdminDatatable, syncAdminDatatable } from "../../lib/admin/datatables.js";
+  import { TableHandler } from "@vincjo/datatables";
+  import type { LogsStore } from "../../lib/admin/stores/logsStore";
+  import type { components } from "../../lib/api/openapi.generated";
 
-  export let at;
-  export let fmtDate;
-  export let onOpenUserCard = () => {};
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type LogEntry = components["schemas"]["LogOut"];
+  type UserKind = "user" | "target";
 
-  const logsStore = getContext("logsStore");
-  const logsTable = createAdminDatatable();
+  let {
+    at,
+    fmtDate,
+    onOpenUserCard = () => {},
+  }: {
+    at: TranslateFn;
+    fmtDate: (value: string) => string;
+    onOpenUserCard?: (userId: number | string | null | undefined) => void;
+  } = $props();
+
+  const logsStore = getContext<LogsStore>("logsStore");
+  const logsTable = new TableHandler<LogEntry>();
   const LOGS_PAGE_SIZE = 50;
 
-  $: ({ logs, logsTotal, logsPage, logsUserFilter, logsLoading, logsError } = $logsStore);
-  $: syncAdminDatatable(logsTable, logs);
+  const logsState = $derived(logsStore);
+  const logs = $derived(logsState.logs as LogEntry[]);
+  const logsTotal = $derived(Number(logsState.logsTotal || 0));
+  const logsPage = $derived(Number(logsState.logsPage || 0));
+  const logsUserFilter = $derived(String(logsState.logsUserFilter || ""));
+  const logsLoading = $derived(Boolean(logsState.logsLoading));
+  const logsError = $derived(String(logsState.logsError || ""));
+  const logRows = $derived(logsTable.rows as LogEntry[]);
 
-  $: logsPageCount = Math.max(1, Math.ceil(Number(logsTotal || 0) / LOGS_PAGE_SIZE));
-  $: logHeaders = [
+  $effect(() => logsTable.setRows(logs));
+
+  const logsPageCount = $derived(Math.max(1, Math.ceil(Number(logsTotal || 0) / LOGS_PAGE_SIZE)));
+  const logHeaders = $derived([
     at("date", {}, "Дата"),
     at("event", {}, "Событие"),
     at("user_short", {}, "User"),
     at("target_short", {}, "Target"),
     at("content", {}, "Контент"),
-  ];
+  ]);
 
-  function userDisplay(entry, kind) {
+  function userDisplay(entry: LogEntry, kind: UserKind): string | number {
     const id = kind === "target" ? entry.target_user_id : entry.user_id;
     const label = kind === "target" ? entry.target_user_label : entry.user_label;
     if (label) return label;
@@ -46,7 +66,7 @@
     return id || "—";
   }
 
-  function userId(entry, kind) {
+  function userId(entry: LogEntry, kind: UserKind): number | null {
     return kind === "target" ? entry.target_user_id : entry.user_id;
   }
 
@@ -62,8 +82,8 @@
       class="input"
       placeholder={at("logs_user_filter_placeholder", {}, "Фильтр по ID пользователя")}
       value={logsUserFilter}
-      on:input={(e) => logsStore.setFilter(e.target.value)}
-      on:keydown={(e) => e.key === "Enter" && logsStore.setPage(0)}
+      oninput={(e) => logsStore.setFilter((e.currentTarget as HTMLInputElement).value)}
+      onkeydown={(e) => e.key === "Enter" && logsStore.setPage(0)}
     />
     <AdminButton
       variant="primary"
@@ -105,7 +125,7 @@
         {at("btn_refresh", {}, "Обновить")}
       </AdminButton>
     </AdminEmptyState>
-  {:else if !logsTable.rows.length}
+  {:else if !logRows.length}
     <AdminEmptyState tone="card"
       ><span class="admin-muted">{at("logs_empty", {}, "Записей нет")}</span></AdminEmptyState
     >
@@ -121,9 +141,11 @@
         </tr>
       </thead>
       <tbody>
-        {#each logsTable.rows as entry (entry.log_id)}
+        {#each logRows as entry (entry.log_id)}
           <tr>
-            <td data-label={at("date", {}, "Дата")}>{fmtDate(entry.timestamp)}</td>
+            <td data-label={at("date", {}, "Дата")}
+              >{entry.timestamp ? fmtDate(entry.timestamp) : "—"}</td
+            >
             <td class="admin-cell-mono" data-label={at("event", {}, "Событие")}
               >{entry.event_type}</td
             >

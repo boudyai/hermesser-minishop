@@ -2,14 +2,16 @@
   import { cva } from "class-variance-authority";
   import { cn } from "$lib/utils.js";
 
-  export let type = "button";
-  export let variant = "default";
-  export let size = "default";
-  export let disabled = false;
-  export let onclick = undefined;
-
-  let className = "";
-  export { className as class };
+  let {
+    type = "button",
+    variant = "default",
+    size = "default",
+    disabled = false,
+    onclick = undefined,
+    class: className = "",
+    children,
+    ...restProps
+  } = $props();
 
   const buttonVariants = cva("admin-btn", {
     variants: {
@@ -39,7 +41,7 @@
   {type}
   {disabled}
   {onclick}
-  {...$$restProps}
+  {...restProps}
 >
-  <slot />
+  {@render children?.()}
 </button>

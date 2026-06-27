@@ -2,22 +2,21 @@ import asyncio
 import logging
 import sys
 import time
-from typing import Any, Dict, List
+from typing import Any, Coroutine, Dict, List
 
 from aiogram import Bot
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
 from dotenv import load_dotenv
 from startup_banner import print_startup_banner
 
 import db.database_setup as database_setup
 from app_logging import configure_logging
-from bot.app.factories.build_services import build_core_services
+from bot.app.factories.runtime import build_core_runtime, build_runtime_bootstrap
 from bot.handlers.admin.sync_admin import perform_sync
 from bot.infra import events
+from bot.infra.event_payloads import PaymentCanceledPayload
 from bot.infra.redis import close_redis, redis_lock
 from bot.infra.webhook_queue import pop_webhook_event, webhook_queue_depth
-from bot.middlewares.i18n import get_i18n_instance
+from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers.yookassa import (
     YOOKASSA_EVENT_PAYMENT_CANCELED,
     YOOKASSA_EVENT_PAYMENT_SUCCEEDED,
@@ -30,45 +29,28 @@ from bot.plugins import (
     PluginContext,
     QueueHandler,
     WorkerTaskSpec,
-    apply_plugin_locales,
     collect_queue_handlers,
     collect_worker_tasks,
     run_setup,
 )
 from bot.services.backup_worker import BackupWorker
 from bot.services.event_reactions import register_core_reactions
-from bot.services.locale_override_service import load_locale_overrides
 from bot.services.subscription_notification_worker import SubscriptionNotificationWorker
 from bot.services.tariff_worker import TariffTrafficWorker
 from bot.utils.message_queue import init_queue_manager
-from config.settings import get_settings
+from config.settings import Settings, get_settings
 
 
-async def _build_worker_context(settings) -> PluginContext:
-    session_factory = database_setup.init_db_connection(settings)
-    await database_setup.init_db(settings, session_factory)
-    bot = Bot(
-        token=settings.BOT_TOKEN,
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
-    )
-    i18n = get_i18n_instance(path="locales", default=settings.DEFAULT_LANGUAGE)
-    apply_plugin_locales(settings, i18n)
-    await load_locale_overrides(i18n, session_factory)
+async def _build_worker_context(settings: Settings) -> PluginContext:
+    runtime = await build_runtime_bootstrap(settings)
     bot_username = "your_bot_username"
     try:
-        bot_info = await bot.get_me()
+        bot_info = await runtime.bot.get_me()
         bot_username = bot_info.username or bot_username
     except Exception:
         logging.exception("Worker failed to resolve bot username")
-    services = build_core_services(settings, bot, session_factory, i18n, bot_username)
-    init_queue_manager(bot)
-    ctx = PluginContext(
-        settings=settings,
-        session_factory=session_factory,
-        bot=bot,
-        i18n=i18n,
-        services=services,
-    )
+    init_queue_manager(runtime.bot)
+    ctx = build_core_runtime(runtime, bot_username=bot_username).plugin_context
     run_setup(ctx)
     register_core_reactions(ctx)
     return ctx
@@ -76,19 +58,22 @@ async def _build_worker_context(settings) -> PluginContext:
 
 async def _handle_yookassa_event(ctx: PluginContext, payload: Dict[str, Any]) -> None:
     payment_payload = payload.get("payment") or {}
+    session_factory = ctx.require_session_factory()
+    bot = ctx.require_bot()
+    i18n = ctx.require_i18n()
     async with payment_processing_lock:
-        async with ctx.session_factory() as session:
+        async with session_factory() as session:
             if payload.get("event") == YOOKASSA_EVENT_PAYMENT_SUCCEEDED:
                 event_payload = await process_successful_payment(
                     session,
-                    ctx.bot,
+                    bot,
                     payment_payload,
-                    ctx.i18n,
+                    i18n,
                     ctx.settings,
-                    ctx.services["panel_service"],
-                    ctx.services["subscription_service"],
-                    ctx.services["referral_service"],
-                    ctx.services.get("lknpd_service"),
+                    ctx.require_panel_service(),
+                    ctx.require_subscription_service(),
+                    ctx.require_referral_service(),
+                    ctx.lknpd_service,
                 )
                 await session.commit()
                 if event_payload:
@@ -96,18 +81,21 @@ async def _handle_yookassa_event(ctx: PluginContext, payload: Dict[str, Any]) ->
             elif payload.get("event") == YOOKASSA_EVENT_PAYMENT_CANCELED:
                 event_payload = await process_cancelled_payment(
                     session,
-                    ctx.bot,
+                    bot,
                     payment_payload,
-                    ctx.i18n,
+                    i18n,
                     ctx.settings,
                 )
                 await session.commit()
                 if event_payload:
-                    await events.emit(events.PAYMENT_CANCELED, event_payload)
+                    await events.emit_model(
+                        PaymentCanceledPayload.model_validate(event_payload),
+                        exclude_unset=True,
+                    )
 
 
 async def _handle_panel_event(ctx: PluginContext, payload: Dict[str, Any]) -> None:
-    await ctx.services["panel_webhook_service"].handle_event(
+    await ctx.require_panel_webhook_service().handle_event(
         str(payload.get("event") or ""),
         payload.get("user") or {},
     )
@@ -115,6 +103,9 @@ async def _handle_panel_event(ctx: PluginContext, payload: Dict[str, Any]) -> No
 
 async def _handle_panel_sync_event(ctx: PluginContext, payload: Dict[str, Any]) -> None:
     settings = ctx.settings
+    session_factory = ctx.require_session_factory()
+    bot = ctx.require_bot()
+    i18n = ctx.require_i18n()
     sync_result = None
     async with redis_lock(
         settings,
@@ -122,20 +113,20 @@ async def _handle_panel_sync_event(ctx: PluginContext, payload: Dict[str, Any]) 
         ttl_seconds=max(60, settings.WORKER_PANEL_SYNC_INTERVAL_SECONDS - 10),
     ) as acquired:
         if acquired:
-            async with ctx.session_factory() as session:
+            async with session_factory() as session:
                 sync_result = await perform_sync(
-                    panel_service=ctx.services["panel_service"],
+                    panel_service=ctx.require_panel_service(),
                     session=session,
                     settings=settings,
-                    i18n_instance=ctx.i18n,
+                    i18n_instance=i18n,
                 )
         else:
             logging.info("Queued panel sync skipped because another sync holds the lock")
     if sync_result is not None:
         await _notify_queued_panel_sync_result(
-            ctx.bot,
+            bot,
             settings,
-            ctx.i18n,
+            i18n,
             payload,
             sync_result,
         )
@@ -176,7 +167,13 @@ async def _webhook_consumer(ctx: PluginContext, handlers: Dict[str, QueueHandler
             )
 
 
-async def _notify_queued_panel_sync_result(bot, settings, i18n, payload, sync_result):
+async def _notify_queued_panel_sync_result(
+    bot: Bot,
+    settings: Settings,
+    i18n: JsonI18n,
+    payload: Dict[str, Any],
+    sync_result: Dict[str, Any],
+) -> None:
     status = sync_result.get("status")
     errors = sync_result.get("errors", [])
     lang = payload.get("language") or settings.DEFAULT_LANGUAGE
@@ -200,6 +197,8 @@ async def _notify_queued_panel_sync_result(bot, settings, i18n, payload, sync_re
 
 async def _panel_sync_loop(ctx: PluginContext) -> None:
     settings = ctx.settings
+    session_factory = ctx.require_session_factory()
+    i18n = ctx.require_i18n()
     while True:
         try:
             async with redis_lock(
@@ -209,12 +208,12 @@ async def _panel_sync_loop(ctx: PluginContext) -> None:
             ) as acquired:
                 if acquired:
                     started = time.monotonic()
-                    async with ctx.session_factory() as session:
+                    async with session_factory() as session:
                         await perform_sync(
-                            panel_service=ctx.services["panel_service"],
+                            panel_service=ctx.require_panel_service(),
                             session=session,
                             settings=settings,
-                            i18n_instance=ctx.i18n,
+                            i18n_instance=i18n,
                         )
                     logging.info(
                         "metric worker_tick_duration_seconds=%.3f worker=panel_sync",
@@ -225,30 +224,34 @@ async def _panel_sync_loop(ctx: PluginContext) -> None:
         await asyncio.sleep(settings.WORKER_PANEL_SYNC_INTERVAL_SECONDS)
 
 
-def _tariff_worker_task(ctx: PluginContext):
+def _tariff_worker_task(ctx: PluginContext) -> Coroutine[Any, Any, None]:
     return TariffTrafficWorker(
         ctx.settings,
-        ctx.session_factory,
-        ctx.services["panel_service"],
-        ctx.services["subscription_service"],
-        ctx.bot,
-        ctx.i18n,
+        ctx.require_session_factory(),
+        ctx.require_panel_service(),
+        ctx.require_subscription_service(),
+        ctx.require_bot(),
+        ctx.require_i18n(),
     ).run()
 
 
-def _subscription_notification_task(ctx: PluginContext):
+def _subscription_notification_task(ctx: PluginContext) -> Coroutine[Any, Any, None]:
     return SubscriptionNotificationWorker(
         ctx.settings,
-        ctx.session_factory,
-        ctx.bot,
-        ctx.i18n,
-        ctx.services["panel_service"],
-        ctx.services["subscription_service"],
+        ctx.require_session_factory(),
+        ctx.require_bot(),
+        ctx.require_i18n(),
+        ctx.require_panel_service(),
+        ctx.require_subscription_service(),
     ).run()
 
 
-def _backup_worker_task(ctx: PluginContext):
-    return BackupWorker(ctx.settings, ctx.bot, session_factory=ctx.session_factory).run()
+def _backup_worker_task(ctx: PluginContext) -> Coroutine[Any, Any, None]:
+    return BackupWorker(
+        ctx.settings,
+        ctx.require_bot(),
+        session_factory=ctx.require_session_factory(),
+    ).run()
 
 
 def _core_worker_tasks() -> List[WorkerTaskSpec]:
@@ -294,7 +297,7 @@ async def main() -> None:
             close = getattr(service, "close", None) or getattr(service, "close_session", None)
             if callable(close):
                 await close()
-        await ctx.bot.session.close()
+        await ctx.require_bot().session.close()
         await close_redis()
         if database_setup.async_engine:
             await database_setup.async_engine.dispose()

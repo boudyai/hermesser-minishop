@@ -11,7 +11,8 @@ from bot.keyboards.inline.user_keyboards import (
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.services.panel_api_service import PanelApiService
-from bot.services.subscription_service import SubscriptionService
+from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.utils.callback_answer import callback_message
 from bot.utils.config_link import prepare_config_links
 from bot.utils.install_links import (
     append_install_share_link_text,
@@ -30,7 +31,7 @@ async def request_trial_confirmation_handler(
     i18n_data: dict,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-):
+) -> None:
     user_id = callback.from_user.id
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -48,7 +49,7 @@ async def request_trial_confirmation_handler(
             pass
 
     if not settings.TRIAL_ENABLED:
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             _("trial_feature_disabled"),
             reply_markup=get_main_menu_inline_keyboard(current_lang, i18n, settings, False),
         )
@@ -59,7 +60,7 @@ async def request_trial_confirmation_handler(
         return
 
     if await subscription_service.has_trial_blocking_subscription(session, user_id):
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             _("trial_already_had_subscription_or_trial"),
             reply_markup=get_main_menu_inline_keyboard(current_lang, i18n, settings, False),
         )
@@ -158,7 +159,7 @@ async def request_trial_confirmation_handler(
     )
 
     try:
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             final_message_text_in_chat,
             parse_mode="HTML",
             reply_markup=reply_markup,
@@ -168,7 +169,7 @@ async def request_trial_confirmation_handler(
         logging.warning(f"Could not edit trial result message: {e_edit}. Sending new one.")
 
         if callback.message:
-            await callback.message.answer(
+            await callback_message(callback).answer(
                 final_message_text_in_chat,
                 parse_mode="HTML",
                 reply_markup=reply_markup,
@@ -184,7 +185,7 @@ async def confirm_activate_trial_handler(
     subscription_service: SubscriptionService,
     panel_service: PanelApiService,
     session: AsyncSession,
-):
+) -> None:
     user_id = callback.from_user.id
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -295,7 +296,7 @@ async def confirm_activate_trial_handler(
     )
 
     try:
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             final_message_text_in_chat,
             parse_mode="HTML",
             reply_markup=reply_markup,
@@ -305,7 +306,7 @@ async def confirm_activate_trial_handler(
         logging.warning(f"Could not edit trial result message: {e_edit}. Sending new one.")
 
         if callback.message:
-            await callback.message.answer(
+            await callback_message(callback).answer(
                 final_message_text_in_chat,
                 parse_mode="HTML",
                 reply_markup=reply_markup,
@@ -330,5 +331,5 @@ async def cancel_trial_activation(
     i18n_data: dict,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-):
+) -> None:
     await send_main_menu(callback, settings, i18n_data, subscription_service, session, is_edit=True)

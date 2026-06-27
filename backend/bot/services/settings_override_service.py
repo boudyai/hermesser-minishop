@@ -14,6 +14,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.admin_settings_manifest import (
@@ -53,7 +54,7 @@ def _resolve_attribute_name(settings: Settings, key: str) -> Optional[str]:
     for attr_name, field_info in fields.items():
         alias = getattr(field_info, "alias", None)
         if alias and alias == key:
-            return attr_name
+            return str(attr_name)
     return None
 
 
@@ -153,18 +154,18 @@ def _normalize_exclusive_provider_toggles(
 
 def _appearance_snapshot(settings: Settings) -> Dict[str, Any]:
     snapshot: Dict[str, Any] = {}
-    logo_url = getattr(settings, "WEBAPP_LOGO_URL", None)
-    logo_favicon_url = getattr(settings, "WEBAPP_LOGO_FAVICON_URL", None)
-    favicon_url = getattr(settings, "WEBAPP_FAVICON_URL", None)
+    logo_url = settings.WEBAPP_LOGO_URL
+    logo_favicon_url = settings.WEBAPP_LOGO_FAVICON_URL
+    favicon_url = settings.WEBAPP_FAVICON_URL
     if logo_url:
         snapshot["WEBAPP_LOGO_URL"] = logo_url
     if logo_favicon_url:
         snapshot["WEBAPP_LOGO_FAVICON_URL"] = logo_favicon_url
     if favicon_url:
         snapshot["WEBAPP_FAVICON_URL"] = favicon_url
-    if getattr(settings, "WEBAPP_FAVICON_USE_CUSTOM", False):
+    if settings.WEBAPP_FAVICON_USE_CUSTOM:
         snapshot["WEBAPP_FAVICON_USE_CUSTOM"] = True
-    primary_color = getattr(settings, "WEBAPP_PRIMARY_COLOR", None)
+    primary_color = settings.WEBAPP_PRIMARY_COLOR
     if primary_color and primary_color != "#00fe7a":
         snapshot["WEBAPP_PRIMARY_COLOR"] = primary_color
     return snapshot
@@ -180,7 +181,8 @@ def _read_appearance_backup() -> Dict[str, Any]:
         return {}
     if not isinstance(payload, dict):
         return {}
-    values = payload.get("settings") if isinstance(payload.get("settings"), dict) else payload
+    raw_values = payload.get("settings")
+    values: dict[str, Any] = raw_values if isinstance(raw_values, dict) else payload
     restored: Dict[str, Any] = {}
     for key, value in values.items():
         if key not in APPEARANCE_OVERRIDE_KEYS:
@@ -322,7 +324,8 @@ async def update_overrides(
         valid_deletes,
     )
 
-    async with async_session_factory() as session:  # type: AsyncSession
+    async with async_session_factory() as raw_session:
+        session: AsyncSession = raw_session
         async with session.begin():
             for key, value in coerced_updates.items():
                 await app_settings_dal.upsert_override(

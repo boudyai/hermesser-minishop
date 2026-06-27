@@ -1,29 +1,72 @@
 # ruff: noqa: F401,F403,F405,I001
+from collections.abc import Awaitable
+from typing import cast
+
+from bot.app.web.context import (
+    get_panel_service,
+    get_session_factory,
+    get_settings,
+)
+
 import asyncio
 
-from ._runtime import *  # noqa: F403,F405
+
+from aiohttp import web
+from bot.app.web.route_contracts import RouteContract, ok_envelope_for, register_contract
+from bot.utils.message_queue import get_queue_manager
+from config.settings import Settings
+from config.tariffs_config import default_payment_currency_code_for_settings
+from datetime import datetime, timedelta, timezone
+from db.dal import panel_sync_dal, payment_dal, user_dal
+from .schemas import AdminMeOut, AdminPanelSyncOut, AdminStatsOut, PaymentOut
+from sqlalchemy.orm import sessionmaker
+from typing import Any, Dict, Optional
+import logging
 from .auth import _require_admin_user_id
-from .common import _ok, _serialize_payment
+from .common import (
+    _enrich_bandwidth_nodes_with_online,
+    _ok,
+    _panel_nodes_online_by_uuid,
+    _serialize_payment,
+)
 from bot.utils.ttl_cache import AsyncTTLCache
+
+logger = logging.getLogger(__name__)
 
 _ADMIN_PANEL_STATS_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {}
 _ADMIN_DB_STATS_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {}
 
 
+register_contract(
+    "admin_me_route",
+    RouteContract(
+        response_schema=ok_envelope_for(AdminMeOut),
+        models=(AdminMeOut,),
+    ),
+)
+register_contract(
+    "admin_stats_route",
+    RouteContract(
+        response_schema=ok_envelope_for(AdminStatsOut),
+        models=(AdminStatsOut, AdminPanelSyncOut, PaymentOut),
+    ),
+)
+
+
 async def admin_me_route(request: web.Request) -> web.Response:
     user_id = _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
-    return _ok({}, user_id=user_id, admin_ids=list(settings.ADMIN_IDS or []))
+    settings: Settings = get_settings(request)
+    return _ok(AdminMeOut(user_id=user_id, admin_ids=list(settings.ADMIN_IDS or [])).model_dump())
 
 
 async def admin_stats_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    settings: Settings = get_settings(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
 
     payload = dict(await _load_admin_db_stats(settings, async_session_factory))
 
-    panel_service = request.app.get("panel_service")
+    panel_service = get_panel_service(request)
     if panel_service is not None:
         payload["panel"] = await _load_admin_panel_stats(request, settings, panel_service)
 
@@ -35,7 +78,7 @@ async def admin_stats_route(request: web.Request) -> web.Response:
             payload["queue"] = None
 
     payload["currency_symbol"] = default_payment_currency_code_for_settings(settings)
-    return _ok(payload)
+    return _ok(AdminStatsOut.model_validate(payload).model_dump(mode="json", exclude_none=True))
 
 
 async def _load_admin_db_stats(
@@ -45,9 +88,12 @@ async def _load_admin_db_stats(
     cache = _admin_db_stats_cache(settings)
     if cache is None:
         return await _load_admin_db_stats_uncached(async_session_factory)
-    return await cache.get_or_load(
-        "db",
-        lambda: _load_admin_db_stats_uncached(async_session_factory),
+    return cast(
+        Dict[str, Any],
+        await cache.get_or_load(
+            "db",
+            lambda: _load_admin_db_stats_uncached(async_session_factory),
+        ),
     )
 
 
@@ -61,21 +107,13 @@ async def _load_admin_db_stats_uncached(async_session_factory: sessionmaker) -> 
     return {
         "users": user_stats,
         "financial": financial_stats,
-        "panel_sync": {
-            "status": sync_status.status if sync_status else "never_run",
-            "last_sync_time": sync_status.last_sync_time.isoformat()
-            if sync_status and sync_status.last_sync_time
-            else None,
-            "details": sync_status.details if sync_status else None,
-            "users_processed": sync_status.users_processed_from_panel if sync_status else 0,
-            "subscriptions_synced": sync_status.subscriptions_synced if sync_status else 0,
-        },
+        "panel_sync": AdminPanelSyncOut.from_sync_status(sync_status).model_dump(mode="json"),
         "recent_payments": [_serialize_payment(p) for p in recent_payments],
     }
 
 
 def _admin_db_stats_cache(settings: Settings) -> Optional[AsyncTTLCache]:
-    ttl_seconds = int(getattr(settings, "ADMIN_DB_STATS_CACHE_TTL_SECONDS", 5) or 0)
+    ttl_seconds = int(settings.ADMIN_DB_STATS_CACHE_TTL_SECONDS or 0)
     if ttl_seconds <= 0:
         return None
     cache_key = (id(settings), ttl_seconds)
@@ -93,16 +131,19 @@ def _admin_db_stats_cache(settings: Settings) -> Optional[AsyncTTLCache]:
 async def _load_admin_panel_stats(
     request: web.Request,
     settings: Settings,
-    panel_service,
+    panel_service: Any,
 ) -> Dict[str, Any]:
     cache = _admin_panel_stats_cache(settings)
     if cache is None:
         return await _load_admin_panel_stats_uncached(panel_service)
-    return await cache.get_or_load("panel", lambda: _load_admin_panel_stats_uncached(panel_service))
+    return cast(
+        Dict[str, Any],
+        await cache.get_or_load("panel", lambda: _load_admin_panel_stats_uncached(panel_service)),
+    )
 
 
 def _admin_panel_stats_cache(settings: Settings) -> Optional[AsyncTTLCache]:
-    ttl_seconds = int(getattr(settings, "ADMIN_PANEL_STATS_CACHE_TTL_SECONDS", 15) or 0)
+    ttl_seconds = int(settings.ADMIN_PANEL_STATS_CACHE_TTL_SECONDS or 0)
     if ttl_seconds <= 0:
         return None
     cache_key = (id(settings), ttl_seconds)
@@ -117,7 +158,7 @@ def _admin_panel_stats_cache(settings: Settings) -> Optional[AsyncTTLCache]:
     return cache
 
 
-async def _load_admin_panel_stats_uncached(panel_service) -> Dict[str, Any]:
+async def _load_admin_panel_stats_uncached(panel_service: Any) -> Dict[str, Any]:
     try:
         today = datetime.now(timezone.utc).date()
         start_d = today - timedelta(days=7)
@@ -160,7 +201,7 @@ async def _load_admin_panel_stats_uncached(panel_service) -> Dict[str, Any]:
         return {"error": "unavailable"}
 
 
-async def _safe_panel_call(awaitable, label: str) -> Any:
+async def _safe_panel_call(awaitable: Awaitable[Any], label: str) -> Any:
     try:
         return await awaitable
     except Exception as exc:  # pragma: no cover - optional panel endpoints

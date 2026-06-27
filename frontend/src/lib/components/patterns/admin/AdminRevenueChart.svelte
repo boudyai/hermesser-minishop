@@ -4,18 +4,19 @@
   import "uplot/dist/uPlot.min.css";
 
   /** `{ date: ISO date string, amount: number }[]` */
-  export let series = [];
+  let {
+    series = [],
+    plotHeight = 204,
+    fmtMoney = (v, _currency) => String(v),
+    currency = "RUB",
+    legendTimeLabel = "Time",
+    legendValueLabel = "Value",
+  } = $props();
   /** Total plot height in CSS px (axes + canvas). */
-  export let plotHeight = 204;
-  export let fmtMoney = (v, _currency) => String(v);
-  /** @type {string} */
-  export let currency = "RUB";
   /** uPlot live legend: column header for the time (x) series */
-  export let legendTimeLabel = "Time";
   /** uPlot live legend: column header for the value (y) series */
-  export let legendValueLabel = "Value";
 
-  let hostEl;
+  let hostEl = $state();
   let plot;
   let resizeObserver;
   let syncTimer = 0;
@@ -178,13 +179,16 @@
     };
   });
 
-  $: if (hostEl) {
+  $effect(() => {
+    if (!hostEl) return;
     series;
     plotHeight;
+    fmtMoney;
+    currency;
     legendTimeLabel;
     legendValueLabel;
     scheduleSync();
-  }
+  });
 </script>
 
 <div class="admin-revenue-uplot-host" bind:this={hostEl}></div>

@@ -1,25 +1,44 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, cast
+from urllib.parse import parse_qsl, urlsplit, urlunsplit
+
+from aiohttp import web
+
+from bot.app.web.response_helpers import json_response
+from config.settings import Settings
+from config.tariffs_config import TariffsConfig
+from db.models import AdCampaign, MessageLog, Payment, PromoCode, Subscription, User
+
+from .schemas import AdminSubscriptionOut, AdminUserOut, AdOut, LogOut, PaymentOut
 
 
-def _ok(payload: Dict[str, Any], **extra) -> web.Response:
+def _ok(payload: Dict[str, Any], **extra: Any) -> web.Response:
     body = {"ok": True, **payload, **extra}
-    return web.json_response(body)
+    return json_response(body)
 
 
 def _error(status: int, code: str, message: str = "") -> web.Response:
-    return web.json_response(
+    return json_response(
         {"ok": False, "error": code, "message": message or code},
         status=status,
     )
 
 
-async def _read_json(request: web.Request) -> Dict[str, Any]:
-    try:
-        data = await request.json()
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
+def _error_payload(
+    status: int,
+    code: str,
+    *,
+    errors: Dict[str, Any] | None = None,
+    message: str = "",
+) -> web.Response:
+    body: Dict[str, Any] = {"ok": False, "error": code}
+    if message:
+        body["message"] = message
+    if errors:
+        body["errors"] = errors
+    return json_response(body, status=status)
 
 
 _PANEL_LAST_CONNECTED_KEYS = (
@@ -192,21 +211,7 @@ def _panel_user_connection_activity(panel_user_data: Any) -> Dict[str, Any]:
 
 
 def _serialize_user(user: User) -> Dict[str, Any]:
-    return {
-        "user_id": int(user.user_id),
-        "telegram_id": int(user.telegram_id) if user.telegram_id else None,
-        "telegram_photo_url": user.telegram_photo_url,
-        "username": user.username,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "email": user.email,
-        "language_code": user.language_code,
-        "is_banned": bool(user.is_banned),
-        "registration_date": user.registration_date.isoformat() if user.registration_date else None,
-        "panel_user_uuid": user.panel_user_uuid,
-        "referral_code": user.referral_code,
-        "referred_by_id": int(user.referred_by_id) if user.referred_by_id else None,
-    }
+    return cast(Dict[str, Any], AdminUserOut.from_orm_user(user).model_dump(mode="json"))
 
 
 def _premium_limit_bytes_from_subscription(sub: Subscription) -> int:
@@ -258,46 +263,10 @@ def _premium_traffic_list_payload(sub: Optional[Subscription]) -> Dict[str, Any]
 
 
 def _serialize_subscription(sub: Subscription) -> Dict[str, Any]:
-    premium_bonus_bytes = int(getattr(sub, "premium_bonus_bytes", 0) or 0)
-    regular_bonus_bytes = int(getattr(sub, "regular_bonus_bytes", 0) or 0)
-    regular_unlimited_override = bool(getattr(sub, "regular_unlimited_override", False))
-    premium_unlimited_override = bool(getattr(sub, "premium_unlimited_override", False))
-    premium_limit_bytes = _premium_limit_bytes_from_subscription(sub)
-    provider = sub.provider
-    is_trial = str(provider or "").strip().lower() == "trial"
-    display_label = "Trial" if is_trial else sub.tariff_key
-    return {
-        "subscription_id": int(sub.subscription_id),
-        "panel_user_uuid": sub.panel_user_uuid,
-        "panel_subscription_uuid": sub.panel_subscription_uuid,
-        "start_date": sub.start_date.isoformat() if sub.start_date else None,
-        "end_date": sub.end_date.isoformat() if sub.end_date else None,
-        "duration_months": sub.duration_months,
-        "is_active": bool(sub.is_active),
-        "status_from_panel": sub.status_from_panel,
-        "traffic_limit_bytes": sub.traffic_limit_bytes,
-        "traffic_used_bytes": sub.traffic_used_bytes,
-        "tier_baseline_bytes": sub.tier_baseline_bytes,
-        "topup_balance_bytes": sub.topup_balance_bytes,
-        "premium_used_bytes": sub.premium_used_bytes,
-        "premium_limit_bytes": premium_limit_bytes,
-        "premium_baseline_bytes": sub.premium_baseline_bytes,
-        "premium_topup_balance_bytes": sub.premium_topup_balance_bytes,
-        "premium_topup_used_bytes": getattr(sub, "premium_topup_used_bytes", 0),
-        "premium_bonus_bytes": premium_bonus_bytes,
-        "regular_bonus_bytes": regular_bonus_bytes,
-        "regular_unlimited_override": regular_unlimited_override,
-        "premium_unlimited_override": premium_unlimited_override,
-        "premium_is_limited": bool(sub.premium_is_limited),
-        "hwid_device_limit": getattr(sub, "hwid_device_limit", None),
-        "extra_hwid_devices": int(getattr(sub, "extra_hwid_devices", 0) or 0),
-        "tariff_key": sub.tariff_key,
-        "display_label": display_label,
-        "is_trial": is_trial,
-        "auto_renew_enabled": bool(sub.auto_renew_enabled),
-        "provider": provider,
-        "is_throttled": bool(sub.is_throttled),
-    }
+    return cast(
+        Dict[str, Any],
+        AdminSubscriptionOut.from_orm_subscription(sub).model_dump(mode="json"),
+    )
 
 
 def _payment_traffic_gb_split(payment: Payment) -> Tuple[Optional[float], Optional[float]]:
@@ -367,39 +336,7 @@ def _payment_user_display_label(loaded_user: Any, payment_user_id: int) -> str:
 
 
 def _serialize_payment(payment: Payment) -> Dict[str, Any]:
-    # Avoid lazy-loading `payment.user` outside an active SQLAlchemy session.
-    # Some admin routes serialize payments after the session scope is closed.
-    telegram_id = None
-    loaded_user = payment.__dict__.get("user")
-    user_label = _payment_user_display_label(loaded_user, int(payment.user_id))
-    if loaded_user is not None:
-        tid = getattr(loaded_user, "telegram_id", None)
-        if tid is not None:
-            try:
-                telegram_id = int(tid)
-            except (TypeError, ValueError):
-                telegram_id = None
-    reg_gb, prem_gb = _payment_traffic_gb_split(payment)
-    return {
-        "payment_id": int(payment.payment_id),
-        "user_id": int(payment.user_id),
-        "user_label": user_label,
-        "telegram_id": telegram_id,
-        "traffic_regular_gb": reg_gb,
-        "traffic_premium_gb": prem_gb,
-        "provider": payment.provider,
-        "provider_payment_id": payment.provider_payment_id,
-        "amount": float(payment.amount),
-        "currency": payment.currency,
-        "status": payment.status,
-        "description": payment.description,
-        "subscription_duration_months": payment.subscription_duration_months,
-        "sale_mode": payment.sale_mode,
-        "tariff_key": payment.tariff_key,
-        "purchased_gb": payment.purchased_gb,
-        "purchased_hwid_devices": payment.purchased_hwid_devices,
-        "created_at": payment.created_at.isoformat() if payment.created_at else None,
-    }
+    return cast(Dict[str, Any], PaymentOut.from_orm_payment(payment).model_dump(mode="json"))
 
 
 def _serialize_promo(promo: PromoCode) -> Dict[str, Any]:
@@ -419,41 +356,11 @@ def _serialize_promo(promo: PromoCode) -> Dict[str, Any]:
 
 
 def _serialize_ad(campaign: AdCampaign, totals: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    return {
-        "id": int(campaign.ad_campaign_id),
-        "source": campaign.source,
-        "start_param": campaign.start_param,
-        "cost": float(campaign.cost or 0),
-        "is_active": bool(campaign.is_active),
-        "created_at": campaign.created_at.isoformat() if campaign.created_at else None,
-        "stats": totals or {},
-    }
+    return cast(Dict[str, Any], AdOut.from_orm_ad(campaign, totals).model_dump(mode="json"))
 
 
 def _serialize_log(entry: MessageLog) -> Dict[str, Any]:
-    author_user = entry.__dict__.get("author_user")
-    target_user = entry.__dict__.get("target_user")
-    user_id = int(entry.user_id) if entry.user_id is not None else None
-    target_user_id = int(entry.target_user_id) if entry.target_user_id is not None else None
-    return {
-        "log_id": int(entry.log_id),
-        "user_id": user_id,
-        "user_label": _user_display_label(
-            author_user,
-            user_id,
-            first_name=entry.telegram_first_name,
-            username=entry.telegram_username,
-        ),
-        "telegram_username": entry.telegram_username,
-        "telegram_first_name": entry.telegram_first_name,
-        "email": getattr(author_user, "email", None),
-        "event_type": entry.event_type,
-        "content": entry.content,
-        "is_admin_event": bool(entry.is_admin_event),
-        "target_user_id": target_user_id,
-        "target_user_label": _user_display_label(target_user, target_user_id),
-        "timestamp": entry.timestamp.isoformat() if entry.timestamp else None,
-    }
+    return cast(Dict[str, Any], LogOut.from_orm_log(entry).model_dump(mode="json"))
 
 
 def _tariffs_config_path(settings: Settings) -> Path:
@@ -461,7 +368,7 @@ def _tariffs_config_path(settings: Settings) -> Path:
 
 
 def _tariffs_config_payload(config: TariffsConfig) -> Dict[str, Any]:
-    return config.model_dump(mode="json", exclude_none=True)
+    return cast(Dict[str, Any], config.model_dump(mode="json", exclude_none=True))
 
 
 def _write_tariffs_config_file(path: Path, config: TariffsConfig) -> None:
@@ -485,7 +392,7 @@ def _write_tariffs_config_file(path: Path, config: TariffsConfig) -> None:
 
 
 def _webapp_themes_catalog_payload(config: Any) -> Dict[str, Any]:
-    return config.model_dump(mode="json", exclude_none=True)
+    return cast(Dict[str, Any], config.model_dump(mode="json", exclude_none=True))
 
 
 def _panel_node_uuid_key(node: Dict[str, Any]) -> str:

@@ -1,8 +1,34 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+import logging
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from bot.utils.date_utils import month_start
+from config.tariffs_config import Tariff
+from db.dal import subscription_dal, tariff_dal, user_dal
+from db.models import Subscription
+
+from ._typing import SubscriptionServiceMixinContract
+from .hwid_limits import HwidDeviceLimits
 
 
-class TrafficMixin:
+class TrafficMixin(SubscriptionServiceMixinContract):
+    async def _resolve_hwid_device_limits(
+        self,
+        session: AsyncSession,
+        sub: Subscription,
+        tariff: Optional[Tariff],
+    ) -> HwidDeviceLimits:
+        base = (
+            int(sub.hwid_device_limit)
+            if sub.hwid_device_limit is not None
+            else self._base_hwid_limit_for_tariff(tariff)
+        )
+        extra = await self._active_hwid_extra_devices_for_sub(session, sub)
+        effective = self._effective_hwid_limit(base, extra)
+        return HwidDeviceLimits(base=base, extra=extra, effective=effective)
+
     async def _activate_traffic_package(
         self,
         session: AsyncSession,
@@ -219,13 +245,10 @@ class TrafficMixin:
             regular_unlimited_override=runl,
             traffic_used_bytes=used_for_lim,
         )
-        base_hwid_limit = (
-            int(sub.hwid_device_limit)
-            if sub.hwid_device_limit is not None
-            else self._base_hwid_limit_for_tariff(tariff)
-        )
-        extra_hwid_devices = await self._active_hwid_extra_devices_for_sub(session, sub)
-        effective_hwid_limit = self._effective_hwid_limit(base_hwid_limit, extra_hwid_devices)
+        hwid_limits = await self._resolve_hwid_device_limits(session, sub, tariff)
+        base_hwid_limit = hwid_limits.base
+        extra_hwid_devices = hwid_limits.extra
+        effective_hwid_limit = hwid_limits.effective
         updated_sub = await subscription_dal.update_subscription(
             session,
             sub.subscription_id,
@@ -513,13 +536,10 @@ class TrafficMixin:
             regular_unlimited_override=runl,
             traffic_used_bytes=used_for_lim,
         )
-        base_hwid_limit = (
-            int(sub.hwid_device_limit)
-            if sub.hwid_device_limit is not None
-            else self._base_hwid_limit_for_tariff(tariff)
-        )
-        extra_hwid_devices = await self._active_hwid_extra_devices_for_sub(session, sub)
-        effective_hwid_limit = self._effective_hwid_limit(base_hwid_limit, extra_hwid_devices)
+        hwid_limits = await self._resolve_hwid_device_limits(session, sub, tariff)
+        base_hwid_limit = hwid_limits.base
+        extra_hwid_devices = hwid_limits.extra
+        effective_hwid_limit = hwid_limits.effective
         updated_sub = await subscription_dal.update_subscription(
             session,
             sub.subscription_id,
@@ -593,14 +613,10 @@ class TrafficMixin:
         sub.traffic_limit_bytes = new_limit
         if runl:
             sub.is_throttled = False
-        base_hwid_limit = (
-            int(sub.hwid_device_limit)
-            if sub.hwid_device_limit is not None
-            else self._base_hwid_limit_for_tariff(tariff)
-        )
-        extra_hwid_devices = await self._active_hwid_extra_devices_for_sub(session, sub)
+        hwid_limits = await self._resolve_hwid_device_limits(session, sub, tariff)
+        extra_hwid_devices = hwid_limits.extra
         sub.extra_hwid_devices = extra_hwid_devices
-        effective_hwid_limit = self._effective_hwid_limit(base_hwid_limit, extra_hwid_devices)
+        effective_hwid_limit = hwid_limits.effective
         panel_payload = self._build_panel_update_payload(
             panel_user_uuid=db_user.panel_user_uuid,
             expire_at=sub.end_date,
@@ -806,7 +822,7 @@ class TrafficMixin:
         return False, set()
 
     @staticmethod
-    def _panel_squad_uuid_set(raw) -> set[str]:
+    def _panel_squad_uuid_set(raw: object) -> set[str]:
         if not isinstance(raw, (list, tuple, set)):
             return set()
         out: set[str] = set()

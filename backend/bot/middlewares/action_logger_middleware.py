@@ -1,9 +1,9 @@
 import logging
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional, cast
 
 from aiogram import BaseMiddleware
-from aiogram.types import CallbackQuery, Message, Update, User
+from aiogram.types import CallbackQuery, Message, TelegramObject, Update, User
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.settings import Settings
@@ -17,8 +17,8 @@ class ActionLoggerMiddleware(BaseMiddleware):
 
     async def __call__(
         self,
-        handler: Callable[[Update, Dict[str, Any]], Awaitable[Any]],
-        event: Update,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
         data: Dict[str, Any],
     ) -> Any:
 
@@ -26,6 +26,7 @@ class ActionLoggerMiddleware(BaseMiddleware):
 
         if data.get("skip_action_log") or data.get("antiflood_dropped"):
             return result
+        update = cast(Update, event)
 
         session: AsyncSession = data["session"]
         event_user: Optional[User] = data.get("event_from_user")
@@ -49,16 +50,16 @@ class ActionLoggerMiddleware(BaseMiddleware):
 
         raw_update_snippet = None
         try:
-            raw_update_snippet = event.model_dump_json(exclude_none=True, indent=None)[:1000]
+            raw_update_snippet = update.model_dump_json(exclude_none=True, indent=None)[:1000]
         except AttributeError:
-            raw_update_snippet = str(event)[:1000]
+            raw_update_snippet = str(update)[:1000]
         except Exception:
-            raw_update_snippet = str(event)[:1000]
+            raw_update_snippet = str(update)[:1000]
 
-        current_event_type = event.event_type
+        current_event_type = update.event_type
 
-        if event.message:
-            msg: Message = event.message
+        if update.message:
+            msg: Message = update.message
             if msg.text:
                 content = msg.text
                 if msg.text.startswith("/"):
@@ -67,8 +68,8 @@ class ActionLoggerMiddleware(BaseMiddleware):
             else:
                 content = f"[{msg.content_type or 'unknown_content_type'}]"
                 current_event_type = f"message:{msg.content_type or 'unknown'}"
-        elif event.callback_query:
-            cb: CallbackQuery = event.callback_query
+        elif update.callback_query:
+            cb: CallbackQuery = update.callback_query
             content = cb.data
             action_part = cb.data.split(":")[0] if cb.data and ":" in cb.data else cb.data
             current_event_type = f"callback:{action_part}"

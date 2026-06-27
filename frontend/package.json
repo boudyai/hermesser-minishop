@@ -9,19 +9,27 @@
     "build:webapp:css": "npm run build:webapp:svelte",
     "build:webapp:js": "node ./scripts/build_subscription_webapp_js.mjs",
     "build:webapp": "npm run build:webapp:svelte && npm run build:webapp:js",
+    "build": "npm run build:webapp",
+    "generate:api-types": "npx --yes --package openapi-typescript@7.13.0 openapi-typescript ../docs/openapi.json -o src/lib/api/openapi.generated.ts && prettier --write src/lib/api/openapi.generated.ts",
+    "check:runes": "node ./scripts/check-svelte-runes-only.mjs",
     "lint": "eslint src scripts",
     "lint:fix": "npm run lint:js:fix",
     "lint:js:fix": "eslint src scripts --fix",
-    "format": "prettier --write \"src/**/*.{js,svelte}\" \"scripts/**/*.mjs\"",
-    "format:check": "prettier --check \"src/**/*.{js,svelte}\" \"scripts/**/*.mjs\"",
+    "format": "prettier --write \"src/**/*.{js,ts,svelte}\" \"scripts/**/*.mjs\"",
+    "format:check": "prettier --check \"src/**/*.{js,ts,svelte}\" \"scripts/**/*.mjs\"",
     "check:svelte": "svelte-check --tsconfig ./jsconfig.json",
-    "check": "npm run lint && npm run check:svelte && npm run format:check",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "check": "npm run check:runes && npm run lint && npm run check:svelte && npm run format:check",
     "fix": "npm run format && npm run lint:js:fix"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@internationalized/date": "^3.12.1",
     "@neodrag/svelte": "^2.3.3",
+    "@playwright/test": "^1.50.1",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@tailwindcss/cli": "4.3.0",
     "@tailwindcss/vite": "^4.3.0",
@@ -45,8 +53,10 @@
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "4.3.0",
     "typescript": "^6.0.3",
+    "typescript-eslint": "^8.61.1",
     "uplot": "^1.6.32",
-    "vite": "^8.0.16"
+    "vite": "^8.0.16",
+    "vitest": "^4.1.9"
   },
   "dependencies": {
     "qrcode": "^1.5.4"

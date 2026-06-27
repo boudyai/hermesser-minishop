@@ -2,29 +2,32 @@
   import { AdminBadge, AdminButton, AdminSelect } from "$components/patterns/admin/index.js";
   import { CheckCheck } from "$components/ui/icons.js";
 
-  export let ticket;
-  export let at = (key) => key;
-  export let onPatch = () => {};
-  export let onClose = () => {};
+  let { ticket, at = (key) => key, onPatch = () => {}, onClose = () => {} } = $props();
 
-  $: statusOptions = ["open", "awaiting_user", "awaiting_admin", "resolved", "closed"].map(
-    (item) => ({
+  const statusOptions = $derived(
+    ["open", "awaiting_user", "awaiting_admin", "resolved", "closed"].map((item) => ({
       value: item,
       label: at(`support_status_${item}`, {}, item),
-    })
+    }))
   );
-  $: priorityOptions = ["low", "normal", "high", "urgent"].map((item) => ({
-    value: item,
-    label: at(`support_priority_${item}`, {}, item),
-  }));
-  $: categoryOptions = ["billing", "technical", "account", "other"].map((item) => ({
-    value: item,
-    label: at(`support_category_${item}`, {}, item),
-  }));
-  $: statusVariant =
-    ticket?.status === "closed" || ticket?.status === "resolved" ? "muted" : "success";
-  $: priorityVariant =
-    ticket?.priority === "urgent" ? "danger" : ticket?.priority === "high" ? "warning" : "muted";
+  const priorityOptions = $derived(
+    ["low", "normal", "high", "urgent"].map((item) => ({
+      value: item,
+      label: at(`support_priority_${item}`, {}, item),
+    }))
+  );
+  const categoryOptions = $derived(
+    ["billing", "technical", "account", "other"].map((item) => ({
+      value: item,
+      label: at(`support_category_${item}`, {}, item),
+    }))
+  );
+  const statusVariant = $derived(
+    ticket?.status === "closed" || ticket?.status === "resolved" ? "muted" : "success"
+  );
+  const priorityVariant = $derived(
+    ticket?.priority === "urgent" ? "danger" : ticket?.priority === "high" ? "warning" : "muted"
+  );
 
   function patch(key, value) {
     if (!ticket || ticket[key] === value) return;

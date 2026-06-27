@@ -8,47 +8,56 @@
   const DONE_STATE_DELAY_MS = 900;
   const CLOSE_ATTEMPT_DELAY_MS = 2500;
 
-  export let brand = {};
-  export let appLaunchTarget = "";
-  export let refreshAppLaunchTarget = () => appLaunchTarget;
-  export let openAppLaunchTarget = () => false;
-  export let t = (_key, _params = {}, fallback = "") => fallback;
+  let {
+    brand = {},
+    appLaunchTarget = "",
+    refreshAppLaunchTarget = () => appLaunchTarget,
+    openAppLaunchTarget = () => false,
+    t = (_key, _params = {}, fallback = "") => fallback,
+  } = $props();
 
-  let activeTarget = appLaunchTarget;
-  let state = activeTarget ? "opening" : "unavailable";
-  let attempted = false;
-  let pageLeft = false;
+  let activeTarget = $state("");
+  let state = $state("unavailable");
+  let attempted = $state(false);
+  let pageLeft = $state(false);
   let autoOpenTimer = null;
   let manualStateTimer = null;
   let doneStateTimer = null;
   let closeAttemptTimer = null;
 
-  $: if (!attempted && appLaunchTarget !== activeTarget) {
+  $effect.pre(() => {
+    if (attempted || appLaunchTarget === activeTarget) return;
     activeTarget = appLaunchTarget;
     state = activeTarget ? "opening" : "unavailable";
-  }
+  });
 
-  $: isDone = state === "done";
-  $: isUnavailable = state === "unavailable";
-  $: title = isUnavailable
-    ? t("wa_app_launch_unavailable_title", {}, "App link unavailable")
-    : isDone
-      ? t("wa_app_launch_done_title", {}, "Settings added")
-      : t("wa_app_launch_title", {}, "Opening app");
-  $: hint = isUnavailable
-    ? t("wa_app_launch_unavailable_hint", {}, "Return to Telegram and try again.")
-    : isDone
-      ? t("wa_app_launch_done_hint", {}, "If the app opened, you can close this window.")
-      : state === "manual"
-        ? t(
-            "wa_app_launch_hint",
-            {},
-            "If the app did not open automatically, tap the button below."
-          )
-        : t("wa_app_launch_opening_hint", {}, "Opening the app on this device...");
-  $: openLabel = isDone
-    ? t("wa_app_launch_retry_button", {}, "Open again")
-    : t("wa_app_launch_button", {}, "Open app");
+  const isDone = $derived(state === "done");
+  const isUnavailable = $derived(state === "unavailable");
+  const title = $derived(
+    isUnavailable
+      ? t("wa_app_launch_unavailable_title", {}, "App link unavailable")
+      : isDone
+        ? t("wa_app_launch_done_title", {}, "Settings added")
+        : t("wa_app_launch_title", {}, "Opening app")
+  );
+  const hint = $derived(
+    isUnavailable
+      ? t("wa_app_launch_unavailable_hint", {}, "Return to Telegram and try again.")
+      : isDone
+        ? t("wa_app_launch_done_hint", {}, "If the app opened, you can close this window.")
+        : state === "manual"
+          ? t(
+              "wa_app_launch_hint",
+              {},
+              "If the app did not open automatically, tap the button below."
+            )
+          : t("wa_app_launch_opening_hint", {}, "Opening the app on this device...")
+  );
+  const openLabel = $derived(
+    isDone
+      ? t("wa_app_launch_retry_button", {}, "Open again")
+      : t("wa_app_launch_button", {}, "Open app")
+  );
 
   onMount(() => {
     autoOpenTimer = window.setTimeout(openTarget, AUTO_OPEN_DELAY_MS);

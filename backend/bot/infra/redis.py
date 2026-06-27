@@ -5,16 +5,17 @@ import secrets
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Optional
 
-try:
-    from redis.asyncio import Redis
-except ModuleNotFoundError:  # pragma: no cover - local dev environments may not be installed yet
-    Redis = None  # type: ignore[assignment]
-
 from config.settings import Settings
+
+redis_asyncio: Any
+try:
+    import redis.asyncio as redis_asyncio
+except ModuleNotFoundError:  # pragma: no cover - local dev environments may not be installed yet
+    redis_asyncio = None
 
 logger = logging.getLogger(__name__)
 
-_redis: Optional["Redis"] = None
+_redis: Optional[Any] = None
 
 
 def redis_key(settings: Settings, *parts: object) -> str:
@@ -23,15 +24,15 @@ def redis_key(settings: Settings, *parts: object) -> str:
     return ":".join([prefix, *clean])
 
 
-async def get_redis(settings: Settings) -> Optional["Redis"]:
+async def get_redis(settings: Settings) -> Optional[Any]:
     global _redis
     if not settings.REDIS_URL:
         return None
-    if Redis is None:
+    if redis_asyncio is None:
         logger.warning("REDIS_URL is set but redis package is not installed")
         return None
     if _redis is None:
-        _redis = Redis.from_url(
+        _redis = redis_asyncio.Redis.from_url(
             settings.REDIS_URL,
             encoding="utf-8",
             decode_responses=True,

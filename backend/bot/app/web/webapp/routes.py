@@ -1,5 +1,96 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+from aiohttp import web
+
+from bot.app.web.admin_api_impl.routes import (
+    setup_admin_routes,
+)
+
+from .account import (
+    account_avatar_route,
+    account_email_request_route,
+    account_email_verify_route,
+    account_language_route,
+    account_password_confirm_route,
+    account_password_request_route,
+    account_telegram_link_route,
+    me_route,
+)
+from .asset_paths import (
+    WEBAPP_DEFAULT_LOGO_PATH,
+    WEBAPP_FAVICON_PATH,
+    WEBAPP_LOGO_PROXY_PATH,
+    WEBAPP_UPLOADED_LOGO_PATH,
+)
+from .assets import (
+    admin_css_asset_route,
+    admin_js_asset_route,
+    app_deeplink_route,
+    bootstrap_route,
+    css_asset_route,
+    health_route,
+    i18n_route,
+    index_route,
+    js_asset_route,
+    robots_txt_route,
+    theme_asset_route,
+    theme_css_asset_route,
+    webapp_current_favicon_route,
+    webapp_default_logo_route,
+    webapp_favicon_route,
+    webapp_logo_route,
+    webapp_uploaded_logo_route,
+)
+from .auth import (
+    auth_token_route,
+    email_auth_magic_route,
+    email_auth_request_route,
+    email_auth_verify_route,
+    email_password_auth_route,
+    logout_route,
+    referral_welcome_bonus_claim_route,
+    telegram_oauth_callback_route,
+    telegram_oauth_nonce_route,
+    telegram_oauth_start_route,
+)
+from .billing import (
+    activate_trial_route,
+    apply_promo_route,
+    create_payment_route,
+    device_topup_options_route,
+    payment_status_route,
+    subscription_auto_renew_route,
+    tariff_change_options_route,
+    tariff_change_payment_route,
+    tariff_change_route,
+    tariff_topup_options_route,
+)
+from .contracts import register_webapp_route_contracts
+from .devices import (
+    devices_route,
+    disconnect_device_route,
+)
+from .guides import (
+    public_subscription_guides_route,
+    subscription_guides_route,
+)
+from .payloads import (
+    WebAppEmailPayload as WebAppEmailPayload,
+)
+from .payloads import (
+    WebAppPaymentCreatePayload as WebAppPaymentCreatePayload,
+)
+from .support import (
+    support_create_ticket_route,
+    support_ticket_detail_route,
+    support_ticket_read_route,
+    support_ticket_reply_route,
+    support_tickets_route,
+    support_unread_route,
+)
+from .telegram_notifications import (
+    account_telegram_notifications_probe_route,
+)
+
+register_webapp_route_contracts()
 
 
 def setup_subscription_webapp_routes(app: web.Application) -> None:

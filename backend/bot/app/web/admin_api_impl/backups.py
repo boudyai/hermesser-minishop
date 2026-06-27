@@ -1,9 +1,27 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
-
+import logging
 import secrets
 import subprocess
+from pathlib import Path
+from typing import Any, Dict, Optional, cast
 
+from aiohttp import web
+from aiohttp.multipart import BodyPartReader
+
+from bot.app.web.context import (
+    get_bot,
+    get_session_factory,
+    get_settings,
+)
+from bot.app.web.request_parsing import parse_body_or_400
+from bot.app.web.route_contracts import (
+    BINARY_RESPONSE_SCHEMA,
+    STRING_SCHEMA,
+    RouteContract,
+    loose_array_schema,
+    loose_object_schema,
+    ok_envelope_with,
+    register_contract,
+)
 from bot.infra.redis import redis_lock
 from bot.services.backup_restore_service import (
     BACKUP_UPLOAD_MAX_BYTES,
@@ -13,14 +31,62 @@ from bot.services.backup_restore_service import (
     BackupRestoreService,
 )
 from bot.services.backup_worker import BackupWorker
+from config.settings import Settings
+
+from .auth import (
+    _require_admin_user_id,
+)
+from .common import (
+    _error,
+    _ok,
+)
+from .schemas import AdminBackupRestoreBody
+
+logger = logging.getLogger(__name__)
+
+_BACKUP_UPLOAD_BODY_SCHEMA = {
+    "type": "object",
+    "required": ["file"],
+    "properties": {"file": BINARY_RESPONSE_SCHEMA},
+}
+register_contract(
+    "admin_backups_list_route",
+    RouteContract(
+        response_schema=ok_envelope_with(
+            {"backup_dir": STRING_SCHEMA, "archives": loose_array_schema()}
+        )
+    ),
+)
+register_contract(
+    "admin_backups_create_route",
+    RouteContract(
+        response_schema=ok_envelope_with(
+            {"result": loose_object_schema(), "archive": loose_object_schema()}
+        )
+    ),
+)
+register_contract(
+    "admin_backups_upload_route",
+    RouteContract(
+        request_content={"multipart/form-data": _BACKUP_UPLOAD_BODY_SCHEMA},
+        response_schema=ok_envelope_with({"archive": loose_object_schema()}),
+    ),
+)
+register_contract(
+    "admin_backups_restore_route",
+    RouteContract(
+        request_model=AdminBackupRestoreBody,
+        response_schema=ok_envelope_with({"result": loose_object_schema()}),
+    ),
+)
 
 
-def _backup_archive_payload(archive) -> Dict[str, Any]:
-    return archive.to_payload()
+def _backup_archive_payload(archive: BackupArchiveInfo) -> Dict[str, Any]:
+    return cast(Dict[str, Any], archive.to_payload())
 
 
 async def _read_uploaded_backup_file(request: web.Request) -> BackupArchiveInfo:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     service = BackupRestoreService(settings)
     backup_dir = service.backup_dir()
     temp_path: Optional[Path] = None
@@ -28,6 +94,8 @@ async def _read_uploaded_backup_file(request: web.Request) -> BackupArchiveInfo:
     reader = await request.multipart()
     try:
         async for part in reader:
+            if not isinstance(part, BodyPartReader):
+                continue
             if part.name != "file":
                 continue
 
@@ -60,7 +128,7 @@ async def _read_uploaded_backup_file(request: web.Request) -> BackupArchiveInfo:
 
 async def admin_backups_list_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     try:
         service = BackupRestoreService(settings)
         archives = service.list_archives()
@@ -92,17 +160,17 @@ async def admin_backups_upload_route(request: web.Request) -> web.Response:
 
 async def admin_backups_create_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
-    bot = request.app["bot"]
-    session_factory = request.app.get("async_session_factory")
+    settings: Settings = get_settings(request)
+    bot = get_bot(request)
+    session_factory = get_session_factory(request)
     worker = BackupWorker(settings, bot, session_factory=session_factory)
 
     ttl_seconds = max(
         60,
         int(
             max(
-                getattr(settings, "BACKUP_LOCK_TTL_SECONDS", 7200) or 7200,
-                getattr(settings, "BACKUP_PG_DUMP_TIMEOUT_SECONDS", 1800) or 1800,
+                settings.BACKUP_LOCK_TTL_SECONDS or 7200,
+                settings.BACKUP_PG_DUMP_TIMEOUT_SECONDS or 1800,
             )
         ),
     )
@@ -132,13 +200,13 @@ async def admin_backups_create_route(request: web.Request) -> web.Response:
 
 async def admin_backups_restore_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
-    payload = await _read_json(request)
+    settings: Settings = get_settings(request)
+    body = await parse_body_or_400(request, AdminBackupRestoreBody)
 
-    archive_name = str(payload.get("archive_name") or "").strip()
-    restore_database = bool(payload.get("restore_database"))
-    restore_compose = bool(payload.get("restore_compose"))
-    confirm = bool(payload.get("confirm"))
+    archive_name = str(body.archive_name or "").strip()
+    restore_database = bool(body.restore_database)
+    restore_compose = bool(body.restore_compose)
+    confirm = bool(body.confirm)
     if not confirm:
         return _error(400, "restore_confirmation_required")
 
@@ -147,8 +215,8 @@ async def admin_backups_restore_route(request: web.Request) -> web.Response:
         60,
         int(
             max(
-                getattr(settings, "BACKUP_LOCK_TTL_SECONDS", 7200) or 7200,
-                getattr(settings, "BACKUP_PG_RESTORE_TIMEOUT_SECONDS", 1800) or 1800,
+                settings.BACKUP_LOCK_TTL_SECONDS or 7200,
+                settings.BACKUP_PG_RESTORE_TIMEOUT_SECONDS or 1800,
             )
         ),
     )

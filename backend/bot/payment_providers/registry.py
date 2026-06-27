@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Mapping, Optional
+from typing import Any, Dict, Iterable, List, Mapping, Optional, cast
 
 from . import (
     cloudpayments,
@@ -11,6 +11,7 @@ from . import (
     pally,
     paykilla,
     platega,
+    qa,
     severpay,
     stars,
     stripe,
@@ -24,6 +25,7 @@ from .base import (
     ProviderManifestField,
     ServiceFactoryContext,
 )
+from .shared import RecurringProviderService
 
 PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (
     freekassa.SPEC,
@@ -41,6 +43,7 @@ PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (
     pally.SPEC,
     cloudpayments.SPEC,
     stripe.SPEC,
+    qa.SPEC,
 )
 
 
@@ -89,7 +92,7 @@ def build_provider_configs(*, force: bool = False) -> Dict[str, ProviderConfigBu
     from .base import provider_env_file
 
     env_file = provider_env_file()
-    init_kwargs = {"_env_file": env_file}
+    init_kwargs: Dict[str, Any] = {"_env_file": env_file}
 
     bundles: Dict[str, ProviderConfigBundle] = {}
     presentations: Dict[str, Any] = {}
@@ -143,7 +146,7 @@ def _presentation_setting(spec: PaymentProviderSpec, suffix: str) -> str:
 
 
 def _normalize_language(language: Optional[str], settings: Any = None) -> str:
-    value = language or getattr(settings, "DEFAULT_LANGUAGE", None) or "ru"
+    value = language or (settings.DEFAULT_LANGUAGE if settings is not None else None) or "ru"
     normalized = str(value).strip().lower().split("-", 1)[0].split("_", 1)[0]
     return normalized or "ru"
 
@@ -267,7 +270,7 @@ def provider_telegram_button_text(
     return presentation.telegram_label
 
 
-def iter_unique_provider_routers():
+def iter_unique_provider_routers() -> Iterable[Any]:
     seen: set[int] = set()
     for spec in PAYMENT_PROVIDER_SPECS:
         router = spec.load_router()
@@ -298,27 +301,33 @@ def iter_service_specs() -> Iterable[PaymentProviderSpec]:
         yield spec
 
 
-def build_provider_services(ctx: ServiceFactoryContext) -> Dict[str, Any]:
-    services: Dict[str, Any] = {}
+def build_provider_services(ctx: ServiceFactoryContext) -> Dict[str, object]:
+    services: Dict[str, object] = {}
     for spec in iter_service_specs():
-        services[spec.service_key] = spec.create_service(ctx)
+        service_key = spec.service_key
+        create_service = spec.create_service
+        if not service_key or create_service is None:
+            continue
+        services[service_key] = create_service(ctx)
     return services
 
 
-def recurring_provider_services(services: Mapping[str, Any]) -> Dict[str, Any]:
+def recurring_provider_services(
+    services: Mapping[str, object],
+) -> Dict[str, RecurringProviderService]:
     """Map ``provider_key`` to service for every recurring-capable provider.
 
     Keyed by ``provider_key`` because that is what ``Subscription.provider``
     stores, so the renewal worker can resolve the service straight from a
     subscription row without knowing about service-key naming.
     """
-    recurring: Dict[str, Any] = {}
+    recurring: Dict[str, RecurringProviderService] = {}
     for spec in PAYMENT_PROVIDER_SPECS:
         if not spec.supports_recurring or not spec.service_key:
             continue
         service = services.get(spec.service_key)
         if service is not None:
-            recurring[spec.provider_key] = service
+            recurring[spec.provider_key] = cast(RecurringProviderService, service)
     return recurring
 
 

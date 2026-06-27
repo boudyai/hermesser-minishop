@@ -12,6 +12,7 @@
     "@astrojs/starlight": "^0.39.2",
     "astro": "^6.4.7",
     "starlight-theme-nova": "^0.11.11",
+    "swagger-ui-dist": "^5.32.8",
     "typescript": "^6.0.3"
   },
   "overrides": {

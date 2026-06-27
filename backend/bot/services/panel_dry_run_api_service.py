@@ -100,22 +100,23 @@ class _DryRunValidation:
 class PanelDryRunApiService(PanelApiService):
     """Panel API client that reads live data but never mutates Remnawave users."""
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings) -> None:
         super().__init__(settings)
         self._synthetic_users: Dict[str, Dict[str, Any]] = {}
 
     async def _request(
-        self, method: str, endpoint: str, log_full_response: bool = False, **kwargs
+        self, method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
     ) -> Optional[Dict[str, Any]]:
         method_upper = method.upper()
         normalized_endpoint = self._normalize_endpoint(endpoint)
         if not self._should_intercept(method_upper, normalized_endpoint):
-            return await super()._request(
+            result = await super()._request(
                 method_upper,
                 endpoint,
                 log_full_response=log_full_response,
                 **kwargs,
             )
+            return result if isinstance(result, dict) else None
 
         validation = await self._validate_dry_run_request(
             method_upper,
@@ -431,7 +432,7 @@ class PanelDryRunApiService(PanelApiService):
             return None
         if not user:
             validation.add(f"panel user {user_uuid} was not found.")
-        return user
+        return user if isinstance(user, dict) else None
 
     async def _validate_remote_squads(
         self,
@@ -471,7 +472,12 @@ class PanelDryRunApiService(PanelApiService):
             if value in (None, ""):
                 continue
             try:
-                users = await super().get_users_by_filter(**{argument_name: value})
+                if argument_name == "username":
+                    users = await super().get_users_by_filter(username=str(value))
+                elif argument_name == "telegram_id":
+                    users = await super().get_users_by_filter(telegram_id=int(str(value)))
+                else:
+                    users = await super().get_users_by_filter(email=str(value))
             except Exception as exc:
                 validation.add(f"failed to validate unique {label}: {type(exc).__name__}")
                 continue
@@ -624,6 +630,7 @@ class PanelDryRunApiService(PanelApiService):
         return response
 
     def _subscription_url(self, short_uuid: str) -> Optional[str]:
-        if not self.settings.PANEL_API_URL:
+        panel_api_url = self.settings.panel_settings.api_url
+        if not panel_api_url:
             return None
-        return f"{self.settings.PANEL_API_URL.rstrip('/')}/sub/{short_uuid}"
+        return f"{panel_api_url.rstrip('/')}/sub/{short_uuid}"

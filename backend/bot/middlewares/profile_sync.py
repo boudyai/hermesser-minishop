@@ -1,9 +1,9 @@
 import logging
 import time
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional, cast
 
 from aiogram import BaseMiddleware
-from aiogram.types import Update
+from aiogram.types import TelegramObject
 from aiogram.types import User as TgUser
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,11 +18,11 @@ _LOCAL_PROFILE_SYNC_CHECKS: Dict[int, float] = {}
 class ProfileSyncMiddleware(BaseMiddleware):
     async def __call__(
         self,
-        handler: Callable[[Update, Dict[str, Any]], Awaitable[Any]],
-        event: Update,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
         data: Dict[str, Any],
     ) -> Any:
-        session: AsyncSession = data.get("session")
+        session = cast(Optional[AsyncSession], data.get("session"))
         tg_user: Optional[TgUser] = data.get("event_from_user")
         settings: Optional[Settings] = data.get("settings")
 
@@ -87,7 +87,7 @@ class ProfileSyncMiddleware(BaseMiddleware):
 
 
 async def _profile_sync_recently_checked(settings: Settings, telegram_id: int) -> bool:
-    ttl_seconds = int(getattr(settings, "PROFILE_SYNC_CACHE_TTL_SECONDS", 900) or 0)
+    ttl_seconds = int(settings.PROFILE_SYNC_CACHE_TTL_SECONDS or 0)
     if ttl_seconds <= 0:
         return False
 
@@ -108,7 +108,7 @@ async def _profile_sync_recently_checked(settings: Settings, telegram_id: int) -
 
 
 async def _mark_profile_sync_checked(settings: Settings, telegram_id: int) -> None:
-    ttl_seconds = int(getattr(settings, "PROFILE_SYNC_CACHE_TTL_SECONDS", 900) or 0)
+    ttl_seconds = int(settings.PROFILE_SYNC_CACHE_TTL_SECONDS or 0)
     if ttl_seconds <= 0:
         return
 

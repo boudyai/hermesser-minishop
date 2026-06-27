@@ -1,19 +1,48 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+from typing import Annotated, Any, Dict, Literal, Optional
 
-from typing import Literal, Optional
+from aiohttp import web
+from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
+from sqlalchemy.orm import sessionmaker
 
-from pydantic import BaseModel, ConfigDict, constr, field_validator
-
+from bot.app.web.context import (
+    get_session_factory,
+    get_support_service,
+)
+from bot.app.web.request_parsing import parse_body_or_400
+from bot.app.web.route_contracts import (
+    RouteContract,
+    ok_envelope_with,
+    register_contract,
+    schema_ref,
+)
+from bot.app.web.support_schemas import (
+    AdminSupportMessageOut,
+    AdminSupportStatsOut,
+    AdminSupportTicketOut,
+    AdminSupportUserOut,
+    AdminSupportUserSnapshotOut,
+    EmptyObjectOut,
+    SupportTicketOut,
+)
 from bot.services.support_service import TicketNotFound
 from db.dal import support_dal, user_dal
-from db.models import SupportTicket, SupportTicketMessage
+from db.models import SupportTicket, SupportTicketMessage, User
+
+from .auth import (
+    _require_admin_user_id,
+)
+from .common import (
+    _error,
+    _ok,
+)
+
+TicketBodyString = Annotated[str, StringConstraints(min_length=1, max_length=4000)]
 
 
 class AdminTicketReplyPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    body: constr(min_length=1, max_length=4000)
+    body: TicketBodyString
     is_internal_note: bool = False
 
     @field_validator("body")
@@ -36,33 +65,90 @@ class AdminTicketPatchPayload(BaseModel):
     assigned_admin_id: Optional[int] = None
 
 
-def _validate_model_payload(model_cls, payload: Dict[str, Any]):
-    try:
-        return model_cls.model_validate(payload), None
-    except ValidationError:
-        return None, _error(400, "invalid_request", "Invalid request")
+register_contract(
+    "admin_support_tickets_route",
+    RouteContract(
+        response_schema=ok_envelope_with(
+            {
+                "tickets": {
+                    "type": "array",
+                    "items": schema_ref(AdminSupportTicketOut),
+                }
+            }
+        ),
+        models=(AdminSupportTicketOut, AdminSupportUserOut, EmptyObjectOut),
+    ),
+)
+register_contract(
+    "admin_support_ticket_detail_route",
+    RouteContract(
+        response_schema=ok_envelope_with(
+            {
+                "ticket": schema_ref(AdminSupportTicketOut),
+                "messages": {
+                    "type": "array",
+                    "items": schema_ref(AdminSupportMessageOut),
+                },
+                "user_snapshot": {
+                    "oneOf": [
+                        schema_ref(AdminSupportUserSnapshotOut),
+                        schema_ref(EmptyObjectOut),
+                    ]
+                },
+            }
+        ),
+        models=(
+            AdminSupportMessageOut,
+            AdminSupportTicketOut,
+            AdminSupportUserOut,
+            AdminSupportUserSnapshotOut,
+            EmptyObjectOut,
+        ),
+    ),
+)
+register_contract(
+    "admin_support_ticket_reply_route",
+    RouteContract(
+        request_model=AdminTicketReplyPayload,
+        response_schema=ok_envelope_with(
+            {
+                "ticket": schema_ref(SupportTicketOut),
+                "message": schema_ref(AdminSupportMessageOut),
+            }
+        ),
+        models=(AdminTicketReplyPayload, AdminSupportMessageOut, SupportTicketOut),
+    ),
+)
+register_contract(
+    "admin_support_ticket_patch_route",
+    RouteContract(
+        request_model=AdminTicketPatchPayload,
+        response_schema=ok_envelope_with({"ticket": schema_ref(SupportTicketOut)}),
+        models=(AdminTicketPatchPayload, SupportTicketOut),
+    ),
+)
+register_contract(
+    "admin_support_ticket_read_route",
+    RouteContract(response_schema=ok_envelope_with()),
+)
+register_contract(
+    "admin_support_stats_route",
+    RouteContract(
+        response_schema=ok_envelope_with({"stats": schema_ref(AdminSupportStatsOut)}),
+        models=(AdminSupportStatsOut,),
+    ),
+)
+
+
+def _invalid_request_payload_response(_exc: Exception) -> web.Response:
+    return _error(400, "invalid_request", "Invalid request")
 
 
 def _support_ticket_payload(ticket: SupportTicket) -> Dict[str, Any]:
-    return {
-        "ticket_id": ticket.ticket_id,
-        "user_id": ticket.user_id,
-        "subject": ticket.subject,
-        "category": ticket.category,
-        "priority": ticket.priority,
-        "status": ticket.status,
-        "assigned_admin_id": ticket.assigned_admin_id,
-        "last_message_at": ticket.last_message_at.isoformat() if ticket.last_message_at else None,
-        "last_message_role": ticket.last_message_role,
-        "unread_user_count": int(ticket.unread_user_count or 0),
-        "unread_admin_count": int(ticket.unread_admin_count or 0),
-        "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
-        "updated_at": ticket.updated_at.isoformat() if ticket.updated_at else None,
-        "closed_at": ticket.closed_at.isoformat() if ticket.closed_at else None,
-    }
+    return SupportTicketOut.from_orm_ticket(ticket).model_dump(mode="json")
 
 
-def _user_display_name(user) -> Optional[str]:
+def _user_display_name(user: Optional[User]) -> Optional[str]:
     if not user:
         return None
     name = " ".join(
@@ -77,36 +163,16 @@ def _support_message_payload(
     authors: Optional[Dict[int, Any]] = None,
 ) -> Dict[str, Any]:
     author = authors.get(message.author_user_id) if authors and message.author_user_id else None
-    return {
-        "message_id": message.message_id,
-        "ticket_id": message.ticket_id,
-        "author_role": message.author_role,
-        "author_user_id": message.author_user_id,
-        "author_name": _user_display_name(author),
-        "body": message.body,
-        "is_internal_note": bool(message.is_internal_note),
-        "created_at": message.created_at.isoformat() if message.created_at else None,
-        "read_by_user_at": message.read_by_user_at.isoformat() if message.read_by_user_at else None,
-        "read_by_admin_at": message.read_by_admin_at.isoformat()
-        if message.read_by_admin_at
-        else None,
-    }
+    return AdminSupportMessageOut.from_orm_message(
+        message,
+        author_name=_user_display_name(author),
+    ).model_dump(mode="json")
 
 
-def _admin_support_user_payload(user) -> Dict[str, Any]:
+def _admin_support_user_payload(user: Optional[User]) -> Dict[str, Any]:
     if not user:
         return {}
-    return {
-        "user_id": user.user_id,
-        "telegram_id": user.telegram_id,
-        "username": user.username,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "email": user.email,
-        "telegram_photo_url": user.telegram_photo_url,
-        "is_banned": bool(user.is_banned),
-        "registration_date": user.registration_date.isoformat() if user.registration_date else None,
-    }
+    return AdminSupportUserOut.from_orm_user(user).model_dump(mode="json")
 
 
 def _support_limit_offset(request: web.Request) -> tuple[int, int]:
@@ -122,7 +188,7 @@ async def admin_support_tickets_route(request: web.Request) -> web.Response:
     assigned_admin_id = None
     if assigned_raw and assigned_raw not in {"all", "any"}:
         assigned_admin_id = int(assigned_raw)
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         tickets = await support_dal.list_admin_tickets(
             session,
@@ -135,9 +201,8 @@ async def admin_support_tickets_route(request: web.Request) -> web.Response:
             limit=limit,
             offset=offset,
         )
-    return web.json_response(
+    return _ok(
         {
-            "ok": True,
             "tickets": [
                 {
                     **_support_ticket_payload(ticket),
@@ -152,8 +217,8 @@ async def admin_support_tickets_route(request: web.Request) -> web.Response:
 async def admin_support_ticket_detail_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     ticket_id = int(request.match_info["id"])
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
-    service = request.app["support_service"]
+    async_session_factory: sessionmaker = get_session_factory(request)
+    service = get_support_service(request)
     async with async_session_factory() as session:
         ticket, messages = await support_dal.get_ticket(session, ticket_id, include_internal=True)
         if not ticket:
@@ -166,9 +231,8 @@ async def admin_support_ticket_detail_route(request: web.Request) -> web.Respons
             author = await user_dal.get_user_by_id(session, author_id)
             if author:
                 authors[author_id] = author
-    return web.json_response(
+    return _ok(
         {
-            "ok": True,
             "ticket": {
                 **_support_ticket_payload(ticket),
                 "user": _admin_support_user_payload(user),
@@ -182,11 +246,13 @@ async def admin_support_ticket_detail_route(request: web.Request) -> web.Respons
 async def admin_support_ticket_reply_route(request: web.Request) -> web.Response:
     admin_id = _require_admin_user_id(request)
     ticket_id = int(request.match_info["id"])
-    payload, error = _validate_model_payload(AdminTicketReplyPayload, await _read_json(request))
-    if error:
-        return error
+    payload = await parse_body_or_400(
+        request,
+        AdminTicketReplyPayload,
+        validation_error_response_factory=_invalid_request_payload_response,
+    )
     try:
-        ticket, message = await request.app["support_service"].reply_as_admin(
+        ticket, message = await get_support_service(request).reply_as_admin(
             admin_id,
             ticket_id,
             payload.body,
@@ -194,12 +260,11 @@ async def admin_support_ticket_reply_route(request: web.Request) -> web.Response
         )
     except TicketNotFound:
         return _error(404, "not_found", "Ticket not found")
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         admin = await user_dal.get_user_by_id(session, admin_id)
-    return web.json_response(
+    return _ok(
         {
-            "ok": True,
             "ticket": _support_ticket_payload(ticket),
             "message": _support_message_payload(
                 message, authors={admin_id: admin} if admin else {}
@@ -211,41 +276,43 @@ async def admin_support_ticket_reply_route(request: web.Request) -> web.Response
 async def admin_support_ticket_patch_route(request: web.Request) -> web.Response:
     admin_id = _require_admin_user_id(request)
     ticket_id = int(request.match_info["id"])
-    payload, error = _validate_model_payload(AdminTicketPatchPayload, await _read_json(request))
-    if error:
-        return error
+    payload = await parse_body_or_400(
+        request,
+        AdminTicketPatchPayload,
+        validation_error_response_factory=_invalid_request_payload_response,
+    )
     updates = payload.model_dump(exclude_unset=True)
     try:
         if updates.get("status") == "closed":
-            ticket = await request.app["support_service"].close_ticket(admin_id, ticket_id)
+            ticket = await get_support_service(request).close_ticket(admin_id, ticket_id)
             updates.pop("status", None)
             if updates:
-                ticket = await request.app["support_service"]._update_and_audit(
+                ticket = await get_support_service(request)._update_and_audit(
                     admin_id,
                     ticket_id,
                     **updates,
                 )
         else:
-            ticket = await request.app["support_service"]._update_and_audit(
+            ticket = await get_support_service(request)._update_and_audit(
                 admin_id,
                 ticket_id,
                 **updates,
             )
     except TicketNotFound:
         return _error(404, "not_found", "Ticket not found")
-    return web.json_response({"ok": True, "ticket": _support_ticket_payload(ticket)})
+    return _ok({"ticket": _support_ticket_payload(ticket)})
 
 
 async def admin_support_ticket_read_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     ticket_id = int(request.match_info["id"])
-    await request.app["support_service"].mark_read_as_admin(ticket_id)
-    return web.json_response({"ok": True})
+    await get_support_service(request).mark_read_as_admin(ticket_id)
+    return _ok({})
 
 
 async def admin_support_stats_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         stats = await support_dal.admin_stats(session)
-    return web.json_response({"ok": True, "stats": stats})
+    return _ok({"stats": stats})

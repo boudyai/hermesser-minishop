@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Input } from "$components/ui/index.js";
   import { Trash2 } from "$components/ui/icons.js";
   import { getContext, onMount } from "svelte";
@@ -12,26 +12,39 @@
     AdminTable,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
-  import {
-    createAdminDatatable,
-    syncAdminDatatable,
-    watchAdminDatatable,
-  } from "../../lib/admin/datatables.js";
+  import { TableHandler } from "@vincjo/datatables";
+  import type { AdsStore } from "../../lib/admin/stores/adsStore";
+  import type { components } from "../../lib/api/openapi.generated";
 
-  export let at;
-  export let fmtMoney;
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type Ad = components["schemas"]["AdOut"];
+  type AdDraft = components["schemas"]["AdCreateBody"];
+
+  let {
+    at,
+    fmtMoney,
+  }: {
+    at: TranslateFn;
+    fmtMoney: (value: number) => string;
+  } = $props();
 
   const ADS_PAGE_SIZE = 10;
-  const adsStore = getContext("adsStore");
-  const adsTable = createAdminDatatable([], { rowsPerPage: ADS_PAGE_SIZE });
-  const adsSignal = watchAdminDatatable(adsTable);
+  const adsStore = getContext<AdsStore>("adsStore");
+  const adsTable = new TableHandler<Ad>([], { rowsPerPage: ADS_PAGE_SIZE });
 
-  $: ({ ads, adsLoading, adCreateOpen, adDraft } = $adsStore);
-  $: {
-    syncAdminDatatable(adsTable, ads);
+  const ads = $derived(adsStore.ads as Ad[]);
+  const adsLoading = $derived(Boolean(adsStore.adsLoading));
+  const adCreateOpen = $derived(Boolean(adsStore.adCreateOpen));
+  const adDraft = $derived(
+    (adsStore.adDraft || { source: "", start_param: "", cost: 0 }) as AdDraft
+  );
+  const adRows = $derived(adsTable.rows as Ad[]);
+
+  $effect(() => {
+    adsTable.setRows(ads);
     if (adsTable.currentPage > (adsTable.pageCount || 1)) adsTable.setPage(adsTable.pageCount || 1);
-  }
-  $: adHeaders = [
+  });
+  const adHeaders = $derived([
     at("id", {}, "ID"),
     at("ads_col_source", {}, "Источник"),
     at("ads_col_param", {}, "Параметр"),
@@ -40,11 +53,17 @@
     at("ads_col_conversions", {}, "Конверсии"),
     at("ads_col_status", {}, "Статус"),
     at("actions", {}, "Действия"),
-  ];
+  ]);
 
   onMount(() => {
     adsStore.loadAds();
   });
+
+  function adStat(ad: Ad, key: string): number {
+    const raw = ad.stats?.[key];
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : 0;
+  }
 </script>
 
 <div class="admin-table-wrap">
@@ -74,7 +93,7 @@
         </tr>
       </thead>
       <tbody>
-        {#each $adsSignal.rows as ad (ad.id)}
+        {#each adRows as ad (ad.id)}
           <tr>
             <td class="admin-cell-id" data-label={at("id", {}, "ID")}>#{ad.id}</td>
             <td data-label={at("ads_col_source", {}, "Источник")}>{ad.source}</td>
@@ -83,10 +102,10 @@
             >
             <td data-label={at("ads_col_cost", {}, "Стоимость")}>{fmtMoney(ad.cost)}</td>
             <td data-label={at("ads_col_registrations", {}, "Регистрации")}
-              >{ad.stats?.registrations ?? 0}</td
+              >{adStat(ad, "registrations")}</td
             >
             <td data-label={at("ads_col_conversions", {}, "Конверсии")}
-              >{ad.stats?.conversions ?? 0}</td
+              >{adStat(ad, "conversions")}</td
             >
             <td data-label={at("ads_col_status", {}, "Статус")}>
               {#if ad.is_active}
@@ -138,7 +157,8 @@
           type="text"
           placeholder="telegram_ads"
           value={adDraft.source}
-          on:input={(e) => adsStore.updateDraft({ source: e.target.value })}
+          oninput={(e) =>
+            adsStore.updateDraft({ source: (e.currentTarget as HTMLInputElement).value })}
         />
       </AdminField>
       <AdminField
@@ -150,7 +170,8 @@
           type="text"
           placeholder="ads_summer25"
           value={adDraft.start_param}
-          on:input={(e) => adsStore.updateDraft({ start_param: e.target.value })}
+          oninput={(e) =>
+            adsStore.updateDraft({ start_param: (e.currentTarget as HTMLInputElement).value })}
         />
       </AdminField>
     </div>
@@ -161,8 +182,9 @@
           type="number"
           step="0.01"
           min="0"
-          value={adDraft.cost}
-          on:input={(e) => adsStore.updateDraft({ cost: Number(e.target.value) })}
+          value={String(adDraft.cost)}
+          oninput={(e) =>
+            adsStore.updateDraft({ cost: Number((e.currentTarget as HTMLInputElement).value) })}
         />
       </AdminField>
     </div>

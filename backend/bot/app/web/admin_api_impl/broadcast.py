@@ -1,12 +1,46 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
-from .common import _panel_user_connection_activity
-
 import asyncio
+import logging
 from collections import defaultdict
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, cast
 
+from aiohttp import web
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import sessionmaker
+
+from bot.app.web.context import (
+    get_optional_subscription_service,
+    get_session_factory,
+    get_settings,
+)
+from bot.app.web.request_parsing import parse_body_or_400
+from bot.app.web.route_contracts import (
+    INTEGER_SCHEMA,
+    STRING_SCHEMA,
+    RouteContract,
+    loose_object_schema,
+    ok_envelope_with,
+    register_contract,
+)
+from bot.utils import MessageContent, send_message_via_queue
+from bot.utils.message_queue import get_queue_manager
 from bot.utils.ttl_cache import AsyncTTLCache
+from config.settings import Settings
+from db.dal import message_log_dal, user_dal
+from db.models import Subscription, User
 
+from .auth import (
+    _require_admin_user_id,
+)
+from .common import (
+    _error,
+    _ok,
+    _panel_user_connection_activity,
+)
+from .schemas import AdminBroadcastBody
+
+logger = logging.getLogger(__name__)
 
 BROADCAST_TARGET_ACTIVE_NEVER_CONNECTED = "active_never_connected"
 BROADCAST_TARGETS = {
@@ -20,9 +54,23 @@ BROADCAST_TARGETS = {
 PANEL_ACTIVITY_LOOKUP_CONCURRENCY = 10
 _ADMIN_BROADCAST_AUDIENCE_COUNT_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {}
 
+register_contract(
+    "admin_broadcast_route",
+    RouteContract(
+        request_model=AdminBroadcastBody,
+        response_schema=ok_envelope_with(
+            {"queued": INTEGER_SCHEMA, "failed": INTEGER_SCHEMA, "target": STRING_SCHEMA}
+        ),
+    ),
+)
+register_contract(
+    "admin_broadcast_audience_counts_route",
+    RouteContract(response_schema=ok_envelope_with({"counts": loose_object_schema()})),
+)
+
 
 def _resolve_panel_service(request: web.Request) -> Any:
-    subscription_service = request.app.get("subscription_service")
+    subscription_service = get_optional_subscription_service(request)
     return getattr(subscription_service, "panel_service", None)
 
 
@@ -99,9 +147,7 @@ async def _user_ids_with_active_subscription_never_connected(
 
 
 def _admin_broadcast_audience_counts_cache(settings: Settings) -> Optional[AsyncTTLCache]:
-    ttl_seconds = int(
-        getattr(settings, "ADMIN_BROADCAST_AUDIENCE_COUNTS_CACHE_TTL_SECONDS", 30) or 0
-    )
+    ttl_seconds = int(settings.ADMIN_BROADCAST_AUDIENCE_COUNTS_CACHE_TTL_SECONDS or 0)
     if ttl_seconds <= 0:
         return None
     cache_key = (id(settings), ttl_seconds)
@@ -128,11 +174,14 @@ async def _load_broadcast_audience_counts(
             panel_service,
         )
     cache_key = "with-panel" if panel_service is not None else "without-panel"
-    return await cache.get_or_load(
-        cache_key,
-        lambda: _load_broadcast_audience_counts_uncached(
-            async_session_factory,
-            panel_service,
+    return cast(
+        Dict[str, Optional[int]],
+        await cache.get_or_load(
+            cache_key,
+            lambda: _load_broadcast_audience_counts_uncached(
+                async_session_factory,
+                panel_service,
+            ),
         ),
     )
 
@@ -164,9 +213,9 @@ async def _load_broadcast_audience_counts_uncached(
 
 async def admin_broadcast_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
-    payload = await _read_json(request)
-    text = str(payload.get("text") or "").strip()
-    target = str(payload.get("target") or "all").strip().lower()
+    body = await parse_body_or_400(request, AdminBroadcastBody)
+    text = str(body.text or "").strip()
+    target = str(body.target or "all").strip().lower()
     if not text:
         return _error(400, "empty_text")
     if target not in BROADCAST_TARGETS:
@@ -176,7 +225,7 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
     if not queue_manager:
         return _error(503, "queue_unavailable")
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         if target == BROADCAST_TARGET_ACTIVE_NEVER_CONNECTED:
             panel_service = _resolve_panel_service(request)
@@ -230,8 +279,8 @@ async def admin_broadcast_audience_counts_route(request: web.Request) -> web.Res
     """Return how many users each broadcast audience currently resolves to."""
     _require_admin_user_id(request)
 
-    settings: Settings = request.app["settings"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    settings: Settings = get_settings(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
     panel_service = _resolve_panel_service(request)
     counts = await _load_broadcast_audience_counts(
         settings,

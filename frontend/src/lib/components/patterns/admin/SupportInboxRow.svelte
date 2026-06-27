@@ -2,21 +2,26 @@
   import { AdminBadge } from "$components/patterns/admin/index.js";
   import { MessageSquare } from "$components/ui/icons.js";
 
-  export let ticket;
-  export let active = false;
-  export let at = (key) => key;
-  export let onOpen = () => {};
+  let { ticket, active = false, at = (key) => key, onOpen = () => {} } = $props();
 
-  $: user = ticket?.user || {};
-  $: timeLabel = formatTime(ticket?.last_message_at || ticket?.updated_at || ticket?.created_at);
-  $: userLabel = user.username ? `@${user.username}` : user.email || user.user_id || "-";
-  $: avatarUrl = user?.avatar_url || user?.photo_url || "";
-  $: avatarInitials = computeInitials(user);
-  $: categoryLabel = at(`support_category_${ticket?.category}`, {}, ticket?.category || "-");
-  $: statusVariant =
-    ticket?.status === "closed" || ticket?.status === "resolved" ? "muted" : "success";
-  $: priorityVariant =
-    ticket?.priority === "urgent" ? "danger" : ticket?.priority === "high" ? "warning" : "muted";
+  const user = $derived(ticket?.user || {});
+  const timeLabel = $derived(
+    formatTime(ticket?.last_message_at || ticket?.updated_at || ticket?.created_at)
+  );
+  const userLabel = $derived(
+    user.username ? `@${user.username}` : user.email || user.user_id || "-"
+  );
+  const avatarUrl = $derived(user?.avatar_url || user?.photo_url || "");
+  const avatarInitials = $derived(computeInitials(user));
+  const categoryLabel = $derived(
+    at(`support_category_${ticket?.category}`, {}, ticket?.category || "-")
+  );
+  const statusVariant = $derived(
+    ticket?.status === "closed" || ticket?.status === "resolved" ? "muted" : "success"
+  );
+  const priorityVariant = $derived(
+    ticket?.priority === "urgent" ? "danger" : ticket?.priority === "high" ? "warning" : "muted"
+  );
 
   function computeInitials(u) {
     const source =
@@ -49,7 +54,7 @@
   type="button"
   data-status={ticket?.status}
   data-priority={ticket?.priority}
-  on:click={() => onOpen(ticket)}
+  onclick={() => onOpen(ticket)}
 >
   <span class="support-inbox-row-avatar" aria-hidden="true">
     {#if avatarUrl}

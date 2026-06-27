@@ -1,11 +1,66 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
-from .webapp_runtime import refresh_webapp_runtime_after_settings_change
+import logging
+from typing import Any, Dict, List
+
+from aiohttp import web
+from pydantic import ValidationError
+
+from bot.app.web.context import (
+    get_settings,
+)
+from bot.app.web.request_parsing import parse_body_or_400
+from bot.app.web.route_contracts import (
+    BOOLEAN_SCHEMA,
+    STRING_SCHEMA,
+    RouteContract,
+    loose_array_schema,
+    loose_object_schema,
+    ok_envelope_with,
+    register_contract,
+)
+from bot.app.web.webapp.cache_helpers import refresh_webapp_runtime_after_settings_change
+from config.settings import Settings
+from config.tariffs_config import TariffsConfig, default_payment_currency_code_for_settings
+
+from .auth import (
+    _require_admin_user_id,
+)
+from .common import (
+    _error,
+    _ok,
+    _tariffs_config_path,
+    _tariffs_config_payload,
+    _write_tariffs_config_file,
+)
+from .schemas import TariffsSaveBody
+
+logger = logging.getLogger(__name__)
+
+_TARIFFS_RESPONSE_SCHEMA = ok_envelope_with(
+    {
+        "exists": BOOLEAN_SCHEMA,
+        "path": STRING_SCHEMA,
+        "catalog": loose_object_schema(),
+        "provider_currency_support": loose_array_schema(),
+    }
+)
+
+register_contract(
+    "admin_tariffs_get_route",
+    RouteContract(response_schema=_TARIFFS_RESPONSE_SCHEMA, models=(TariffsConfig,)),
+)
+register_contract(
+    "admin_tariffs_save_route",
+    RouteContract(
+        request_model=TariffsSaveBody,
+        response_schema=_TARIFFS_RESPONSE_SCHEMA,
+        models=(TariffsConfig,),
+    ),
+)
 
 
 async def admin_tariffs_get_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     path = _tariffs_config_path(settings)
 
     try:
@@ -44,9 +99,9 @@ async def admin_tariffs_get_route(request: web.Request) -> web.Response:
 
 async def admin_tariffs_save_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
-    payload = await _read_json(request)
-    catalog = payload.get("catalog") if "catalog" in payload else payload
+    settings: Settings = get_settings(request)
+    body = await parse_body_or_400(request, TariffsSaveBody)
+    catalog = body.catalog_payload()
     if not isinstance(catalog, dict):
         return _error(400, "invalid_payload", "catalog must be an object")
 

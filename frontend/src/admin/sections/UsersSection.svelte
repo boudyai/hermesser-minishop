@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Input } from "$components/ui/index.js";
   import {
     ArrowDown,
@@ -22,38 +22,79 @@
   } from "$components/patterns/admin/index.js";
   import { getContext, onMount } from "svelte";
   import { trafficOfLabel } from "../../lib/admin/format.js";
-  import { createAdminDatatable, syncAdminDatatable } from "../../lib/admin/datatables.js";
+  import { TableHandler } from "@vincjo/datatables";
+  import type { AdminUser, UsersStore } from "../../lib/admin/stores/usersStore";
 
-  export let at = (key) => key;
-  export let fmtDateShort = (value) => value;
-  export let fmtMoney = (value) => value;
-  export let panelStatusBadge = () => ({});
-  export let resolvedAvatarUrl = () => "";
-  export let userDisplayName = () => "";
-  export let userInitials = () => "";
-  export let userSecondaryName = () => "";
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type SelectOption = { value: string; label: string };
+  type SortColumn = {
+    asc: string;
+    desc: string;
+    defaultDirection: "asc" | "desc";
+  };
+  type UserTableColumn = {
+    key: string;
+    label: string;
+    sort?: SortColumn;
+  };
+  type ComponentCallback = () => void;
+  type FilterKey = "usersFilter" | "usersPanelStatus" | "usersPremiumTraffic";
+  type FilterPatch = Partial<Record<FilterKey, string>> & { usersPage?: number };
+  type FilterChip = { key: FilterKey; label: string; value: string };
+  type UsersSectionProps = {
+    at?: TranslateFn;
+    fmtDateShort?: (value: string | null | undefined) => string;
+    fmtMoney?: (value: number, currency?: string | null) => string;
+    panelStatusBadge?: (user: AdminUser) => Record<string, string>;
+    resolvedAvatarUrl?: (user: AdminUser) => string;
+    userDisplayName?: (user: AdminUser) => string;
+    userInitials?: (user: AdminUser) => string;
+    userSecondaryName?: (user: AdminUser) => string;
+  };
+  type TrafficBadge =
+    | {
+        state?: string;
+        used_bytes?: number | string | null;
+        limit_bytes?: number | string | null;
+      }
+    | null
+    | undefined;
 
-  const usersStore = getContext("usersStore");
-  const usersTable = createAdminDatatable();
+  let {
+    at = (key) => key,
+    fmtDateShort = (value) => String(value || ""),
+    fmtMoney = (value) => String(value),
+    panelStatusBadge = () => ({}),
+    resolvedAvatarUrl = () => "",
+    userDisplayName = () => "",
+    userInitials = () => "",
+    userSecondaryName = () => "",
+  }: UsersSectionProps = $props();
 
-  $: ({
-    users,
-    usersTotal,
-    usersPage,
-    usersQuery,
-    usersFilter,
-    usersPanelStatus,
-    usersPremiumTraffic,
-    usersSort,
-    usersLoading,
-  } = $usersStore);
-  $: syncAdminDatatable(usersTable, users);
+  const usersStore = getContext<UsersStore>("usersStore");
+  const usersTable = new TableHandler<AdminUser>();
+  const usersState = $derived(usersStore);
+  const users = $derived(usersState.users);
+  const usersTotal = $derived(usersState.usersTotal);
+  const usersPage = $derived(usersState.usersPage);
+  const usersQuery = $derived(usersState.usersQuery);
+  const usersFilter = $derived(usersState.usersFilter);
+  const usersPanelStatus = $derived(usersState.usersPanelStatus);
+  const usersPremiumTraffic = $derived(usersState.usersPremiumTraffic);
+  const usersSort = $derived(usersState.usersSort);
+  const usersLoading = $derived(usersState.usersLoading);
+
+  $effect(() => {
+    usersTable.setRows(users);
+  });
 
   const USERS_PAGE_SIZE = 25;
-  let usersFilterSheetOpen = false;
-  $: usersPageCount = Math.max(1, Math.ceil(Number(usersTotal || 0) / USERS_PAGE_SIZE));
+  let usersFilterSheetOpen = $state(false);
+  const usersPageCount = $derived(
+    Math.max(1, Math.ceil(Number(usersTotal || 0) / USERS_PAGE_SIZE))
+  );
 
-  const USERS_FILTER_OPTIONS = [
+  const USERS_FILTER_OPTIONS = $derived([
     { value: "all", label: at("filter_all", {}, "Все") },
     { value: "active", label: at("filter_not_banned", {}, "Не забанены") },
     { value: "banned", label: at("filter_banned", {}, "Забанены") },
@@ -62,7 +103,7 @@
     { value: "email_linked", label: at("filter_email_linked", {}, "С email") },
     { value: "no_email", label: at("filter_no_email", {}, "Без email") },
     { value: "panel_linked", label: at("filter_panel_linked", {}, "С панелью") },
-  ];
+  ] satisfies SelectOption[]);
 
   const SORT_COLUMNS = {
     user: { asc: "name_asc", desc: "name_desc", defaultDirection: "asc" },
@@ -88,16 +129,16 @@
       defaultDirection: "asc",
     },
     registration: { asc: "registered_asc", desc: "registered_desc", defaultDirection: "desc" },
-  };
+  } satisfies Record<string, SortColumn>;
 
-  const USERS_PANEL_STATUS_OPTIONS = [
+  const USERS_PANEL_STATUS_OPTIONS = $derived([
     { value: "all", label: at("panel_status_all", {}, "Все статусы") },
     { value: "active", label: at("status_active", {}, "active") },
     { value: "expired", label: at("status_expired", {}, "expired") },
     { value: "limited", label: at("status_limited", {}, "limited") },
-  ];
+  ] satisfies SelectOption[]);
 
-  const USERS_PREMIUM_TRAFFIC_OPTIONS = [
+  const USERS_PREMIUM_TRAFFIC_OPTIONS = $derived([
     { value: "all", label: at("premium_traffic_filter_all", {}, "Все (премиум)") },
     { value: "none", label: at("premium_traffic_filter_none", {}, "Без лимита в тарифе") },
     {
@@ -107,18 +148,37 @@
     { value: "good", label: at("premium_traffic_filter_good", {}, "Премиум: норма") },
     { value: "warn", label: at("premium_traffic_filter_warn", {}, "Премиум: мало") },
     { value: "critical", label: at("premium_traffic_filter_critical", {}, "Премиум: исчерпан") },
-  ];
+  ] satisfies SelectOption[]);
 
-  function optionLabel(options, value) {
+  function optionLabel(options: SelectOption[], value: string): string {
     return options.find((item) => item.value === value)?.label || value;
   }
 
-  function updateUsersFilterState(patch) {
+  function updateUsersFilterState(patch: FilterPatch): void {
     usersStore.updateState({ ...patch, usersPage: 0 });
-    usersStore.loadUsers();
+    void usersStore.loadUsers();
   }
 
-  function resetUsersFilters() {
+  const updateUsersFilter = ((value: string) =>
+    updateUsersFilterState({ usersFilter: value })) as ComponentCallback;
+  const updateUsersPanelStatus = ((value: string) =>
+    updateUsersFilterState({ usersPanelStatus: value })) as ComponentCallback;
+  const updateUsersPremiumTraffic = ((value: string) =>
+    updateUsersFilterState({ usersPremiumTraffic: value })) as ComponentCallback;
+  const updateToolbarUsersFilter = ((value: string) => {
+    usersStore.updateState({ usersFilter: value, usersPage: 0 });
+    void usersStore.loadUsers();
+  }) as ComponentCallback;
+  const updateToolbarPanelStatus = ((value: string) => {
+    usersStore.updateState({ usersPanelStatus: value, usersPage: 0 });
+    void usersStore.loadUsers();
+  }) as ComponentCallback;
+  const updateToolbarPremiumTraffic = ((value: string) => {
+    usersStore.updateState({ usersPremiumTraffic: value, usersPage: 0 });
+    void usersStore.loadUsers();
+  }) as ComponentCallback;
+
+  function resetUsersFilters(): void {
     updateUsersFilterState({
       usersFilter: "all",
       usersPanelStatus: "all",
@@ -126,28 +186,30 @@
     });
   }
 
-  function clearUsersFilter(key) {
+  function clearUsersFilter(key: FilterKey): void {
     if (key === "usersFilter") updateUsersFilterState({ usersFilter: "all" });
     if (key === "usersPanelStatus") updateUsersFilterState({ usersPanelStatus: "all" });
     if (key === "usersPremiumTraffic") updateUsersFilterState({ usersPremiumTraffic: "all" });
   }
 
-  /** @param {Record<string, unknown> | null | undefined} pt */
-  function premiumTrafficBadgeVariant(pt) {
+  function isFilterChip(value: FilterChip | false): value is FilterChip {
+    return Boolean(value);
+  }
+
+  function premiumTrafficBadgeVariant(pt: TrafficBadge): string {
     if (!pt || pt.state === "none") return "muted";
     if (pt.state === "unlimited" || pt.state === "good") return "success";
     if (pt.state === "warn") return "warning";
     return "danger";
   }
 
-  /** @param {Record<string, unknown> | null | undefined} pt */
-  function premiumTrafficBadgeText(pt) {
+  function premiumTrafficBadgeText(pt: TrafficBadge): string {
     if (!pt || pt.state === "none") return "";
     if (pt.state === "unlimited") return trafficOfLabel(pt.used_bytes, 0);
     return trafficOfLabel(pt.used_bytes, pt.limit_bytes);
   }
 
-  function userTableColumns() {
+  function userTableColumns(): UserTableColumn[] {
     return [
       { key: "user", label: at("user", {}, "Пользователь"), sort: SORT_COLUMNS.user },
       {
@@ -184,14 +246,14 @@
     ];
   }
 
-  function sortState(column) {
+  function sortState(column: SortColumn | undefined): "none" | "ascending" | "descending" {
     if (!column) return "none";
     if (usersSort === column.asc) return "ascending";
     if (usersSort === column.desc) return "descending";
     return "none";
   }
 
-  function nextSortValue(column) {
+  function nextSortValue(column: SortColumn): string {
     const state = sortState(column);
     const defaultValue = column[column.defaultDirection] || column.asc;
     if (state === "none") return defaultValue;
@@ -201,41 +263,60 @@
     return "";
   }
 
-  function toggleUsersSort(column) {
+  function toggleUsersSort(column: SortColumn): void {
     usersStore.updateState({ usersSort: nextSortValue(column), usersPage: 0 });
-    usersStore.loadUsers();
+    void usersStore.loadUsers();
   }
 
-  function sortTitle(column) {
+  function toggleUsersSortForColumn(column: UserTableColumn): void {
+    if (column.sort) toggleUsersSort(column.sort);
+  }
+
+  function sortTitle(column: SortColumn): string {
     const state = sortState(column);
     if (state === "ascending") return at("sort_ascending", {}, "По возрастанию");
     if (state === "descending") return at("sort_descending", {}, "По убыванию");
     return at("sort_off", {}, "Без сортировки");
   }
 
-  function rowPaymentsTotal(user) {
+  function rowPaymentsTotal(user: AdminUser): string {
     return fmtMoney(user?.payments_total_amount ?? 0, user?.payments_currency || "RUB");
   }
 
-  $: activeUserFilterChips = [
-    usersFilter !== "all" && {
-      key: "usersFilter",
-      label: at("filter", {}, "Фильтр"),
-      value: optionLabel(USERS_FILTER_OPTIONS, usersFilter),
-    },
-    usersPanelStatus !== "all" && {
-      key: "usersPanelStatus",
-      label: at("panel_status", {}, "Статус панели"),
-      value: optionLabel(USERS_PANEL_STATUS_OPTIONS, usersPanelStatus),
-    },
-    usersPremiumTraffic !== "all" && {
-      key: "usersPremiumTraffic",
-      label: at("premium_traffic_filter_label", {}, "Премиум трафик"),
-      value: optionLabel(USERS_PREMIUM_TRAFFIC_OPTIONS, usersPremiumTraffic),
-    },
-  ].filter(Boolean);
-  $: activeUsersFilterCount = activeUserFilterChips.length;
-  $: userTableHeaders = userTableColumns().map((column) => column.label);
+  function handleUsersSearchInput(event: Event): void {
+    const input = event.currentTarget as HTMLInputElement | null;
+    usersStore.updateState({ usersQuery: input?.value || "" });
+  }
+
+  function handleUsersSearchKeydown(event: KeyboardEvent): void {
+    if (event.key !== "Enter") return;
+    usersStore.updateState({ usersPage: 0 });
+    void usersStore.loadUsers();
+  }
+
+  const activeUserFilterChips = $derived(
+    (
+      [
+        usersFilter !== "all" && {
+          key: "usersFilter",
+          label: at("filter", {}, "Фильтр"),
+          value: optionLabel(USERS_FILTER_OPTIONS, usersFilter),
+        },
+        usersPanelStatus !== "all" && {
+          key: "usersPanelStatus",
+          label: at("panel_status", {}, "Статус панели"),
+          value: optionLabel(USERS_PANEL_STATUS_OPTIONS, usersPanelStatus),
+        },
+        usersPremiumTraffic !== "all" && {
+          key: "usersPremiumTraffic",
+          label: at("premium_traffic_filter_label", {}, "Премиум трафик"),
+          value: optionLabel(USERS_PREMIUM_TRAFFIC_OPTIONS, usersPremiumTraffic),
+        },
+      ] satisfies (FilterChip | false)[]
+    ).filter(isFilterChip)
+  );
+  const activeUsersFilterCount = $derived(activeUserFilterChips.length);
+  const userTableHeaders = $derived(userTableColumns().map((column) => column.label));
 
   onMount(() => {
     usersStore.loadUsers();
@@ -250,7 +331,7 @@
       items={USERS_FILTER_OPTIONS}
       class="admin-toolbar-select"
       ariaLabel={at("filter", {}, "Фильтр")}
-      onValueChange={(value) => updateUsersFilterState({ usersFilter: value })}
+      onValueChange={updateUsersFilter}
     />
   </Label.Root>
 
@@ -261,7 +342,7 @@
       items={USERS_PANEL_STATUS_OPTIONS}
       class="admin-toolbar-select"
       ariaLabel={at("panel_status", {}, "Статус панели")}
-      onValueChange={(value) => updateUsersFilterState({ usersPanelStatus: value })}
+      onValueChange={updateUsersPanelStatus}
     />
   </Label.Root>
 
@@ -274,7 +355,7 @@
       items={USERS_PREMIUM_TRAFFIC_OPTIONS}
       class="admin-toolbar-select"
       ariaLabel={at("premium_traffic_filter_label", {}, "Премиум трафик")}
-      onValueChange={(value) => updateUsersFilterState({ usersPremiumTraffic: value })}
+      onValueChange={updateUsersPremiumTraffic}
     />
   </Label.Root>
 {/snippet}
@@ -291,7 +372,7 @@
           <button
             type="button"
             aria-label={at("clear_filter", { label: chip.label }, "Сбросить фильтр")}
-            on:click={() => clearUsersFilter(chip.key)}
+            onclick={() => clearUsersFilter(chip.key)}
           >
             <X size={12} />
           </button>
@@ -308,9 +389,8 @@
       class="input"
       placeholder={at("users_search_placeholder", {}, "ID, @username или email")}
       value={usersQuery}
-      on:input={(e) => usersStore.updateState({ usersQuery: e.target.value })}
-      on:keydown={(e) =>
-        e.key === "Enter" && (usersStore.updateState({ usersPage: 0 }), usersStore.loadUsers())}
+      oninput={handleUsersSearchInput}
+      onkeydown={handleUsersSearchKeydown}
     />
     <AdminButton
       variant="primary"
@@ -346,10 +426,7 @@
         items={USERS_FILTER_OPTIONS}
         class="admin-toolbar-select"
         ariaLabel={at("filter", {}, "Фильтр")}
-        onValueChange={(value) => {
-          usersStore.updateState({ usersFilter: value, usersPage: 0 });
-          usersStore.loadUsers();
-        }}
+        onValueChange={updateToolbarUsersFilter}
       />
     </Label.Root>
 
@@ -360,10 +437,7 @@
         items={USERS_PANEL_STATUS_OPTIONS}
         class="admin-toolbar-select"
         ariaLabel={at("panel_status", {}, "Статус панели")}
-        onValueChange={(value) => {
-          usersStore.updateState({ usersPanelStatus: value, usersPage: 0 });
-          usersStore.loadUsers();
-        }}
+        onValueChange={updateToolbarPanelStatus}
       />
     </Label.Root>
 
@@ -376,10 +450,7 @@
         items={USERS_PREMIUM_TRAFFIC_OPTIONS}
         class="admin-toolbar-select"
         ariaLabel={at("premium_traffic_filter_label", {}, "Премиум трафик")}
-        onValueChange={(value) => {
-          usersStore.updateState({ usersPremiumTraffic: value, usersPage: 0 });
-          usersStore.loadUsers();
-        }}
+        onValueChange={updateToolbarPremiumTraffic}
       />
     </Label.Root>
 
@@ -450,7 +521,7 @@
                   type="button"
                   class="admin-sort-header"
                   title={sortTitle(column.sort)}
-                  on:click={() => toggleUsersSort(column.sort)}
+                  onclick={() => toggleUsersSortForColumn(column)}
                 >
                   <span>{column.label}</span>
                   <span
@@ -483,8 +554,8 @@
             role="button"
             tabindex="0"
             data-user-id={user.user_id}
-            on:click={() => usersStore.openUser(user)}
-            on:keydown={(e) => {
+            onclick={() => usersStore.openUser(user)}
+            onkeydown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
                 usersStore.openUser(user);

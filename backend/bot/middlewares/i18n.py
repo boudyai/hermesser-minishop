@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 from aiogram import BaseMiddleware
-from aiogram.types import Update, User
+from aiogram.types import TelegramObject, User
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.settings import Settings
@@ -96,7 +96,6 @@ LOCALE_KEY_ALIASES: Dict[str, str] = {
     "admin_support_status_resolved": "wa_support_status_resolved",
     "admin_support_ticket_number": "wa_support_ticket_number",
     "admin_support_user_context": "admin_user",
-    "admin_tariffs_legacy_traffic_packages": "admin_tariff_traffic_packages",
     "admin_tariffs_stat_enabled": "admin_enabled",
     "admin_user_btn_cancel": "wa_cancel",
     "admin_user_history_until": "wa_until_date",
@@ -298,7 +297,7 @@ class JsonI18n:
         default: str = "en",
         domain: str = "bot",
         overrides_path: Optional[str] = None,
-    ):
+    ) -> None:
         self.domain = domain
         self.path = path
         self.default_lang = default
@@ -318,7 +317,7 @@ class JsonI18n:
             f"JsonI18n initialized. Loaded languages: {list(self.locales_data.keys())}. Default: {self.default_lang}"  # noqa: E501
         )
 
-    def _load_locales(self):
+    def _load_locales(self) -> None:
         if not os.path.isdir(self.path):
             logging.error(f"Locales path not found or not a directory: {self.path}")
             return
@@ -506,7 +505,7 @@ class JsonI18n:
         logging.info("Locale overrides reloaded from %s", self._overrides_path)
         return True
 
-    def gettext(self, lang_code: Optional[str], key: str, **kwargs) -> str:
+    def gettext(self, lang_code: Optional[str], key: str, **kwargs: object) -> str:
         self.reload_overrides_from_file()
         lookup_key = resolve_locale_key(key)
 
@@ -596,8 +595,8 @@ class I18nMiddleware(BaseMiddleware):
 
     async def __call__(
         self,
-        handler: Callable[[Update, Dict[str, Any]], Awaitable[Any]],
-        event: Update,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
         data: Dict[str, Any],
     ) -> Any:
         session: AsyncSession = data["session"]

@@ -1,21 +1,44 @@
-<script>
+<script lang="ts">
   import { Check, ChevronsUpDown, Globe2 } from "$components/ui/icons.js";
   import { Select } from "$components/ui/primitives.js";
 
-  export let open = false;
-  export let value = "ru";
-  export let currentOption = null;
-  export let userLanguage = "";
-  export let options = [];
-  export let disabled = false;
-  export let clickGuard = false;
-  export let clickGuardArmed = false;
-  export let closeLabel = "Close";
-  export let label = "Language";
-  export let onOpenChange = () => {};
-  export let onValueChange = () => {};
+  type LanguageOption = {
+    value: string;
+    label: string;
+    flag?: string;
+  };
 
-  function closeFromGuard(event) {
+  let {
+    open = $bindable(false),
+    value = "ru",
+    currentOption = null,
+    userLanguage = "",
+    options = [],
+    disabled = false,
+    clickGuard = false,
+    clickGuardArmed = false,
+    closeLabel = "Close",
+    label = "Language",
+    onOpenChange = () => {},
+    onValueChange = () => {},
+  }: {
+    open?: boolean;
+    value?: string;
+    currentOption?: LanguageOption | null;
+    userLanguage?: string;
+    options?: LanguageOption[];
+    disabled?: boolean;
+    clickGuard?: boolean;
+    clickGuardArmed?: boolean;
+    closeLabel?: string;
+    label?: string;
+    onOpenChange?: (open: boolean) => void;
+    onValueChange?: (value: string) => void;
+  } = $props();
+
+  const selectContentProps = { trapFocus: false } as Record<string, unknown>;
+
+  function closeFromGuard(event: MouseEvent | PointerEvent) {
     event.preventDefault();
     event.stopPropagation();
     if (clickGuardArmed) onOpenChange(false);
@@ -59,7 +82,7 @@
       side="bottom"
       align="end"
       sideOffset={6}
-      trapFocus={false}
+      {...selectContentProps}
     >
       <Select.Viewport class="language-select-viewport">
         {#each options as option (option.value)}

@@ -1,7 +1,7 @@
 import csv
 import io
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Optional
 
 from aiogram import F, Router, types
 from aiogram.filters import StateFilter
@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.keyboards.inline.admin_keyboards import get_back_to_admin_panel_keyboard
 from bot.middlewares.i18n import JsonI18n
 from bot.states.admin_states import AdminStates
+from bot.utils.callback_answer import callback_data, callback_message
 from config.settings import Settings
 from db.dal import promo_code_dal
 from db.models import PromoCode
@@ -19,7 +20,9 @@ from db.models import PromoCode
 router = Router(name="promo_manage_router")
 
 
-def get_promo_status_emoji_and_text(promo: PromoCode, i18n: JsonI18n, current_lang: str):
+def get_promo_status_emoji_and_text(
+    promo: PromoCode, i18n: JsonI18n, current_lang: str
+) -> tuple[str, str]:
     """Determine promo code status and return emoji + text"""
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
@@ -35,7 +38,7 @@ def get_promo_status_emoji_and_text(promo: PromoCode, i18n: JsonI18n, current_la
 
 async def get_promo_detail_text_and_keyboard(
     promo_id: int, session: AsyncSession, i18n: JsonI18n, current_lang: str
-):
+) -> tuple[Optional[str], Optional[types.InlineKeyboardMarkup]]:
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
     promo = await promo_code_dal.get_promo_code_by_id(session, promo_id)
     if not promo:
@@ -98,7 +101,7 @@ async def get_promo_detail_text_and_keyboard(
 
 async def view_promo_codes_handler(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
@@ -119,7 +122,7 @@ async def view_promo_codes_handler(
         )
     )
 
-    await callback.message.edit_text(
+    await callback_message(callback).edit_text(
         text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n), parse_mode="HTML"
     )
     await callback.answer()
@@ -131,7 +134,7 @@ async def promo_management_handler(
     settings: Settings,
     session: AsyncSession,
     page: int = 0,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", "ru")
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
@@ -150,7 +153,7 @@ async def promo_management_handler(
         session, limit=page_size, offset=offset
     )
     if not promo_models and page == 0:
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             _("admin_promo_management_empty"),
             reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
             parse_mode="HTML",
@@ -206,16 +209,18 @@ async def promo_management_handler(
     if total_pages > 1:
         title += f"\n{_('admin_promo_list_page_info', current=page + 1, total=total_pages, count=total_count)}"  # noqa: E501
 
-    await callback.message.edit_text(title, reply_markup=builder.as_markup(), parse_mode="HTML")
+    await callback_message(callback).edit_text(
+        title, reply_markup=builder.as_markup(), parse_mode="HTML"
+    )
     await callback.answer()
 
 
 @router.callback_query(F.data.startswith("promo_management:"))
 async def promo_management_pagination_handler(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
-):
+) -> None:
     try:
-        page = int(callback.data.split(":")[1])
+        page = int(callback_data(callback).split(":")[1])
         await promo_management_handler(callback, i18n_data, settings, session, page)
     except (ValueError, IndexError):
         await callback.answer("Error processing pagination.", show_alert=True)
@@ -224,7 +229,7 @@ async def promo_management_pagination_handler(
 @router.callback_query(F.data.startswith("promo_detail:"))
 async def promo_detail_handler(
     callback: types.CallbackQuery, i18n_data: dict, session: AsyncSession
-):
+) -> None:
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
@@ -232,12 +237,14 @@ async def promo_detail_handler(
         return
 
     try:
-        promo_id = int(callback.data.split(":")[1])
+        promo_id = int(callback_data(callback).split(":")[1])
         text, keyboard = await get_promo_detail_text_and_keyboard(
             promo_id, session, i18n, current_lang
         )
         if text:
-            await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+            await callback_message(callback).edit_text(
+                text, reply_markup=keyboard, parse_mode="HTML"
+            )
         else:
             await callback.answer(
                 i18n.gettext(current_lang, "admin_promo_not_found"), show_alert=True
@@ -250,18 +257,20 @@ async def promo_detail_handler(
 @router.callback_query(F.data.startswith("promo_toggle:"))
 async def promo_toggle_handler(
     callback: types.CallbackQuery, i18n_data: dict, session: AsyncSession
-):
+) -> None:
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
-        return await callback.answer("Language service error.", show_alert=True)
+        await callback.answer("Language service error.", show_alert=True)
+        return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     try:
-        promo_id = int(callback.data.split(":")[1])
+        promo_id = int(callback_data(callback).split(":")[1])
         promo = await promo_code_dal.get_promo_code_by_id(session, promo_id)
         if not promo:
-            return await callback.answer(_("admin_promo_not_found"), show_alert=True)
+            await callback.answer(_("admin_promo_not_found"), show_alert=True)
+            return
 
         new_status = not promo.is_active
         if await promo_code_dal.update_promo_code(session, promo_id, {"is_active": new_status}):
@@ -279,7 +288,9 @@ async def promo_toggle_handler(
                 promo_id, session, i18n, current_lang
             )
             if text:
-                await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+                await callback_message(callback).edit_text(
+                    text, reply_markup=keyboard, parse_mode="HTML"
+                )
         else:
             await callback.answer(_("error_occurred_try_again"), show_alert=True)
     except (ValueError, IndexError):
@@ -289,22 +300,24 @@ async def promo_toggle_handler(
 @router.callback_query(F.data.startswith("promo_activations:"))
 async def promo_activations_handler(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
-):
+) -> None:
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
-        return await callback.answer("Error processing request.", show_alert=True)
+        await callback.answer("Error processing request.", show_alert=True)
+        return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     try:
-        parts = callback.data.split(":")
+        parts = callback_data(callback).split(":")
         promo_id = int(parts[1])
         page = int(parts[2])
         page_size = settings.LOGS_PAGE_SIZE
 
         promo = await promo_code_dal.get_promo_code_by_id(session, promo_id)
         if not promo:
-            return await callback.answer(_("admin_promo_not_found"), show_alert=True)
+            await callback.answer(_("admin_promo_not_found"), show_alert=True)
+            return
 
         total_activations = await promo_code_dal.count_promo_activations_by_code_id(
             session, promo_id
@@ -357,7 +370,9 @@ async def promo_activations_handler(
             )
         )
 
-        await callback.message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="HTML")
+        await callback_message(callback).edit_text(
+            text, reply_markup=builder.as_markup(), parse_mode="HTML"
+        )
     except (ValueError, IndexError):
         await callback.answer(_("admin_promo_not_found"), show_alert=True)
     await callback.answer()
@@ -366,25 +381,26 @@ async def promo_activations_handler(
 @router.callback_query(F.data.startswith("promo_export:"))
 async def promo_export_activations_handler(
     callback: types.CallbackQuery, i18n_data: dict, session: AsyncSession
-):
+) -> None:
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
-        return await callback.answer("Error processing request.", show_alert=True)
+        await callback.answer("Error processing request.", show_alert=True)
+        return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
     export_lang = "en"
 
     try:
-        promo_id = int(callback.data.split(":")[1])
+        promo_id = int(callback_data(callback).split(":")[1])
         promo = await promo_code_dal.get_promo_code_by_id(session, promo_id)
         if not promo:
-            return await callback.answer(_("admin_promo_not_found"), show_alert=True)
+            await callback.answer(_("admin_promo_not_found"), show_alert=True)
+            return
 
         activations = await promo_code_dal.get_promo_activations_by_code_id(session, promo_id)
         if not activations:
-            return await callback.answer(
-                _("admin_promo_no_activations", code=promo.code), show_alert=True
-            )
+            await callback.answer(_("admin_promo_no_activations", code=promo.code), show_alert=True)
+            return
 
         output = io.StringIO()
         writer = csv.writer(output)
@@ -397,7 +413,7 @@ async def promo_export_activations_handler(
             output.getvalue().encode("utf-8"), filename=f"promo_{promo.code}_activations.csv"
         )
         # Force English caption for exports
-        await callback.message.answer_document(
+        await callback_message(callback).answer_document(
             file, caption=i18n.gettext(export_lang, "admin_promo_export_caption", code=promo.code)
         )
 
@@ -409,11 +425,12 @@ async def promo_export_activations_handler(
 @router.callback_query(F.data == "promo_export_all")
 async def promo_export_all_handler(
     callback: types.CallbackQuery, i18n_data: dict, session: AsyncSession
-):
+) -> None:
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
-        return await callback.answer("Error processing request.", show_alert=True)
+        await callback.answer("Error processing request.", show_alert=True)
+        return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
     export_lang = "en"
 
@@ -477,7 +494,7 @@ async def promo_export_all_handler(
         )
 
         caption = i18n.gettext(export_lang, "admin_promo_export_all_caption", count=len(all_promos))
-        await callback.message.answer_document(file, caption=caption)
+        await callback_message(callback).answer_document(file, caption=caption)
 
     except Exception as e:
         await callback.answer(f"❌ Export error: {str(e)}", show_alert=True)
@@ -486,15 +503,16 @@ async def promo_export_all_handler(
 @router.callback_query(F.data.startswith("promo_delete:"))
 async def promo_delete_handler(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
-):
+) -> None:
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
-        return await callback.answer("Language service error.", show_alert=True)
+        await callback.answer("Language service error.", show_alert=True)
+        return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     try:
-        promo_id = int(callback.data.split(":")[1])
+        promo_id = int(callback_data(callback).split(":")[1])
         promo = await promo_code_dal.delete_promo_code(session, promo_id)
         if promo:
             await session.commit()
@@ -512,13 +530,13 @@ async def promo_delete_handler(
 @router.callback_query(F.data.startswith("promo_edit_select:"))
 async def promo_edit_select_handler(
     callback: types.CallbackQuery, i18n_data: dict, session: AsyncSession
-):
+) -> None:
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
-    promo_id = int(callback.data.split(":")[1])
+    promo_id = int(callback_data(callback).split(":")[1])
 
     builder = InlineKeyboardBuilder()
     builder.row(
@@ -545,7 +563,7 @@ async def promo_edit_select_handler(
         )
     )
 
-    await callback.message.edit_text(
+    await callback_message(callback).edit_text(
         _("admin_promo_edit_select_field"), reply_markup=builder.as_markup()
     )
     await callback.answer()
@@ -554,14 +572,14 @@ async def promo_edit_select_handler(
 @router.callback_query(F.data.startswith("promo_edit_field:"))
 async def promo_edit_field_handler(
     callback: types.CallbackQuery, state: FSMContext, i18n_data: dict, session: AsyncSession
-):
+) -> None:
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
-    action, field, promo_id_str = callback.data.split(":")
+    action, field, promo_id_str = callback_data(callback).split(":")
     await state.update_data(promo_id=int(promo_id_str), field_to_edit=field)
 
     prompts = {
@@ -570,14 +588,14 @@ async def promo_edit_field_handler(
         "valid_until": "admin_promo_prompt_validity_days",
     }
     await state.set_state(AdminStates.waiting_for_promo_edit_details)
-    await callback.message.edit_text(_(prompts.get(field, "error_occurred_try_again")))
+    await callback_message(callback).edit_text(_(prompts.get(field, "error_occurred_try_again")))
     await callback.answer()
 
 
 @router.message(StateFilter(AdminStates.waiting_for_promo_edit_details))
 async def process_promo_edit_details(
     message: types.Message, state: FSMContext, session: AsyncSession, i18n_data: dict
-):
+) -> None:
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not message or not current_lang:
@@ -585,12 +603,17 @@ async def process_promo_edit_details(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     data = await state.get_data()
-    promo_id = data.get("promo_id")
-    field = data.get("field_to_edit")
+    promo_id_raw = data.get("promo_id")
+    field = str(data.get("field_to_edit") or "")
+    if promo_id_raw is None:
+        await message.answer(_("error_occurred_try_again"))
+        await state.clear()
+        return
+    promo_id = int(promo_id_raw)
 
     try:
-        value = message.text
-        update_data = {}
+        value = (message.text or "").strip()
+        update_data: dict[str, Any] = {}
 
         if field == "bonus_days":
             update_data["bonus_days"] = int(value)
@@ -625,5 +648,5 @@ async def process_promo_edit_details(
 
 async def manage_promo_codes_handler(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
-):
+) -> None:
     await promo_management_handler(callback, i18n_data, settings, session)

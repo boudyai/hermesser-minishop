@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { onMount } from "svelte";
   import {
     ArrowLeft,
@@ -16,42 +16,69 @@
   import Card from "$components/ui/card.svelte";
   import { formatTrafficGb } from "../../lib/webapp/formatters.js";
 
-  export let appSettings = {};
-  export let brand = {};
-  export let brandTitle = "";
-  export let subscription = {};
-  export let trialBusy = false;
-  export let linkTelegramBusy = false;
-  export let trialResult = null;
-  export let trialError = "";
-  export let activateTrial = () => {};
-  export let linkTelegramAndActivateTrial = () => {};
-  export let openInstallOrConnect = () => {};
-  export let goHome = () => {};
-  export let t = (key, _params = {}, fallback = "") => fallback || key;
+  type AnyRecord = Record<string, any>;
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type VoidAction = () => void;
+
+  type Props = {
+    appSettings?: AnyRecord;
+    brand?: AnyRecord;
+    brandTitle?: string;
+    subscription?: AnyRecord;
+    trialBusy?: boolean;
+    linkTelegramBusy?: boolean;
+    trialResult?: AnyRecord | null;
+    trialError?: string;
+    activateTrial?: VoidAction;
+    linkTelegramAndActivateTrial?: VoidAction;
+    openInstallOrConnect?: VoidAction;
+    goHome?: VoidAction;
+    t?: Translate;
+  };
+
+  let {
+    appSettings = {},
+    brand = {},
+    brandTitle = "",
+    subscription = {},
+    trialBusy = false,
+    linkTelegramBusy = false,
+    trialResult = null,
+    trialError = "",
+    activateTrial = () => {},
+    linkTelegramAndActivateTrial = () => {},
+    openInstallOrConnect = () => {},
+    goHome = () => {},
+    t = (key, _params = {}, fallback = "") => fallback || key,
+  }: Props = $props();
 
   let requested = false;
 
-  $: trialEnabled = Boolean(appSettings?.trial_enabled);
-  $: trialAvailable = Boolean(appSettings?.trial_available);
-  $: trialRequiresTelegram = Boolean(
-    trialEnabled && appSettings?.trial_requires_telegram && !subscription?.active
+  const trialEnabled = $derived(Boolean(appSettings?.trial_enabled));
+  const trialAvailable = $derived(Boolean(appSettings?.trial_available));
+  const trialRequiresTelegram = $derived(
+    Boolean(trialEnabled && appSettings?.trial_requires_telegram && !subscription?.active)
   );
-  $: canRequestTrial = Boolean(trialEnabled && trialAvailable && !subscription?.active);
-  $: isTrialStatus =
+  const canRequestTrial = $derived(
+    Boolean(trialEnabled && trialAvailable && !subscription?.active)
+  );
+  const isTrialStatus = $derived(
     Boolean(trialResult?.activated) ||
-    String(subscription?.status || "")
-      .toUpperCase()
-      .includes("TRIAL");
-  $: hasActiveAccess = Boolean(subscription?.active || trialResult?.activated);
-  $: successTitle = isTrialStatus
-    ? t("wa_trial_activated")
-    : t("wa_home_subscription_active", {}, "Subscription active");
-  $: endDateText = trialResult?.end_date_text || subscription?.end_date_text || "";
-  $: daysLeft = Number(
-    trialResult?.days || subscription?.days_left || appSettings?.trial_duration_days || 0
+      String(subscription?.status || "")
+        .toUpperCase()
+        .includes("TRIAL")
   );
-  $: trafficLabel = trialTrafficLabel();
+  const hasActiveAccess = $derived(Boolean(subscription?.active || trialResult?.activated));
+  const successTitle = $derived(
+    isTrialStatus
+      ? t("wa_trial_activated")
+      : t("wa_home_subscription_active", {}, "Subscription active")
+  );
+  const endDateText = $derived(trialResult?.end_date_text || subscription?.end_date_text || "");
+  const daysLeft = $derived(
+    Number(trialResult?.days || subscription?.days_left || appSettings?.trial_duration_days || 0)
+  );
+  const trafficLabel = $derived(trialTrafficLabel());
 
   function trialTrafficLabel() {
     const resultTraffic = Number(trialResult?.traffic_gb || 0);

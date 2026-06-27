@@ -39,6 +39,8 @@ class EmailCodeRequestResult:
     ok: bool
     error: Optional[str] = None
     retry_after: Optional[int] = None
+    code: Optional[str] = None
+    magic_link: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -81,10 +83,10 @@ def is_disposable_email(value: Optional[str], settings: Settings) -> bool:
     domain = email_domain(value)
     if not domain:
         return False
-    blocked_domains = getattr(settings, "disposable_email_domains", None)
+    blocked_domains = settings.disposable_email_domains
     if blocked_domains is None:
         blocked_domains = _split_disposable_domain_values(
-            str(getattr(settings, "DISPOSABLE_EMAIL_DOMAINS", "") or "")
+            str(settings.DISPOSABLE_EMAIL_DOMAINS or "")
         )
     blocked_domains = blocked_domains or []
     for blocked in blocked_domains:
@@ -146,7 +148,13 @@ class EmailAuthService:
         ).digest()
         return hmac.new(secret, token.encode("utf-8"), hashlib.sha256).hexdigest()
 
-    def _build_magic_link(self, *, token: str, purpose: str) -> Optional[str]:
+    def _build_magic_link(
+        self,
+        *,
+        token: str,
+        purpose: str,
+        referral_param: Optional[str] = None,
+    ) -> Optional[str]:
         base_url = (self.settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
         if not base_url:
             return None
@@ -158,6 +166,10 @@ class EmailAuthService:
         params = {"login_token": token}
         if purpose and purpose != "login":
             params["login_purpose"] = purpose
+        if purpose == "login":
+            referral_value = str(referral_param or "").strip()
+            if referral_value:
+                params["ref"] = referral_value[:128]
         existing_query = parsed.query
         new_query = urlencode(params)
         merged_query = f"{existing_query}&{new_query}" if existing_query else new_query
@@ -173,6 +185,7 @@ class EmailAuthService:
         purpose: str,
         language_code: str,
         target_user_id: Optional[int] = None,
+        referral_param: Optional[str] = None,
     ) -> EmailCodeRequestResult:
         normalized_email = normalize_email(email)
         if not self.settings.email_auth_configured:
@@ -228,7 +241,11 @@ class EmailAuthService:
         code = f"{secrets.randbelow(1_000_000):06d}"
         magic_token = secrets.token_urlsafe(32)
         magic_link = (
-            self._build_magic_link(token=magic_token, purpose=purpose)
+            self._build_magic_link(
+                token=magic_token,
+                purpose=purpose,
+                referral_param=referral_param,
+            )
             if purpose == "login"
             else None
         )
@@ -244,13 +261,20 @@ class EmailAuthService:
         session.add(code_model)
         await session.flush()
 
-        await self._send_code_email(
-            email=normalized_email,
-            code=code,
-            language_code=language_code,
-            magic_link=magic_link,
-            purpose=purpose,
-        )
+        qa_auth_enabled = bool(getattr(self.settings, "qa_auth_enabled", False))
+        if not qa_auth_enabled:
+            await self._send_code_email(
+                email=normalized_email,
+                code=code,
+                language_code=language_code,
+                magic_link=magic_link,
+                purpose=purpose,
+            )
+        else:
+            logger.info(
+                "QA email auth code generated without SMTP delivery for %s.",
+                normalized_email,
+            )
         resolved_target_user_id = target_user_id
         if resolved_target_user_id is None:
             try:
@@ -273,7 +297,11 @@ class EmailAuthService:
             recipient=normalized_email,
             content=f"purpose={purpose} magic_link={bool(magic_link)}",
         )
-        return EmailCodeRequestResult(ok=True)
+        return EmailCodeRequestResult(
+            ok=True,
+            code=code if qa_auth_enabled else None,
+            magic_link=magic_link if qa_auth_enabled else None,
+        )
 
     async def verify_code(
         self,

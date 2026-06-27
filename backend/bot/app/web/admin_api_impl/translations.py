@@ -1,14 +1,68 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+from typing import Any, Dict, List, Optional, Tuple, cast
 
+from aiohttp import web
+from sqlalchemy.orm import sessionmaker
+
+from bot.app.web.context import (
+    get_i18n,
+    get_session_factory,
+)
+from bot.app.web.request_parsing import parse_body_or_400
+from bot.app.web.route_contracts import (
+    BOOLEAN_SCHEMA,
+    INTEGER_SCHEMA,
+    STRING_SCHEMA,
+    RouteContract,
+    loose_array_schema,
+    ok_envelope_with,
+    register_contract,
+)
 from bot.middlewares.i18n import JsonI18n, locale_language_options, resolve_locale_key
 from bot.services.locale_override_service import (
     LOCALE_OVERRIDES_PATH,
     audience_for_locale_key,
     group_id_for_locale_key,
-    locale_group_catalog,
     load_locale_overrides,
+    locale_group_catalog,
     update_locale_overrides,
+)
+from db.dal import locale_overrides_dal
+
+from .auth import (
+    _require_admin_user_id,
+)
+from .common import (
+    _error,
+    _error_payload,
+    _ok,
+)
+from .schemas import AdminTranslationsPatchBody
+
+register_contract(
+    "admin_translations_get_route",
+    RouteContract(
+        response_schema=ok_envelope_with(
+            {
+                "languages": loose_array_schema(),
+                "groups": loose_array_schema(),
+                "path": STRING_SCHEMA,
+                "override_count": INTEGER_SCHEMA,
+            }
+        )
+    ),
+)
+register_contract(
+    "admin_translations_patch_route",
+    RouteContract(
+        request_model=AdminTranslationsPatchBody,
+        response_schema=ok_envelope_with(
+            {
+                "applied": INTEGER_SCHEMA,
+                "reverted": INTEGER_SCHEMA,
+                "file_written": BOOLEAN_SCHEMA,
+            }
+        ),
+    ),
 )
 
 
@@ -19,9 +73,12 @@ def _locale_languages(
     base_languages = set((i18n.base_locales_data or {}).keys())
     override_languages = {str(entry.get("lang") or "") for entry in overrides or []}
     override_languages.update((i18n.locale_overrides or {}).keys())
-    return locale_language_options(
-        base_languages | override_languages,
-        base_languages=base_languages,
+    return cast(
+        List[Dict[str, Any]],
+        locale_language_options(
+            base_languages | override_languages,
+            base_languages=base_languages,
+        ),
     )
 
 
@@ -98,10 +155,10 @@ def _admin_translations_payload(
 
 async def admin_translations_get_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    i18n: Optional[JsonI18n] = request.app.get("i18n")
+    i18n: Optional[JsonI18n] = get_i18n(request)
     if i18n is None:
         return _error(503, "i18n_unavailable")
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
 
     await load_locale_overrides(i18n, async_session_factory)
     async with async_session_factory() as session:
@@ -112,13 +169,13 @@ async def admin_translations_get_route(request: web.Request) -> web.Response:
 
 async def admin_translations_patch_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
-    i18n: Optional[JsonI18n] = request.app.get("i18n")
+    i18n: Optional[JsonI18n] = get_i18n(request)
     if i18n is None:
         return _error(503, "i18n_unavailable")
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
-    payload = await _read_json(request)
-    updates = payload.get("updates") or {}
-    deletes = payload.get("deletes") or []
+    async_session_factory: sessionmaker = get_session_factory(request)
+    body = await parse_body_or_400(request, AdminTranslationsPatchBody)
+    updates = body.updates or {}
+    deletes = body.deletes or []
     if not isinstance(updates, dict):
         return _error(400, "invalid_updates")
     if not isinstance(deletes, list):
@@ -132,9 +189,11 @@ async def admin_translations_patch_route(request: web.Request) -> web.Response:
         actor_id=actor_id,
     )
     if not result.get("ok"):
-        return web.json_response(
-            {"ok": False, "error": "validation_failed", "errors": result.get("errors", {})},
-            status=400,
+        return _error_payload(
+            400,
+            "validation_failed",
+            errors=result.get("errors", {}),
+            message=result.get("message", "Validation failed"),
         )
 
     return _ok(

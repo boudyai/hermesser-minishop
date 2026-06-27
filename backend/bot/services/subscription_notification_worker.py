@@ -19,7 +19,7 @@ from bot.services.subscription_lifecycle_notifications import (
     SubscriptionLifecycleNotificationService,
     SubscriptionNotificationStage,
 )
-from bot.services.subscription_service import SubscriptionService
+from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.telegram_notifications import (
     TELEGRAM_NOTIFICATIONS_BLOCKED,
     TELEGRAM_NOTIFICATIONS_ENABLED,
@@ -374,7 +374,7 @@ class SubscriptionNotificationWorker:
                 await self.bot.send_message(
                     telegram_chat_id,
                     message_text,
-                    reply_markup=get_subscribe_only_markup(lang, self.i18n),
+                    reply_markup=get_subscribe_only_markup(lang, self.i18n, self.settings),
                     parse_mode="HTML",
                 )
                 telegram_sent = True

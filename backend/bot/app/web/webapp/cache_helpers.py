@@ -1,7 +1,20 @@
+"""Helpers for webapp cache lifecycle and runtime invalidation."""
+
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Optional
+from collections.abc import Mapping, Sequence
+from typing import Any, Awaitable, Callable, Optional, cast
 
+from aiohttp import web
+
+from bot.app.web.context import (
+    get_app_webapp_settings_cache,
+    get_or_create_subscription_guides_config_cache,
+    get_or_create_subscription_guides_panel_config_cache,
+    get_or_create_subscription_guides_public_subscription_cache,
+    get_or_create_subscription_guides_resolved_config_cache,
+    set_webapp_logo_cache,
+)
 from bot.infra.redis import cache_delete, cache_delete_pattern, redis_key
 from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
@@ -9,29 +22,55 @@ from config.settings import Settings
 _WEBAPP_USER_PAYLOAD_CACHES: dict[tuple[int, str, int], AsyncTTLCache] = {}
 
 
-def reset_webapp_settings_cache(app: Any) -> None:
-    cache = app.get("webapp_settings_cache") if hasattr(app, "get") else None
+def _changed_setting_keys(
+    updates: Mapping[str, Any] | None = None,
+    deletes: Sequence[Any] | None = None,
+) -> set[str]:
+    keys = {str(key) for key in (updates or {}).keys()}
+    keys.update(str(key) for key in (deletes or []) if key is not None)
+    return keys
+
+
+WEBAPP_APPEARANCE_SETTING_KEYS = frozenset(
+    {
+        "WEBAPP_TITLE",
+        "WEBAPP_LOGO_URL",
+        "WEBAPP_FAVICON_URL",
+        "WEBAPP_FAVICON_USE_CUSTOM",
+        "WEBAPP_LOGO_FAVICON_URL",
+    }
+)
+
+WEBAPP_DEVICE_PAYLOAD_SETTING_KEYS = frozenset(
+    {
+        "MY_DEVICES_SECTION_ENABLED",
+        "USER_HWID_DEVICE_LIMIT",
+        "USER_TRAFFIC_LIMIT_GB",
+        "USER_TRAFFIC_STRATEGY",
+    }
+)
+
+
+def reset_webapp_settings_cache(app: Mapping[object, object]) -> None:
+    cache = get_app_webapp_settings_cache(app)
     if isinstance(cache, dict):
         cache["ts"] = 0.0
         cache["data"] = {}
 
 
-def reset_subscription_guides_cache(app: Any) -> None:
-    cache = app.get("subscription_guides_config_cache") if hasattr(app, "get") else None
+def reset_subscription_guides_cache(app: Mapping[object, object]) -> None:
+    application = cast(web.Application, app)
+    cache = get_or_create_subscription_guides_config_cache(application)
     if isinstance(cache, dict):
         cache["fingerprint"] = None
         cache["status"] = None
-    panel_cache = app.get("subscription_guides_panel_config_cache") if hasattr(app, "get") else None
+    panel_cache = get_or_create_subscription_guides_panel_config_cache(application)
     if isinstance(panel_cache, dict):
         panel_cache.clear()
-    resolved_cache = (
-        app.get("subscription_guides_resolved_config_cache") if hasattr(app, "get") else None
-    )
+    resolved_cache = get_or_create_subscription_guides_resolved_config_cache(application)
     if isinstance(resolved_cache, dict):
         resolved_cache.clear()
-    public_cache = (
-        app.get("subscription_guides_public_subscription_cache") if hasattr(app, "get") else None
-    )
+    public_cache = get_or_create_subscription_guides_public_subscription_cache(application)
     if isinstance(public_cache, dict):
         public_cache.clear()
 
@@ -151,3 +190,43 @@ async def invalidate_all_webapp_user_caches(
     include_devices: bool = False,
 ) -> None:
     await invalidate_all_webapp_user_payloads(settings, include_devices=include_devices)
+
+
+async def refresh_webapp_runtime_after_settings_change(
+    request: Any,
+    *,
+    updates: Mapping[str, Any] | None = None,
+    deletes: Sequence[Any] | None = None,
+    include_user_payloads: bool = True,
+) -> None:
+    from bot.app.web.context import get_settings
+
+    settings = get_settings(request)
+    keys = _changed_setting_keys(updates, deletes)
+    app = request.app
+
+    reset_webapp_settings_cache(app)
+    reset_subscription_guides_cache(app)
+
+    if include_user_payloads:
+        await invalidate_all_webapp_user_payloads(
+            settings,
+            include_devices=bool(keys & WEBAPP_DEVICE_PAYLOAD_SETTING_KEYS),
+        )
+
+    if keys & WEBAPP_APPEARANCE_SETTING_KEYS:
+        set_webapp_logo_cache(app, None)
+        from bot.app.web.admin_api_impl.themes import prune_unused_appearance_assets
+
+        prune_unused_appearance_assets(settings)
+
+
+__all__ = [
+    "reset_webapp_settings_cache",
+    "reset_subscription_guides_cache",
+    "invalidate_all_webapp_user_payloads",
+    "invalidate_webapp_user_caches",
+    "invalidate_all_webapp_user_caches",
+    "webapp_cached_user_payload",
+    "refresh_webapp_runtime_after_settings_change",
+]

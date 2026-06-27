@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { CircleX, Plus, RefreshCw, Smartphone } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
@@ -10,30 +10,69 @@
     devicesPercent,
   } from "../../lib/webapp/devicesLabels.js";
 
-  export let devicesBusy = false;
-  export let devicesData = {};
-  export let devicesErrorCode = "";
-  export let devicesIsError = false;
-  export let devicesLoaded = false;
-  export let devicesStatus = "";
-  export let subscription = {};
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type DeviceRecord = Record<string, unknown> & {
+    can_disconnect?: boolean;
+    created_at_text?: string;
+    display_name?: string;
+    hwid_short?: string;
+    index?: number;
+    platform_label?: string;
+    token?: string;
+    user_agent?: string;
+  };
+  type DevicesData = Record<string, unknown> & {
+    devices?: DeviceRecord[];
+    max_devices?: number | null;
+  };
+  type SubscriptionData = Record<string, unknown> & {
+    active?: boolean;
+    can_topup_devices?: boolean;
+    extra_hwid_devices?: number;
+    extra_hwid_devices_valid_until_text?: string;
+    max_devices?: number | null;
+  };
 
-  export let loadDevices = () => {};
-  export let openDeviceDisconnectDialog = () => {};
-  export let openDeviceTopupModal = () => {};
-  export let t = (key) => key;
+  type Props = {
+    devicesBusy?: boolean;
+    devicesData?: DevicesData;
+    devicesErrorCode?: string;
+    devicesIsError?: boolean;
+    devicesLoaded?: boolean;
+    devicesStatus?: string;
+    subscription?: SubscriptionData;
+    loadDevices?: (force?: boolean) => void;
+    openDeviceDisconnectDialog?: (device: DeviceRecord) => void;
+    openDeviceTopupModal?: () => void;
+    t?: Translate;
+  };
 
-  $: deviceList = Array.isArray(devicesData?.devices) ? devicesData.devices : [];
-  $: hasDevices = deviceList.length > 0;
-  $: subscriptionNotActiveError =
-    devicesErrorCode === "subscription_not_active" ||
-    devicesStatus === "Subscription is not active";
-  $: hideDevicesSummary = !subscription?.active && !hasDevices;
-  $: showInactiveDevicesNotice =
+  let {
+    devicesBusy = false,
+    devicesData = {},
+    devicesErrorCode = "",
+    devicesIsError = false,
+    devicesLoaded = false,
+    devicesStatus = "",
+    subscription = {},
+    loadDevices = () => {},
+    openDeviceDisconnectDialog = () => {},
+    openDeviceTopupModal = () => {},
+    t = (key: string) => key,
+  }: Props = $props();
+
+  const deviceList = $derived(Array.isArray(devicesData?.devices) ? devicesData.devices : []);
+  const hasDevices = $derived(deviceList.length > 0);
+  const subscriptionNotActiveError = $derived(
+    devicesErrorCode === "subscription_not_active" || devicesStatus === "Subscription is not active"
+  );
+  const hideDevicesSummary = $derived(!subscription?.active && !hasDevices);
+  const showInactiveDevicesNotice = $derived(
     hideDevicesSummary &&
-    !(devicesBusy && !devicesLoaded) &&
-    (!devicesStatus || subscriptionNotActiveError);
-  $: effectiveMaxDevices = devicesData?.max_devices ?? subscription?.max_devices;
+      !(devicesBusy && !devicesLoaded) &&
+      (!devicesStatus || subscriptionNotActiveError)
+  );
+  const effectiveMaxDevices = $derived(devicesData?.max_devices ?? subscription?.max_devices);
 </script>
 
 <main class="content with-nav">

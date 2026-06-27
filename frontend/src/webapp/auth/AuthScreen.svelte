@@ -16,55 +16,59 @@
   import Input from "$components/ui/input.svelte";
   import Spinner from "$components/ui/spinner.svelte";
   import { StatusMessage } from "$components/patterns/webapp/index.js";
+  import { shouldShowInviteOnlyHint } from "$lib/webapp/authHelpers.js";
 
-  export let screen;
-  export let CFG;
-  export let brand = {};
-  export let brandTitle;
-  export let email;
-  export let emailPassword;
-  export let emailCode;
-  export let pendingEmail;
-  export let authStatus;
-  export let authIsError;
-  export let authBusy;
-  export let authResendCooldown;
-  export let loginEmailFieldError;
-  export let loginEmailTooltipOpen;
-  export let passwordLoginFallback;
-  export let passwordLoginMode;
-  export let telegramLoginBusy;
-  export let telegramLoginUnavailable;
-  export let telegramLoginChecking;
-  export let telegramLoginLabel;
-  export let telegramLoginUnavailableMessage;
-  export let privacyPolicyUrl;
-  export let userAgreementUrl;
-  export let currentLang = "ru";
-  export let currentLanguageOption = null;
-  export let languageOptions = [];
-  export let languageMenuOpen = false;
-  export let languageClickGuard = false;
-  export let languageClickGuardArmed = false;
-  export let t;
-  export let setLanguageMenuOpen = () => {};
-  export let updateLoginLanguage = () => {};
-  export let requestEmailCode;
-  export let loginWithEmailPassword;
-  export let verifyEmailCode;
-  export let openTelegramLogin;
-  export let openExternalLink;
-  export let submitEmailOnEnter;
-  export let onBackToLogin;
-  export let clearLoginEmailError;
-  export let setPasswordLoginMode;
+  let {
+    screen,
+    CFG,
+    brand = {},
+    brandTitle,
+    email = $bindable(""),
+    emailPassword = $bindable(""),
+    emailCode = $bindable(""),
+    pendingEmail,
+    authStatus,
+    authIsError,
+    authBusy,
+    authResendCooldown,
+    loginEmailFieldError,
+    loginEmailTooltipOpen,
+    passwordLoginFallback,
+    passwordLoginMode,
+    telegramLoginBusy,
+    telegramLoginUnavailable,
+    telegramLoginChecking,
+    telegramLoginLabel,
+    telegramLoginUnavailableMessage,
+    privacyPolicyUrl,
+    userAgreementUrl,
+    currentLang = "ru",
+    currentLanguageOption = null,
+    languageOptions = [],
+    languageMenuOpen = $bindable(false),
+    languageClickGuard = false,
+    languageClickGuardArmed = false,
+    t,
+    setLanguageMenuOpen = () => {},
+    updateLoginLanguage = () => {},
+    requestEmailCode,
+    loginWithEmailPassword,
+    verifyEmailCode,
+    openTelegramLogin,
+    openExternalLink,
+    submitEmailOnEnter,
+    onBackToLogin,
+    clearLoginEmailError,
+    setPasswordLoginMode,
+  } = $props();
 
-  let authPanelHeight = 0;
+  let authPanelHeight = $state(0);
 
-  $: emailAuthEnabled = CFG.emailAuthEnabled !== false;
-  $: passwordModeActive = Boolean(passwordLoginMode && emailAuthEnabled);
-  $: authCardHeight = authPanelHeight ? `${authPanelHeight}px` : undefined;
-  $: showLanguageSelect = languageOptions.length > 1;
+  const emailAuthEnabled = $derived(CFG.emailAuthEnabled !== false);
+  const passwordModeActive = $derived(Boolean(passwordLoginMode && emailAuthEnabled));
+  const authCardHeight = $derived(authPanelHeight ? `${authPanelHeight}px` : undefined);
+  const showLanguageSelect = $derived(languageOptions.length > 1);
+  const showInviteOnlyHint = $derived(shouldShowInviteOnlyHint(CFG));
 
   function closeLanguageFromGuard(event) {
     event.preventDefault();
@@ -110,7 +114,7 @@
                         placeholder={t("wa_email_placeholder")}
                         autocomplete="email"
                         class={loginEmailFieldError ? "input-error" : ""}
-                        on:input={clearLoginEmailError}
+                        oninput={clearLoginEmailError}
                       />
                       {#if loginEmailFieldError}
                         <Tooltip.Trigger
@@ -136,7 +140,7 @@
                     type="password"
                     placeholder={t("wa_password_placeholder")}
                     autocomplete="current-password"
-                    on:keydown={(event) => {
+                    onkeydown={(event) => {
                       if (event.key !== "Enter") return;
                       event.preventDefault();
                       loginWithEmailPassword();
@@ -168,6 +172,11 @@
                   {/if}
                 </div>
               </div>
+              {#if showInviteOnlyHint}
+                <StatusMessage class="auth-login-status auth-invite-note">
+                  {t("wa_auth_invite_only_hint")}
+                </StatusMessage>
+              {/if}
               {#if authStatus}
                 <StatusMessage error={authIsError} class="auth-login-status">
                   {authStatus}
@@ -185,8 +194,8 @@
                           placeholder={t("wa_email_placeholder")}
                           autocomplete="email"
                           class={loginEmailFieldError ? "input-error" : ""}
-                          on:keydown={submitEmailOnEnter}
-                          on:input={clearLoginEmailError}
+                          onkeydown={submitEmailOnEnter}
+                          oninput={clearLoginEmailError}
                         />
                         {#if loginEmailFieldError}
                           <Tooltip.Trigger
@@ -253,6 +262,10 @@
                   class="auth-login-status"
                 >
                   {authStatus || telegramLoginUnavailableMessage}
+                </StatusMessage>
+              {:else if showInviteOnlyHint}
+                <StatusMessage class="auth-login-status auth-invite-note">
+                  {t("wa_auth_invite_only_hint")}
                 </StatusMessage>
               {/if}
             {/if}

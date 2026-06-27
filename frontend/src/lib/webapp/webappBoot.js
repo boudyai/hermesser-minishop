@@ -64,7 +64,9 @@ export async function runWebappBoot({
     setAuthStatus(
       telegramAuthStatus === "cancelled"
         ? t("wa_auth_telegram_cancelled")
-        : t("wa_auth_telegram_not_confirmed"),
+        : telegramAuthStatus === "invite_required"
+          ? t("wa_auth_invite_required")
+          : t("wa_auth_telegram_not_confirmed"),
       true
     );
   }

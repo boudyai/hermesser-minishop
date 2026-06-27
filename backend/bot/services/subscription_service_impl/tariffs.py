@@ -1,8 +1,22 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+import logging
+import math
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from config.tariffs_config import (
+    Tariff,
+    TariffsConfig,
+    default_currency_key_for_settings,
+)
+from db.dal import tariff_dal
+from db.models import Subscription
+
+from ._typing import SubscriptionServiceMixinContract
 
 
-class TariffMixin:
+class TariffMixin(SubscriptionServiceMixinContract):
     @staticmethod
     def gb_to_bytes(gb: float) -> int:
         return int(float(gb) * (1024**3))
@@ -11,26 +25,9 @@ class TariffMixin:
     def _far_future() -> datetime:
         return datetime(2099, 1, 1, tzinfo=timezone.utc)
 
-    def _parse_sale_mode_context(
-        self,
-        sale_mode: str,
-        explicit_tariff_key: Optional[str] = None,
-    ) -> Tuple[str, Optional[str]]:
-        mode = (sale_mode or "subscription").strip()
-        tariff_key = explicit_tariff_key
-        for separator in ("@", "|"):
-            if separator in mode:
-                base, suffix = mode.split(separator, 1)
-                mode = base or mode
-                suffix_key = suffix.split("|", 1)[0]
-                if separator == "|" and suffix_key in {"bot"}:
-                    suffix_key = ""
-                tariff_key = tariff_key or suffix_key or None
-                break
-        return mode, tariff_key
-
-    def _tariffs_config(self):
-        return getattr(self.settings, "tariffs_config", None)
+    def _tariffs_config(self) -> Optional[TariffsConfig]:
+        config = getattr(self.settings, "tariffs_config", None)
+        return config if isinstance(config, TariffsConfig) else None
 
     def _default_tariff(self) -> Optional[Tariff]:
         config = self._tariffs_config()
@@ -60,7 +57,43 @@ class TariffMixin:
             if include_premium:
                 squads.extend(tariff.premium_squad_uuids or [])
             return list(dict.fromkeys(squads))
-        return self.settings.parsed_user_squad_uuids
+        return list(self.settings.parsed_user_squad_uuids or [])
+
+    def _catalog_premium_squad_uuid_set(self) -> set[str]:
+        config = self._tariffs_config()
+        if not config:
+            return set()
+        premium_squads: set[str] = set()
+        for tariff in getattr(config, "tariffs", []) or []:
+            premium_squads.update(str(uuid) for uuid in (tariff.premium_squad_uuids or []))
+        return premium_squads
+
+    def _trial_panel_squad_uuids(self) -> List[str]:
+        squads = self.settings.parsed_trial_squad_uuids
+        if not squads:
+            squads = self.settings.parsed_user_squad_uuids or []
+        premium_squads = set(self._trial_premium_squad_uuids())
+        premium_squads.update(self._catalog_premium_squad_uuid_set())
+        return list(
+            dict.fromkeys(
+                str(uuid)
+                for uuid in squads
+                if str(uuid or "").strip() and str(uuid) not in premium_squads
+            )
+        )
+
+    def _trial_all_panel_squad_uuids(self) -> List[str]:
+        squads = [*self._trial_panel_squad_uuids(), *self._trial_premium_squad_uuids()]
+        return list(dict.fromkeys(str(uuid) for uuid in squads if str(uuid or "").strip()))
+
+    def _trial_premium_squad_uuids(self) -> List[str]:
+        squads = self.settings.parsed_trial_premium_squad_uuids or []
+        return list(dict.fromkeys(str(uuid) for uuid in squads if str(uuid or "").strip()))
+
+    def _trial_premium_baseline_bytes(self) -> int:
+        if not self._trial_premium_squad_uuids():
+            return 0
+        return int(self.settings.trial_premium_traffic_limit_bytes or 0)
 
     def _traffic_limit_for_period_tariff(
         self,
@@ -197,7 +230,8 @@ class TariffMixin:
             for host in hosts:
                 if not isinstance(host, dict):
                     continue
-                inbound_field = host.get("inbound") if isinstance(host.get("inbound"), dict) else {}
+                inbound_raw = host.get("inbound")
+                inbound_field: Dict[str, Any] = inbound_raw if isinstance(inbound_raw, dict) else {}
                 inbound_uuid = (
                     host.get("inboundUuid")
                     or host.get("inbound_uuid")
@@ -292,7 +326,7 @@ class TariffMixin:
             squad_name_map.get(str(uuid), f"{str(uuid)[:8]}...")
             for uuid in tariff.premium_squad_uuids
         ]
-        payload = {
+        payload: Dict[str, Any] = {
             "ts": now_ts,
             "squad_uuids": list(tariff.premium_squad_uuids),
             "squad_labels": list(dict.fromkeys(squad_labels)),

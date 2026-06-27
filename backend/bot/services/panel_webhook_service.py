@@ -4,7 +4,7 @@ import hmac
 import json
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, sessionmaker
 
 from bot.infra import events
+from bot.infra.event_payloads import PanelWebhookReceivedPayload
 from bot.infra.webhook_queue import enqueue_webhook_event
 from bot.keyboards.inline.user_keyboards import (
     get_autorenew_cancel_keyboard,
@@ -29,6 +30,9 @@ from db.dal import subscription_dal, tariff_dal, user_dal
 from db.models import Subscription, User
 
 from .panel_api_service import PanelApiService
+
+if TYPE_CHECKING:
+    from bot.services.subscription_service_impl.core import SubscriptionService
 
 EVENT_MAP = {
     "user.expires_in_72_hours": SubscriptionNotificationStage(
@@ -68,7 +72,7 @@ class PanelWebhookService:
         i18n: JsonI18n,
         async_session_factory: sessionmaker,
         panel_service: PanelApiService,
-    ):
+    ) -> None:
         self.bot = bot
         self.settings = settings
         self.i18n = i18n
@@ -79,6 +83,7 @@ class PanelWebhookService:
             bot,
             i18n,
         )
+        self.subscription_service: SubscriptionService | None = None
         self._event_semaphore = asyncio.Semaphore(self._MAX_CONCURRENT_EVENTS)
         if not self.settings.PANEL_WEBHOOK_SECRET:
             logging.error(
@@ -91,8 +96,8 @@ class PanelWebhookService:
         lang: str,
         message_key: str,
         reply_markup: InlineKeyboardMarkup | None = None,
-        **kwargs,
-    ):
+        **kwargs: object,
+    ) -> None:
         _ = lambda k, **kw: self.i18n.gettext(lang, k, **kw)
         extra_text = str(kwargs.pop("extra_text", "") or "").strip()
         try:
@@ -125,21 +130,22 @@ class PanelWebhookService:
         except Exception:
             logging.exception("Failed to build HWID renewal note for user %s", internal_user_id)
             return ""
-        return self.i18n.gettext(
-            lang,
-            "subscription_hwid_renewal_reminder",
-            count=count,
-            date=date_text,
+        return str(
+            self.i18n.gettext(
+                lang,
+                "subscription_hwid_renewal_reminder",
+                count=count,
+                date=date_text,
+            )
         )
 
-    async def handle_event(self, event_name: str, user_payload: dict):
-        await events.emit(
-            events.PANEL_WEBHOOK_RECEIVED,
-            {
-                "event": event_name,
-                "panel_user_uuid": user_payload.get("uuid"),
-                "telegram_id": user_payload.get("telegramId"),
-            },
+    async def handle_event(self, event_name: str, user_payload: dict[str, Any]) -> None:
+        await events.emit_model(
+            PanelWebhookReceivedPayload(
+                event=event_name,
+                panel_user_uuid=user_payload.get("uuid"),
+                telegram_id=user_payload.get("telegramId"),
+            )
         )
 
         if not self.settings.SUBSCRIPTION_NOTIFICATIONS_ENABLED:
@@ -191,7 +197,12 @@ class PanelWebhookService:
                 )
                 return
 
-            markup = get_subscribe_only_markup(lang, self.i18n)
+            markup = get_subscribe_only_markup(
+                lang,
+                self.i18n,
+                self.settings,
+                tariff_key=self.lifecycle_notifications._renewal_tariff_key(sub),
+            )
             end_date_text = self._payload_expire_date(user_payload)
 
             # The panel may target a stale, expired subscription row while the
@@ -331,7 +342,7 @@ class PanelWebhookService:
         db_user: Optional[User],
     ) -> None:
         first_name = getattr(db_user, "first_name", None) or f"User {user_id}"
-        markup = get_subscribe_only_markup(lang, self.i18n)
+        markup = get_subscribe_only_markup(lang, self.i18n, self.settings)
         if event_name in EVENT_MAP:
             stage = EVENT_MAP[event_name]
             await self._send_message(
@@ -404,11 +415,13 @@ class PanelWebhookService:
         if sub_end is not None and sub_end.tzinfo is None:
             sub_end = sub_end.replace(tzinfo=timezone.utc)
         after = max(now, sub_end) if sub_end is not None else now
-        return await subscription_dal.user_has_active_subscription_after(
-            session,
-            user_id,
-            after,
-            exclude_subscription_id=getattr(sub, "subscription_id", None),
+        return bool(
+            await subscription_dal.user_has_active_subscription_after(
+                session,
+                user_id,
+                after,
+                exclude_subscription_id=getattr(sub, "subscription_id", None),
+            )
         )
 
     async def _subscription_for_payload(
@@ -569,7 +582,7 @@ class PanelWebhookService:
             )
         return web.Response(status=200, text="ok")
 
-    async def _run_event_in_background(self, event_name: str, user_payload: dict) -> None:
+    async def _run_event_in_background(self, event_name: str, user_payload: dict[str, Any]) -> None:
         async with self._event_semaphore:
             try:
                 await self.handle_event(event_name, user_payload)
@@ -579,8 +592,10 @@ class PanelWebhookService:
                 )
 
 
-async def panel_webhook_route(request: web.Request):
-    service: PanelWebhookService = request.app["panel_webhook_service"]
+async def panel_webhook_route(request: web.Request) -> web.Response:
+    from bot.app.web.context import get_panel_webhook_service
+
+    service: PanelWebhookService = get_panel_webhook_service(request)
     raw = await request.read()
     signature_header = request.headers.get("X-Remnawave-Signature")
     return await service.handle_webhook(raw, signature_header)

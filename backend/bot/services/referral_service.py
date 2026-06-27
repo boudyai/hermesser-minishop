@@ -1,24 +1,41 @@
 import logging
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Protocol
 
 from aiogram import Bot
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.infra import events
+from bot.infra.event_payloads import ReferralBonusGrantedPayload
 from bot.middlewares.i18n import JsonI18n
 from config.settings import Settings
 from db.dal import payment_dal, subscription_dal, user_dal
 
-from .subscription_service import SubscriptionService
+
+class _SubscriptionServiceLike(Protocol):
+    async def has_active_subscription(self, session: Any, user_id: int) -> bool: ...
+
+    async def _get_or_create_panel_user_link_details(
+        self,
+        session: Any,
+        user_id: int,
+        user_model: Any,
+    ) -> tuple[Optional[str], Optional[int], Optional[int], Optional[int]]: ...
+
+    async def extend_active_subscription_days(
+        self,
+        session: Any,
+        user_id: int,
+        bonus_days: int,
+        reason: str,
+    ) -> Optional[datetime]: ...
 
 
 class ReferralService:
     def __init__(
         self,
         settings: Settings,
-        subscription_service: SubscriptionService,
+        subscription_service: _SubscriptionServiceLike,
         bot: Bot,
         i18n: JsonI18n,
     ):
@@ -188,30 +205,30 @@ class ReferralService:
                     )
 
             if referee_bonus_applied_days or inviter_bonus_successfully_applied:
-                referral_event_payload = {
-                    "referee_user_id": referee_user_id,
-                    "referee_bonus_days": referee_bonus_applied_days,
-                    "referee_new_end_date": events.iso(referee_final_end_date),
-                    "inviter_bonus_applied": inviter_bonus_successfully_applied,
-                    "inviter_user_id": (
+                referral_event_payload = ReferralBonusGrantedPayload(
+                    referee_user_id=referee_user_id,
+                    referee_bonus_days=referee_bonus_applied_days,
+                    referee_new_end_date=referee_final_end_date,
+                    inviter_bonus_applied=inviter_bonus_successfully_applied,
+                    inviter_user_id=(
                         inviter_user_id if inviter_bonus_successfully_applied else None
                     ),
-                    "inviter_bonus_days": (
+                    inviter_bonus_days=(
                         inviter_bonus_days if inviter_bonus_successfully_applied else None
                     ),
-                    "inviter_bonus_end_date": events.iso(inviter_bonus_end_date),
-                    "inviter_bonus_kind": inviter_bonus_kind,
-                    "referee_name": referee_name_for_msg,
-                    "payment_db_id": current_payment_db_id,
-                    "purchased_subscription_months": purchased_subscription_months,
-                    "tariff_key": tariff_key,
-                    "one_bonus_per_referee": getattr(
+                    inviter_bonus_end_date=inviter_bonus_end_date,
+                    inviter_bonus_kind=inviter_bonus_kind,
+                    referee_name=referee_name_for_msg,
+                    payment_db_id=current_payment_db_id,
+                    purchased_subscription_months=purchased_subscription_months,
+                    tariff_key=tariff_key,
+                    one_bonus_per_referee=getattr(
                         self.settings,
                         "REFERRAL_ONE_BONUS_PER_REFEREE",
                         True,
                     ),
-                    "reason": "payment",
-                }
+                    reason="payment",
+                ).to_payload()
             else:
                 referral_event_payload = None
 

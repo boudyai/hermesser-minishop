@@ -15,6 +15,7 @@ export default defineConfig({
           nav: [
             { label: 'Демо', href: '/demo/home' },
             { label: 'Установка', href: '/getting-started/setup/' },
+            { label: 'API', href: '/api/' },
             { label: 'GitHub', href: 'https://github.com/3252a8/remnawave-minishop' },
             { label: 'GitLab', href: 'https://gitlab.com/3252a8/remnawave-minishop' },
             { label: 'Telegram', href: 'https://t.me/remnawave_minishop' }
@@ -90,6 +91,17 @@ export default defineConfig({
             { label: 'Админ-панель', slug: 'features/admin-panel' },
             { label: 'Бэкапы и восстановление', slug: 'features/backups' },
             { label: 'Поддержка пользователей / тикеты', slug: 'features/support' },
+          ],
+        },
+        {
+          label: 'API',
+          items: [
+            { label: 'Обзор API', slug: 'api' },
+            { label: 'Интерактивная спецификация', link: '/api/reference/' },
+            { label: 'HTTP-контракты', slug: 'architecture/http-api' },
+            { label: 'Доменные события', slug: 'architecture/events' },
+            { label: 'API плагинов', slug: 'development/plugins' },
+            { label: 'Контракт плагинов', slug: 'development/plugin-contract' },
           ],
         },
         {

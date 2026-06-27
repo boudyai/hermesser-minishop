@@ -1,8 +1,7 @@
 <script>
   import { Label } from "$components/ui/primitives.js";
 
-  export let label = "";
-  export let hint = "";
+  let { label = "", hint = "", children } = $props();
 </script>
 
 <Label.Root class="admin-field-label">
@@ -12,5 +11,5 @@
   {#if hint}
     <small>{hint}</small>
   {/if}
-  <slot />
+  {@render children?.()}
 </Label.Root>

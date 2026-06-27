@@ -1,15 +1,24 @@
-<script>
+<script lang="ts">
   import { getContext } from "svelte";
   import { RefreshCw, TriangleAlert } from "$components/ui/icons.js";
   import { AdminButton } from "$components/patterns/admin/index.js";
+  import type { HealthAlert, HealthStore } from "../lib/admin/stores/healthStore";
 
-  export let at = (key, _params = {}, fallback = "") => fallback || key;
-  export let section = "stats";
-  export let onNavigate = () => {};
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
-  const healthStore = getContext("healthStore");
+  let {
+    at = (key, _params = {}, fallback = "") => fallback || key,
+    section = "stats",
+    onNavigate = () => {},
+  }: {
+    at?: TranslateFn;
+    section?: string;
+    onNavigate?: (section: string) => void;
+  } = $props();
 
-  const MESSAGE_FALLBACKS = {
+  const healthStore = getContext<HealthStore>("healthStore");
+
+  const MESSAGE_FALLBACKS: Record<string, string> = {
     data_dir_missing:
       "Каталог data ({path}) не найден. Проверьте, что том data смонтирован в контейнер.",
     data_dir_not_writable:
@@ -43,7 +52,7 @@
     panel_api_unreachable: "Панель Remnawave недоступна по адресу {url}.",
   };
 
-  const SECTION_FALLBACK_LABELS = {
+  const SECTION_FALLBACK_LABELS: Record<string, string> = {
     settings: "Настройки",
     payments: "Платежи",
     backups: "Бэкапы",
@@ -53,13 +62,13 @@
     users: "Пользователи",
   };
 
-  function interpolate(template, params = {}) {
+  function interpolate(template: string, params: Record<string, unknown> = {}): string {
     return String(template || "").replace(/\{(\w+)\}/g, (match, key) =>
       params[key] !== undefined && params[key] !== null ? String(params[key]) : match
     );
   }
 
-  function alertText(alert) {
+  function alertText(alert: HealthAlert): string {
     const fallback = interpolate(
       MESSAGE_FALLBACKS[alert.message_key] || alert.message_key,
       alert.params
@@ -67,17 +76,17 @@
     return at(`health_${alert.message_key}`, alert.params || {}, fallback);
   }
 
-  function sectionLabel(id) {
+  function sectionLabel(id: string): string {
     return at(`nav_${id}`, {}, SECTION_FALLBACK_LABELS[id] || id);
   }
 
-  $: alerts = $healthStore?.alerts || [];
-  $: healthLoading = $healthStore?.healthLoading;
-  $: isDashboard = section === "stats";
-  $: visibleAlerts = isDashboard
-    ? alerts
-    : alerts.filter((alert) => (alert.sections || []).includes(section));
-  $: errorCount = visibleAlerts.filter((alert) => alert.severity === "error").length;
+  const alerts = $derived(healthStore.alerts);
+  const healthLoading = $derived(healthStore.healthLoading);
+  const isDashboard = $derived(section === "stats");
+  const visibleAlerts: HealthAlert[] = $derived(
+    isDashboard ? alerts : alerts.filter((alert) => alert.sections.includes(section))
+  );
+  const errorCount = $derived(visibleAlerts.filter((alert) => alert.severity === "error").length);
 </script>
 
 {#if visibleAlerts.length}
@@ -113,7 +122,7 @@
                 <button
                   type="button"
                   class="admin-config-alert-link"
-                  on:click={() => onNavigate(sectionId)}
+                  onclick={() => onNavigate(sectionId)}
                 >
                   {sectionLabel(sectionId)}
                 </button>

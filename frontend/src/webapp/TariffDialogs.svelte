@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { ArrowRight, CheckCircle2, LockKeyhole } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
@@ -22,73 +22,119 @@
     PaymentMethodGrid,
   } from "$components/patterns/webapp/index.js";
 
-  export let applyTariffChange = () => {};
-  export let changeConfirmOpen = false;
-  export let changeModalOpen = false;
-  export let changeOptions = null;
-  export let closeDeviceTopupModal = () => {};
-  export let closeTariffChangeConfirm = () => {};
-  export let closeTariffChangeModal = () => {};
-  export let closeTopupModal = () => {};
-  export let createDeviceTopupPayment = () => {};
-  export let createTopupPayment = () => {};
-  export let deviceTopupModalOpen = false;
-  export let deviceTopupOptions = null;
-  export let methods = [];
-  export let openTariffChangeConfirm = () => {};
-  export let payBusy = false;
-  export let selectedChangeAction = null;
-  export let selectedChangeTarget = null;
-  export let selectedDeviceTopupPlan = null;
-  export let selectedMethod = "";
-  export let selectedTopupPlan = null;
-  export let singleTariffMode = false;
-  export let tariffActionBusy = false;
-  export let topupModalOpen = false;
-  export let topupOptions = null;
-  export let topupKind = "regular";
-  export let subscription = {};
-  export let trafficMode = false;
+  type AnyRecord = Record<string, any>;
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type VoidAction = () => void;
 
-  function priceLabel(plan) {
+  let {
+    applyTariffChange = () => {},
+    changeConfirmOpen = $bindable(false),
+    changeModalOpen = $bindable(false),
+    changeOptions = null,
+    closeDeviceTopupModal = () => {},
+    closeTariffChangeConfirm = () => {},
+    closeTariffChangeModal = () => {},
+    closeTopupModal = () => {},
+    createDeviceTopupPayment = () => {},
+    createTopupPayment = () => {},
+    deviceTopupModalOpen = $bindable(false),
+    deviceTopupOptions = null,
+    methods = [],
+    openTariffChangeConfirm = () => {},
+    payBusy = false,
+    selectedChangeAction = $bindable(null),
+    selectedChangeTarget = $bindable(null),
+    selectedDeviceTopupPlan = $bindable(null),
+    selectedMethod = $bindable(""),
+    selectedTopupPlan = $bindable(null),
+    singleTariffMode = false,
+    tariffActionBusy = false,
+    topupModalOpen = $bindable(false),
+    topupOptions = null,
+    topupKind = "regular",
+    subscription = {},
+    trafficMode = false,
+    t = (key) => key,
+  }: {
+    applyTariffChange?: VoidAction;
+    changeConfirmOpen?: boolean;
+    changeModalOpen?: boolean;
+    changeOptions?: AnyRecord | null;
+    closeDeviceTopupModal?: VoidAction;
+    closeTariffChangeConfirm?: VoidAction;
+    closeTariffChangeModal?: VoidAction;
+    closeTopupModal?: VoidAction;
+    createDeviceTopupPayment?: VoidAction;
+    createTopupPayment?: VoidAction;
+    deviceTopupModalOpen?: boolean;
+    deviceTopupOptions?: AnyRecord | null;
+    methods?: AnyRecord[];
+    openTariffChangeConfirm?: VoidAction;
+    payBusy?: boolean;
+    selectedChangeAction?: AnyRecord | null;
+    selectedChangeTarget?: AnyRecord | null;
+    selectedDeviceTopupPlan?: AnyRecord | null;
+    selectedMethod?: string;
+    selectedTopupPlan?: AnyRecord | null;
+    singleTariffMode?: boolean;
+    tariffActionBusy?: boolean;
+    topupModalOpen?: boolean;
+    topupOptions?: AnyRecord | null;
+    topupKind?: string;
+    subscription?: AnyRecord;
+    trafficMode?: boolean;
+    t?: Translate;
+  } = $props();
+
+  function priceLabel(plan: AnyRecord | null) {
     return priceLabelFn(plan, selectedMethod);
   }
-  function planKey(plan) {
+  function planKey(plan: AnyRecord | null) {
     return planKeyFn(plan);
   }
-  function planUnitHint(plan) {
+  function planUnitHint(plan: AnyRecord | null) {
     return planUnitHintFn(plan, { trafficMode, selectedMethod, t });
   }
-  function actionKey(action) {
+  function actionKey(action: AnyRecord | null) {
     return actionKeyFn(action);
   }
 
-  $: changePaymentMethods = methodsForPlan(methods, selectedChangeAction);
-  $: topupPaymentMethods = methodsForPlan(methods, selectedTopupPlan);
-  $: devicePaymentMethods = methodsForPlan(methods, selectedDeviceTopupPlan);
-  $: changePaymentMethodSelected = methodSelectable(changePaymentMethods, selectedMethod);
-  $: topupPaymentMethodSelected = methodSelectable(topupPaymentMethods, selectedMethod);
-  $: devicePaymentMethodSelected = methodSelectable(devicePaymentMethods, selectedMethod);
-  $: if (changeModalOpen && selectedChangeAction?.kind === "payment") {
+  const changePaymentMethods = $derived(methodsForPlan(methods, selectedChangeAction));
+  const topupPaymentMethods = $derived(methodsForPlan(methods, selectedTopupPlan));
+  const devicePaymentMethods = $derived(methodsForPlan(methods, selectedDeviceTopupPlan));
+  const changePaymentMethodSelected = $derived(
+    methodSelectable(changePaymentMethods, selectedMethod)
+  );
+  const topupPaymentMethodSelected = $derived(
+    methodSelectable(topupPaymentMethods, selectedMethod)
+  );
+  const devicePaymentMethodSelected = $derived(
+    methodSelectable(devicePaymentMethods, selectedMethod)
+  );
+
+  $effect(() => {
+    if (!changeModalOpen || selectedChangeAction?.kind !== "payment") return;
     const firstMethod = firstAvailableMethod(changePaymentMethods);
     if (firstMethod && !methodSelectable(changePaymentMethods, selectedMethod)) {
       selectedMethod = firstMethod;
     }
-  }
-  $: if (topupModalOpen && selectedTopupPlan) {
+  });
+  $effect(() => {
+    if (!topupModalOpen || !selectedTopupPlan) return;
     const firstMethod = firstAvailableMethod(topupPaymentMethods);
     if (firstMethod && !methodSelectable(topupPaymentMethods, selectedMethod)) {
       selectedMethod = firstMethod;
     }
-  }
-  $: if (deviceTopupModalOpen && selectedDeviceTopupPlan) {
+  });
+  $effect(() => {
+    if (!deviceTopupModalOpen || !selectedDeviceTopupPlan) return;
     const firstMethod = firstAvailableMethod(devicePaymentMethods);
     if (firstMethod && !methodSelectable(devicePaymentMethods, selectedMethod)) {
       selectedMethod = firstMethod;
     }
-  }
+  });
 
-  function changeActionTitle(action) {
+  function changeActionTitle(action: AnyRecord | null) {
     const mode = String(action?.mode || "");
     if (mode === "recalc_days") {
       return t("wa_tariff_change_recalc_days", { days: Number(action?.days_after || 0) });
@@ -155,13 +201,13 @@
       : "";
   }
 
-  function deviceTopupPlanTitle(plan) {
+  function deviceTopupPlanTitle(plan: AnyRecord) {
     return t("wa_hwid_devices_package", {
       count: Number(plan?.device_count || plan?.months || 0),
     });
   }
 
-  function deviceTopupPlanHint(plan) {
+  function deviceTopupPlanHint(plan: AnyRecord) {
     if (plan?.valid_until_text) {
       return t("wa_hwid_devices_active_until", { date: plan.valid_until_text });
     }
@@ -198,8 +244,6 @@
       return premiumTitleFn({ ...subscription, ...(topupOptions || {}) }, t);
     return t("wa_topup_traffic");
   }
-
-  export let t = (key) => key;
 </script>
 
 <Dialog

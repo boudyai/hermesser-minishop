@@ -1,0 +1,69 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { emailError, readReferralParam, shouldShowInviteOnlyHint } from "./authHelpers.js";
+import { REFERRAL_STORAGE_KEY } from "./session.js";
+
+function installBrowser(search = "") {
+  const storage = new Map();
+  const localStorage = {
+    getItem: vi.fn((key) => storage.get(key) || null),
+    setItem: vi.fn((key, value) => storage.set(key, String(value))),
+    removeItem: vi.fn((key) => storage.delete(key)),
+  };
+  vi.stubGlobal("localStorage", localStorage);
+  vi.stubGlobal("window", {
+    location: {
+      href: `https://app.example.com/${search}`,
+      origin: "https://app.example.com",
+      search,
+    },
+    history: { replaceState: vi.fn() },
+  });
+  return { localStorage, storage };
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("auth referral helpers", () => {
+  it("reads referral params from supported query names", () => {
+    for (const [search, expected] of [
+      ["?ref=ABC123", "ABC123"],
+      ["?start=START123", "START123"],
+      ["?start_param=MINI123", "MINI123"],
+    ]) {
+      vi.unstubAllGlobals();
+      const { storage } = installBrowser(search);
+
+      expect(readReferralParam()).toBe(expected);
+      expect(storage.get(REFERRAL_STORAGE_KEY)).toBe(expected);
+    }
+  });
+
+  it("prefers Telegram start_param over query referral", () => {
+    const { storage } = installBrowser("?ref=QUERY123");
+
+    expect(readReferralParam({ initDataUnsafe: { start_param: "TG123" } })).toBe("TG123");
+    expect(storage.get(REFERRAL_STORAGE_KEY)).toBe("TG123");
+  });
+
+  it("shows the invite-only hint only when no referral is available", () => {
+    const { localStorage } = installBrowser("");
+
+    expect(shouldShowInviteOnlyHint({ registrationInviteOnlyEnabled: true })).toBe(true);
+
+    localStorage.setItem(REFERRAL_STORAGE_KEY, "ABC123");
+
+    expect(shouldShowInviteOnlyHint({ registrationInviteOnlyEnabled: true })).toBe(false);
+    expect(shouldShowInviteOnlyHint({ registrationInviteOnlyEnabled: false })).toBe(false);
+  });
+
+  it("maps invite-only auth errors to the dedicated copy", () => {
+    const t = (key) => `t:${key}`;
+
+    expect(emailError({ error: "registration_invite_required" }, "fallback", t)).toBe(
+      "t:wa_auth_invite_required"
+    );
+  });
+});

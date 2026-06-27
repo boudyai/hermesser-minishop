@@ -1,18 +1,66 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
-from .webapp_runtime import refresh_webapp_runtime_after_settings_change
+from typing import Any, Dict
 
+from aiohttp import web
+from sqlalchemy.orm import sessionmaker
+
+from bot.app.web.admin_settings_manifest import manifest_payload
+from bot.app.web.context import (
+    get_session_factory,
+    get_settings,
+)
+from bot.app.web.request_parsing import parse_body_or_400
+from bot.app.web.route_contracts import (
+    INTEGER_SCHEMA,
+    STRING_SCHEMA,
+    RouteContract,
+    loose_array_schema,
+    ok_envelope_with,
+    register_contract,
+)
+from bot.app.web.webapp.cache_helpers import refresh_webapp_runtime_after_settings_change
+from bot.services.entitlements import features as entitlement_features
+from bot.services.settings_override_service import current_value, update_overrides
+from config.settings import Settings
 from config.subscription_guides_config import (
     SubscriptionGuidesConfigError,
     subscription_guides_admin_config_json,
 )
-from bot.services.entitlements import features as entitlement_features
+from db.dal import app_settings_dal
+
+from .auth import (
+    _require_admin_user_id,
+)
+from .common import (
+    _error,
+    _error_payload,
+    _ok,
+)
+from .schemas import AdminSettingsPatchBody
+
+register_contract(
+    "admin_settings_get_route",
+    RouteContract(
+        response_schema=ok_envelope_with(
+            {
+                "sections": loose_array_schema(),
+                "features": {"type": "array", "items": STRING_SCHEMA},
+            }
+        )
+    ),
+)
+register_contract(
+    "admin_settings_patch_route",
+    RouteContract(
+        request_model=AdminSettingsPatchBody,
+        response_schema=ok_envelope_with({"applied": INTEGER_SCHEMA, "reverted": INTEGER_SCHEMA}),
+    ),
+)
 
 
 async def admin_settings_get_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    settings: Settings = get_settings(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
 
     async with async_session_factory() as session:
         overrides = await app_settings_dal.get_overrides_with_meta(session)
@@ -71,11 +119,11 @@ async def admin_settings_get_route(request: web.Request) -> web.Response:
 
 async def admin_settings_patch_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
-    payload = await _read_json(request)
-    updates = payload.get("updates") or {}
-    deletes = payload.get("deletes") or []
+    settings: Settings = get_settings(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
+    body = await parse_body_or_400(request, AdminSettingsPatchBody)
+    updates = body.updates or {}
+    deletes = body.deletes or []
     if not isinstance(updates, dict):
         return _error(400, "invalid_updates")
     if not isinstance(deletes, list):
@@ -96,9 +144,11 @@ async def admin_settings_patch_route(request: web.Request) -> web.Response:
         actor_id=actor_id,
     )
     if not result.get("ok"):
-        return web.json_response(
-            {"ok": False, "error": "validation_failed", "errors": result.get("errors", {})},
-            status=400,
+        return _error_payload(
+            400,
+            "validation_failed",
+            errors=result.get("errors", {}),
+            message=result.get("message", "Validation failed"),
         )
 
     await refresh_webapp_runtime_after_settings_change(request, updates=updates, deletes=deletes)

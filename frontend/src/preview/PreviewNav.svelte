@@ -1,7 +1,7 @@
 <script>
   import { Gift, Home, Settings } from "$components/ui/icons.js";
 
-  export let active = "home";
+  let { active = "home" } = $props();
 </script>
 
 <nav class="bottom-nav static">

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import {
     ArrowLeft,
     ArrowRight,
@@ -31,50 +31,125 @@
     methodsForPlan,
   } from "../lib/webapp/tariffs.js";
 
-  export let createPayment = () => {};
-  export let deviceConfirmOpen = false;
-  export let deviceDisconnectBusy = false;
-  export let deviceToDisconnect = null;
-  export let disconnectDevice = () => {};
-  export let linkEmailBusy = false;
-  export let linkEmailCode = "";
-  export let linkEmailFieldError = "";
-  export let linkEmailIsError = false;
-  export let linkEmailOpen = false;
-  export let linkEmailPending = "";
-  export let linkEmailResendCooldown = 0;
-  export let linkEmailStatus = "";
-  export let linkEmailValue = "";
-  export let hasMultipleTariffs = false;
-  export let methods = [];
-  export let payBusy = false;
-  export let paymentModalOpen = false;
-  export let paymentStep = "tariff";
-  export let plans = [];
-  export let selectedMethod = "";
-  export let selectedPlan = null;
-  export let selectedTariff = null;
-  export let selectedTariffKey = "";
-  export let selectedTariffPlans = [];
-  export let renewHwidDevices = true;
-  export let setPasswordBusy = false;
-  export let setPasswordCode = "";
-  export let setPasswordConfirm = "";
-  export let setPasswordEmail = "";
-  export let setPasswordIsError = false;
-  export let setPasswordOpen = false;
-  export let setPasswordPending = false;
-  export let setPasswordResendCooldown = 0;
-  export let setPasswordStatus = "";
-  export let setPasswordValue = "";
-  export let singleTariffMode = false;
-  export let subscription = {};
-  export let subscriptionPurchaseDescription = "";
-  export let tariffCatalog = [];
-  export let tariffMode = false;
-  export let trafficMode = false;
+  type AnyRecord = Record<string, any>;
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type VoidAction = () => void;
 
-  function priceLabel(plan) {
+  let {
+    createPayment = () => {},
+    deviceConfirmOpen = false,
+    deviceDisconnectBusy = false,
+    deviceToDisconnect = null,
+    disconnectDevice = () => {},
+    linkEmailBusy = false,
+    linkEmailCode = $bindable(""),
+    linkEmailFieldError = $bindable(""),
+    linkEmailIsError = false,
+    linkEmailOpen = false,
+    linkEmailPending = "",
+    linkEmailResendCooldown = 0,
+    linkEmailStatus = "",
+    linkEmailValue = $bindable(""),
+    hasMultipleTariffs = false,
+    methods = [],
+    payBusy = false,
+    paymentModalOpen = $bindable(false),
+    paymentStep = $bindable("tariff"),
+    plans = [],
+    selectedMethod = $bindable(""),
+    selectedPlan = $bindable(null),
+    selectedTariff = null,
+    selectedTariffKey = $bindable(""),
+    selectedTariffPlans = [],
+    renewHwidDevices = $bindable(true),
+    setPasswordBusy = false,
+    setPasswordCode = $bindable(""),
+    setPasswordConfirm = $bindable(""),
+    setPasswordEmail = "",
+    setPasswordIsError = false,
+    setPasswordOpen = false,
+    setPasswordPending = false,
+    setPasswordResendCooldown = 0,
+    setPasswordStatus = "",
+    setPasswordValue = $bindable(""),
+    singleTariffMode = false,
+    subscription = {},
+    subscriptionPurchaseDescription = "",
+    tariffCatalog = [],
+    tariffMode = false,
+    trafficMode = false,
+    closeDeviceDisconnectDialog = () => {},
+    closeLinkEmailDialog = () => {},
+    closePaymentModal = () => {},
+    closeSetPasswordDialog = () => {},
+    backToTariffList = () => {},
+    continueWithSelectedTariff = () => {},
+    requestLinkEmailCode = () => {},
+    requestSetPasswordCode = () => {},
+    selectTariff = () => {},
+    t = (key) => key,
+    termUnitLabel = () => "",
+    verifyLinkEmailCode = () => {},
+    confirmSetPassword = () => {},
+  }: {
+    createPayment?: VoidAction;
+    deviceConfirmOpen?: boolean;
+    deviceDisconnectBusy?: boolean;
+    deviceToDisconnect?: AnyRecord | null;
+    disconnectDevice?: VoidAction;
+    linkEmailBusy?: boolean;
+    linkEmailCode?: string;
+    linkEmailFieldError?: string;
+    linkEmailIsError?: boolean;
+    linkEmailOpen?: boolean;
+    linkEmailPending?: string;
+    linkEmailResendCooldown?: number;
+    linkEmailStatus?: string;
+    linkEmailValue?: string;
+    hasMultipleTariffs?: boolean;
+    methods?: AnyRecord[];
+    payBusy?: boolean;
+    paymentModalOpen?: boolean;
+    paymentStep?: string;
+    plans?: AnyRecord[];
+    selectedMethod?: string;
+    selectedPlan?: AnyRecord | null;
+    selectedTariff?: AnyRecord | null;
+    selectedTariffKey?: string;
+    selectedTariffPlans?: AnyRecord[];
+    renewHwidDevices?: boolean;
+    setPasswordBusy?: boolean;
+    setPasswordCode?: string;
+    setPasswordConfirm?: string;
+    setPasswordEmail?: string;
+    setPasswordIsError?: boolean;
+    setPasswordOpen?: boolean;
+    setPasswordPending?: boolean;
+    setPasswordResendCooldown?: number;
+    setPasswordStatus?: string;
+    setPasswordValue?: string;
+    singleTariffMode?: boolean;
+    subscription?: AnyRecord;
+    subscriptionPurchaseDescription?: string;
+    tariffCatalog?: AnyRecord[];
+    tariffMode?: boolean;
+    trafficMode?: boolean;
+    closeDeviceDisconnectDialog?: VoidAction;
+    closeLinkEmailDialog?: VoidAction;
+    closePaymentModal?: VoidAction;
+    closeSetPasswordDialog?: VoidAction;
+    backToTariffList?: VoidAction;
+    continueWithSelectedTariff?: VoidAction;
+    requestLinkEmailCode?: VoidAction;
+    requestSetPasswordCode?: VoidAction;
+    selectTariff?: (tariff: AnyRecord) => void;
+    t?: Translate;
+    termUnitLabel?: (value: number, unit: string) => string;
+    verifyLinkEmailCode?: VoidAction;
+    confirmSetPassword?: VoidAction;
+  } = $props();
+
+  function priceLabel(plan: AnyRecord | null) {
     return priceLabelFn(plan, selectedMethod);
   }
   function methodUsesStars() {
@@ -82,23 +157,23 @@
       .toLowerCase()
       .includes("stars");
   }
-  function hwidRenewalFor(plan) {
+  function hwidRenewalFor(plan: AnyRecord | null) {
     return plan?.hwid_renewal?.available ? plan.hwid_renewal : null;
   }
-  function isSubscriptionPlan(plan) {
+  function isSubscriptionPlan(plan: AnyRecord | null) {
     const saleMode = String(plan?.sale_mode || "subscription").toLowerCase();
     return saleMode === "subscription";
   }
-  function hwidRenewalAvailableForMethod(plan) {
+  function hwidRenewalAvailableForMethod(plan: AnyRecord | null) {
     const renewal = hwidRenewalFor(plan);
     if (!subscription?.active || !isSubscriptionPlan(plan) || !renewal) return false;
     if (methodUsesStars()) return Number(renewal.stars_price || 0) > 0;
     return Number(renewal.price || 0) > 0;
   }
-  function planWithSelectedHwidRenewal(plan) {
+  function planWithSelectedHwidRenewal(plan: AnyRecord | null) {
     if (!plan || !renewHwidDevices || !hwidRenewalAvailableForMethod(plan)) return plan;
     const renewal = hwidRenewalFor(plan);
-    const withRenewal = {
+    const withRenewal: AnyRecord = {
       ...plan,
       price: Number(plan.price || 0) + Number(renewal.price || 0),
     };
@@ -107,19 +182,21 @@
     }
     return withRenewal;
   }
-  function paymentPriceLabel(plan) {
+  function paymentPriceLabel(plan: AnyRecord | null) {
     return priceLabelFn(planWithSelectedHwidRenewal(plan), selectedMethod);
   }
-  $: selectedPlanForPayment = planWithSelectedHwidRenewal(selectedPlan);
-  $: paymentMethods = methodsForPlan(methods, selectedPlanForPayment);
-  $: paymentMethodSelected = methodSelectable(paymentMethods, selectedMethod);
-  $: if (paymentModalOpen && paymentStep === "checkout" && selectedPlan) {
+  const selectedPlanForPayment = $derived(planWithSelectedHwidRenewal(selectedPlan));
+  const paymentMethods = $derived(methodsForPlan(methods, selectedPlanForPayment));
+  const paymentMethodSelected = $derived(methodSelectable(paymentMethods, selectedMethod));
+
+  $effect(() => {
+    if (!paymentModalOpen || paymentStep !== "checkout" || !selectedPlan) return;
     const firstMethod = firstAvailableMethod(paymentMethods);
     if (firstMethod && !methodSelectable(paymentMethods, selectedMethod)) {
       selectedMethod = firstMethod;
     }
-  }
-  function hwidRenewalPriceLabel(plan = selectedPlan) {
+  });
+  function hwidRenewalPriceLabel(plan: AnyRecord | null = selectedPlan) {
     const renewal = hwidRenewalFor(plan);
     if (!renewal) return "";
     return priceLabelFn(
@@ -142,10 +219,10 @@
       !showHwidRenewalBlock()
     );
   }
-  function hwidRenewalCount(plan = selectedPlan) {
+  function hwidRenewalCount(plan: AnyRecord | null = selectedPlan) {
     return Number(hwidRenewalFor(plan)?.device_count || subscription?.extra_hwid_devices || 0);
   }
-  function hwidRenewalHint(plan = selectedPlan) {
+  function hwidRenewalHint(plan: AnyRecord | null = selectedPlan) {
     const renewal = hwidRenewalFor(plan);
     if (renewal?.valid_from_text && renewal?.valid_until_text) {
       return t("wa_hwid_devices_renewal_checkbox_hint", {
@@ -161,19 +238,19 @@
       subscription?.extra_hwid_devices_valid_until_text
     );
   }
-  function planKey(plan) {
+  function planKey(plan: AnyRecord | null) {
     return planKeyFn(plan);
   }
-  function planDisplayTitle(plan) {
+  function planDisplayTitle(plan: AnyRecord | null) {
     return planDisplayTitleFn(plan, { trafficMode, t });
   }
-  function planSubtitle(plan) {
+  function planSubtitle(plan: AnyRecord | null) {
     return planSubtitleFn(plan, { t, termUnitLabel });
   }
-  function planUnitHint(plan) {
+  function planUnitHint(plan: AnyRecord | null) {
     return planUnitHintFn(plan, { trafficMode, selectedMethod, t });
   }
-  function tariffLimitLabel(tariff) {
+  function tariffLimitLabel(tariff: AnyRecord) {
     return tariffLimitLabelFn(tariff, { t });
   }
 
@@ -207,20 +284,6 @@
     if (paymentStep === "tariff") return false;
     return String(selectedTariff?.billing_model || "period").toLowerCase() !== "traffic";
   }
-
-  export let closeDeviceDisconnectDialog = () => {};
-  export let closeLinkEmailDialog = () => {};
-  export let closePaymentModal = () => {};
-  export let closeSetPasswordDialog = () => {};
-  export let backToTariffList = () => {};
-  export let continueWithSelectedTariff = () => {};
-  export let requestLinkEmailCode = () => {};
-  export let requestSetPasswordCode = () => {};
-  export let selectTariff = () => {};
-  export let t = (key) => key;
-  export let termUnitLabel = () => "";
-  export let verifyLinkEmailCode = () => {};
-  export let confirmSetPassword = () => {};
 </script>
 
 <Dialog
@@ -507,7 +570,7 @@
       type="password"
       placeholder={t("wa_password_confirm_placeholder")}
       autocomplete="new-password"
-      on:keydown={(event) => {
+      onkeydown={(event) => {
         if (event.key !== "Enter") return;
         event.preventDefault();
         requestSetPasswordCode();
@@ -578,7 +641,7 @@
           placeholder={t("wa_email_placeholder")}
           autocomplete="email"
           class={linkEmailFieldError ? "input-error" : ""}
-          on:input={() => (linkEmailFieldError = "")}
+          oninput={() => (linkEmailFieldError = "")}
         />
         {#if linkEmailFieldError}
           <Tooltip.Trigger class="field-error-trigger" aria-label={linkEmailFieldError}>

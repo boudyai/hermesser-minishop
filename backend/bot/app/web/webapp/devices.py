@@ -1,17 +1,50 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
+import hashlib
+import hmac
+import logging
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
+from aiohttp import web
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import sessionmaker
+
+from bot.app.web.context import (
+    get_session_factory,
+    get_settings,
+    get_subscription_service,
+)
+from bot.app.web.http_contracts import HttpResponseModel
 from bot.app.web.webapp.cache_helpers import webapp_cached_user_payload
+from bot.infra.redis import cache_delete, redis_key
+from bot.services.subscription_service_impl.core import SubscriptionService
+from config.settings import Settings
+from db.dal import user_dal
+
+from .assets import (
+    _enforce_webapp_rate_limit,
+)
+from .common import (
+    _coerce_int_or_none,
+    _json_error,
+    _parse_model_payload,
+    _require_user_id,
+)
+from .payloads import (
+    WebAppDeviceDisconnectPayload,
+)
+from .response_helpers import json_response
+
+logger = logging.getLogger(__name__)
 
 
 async def devices_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not settings.MY_DEVICES_SECTION_ENABLED:
         return _json_error(404, "devices_disabled", "Devices section is disabled")
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
-    subscription_service: SubscriptionService = request.app["subscription_service"]
+    async_session_factory: sessionmaker = get_session_factory(request)
+    subscription_service: SubscriptionService = get_subscription_service(request)
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
@@ -21,7 +54,7 @@ async def devices_route(request: web.Request) -> web.Response:
             settings,
             "devices",
             user_id,
-            int(getattr(settings, "WEBAPP_DEVICES_CACHE_TTL_SECONDS", 5) or 0),
+            int(settings.WEBAPP_DEVICES_CACHE_TTL_SECONDS or 0),
             lambda: _load_devices_payload(
                 subscription_service,
                 session,
@@ -31,11 +64,11 @@ async def devices_route(request: web.Request) -> web.Response:
             ),
         )
     if isinstance(result, dict) and result.get("ok") is True:
-        return web.json_response({"ok": True, **(result.get("payload") or {})})
+        return json_response({"ok": True, **(result.get("payload") or {})})
     if isinstance(result, dict) and not result.get("error"):
         # Backward-compatible with payloads written by older versions under
         # the same Redis cache key.
-        return web.json_response({"ok": True, **result})
+        return json_response({"ok": True, **result})
     if not isinstance(result, dict):
         result = {}
     if not result.get("ok"):
@@ -44,7 +77,7 @@ async def devices_route(request: web.Request) -> web.Response:
             str(result.get("error") or "devices_load_failed"),
             str(result.get("message") or "Failed to load devices"),
         )
-    return web.json_response({"ok": True, **(result.get("payload") or {})})
+    return json_response({"ok": True, **(result.get("payload") or {})})
 
 
 async def _load_devices_payload(
@@ -130,20 +163,15 @@ async def disconnect_device_route(request: web.Request) -> web.Response:
     if rate_limit_response:
         return rate_limit_response
 
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not settings.MY_DEVICES_SECTION_ENABLED:
         return _json_error(404, "devices_disabled", "Devices section is disabled")
 
-    payload = await _read_json(request)
-    disconnect_payload, validation_error = _validate_model_payload(
-        WebAppDeviceDisconnectPayload, payload
-    )
-    if validation_error:
-        return validation_error
+    disconnect_payload = await _parse_model_payload(request, WebAppDeviceDisconnectPayload)
     token = str(disconnect_payload.token or "").strip()
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
-    subscription_service: SubscriptionService = request.app["subscription_service"]
+    async_session_factory: sessionmaker = get_session_factory(request)
+    subscription_service: SubscriptionService = get_subscription_service(request)
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
@@ -180,7 +208,7 @@ async def disconnect_device_route(request: web.Request) -> web.Response:
         await cache_delete(settings, redis_key(settings, "cache", "webapp", "devices", user_id))
         await session.commit()
 
-    return web.json_response({"ok": True})
+    return json_response({"ok": True})
 
 
 def _device_hwid_token(hwid: str) -> str:
@@ -230,24 +258,43 @@ def _serialize_device_datetime(value: Any) -> Optional[str]:
     return str(value)
 
 
+class WebAppDeviceOut(HttpResponseModel):
+    # Field order mirrors the legacy ``_serialize_device`` dict.
+    index: int
+    display_name: str
+    platform: str
+    os_version: str
+    platform_label: str
+    user_agent: str
+    created_at: str | None = None
+    created_at_text: str
+    hwid_short: str
+    token: str
+    can_disconnect: bool
+
+    @classmethod
+    def from_panel_device(cls, device: Dict[str, Any], index: int) -> "WebAppDeviceOut":
+        hwid = str(device.get("hwid") or "").strip()
+        model = str(device.get("deviceModel") or "").strip()
+        platform = str(device.get("platform") or "").strip()
+        os_version = str(device.get("osVersion") or "").strip()
+        user_agent = str(device.get("userAgent") or "").strip()
+        display_name = model or platform or f"Device {index}"
+        platform_label = " ".join(part for part in (platform, os_version) if part).strip()
+        return cls(
+            index=index,
+            display_name=display_name,
+            platform=platform,
+            os_version=os_version,
+            platform_label=platform_label,
+            user_agent=user_agent,
+            created_at=_serialize_device_datetime(device.get("createdAt")),
+            created_at_text=_format_device_datetime(device.get("createdAt")),
+            hwid_short=_shorten_hwid_for_display(hwid),
+            token=_device_hwid_token(hwid) if hwid else "",
+            can_disconnect=bool(hwid),
+        )
+
+
 def _serialize_device(device: Dict[str, Any], index: int) -> Dict[str, Any]:
-    hwid = str(device.get("hwid") or "").strip()
-    model = str(device.get("deviceModel") or "").strip()
-    platform = str(device.get("platform") or "").strip()
-    os_version = str(device.get("osVersion") or "").strip()
-    user_agent = str(device.get("userAgent") or "").strip()
-    display_name = model or platform or f"Device {index}"
-    platform_label = " ".join(part for part in (platform, os_version) if part).strip()
-    return {
-        "index": index,
-        "display_name": display_name,
-        "platform": platform,
-        "os_version": os_version,
-        "platform_label": platform_label,
-        "user_agent": user_agent,
-        "created_at": _serialize_device_datetime(device.get("createdAt")),
-        "created_at_text": _format_device_datetime(device.get("createdAt")),
-        "hwid_short": _shorten_hwid_for_display(hwid),
-        "token": _device_hwid_token(hwid) if hwid else "",
-        "can_disconnect": bool(hwid),
-    }
+    return WebAppDeviceOut.from_panel_device(device, index).model_dump(mode="json")

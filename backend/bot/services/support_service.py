@@ -4,18 +4,21 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Coroutine, Optional
 
 from aiogram import Bot
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.infra import events
+from bot.infra.event_payloads import SupportTicketCreatedPayload
 from bot.middlewares.i18n import JsonI18n
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.notification_service import NotificationService
 from config.settings import Settings
+from config.settings_models import SupportSettings
 from db.dal import message_log_dal, subscription_dal, support_dal, user_dal
-from db.models import SupportTicket, SupportTicketMessage, User
+from db.models import Subscription, SupportTicket, SupportTicketMessage, User
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +54,7 @@ def _notification_due(
 
 def _support_admin_notification_decision(
     ticket: SupportTicket,
-    settings: Settings,
+    support_settings: SupportSettings,
     *,
     now: Optional[datetime] = None,
     admin_email_notifications_enabled: Optional[bool] = None,
@@ -65,18 +68,16 @@ def _support_admin_notification_decision(
     send_telegram = first_unread or _notification_due(
         getattr(ticket, "admin_last_notified_at", None),
         now=now,
-        cooldown_seconds=getattr(settings, "SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS", 300),
+        cooldown_seconds=support_settings.admin_notification_cooldown_seconds,
     )
     if admin_email_notifications_enabled is None:
-        admin_email_notifications_enabled = bool(
-            getattr(settings, "SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED", False)
-        )
+        admin_email_notifications_enabled = bool(support_settings.admin_email_notifications_enabled)
     send_email = bool(admin_email_notifications_enabled) and (
         first_unread
         or _notification_due(
             getattr(ticket, "admin_last_emailed_at", None),
             now=now,
-            cooldown_seconds=getattr(settings, "SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS", 1800),
+            cooldown_seconds=support_settings.admin_email_cooldown_seconds,
         )
     )
     return AdminNotificationDecision(send_telegram=send_telegram, send_email=send_email)
@@ -122,7 +123,7 @@ class SupportService:
         i18n: Optional[JsonI18n],
         notification_service: Optional[NotificationService] = None,
         email_auth_service: Optional[EmailAuthService] = None,
-    ):
+    ) -> None:
         self.session_factory = session_factory
         self.settings = settings
         self.bot = bot
@@ -137,8 +138,10 @@ class SupportService:
         )
 
     @staticmethod
-    def _schedule_notification(coro, error_message: str, *error_args: Any) -> None:
-        async def _runner():
+    def _schedule_notification(
+        coro: Coroutine[Any, Any, None], error_message: str, *error_args: Any
+    ) -> None:
+        async def _runner() -> None:
             try:
                 await coro
             except Exception:
@@ -146,9 +149,10 @@ class SupportService:
 
         asyncio.create_task(_runner(), name="support-notification")
 
-    async def _ensure_user_allowed(self, session, user_id: int) -> User:
+    async def _ensure_user_allowed(self, session: AsyncSession, user_id: int) -> User:
         user = await user_dal.get_user_by_id(session, user_id)
-        if not user or user.is_banned or not self.settings.SUPPORT_TICKETS_ENABLED:
+        support_settings = self.settings.support_settings
+        if not user or user.is_banned or not support_settings.tickets_enabled:
             raise TicketForbidden("ticket_forbidden")
         return user
 
@@ -160,9 +164,10 @@ class SupportService:
         priority: str,
         first_message_body: str,
     ) -> SupportTicket:
+        support_settings = self.settings.support_settings
         async with self.session_factory() as session:
             user = await self._ensure_user_allowed(session, user_id)
-            limit = max(0, int(self.settings.SUPPORT_TICKET_RATE_LIMIT_PER_HOUR or 0))
+            limit = max(0, int(support_settings.ticket_rate_limit_per_hour or 0))
             if limit:
                 recent = await support_dal.count_recent_tickets_for_user(session, user_id, 3600)
                 if recent >= limit:
@@ -170,22 +175,21 @@ class SupportService:
             ticket = await support_dal.create_ticket(
                 session,
                 user_id,
-                subject[: self.settings.SUPPORT_TICKET_MAX_SUBJECT_LENGTH],
+                subject[: support_settings.ticket_max_subject_length],
                 category,
                 priority,
-                first_message_body[: self.settings.SUPPORT_TICKET_MAX_BODY_LENGTH],
+                first_message_body[: support_settings.ticket_max_body_length],
             )
             snapshot = await self.build_user_snapshot(user, session=session)
             await session.commit()
 
-        await events.emit(
-            events.SUPPORT_TICKET_CREATED,
-            {
-                "user_id": user_id,
-                "ticket_id": ticket.ticket_id,
-                "category": category,
-                "priority": priority,
-            },
+        await events.emit_model(
+            SupportTicketCreatedPayload(
+                user_id=user_id,
+                ticket_id=ticket.ticket_id,
+                category=category,
+                priority=priority,
+            )
         )
 
         try:
@@ -205,6 +209,7 @@ class SupportService:
         ticket_id: int,
         body: str,
     ) -> tuple[SupportTicket, SupportTicketMessage]:
+        support_settings = self.settings.support_settings
         async with self.session_factory() as session:
             user = await self._ensure_user_allowed(session, user_id)
             ticket, _messages = await support_dal.get_ticket(session, ticket_id)
@@ -215,7 +220,7 @@ class SupportService:
                 ticket_id,
                 "user",
                 user_id,
-                body[: self.settings.SUPPORT_TICKET_MAX_BODY_LENGTH],
+                body[: support_settings.ticket_max_body_length],
             )
             if message is None:
                 raise TicketNotFound("not_found")
@@ -226,7 +231,7 @@ class SupportService:
             )
             notification_decision = _support_admin_notification_decision(
                 ticket,
-                self.settings,
+                support_settings,
                 now=notification_at,
                 admin_email_notifications_enabled=admin_email_notifications_enabled,
             )
@@ -263,6 +268,7 @@ class SupportService:
         *,
         is_internal_note: bool = False,
     ) -> tuple[SupportTicket, SupportTicketMessage]:
+        support_settings = self.settings.support_settings
         async with self.session_factory() as session:
             ticket, _messages = await support_dal.get_ticket(
                 session,
@@ -277,7 +283,7 @@ class SupportService:
                 ticket_id,
                 "admin",
                 admin_id,
-                body[: self.settings.SUPPORT_TICKET_MAX_BODY_LENGTH],
+                body[: support_settings.ticket_max_body_length],
                 is_internal_note=is_internal_note,
             )
             if message is None:
@@ -378,11 +384,14 @@ class SupportService:
             await support_dal.mark_read(session, ticket_id, "admin")
             await session.commit()
 
-    async def build_user_snapshot(self, user: User, *, session=None) -> dict:
+    async def build_user_snapshot(
+        self, user: User, *, session: Optional[AsyncSession] = None
+    ) -> dict[str, object]:
         owns_session = session is None
         if owns_session:
             session = self.session_factory()
             await session.__aenter__()
+        assert session is not None
         try:
             sub = None
             if getattr(user, "panel_user_uuid", None):
@@ -451,7 +460,7 @@ class SupportService:
                 await session.__aexit__(None, None, None)
 
     @staticmethod
-    def _regular_limit(sub) -> int:
+    def _regular_limit(sub: Optional[Subscription]) -> int:
         if not sub:
             return 0
         if getattr(sub, "regular_unlimited_override", False):
@@ -463,7 +472,7 @@ class SupportService:
         )
 
     @staticmethod
-    def _premium_limit(sub) -> int:
+    def _premium_limit(sub: Optional[Subscription]) -> int:
         if not sub:
             return 0
         if getattr(sub, "premium_unlimited_override", False):

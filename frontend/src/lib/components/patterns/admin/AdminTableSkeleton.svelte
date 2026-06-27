@@ -2,10 +2,7 @@
   import Skeleton from "$components/ui/skeleton.svelte";
   import AdminTable from "./AdminTable.svelte";
 
-  export let headers = [];
-  export let rows = 6;
-  export let actionColumn = false;
-  export let widths = [];
+  let { headers = [], rows = 6, actionColumn = false, widths = [] } = $props();
 
   function widthFor(index) {
     if (widths[index]) return widths[index];

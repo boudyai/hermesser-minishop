@@ -55,9 +55,19 @@ from .http_client import (
     http_ok,
     post_json_request,
 )
+from .link_flow import (
+    CreatePaymentRequest,
+    CreateResult,
+    LinkFlowService,
+    LinkPaymentDescriptor,
+    run_callback_payment,
+    run_reuse_webapp_payment,
+    run_webapp_payment,
+)
 from .recurring import (
     RecurringChargeContext,
     RecurringChargeResult,
+    RecurringProviderService,
     service_supports_recurring,
 )
 from .success import (
@@ -81,7 +91,11 @@ from .webhooks import (
 )
 
 __all__ = [
+    "CreatePaymentRequest",
+    "CreateResult",
     "HttpClientMixin",
+    "LinkFlowService",
+    "LinkPaymentDescriptor",
     "PaymentCallbackParts",
     "PaymentRecordAmounts",
     "PAYMENT_STATUS_PENDING_FINALIZATION",
@@ -89,6 +103,7 @@ __all__ = [
     "PaymentSuccessRequest",
     "RecurringChargeContext",
     "RecurringChargeResult",
+    "RecurringProviderService",
     "service_supports_recurring",
     "SuccessCheck",
     "SuccessMessage",
@@ -130,6 +145,9 @@ __all__ = [
     "payment_units_for_activation",
     "payment_unavailable",
     "post_json_request",
+    "run_callback_payment",
+    "run_reuse_webapp_payment",
+    "run_webapp_payment",
     "quote_hwid_callback_parts",
     "render_link_or_fail",
     "render_payment_link",

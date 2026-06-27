@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import {
     ArrowRight,
     CheckCircle2,
@@ -16,45 +16,94 @@
   import { LanguageSelect } from "$components/patterns/webapp/index.js";
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
 
-  export let currentLang = "ru";
-  export let currentLanguageOption = null;
-  export let emailAuthEnabled = true;
-  export let emailLinkStatus = "";
-  export let isAdmin = false;
-  export let languageBusy = false;
-  export let languageClickGuard = false;
-  export let languageClickGuardArmed = false;
-  export let languageMenuOpen = false;
-  export let languageOptions = [];
-  export let linkEmailBusy = false;
-  export let linkTelegramBusy = false;
-  export let privacyPolicyUrl = "";
-  export let profileAvatarUrl = "";
-  export let profileEmail = "";
-  export let profileTelegramId = "";
-  export let serverStatusUrl = "";
-  export let supportUrl = "";
-  export let telegramNotificationsNeedPrompt = false;
-  export let telegramNotificationsStartLink = "";
-  export let telegramNotificationsStatus = "unknown";
-  export let telegramProfileName = "";
-  export let user = {};
-  export let userAgreementUrl = "";
-  export let userLanguage = "";
-  export let showLogout = true;
+  type AnyRecord = Record<string, any>;
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type VoidAction = () => void;
+  type LanguageOption = {
+    value: string;
+    label: string;
+    flag?: string;
+  };
 
-  export let linkTelegramAccount = () => {};
-  export let openTelegramNotificationsBot = () => {};
-  export let logout = () => {};
-  export let openAdminPanel = () => {};
-  export let openExternalLink = () => {};
-  export let openLinkEmailDialog = () => {};
-  export let openSetPasswordDialog = () => {};
-  export let setLanguageMenuOpen = () => {};
-  export let t = (key) => key;
-  export let updateAccountLanguage = () => {};
+  type Props = {
+    currentLang?: string;
+    currentLanguageOption?: LanguageOption | null;
+    emailAuthEnabled?: boolean;
+    emailLinkStatus?: string;
+    isAdmin?: boolean;
+    languageBusy?: boolean;
+    languageClickGuard?: boolean;
+    languageClickGuardArmed?: boolean;
+    languageMenuOpen?: boolean;
+    languageOptions?: LanguageOption[];
+    linkEmailBusy?: boolean;
+    linkTelegramBusy?: boolean;
+    privacyPolicyUrl?: string;
+    profileAvatarUrl?: string;
+    profileEmail?: string;
+    profileTelegramId?: string;
+    serverStatusUrl?: string;
+    supportUrl?: string;
+    telegramNotificationsNeedPrompt?: boolean;
+    telegramNotificationsStartLink?: string;
+    telegramNotificationsStatus?: string;
+    telegramProfileName?: string;
+    user?: AnyRecord;
+    userAgreementUrl?: string;
+    userLanguage?: string;
+    showLogout?: boolean;
+    linkTelegramAccount?: VoidAction;
+    openTelegramNotificationsBot?: VoidAction;
+    logout?: VoidAction;
+    openAdminPanel?: VoidAction;
+    openExternalLink?: (url: string) => void;
+    openLinkEmailDialog?: VoidAction;
+    openSetPasswordDialog?: VoidAction;
+    setLanguageMenuOpen?: (open: boolean) => void;
+    t?: Translate;
+    updateAccountLanguage?: (language: string) => void;
+  };
 
-  $: showEmailAccount = emailAuthEnabled || Boolean(user?.email);
+  let {
+    currentLang = "ru",
+    currentLanguageOption = null,
+    emailAuthEnabled = true,
+    emailLinkStatus = "",
+    isAdmin = false,
+    languageBusy = false,
+    languageClickGuard = false,
+    languageClickGuardArmed = false,
+    languageMenuOpen = $bindable(false),
+    languageOptions = [],
+    linkEmailBusy = false,
+    linkTelegramBusy = false,
+    privacyPolicyUrl = "",
+    profileAvatarUrl = "",
+    profileEmail = "",
+    profileTelegramId = "",
+    serverStatusUrl = "",
+    supportUrl = "",
+    telegramNotificationsNeedPrompt = false,
+    telegramNotificationsStartLink = "",
+    telegramNotificationsStatus = "unknown",
+    telegramProfileName = "",
+    user = {},
+    userAgreementUrl = "",
+    userLanguage = "",
+    showLogout = true,
+    linkTelegramAccount = () => {},
+    openTelegramNotificationsBot = () => {},
+    logout = () => {},
+    openAdminPanel = () => {},
+    openExternalLink = () => {},
+    openLinkEmailDialog = () => {},
+    openSetPasswordDialog = () => {},
+    setLanguageMenuOpen = () => {},
+    t = (key) => key,
+    updateAccountLanguage = () => {},
+  }: Props = $props();
+
+  const showEmailAccount = $derived(emailAuthEnabled || Boolean(user?.email));
 </script>
 
 <main class="content with-nav">
