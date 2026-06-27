@@ -122,7 +122,7 @@ services:
         condition: service_completed_successfully
 
   remnawave-dev-seed:
-    image: postgres:17
+    image: postgres:17.6
     container_name: remnawave-dev-seed
     profiles:
       - seed
@@ -142,7 +142,7 @@ services:
         condition: service_healthy
 
   dev-seed:
-    image: postgres:17
+    image: postgres:17.6
     container_name: remnawave-minishop-dev-seed
     profiles:
       - seed
