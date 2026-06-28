@@ -254,6 +254,7 @@ async def create_base_payment_record(
     hwid_pricing_period_months: Optional[int] = None,
     hwid_proration_ratio: Optional[float] = None,
     hwid_full_price: Optional[float] = None,
+    promo_code_id: Optional[int] = None,
 ) -> Payment:
     payment = await payment_dal.create_payment_record(
         session,
@@ -274,6 +275,7 @@ async def create_base_payment_record(
             "hwid_pricing_period_months": hwid_pricing_period_months,
             "hwid_proration_ratio": hwid_proration_ratio,
             "hwid_full_price": hwid_full_price,
+            "promo_code_id": promo_code_id,
         },
     )
     await session.commit()
@@ -312,6 +314,7 @@ async def create_webapp_payment_record(
         hwid_pricing_period_months=ctx.hwid_pricing_period_months,
         hwid_proration_ratio=ctx.hwid_proration_ratio,
         hwid_full_price=ctx.hwid_full_price,
+        promo_code_id=ctx.promo_code_id,
     )
 
 
@@ -343,6 +346,7 @@ async def reusable_webapp_payment_response(
         purchased_gb=amounts.purchased_gb,
         purchased_hwid_devices=amounts.purchased_hwid_devices,
         tariff_key=amounts.tariff_key,
+        promo_code_id=ctx.promo_code_id,
         since_minutes=since_minutes,
     )
     if payment is None:

@@ -135,6 +135,7 @@ async def find_recent_pending_provider_payment(
     purchased_gb: Optional[float],
     purchased_hwid_devices: Optional[int],
     tariff_key: Optional[str] = None,
+    promo_code_id: Optional[int] = None,
     since_minutes: Optional[int] = None,
 ) -> Optional[Payment]:
     """Return the most recent pending payment matching the given tariff parameters.
@@ -168,6 +169,10 @@ async def find_recent_pending_provider_payment(
         conditions.append(Payment.sale_mode == sale_mode)
     if tariff_key is not None:
         conditions.append(Payment.tariff_key == tariff_key)
+    if promo_code_id is not None:
+        conditions.append(Payment.promo_code_id == promo_code_id)
+    else:
+        conditions.append(Payment.promo_code_id.is_(None))
     if months is not None:
         conditions.append(Payment.subscription_duration_months == months)
     else:

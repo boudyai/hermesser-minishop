@@ -1191,6 +1191,48 @@ def _migration_0037_add_referral_welcome_bonus_marker(connection: Connection) ->
         )
 
 
+def _migration_0038_extend_promo_code_effects(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns_info = inspector.get_columns("promo_codes")
+    columns: Set[str] = {col["name"] for col in columns_info}
+    statements: List[str] = []
+
+    if "discount_percent" not in columns:
+        statements.append("ALTER TABLE promo_codes ADD COLUMN discount_percent NUMERIC(5, 2)")
+    if "duration_multiplier" not in columns:
+        statements.append("ALTER TABLE promo_codes ADD COLUMN duration_multiplier NUMERIC(6, 3)")
+    if "traffic_multiplier" not in columns:
+        statements.append("ALTER TABLE promo_codes ADD COLUMN traffic_multiplier NUMERIC(6, 3)")
+    if "applies_to" not in columns:
+        statements.append(
+            "ALTER TABLE promo_codes ADD COLUMN applies_to VARCHAR(32) NOT NULL DEFAULT 'all'"
+        )
+    if "min_subscription_months" not in columns:
+        statements.append("ALTER TABLE promo_codes ADD COLUMN min_subscription_months INTEGER")
+    if "min_traffic_gb" not in columns:
+        statements.append("ALTER TABLE promo_codes ADD COLUMN min_traffic_gb NUMERIC(10, 2)")
+    if "origin" not in columns:
+        statements.append(
+            "ALTER TABLE promo_codes ADD COLUMN origin VARCHAR(32) NOT NULL DEFAULT 'admin'"
+        )
+
+    for stmt in statements:
+        connection.execute(text(stmt))
+
+    created_by = next(
+        (col for col in columns_info if col["name"] == "created_by_admin_id"),
+        None,
+    )
+    if (
+        created_by is not None
+        and created_by.get("nullable") is False
+        and connection.dialect.name == "postgresql"
+    ):
+        connection.execute(
+            text("ALTER TABLE promo_codes ALTER COLUMN created_by_admin_id DROP NOT NULL")
+        )
+
+
 MIGRATIONS: List[Migration] = [
     Migration(
         id="0001_add_channel_subscription_fields",
@@ -1376,6 +1418,11 @@ MIGRATIONS: List[Migration] = [
         id="0037_add_referral_welcome_bonus_marker",
         description="Track when a user claimed the referral welcome bonus to prevent repeat grants",
         upgrade=_migration_0037_add_referral_welcome_bonus_marker,
+    ),
+    Migration(
+        id="0038_extend_promo_code_effects",
+        description="Extend bonus code effects and attribution fields",
+        upgrade=_migration_0038_extend_promo_code_effects,
     ),
 ]
 

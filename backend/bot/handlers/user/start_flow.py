@@ -379,7 +379,7 @@ async def start_command_handler(
     # Auto-apply promo code if provided via start parameter
     if promo_code_to_apply:
         try:
-            from bot.services.promo_code_service import PromoCodeService
+            from bot.services.promo_code_service import PromoCheckoutRequired, PromoCodeService
 
             promo_code_service = PromoCodeService(
                 settings, subscription_service, message_bot(message), i18n
@@ -388,6 +388,40 @@ async def start_command_handler(
             success, result = await promo_code_service.apply_promo_code(
                 session, user_id, promo_code_to_apply, current_lang
             )
+
+            if success and isinstance(result, PromoCheckoutRequired):
+                await session.commit()
+                base_url = (settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
+                if base_url:
+                    code_param = result.code or promo_code_to_apply
+                    checkout_url = f"{base_url.rstrip('/')}?startapp=promo_{code_param}"
+                    keyboard = types.InlineKeyboardMarkup(
+                        inline_keyboard=[
+                            [
+                                types.InlineKeyboardButton(
+                                    text=_("open_mini_app"),
+                                    web_app=types.WebAppInfo(url=checkout_url),
+                                )
+                            ]
+                        ]
+                    )
+                    await message.answer(
+                        _(
+                            "promo_code_requires_checkout",
+                            effect=result.effect_summary,
+                        ),
+                        reply_markup=keyboard,
+                        parse_mode="HTML",
+                    )
+                    return
+                await message.answer(
+                    _(
+                        "promo_code_requires_checkout",
+                        effect=result.effect_summary,
+                    ),
+                    parse_mode="HTML",
+                )
+                return
 
             if success:
                 await session.commit()

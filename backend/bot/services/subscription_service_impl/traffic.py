@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.infra.grants import GrantContext, resolve_effective_grant
+from bot.services.payment_promo import consume_payment_promo, load_payment_promo_effects
 from bot.utils.date_utils import month_start
 from config.tariffs_config import Tariff
 from db.dal import subscription_dal, tariff_dal, user_dal
@@ -39,15 +41,47 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         provider: str = "yookassa",
         tariff_key: Optional[str] = None,
         sale_mode: str = "traffic",
+        promo_code_id_from_payment: Optional[int] = None,
     ) -> Optional[Dict[str, Any]]:
         """Activate or extend a traffic-based package instead of a time-based subscription."""
         tariff = self._resolve_tariff(tariff_key, "traffic") if self._tariffs_config() else None
+        charged_gb = float(traffic_gb)
+        granted_gb = charged_gb
+        if promo_code_id_from_payment:
+            promo_model, promo_effects = await load_payment_promo_effects(
+                session,
+                promo_code_id_from_payment,
+            )
+            if promo_model is not None and promo_effects is not None:
+                consumed = await consume_payment_promo(
+                    session=session,
+                    user_id=user_id,
+                    promo_model=promo_model,
+                    effects=promo_effects,
+                    payment_id=payment_db_id,
+                    sale_mode_base=sale_mode,
+                    months=None,
+                    traffic_gb=charged_gb,
+                )
+                grant = resolve_effective_grant(
+                    GrantContext(
+                        sale_mode_base=sale_mode,
+                        tariff_key=tariff.key if tariff else tariff_key,
+                        base_period_days=0,
+                        months=None,
+                        charged_gb=charged_gb,
+                        scope="regular",
+                        promo=promo_effects if consumed else None,
+                    )
+                )
+                granted_gb = charged_gb * grant.traffic_multiplier
+
         await self._record_payment_context(
             session,
             payment_db_id,
             sale_mode=sale_mode,
             tariff_key=tariff.key if tariff else tariff_key,
-            purchased_gb=float(traffic_gb),
+            purchased_gb=float(granted_gb),
         )
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user:
@@ -78,7 +112,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         if current_used is None and active_sub:
             current_used = active_sub.traffic_used_bytes
 
-        purchase_bytes = self.gb_to_bytes(traffic_gb)
+        purchase_bytes = self.gb_to_bytes(granted_gb)
         extra_hwid_devices = (
             await self._active_hwid_extra_devices_for_sub(session, active_sub) if active_sub else 0
         )
@@ -175,7 +209,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             db_user=db_user,
             sale_mode="traffic",
             months=0,
-            traffic_gb=float(traffic_gb),
+            traffic_gb=float(granted_gb),
             payment_amount=payment_amount,
             end_date=None,
             provider=provider,
@@ -189,6 +223,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             "panel_short_uuid": final_panel_short_uuid,
             "subscription_url": final_subscription_url,
             "applied_promo_bonus_days": 0,
+            "traffic_gb": float(granted_gb),
             "traffic_limit_bytes": new_limit,
             "tariff_key": tariff.key if tariff else None,
         }
@@ -202,6 +237,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         payment_amount: float,
         payment_db_id: int,
         provider: str = "yookassa",
+        promo_code_id_from_payment: Optional[int] = None,
     ) -> Optional[Dict[str, Any]]:
         tariff = self._resolve_tariff(tariff_key)
         if tariff.billing_model == "traffic":
@@ -214,14 +250,46 @@ class TrafficMixin(SubscriptionServiceMixinContract):
                 provider=provider,
                 tariff_key=tariff.key,
                 sale_mode="traffic_package",
+                promo_code_id_from_payment=promo_code_id_from_payment,
             )
+
+        charged_gb = float(traffic_gb)
+        granted_gb = charged_gb
+        if promo_code_id_from_payment:
+            promo_model, promo_effects = await load_payment_promo_effects(
+                session,
+                promo_code_id_from_payment,
+            )
+            if promo_model is not None and promo_effects is not None:
+                consumed = await consume_payment_promo(
+                    session=session,
+                    user_id=user_id,
+                    promo_model=promo_model,
+                    effects=promo_effects,
+                    payment_id=payment_db_id,
+                    sale_mode_base="topup",
+                    months=None,
+                    traffic_gb=charged_gb,
+                )
+                grant = resolve_effective_grant(
+                    GrantContext(
+                        sale_mode_base="topup",
+                        tariff_key=tariff.key,
+                        base_period_days=0,
+                        months=None,
+                        charged_gb=charged_gb,
+                        scope="regular",
+                        promo=promo_effects if consumed else None,
+                    )
+                )
+                granted_gb = charged_gb * grant.traffic_multiplier
 
         await self._record_payment_context(
             session,
             payment_db_id,
             sale_mode="topup",
             tariff_key=tariff.key,
-            purchased_gb=float(traffic_gb),
+            purchased_gb=float(granted_gb),
         )
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or not db_user.panel_user_uuid:
@@ -232,7 +300,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         if not sub:
             return None
 
-        purchase_bytes = self.gb_to_bytes(traffic_gb)
+        purchase_bytes = self.gb_to_bytes(granted_gb)
         new_topup_balance = int(sub.topup_balance_bytes or 0) + purchase_bytes
         baseline = int(sub.tier_baseline_bytes or tariff.monthly_bytes)
         rb = int(getattr(sub, "regular_bonus_bytes", 0) or 0)
@@ -296,7 +364,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             db_user=db_user,
             sale_mode="topup",
             months=0,
-            traffic_gb=float(traffic_gb),
+            traffic_gb=float(granted_gb),
             payment_amount=payment_amount,
             end_date=getattr(updated_sub, "end_date", None),
             provider=provider,
@@ -305,6 +373,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             "subscription_id": sub.subscription_id,
             "traffic_limit_bytes": new_limit,
             "topup_balance_bytes": new_topup_balance,
+            "traffic_gb": float(granted_gb),
             "tariff_key": tariff.key,
         }
 
@@ -317,6 +386,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         payment_amount: float,
         payment_db_id: int,
         provider: str = "yookassa",
+        promo_code_id_from_payment: Optional[int] = None,
     ) -> Optional[Dict[str, Any]]:
         tariff = self._resolve_tariff(tariff_key)
         if not tariff or not tariff.premium_squad_uuids:
@@ -325,12 +395,43 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             )
             return None
 
+        charged_gb = float(traffic_gb)
+        granted_gb = charged_gb
+        if promo_code_id_from_payment:
+            promo_model, promo_effects = await load_payment_promo_effects(
+                session,
+                promo_code_id_from_payment,
+            )
+            if promo_model is not None and promo_effects is not None:
+                consumed = await consume_payment_promo(
+                    session=session,
+                    user_id=user_id,
+                    promo_model=promo_model,
+                    effects=promo_effects,
+                    payment_id=payment_db_id,
+                    sale_mode_base="premium_topup",
+                    months=None,
+                    traffic_gb=charged_gb,
+                )
+                grant = resolve_effective_grant(
+                    GrantContext(
+                        sale_mode_base="premium_topup",
+                        tariff_key=tariff.key,
+                        base_period_days=0,
+                        months=None,
+                        charged_gb=charged_gb,
+                        scope="premium",
+                        promo=promo_effects if consumed else None,
+                    )
+                )
+                granted_gb = charged_gb * grant.traffic_multiplier
+
         await self._record_payment_context(
             session,
             payment_db_id,
             sale_mode="premium_topup",
             tariff_key=tariff.key,
-            purchased_gb=float(traffic_gb),
+            purchased_gb=float(granted_gb),
         )
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or not db_user.panel_user_uuid:
@@ -341,7 +442,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         if not sub:
             return None
 
-        purchase_bytes = self.gb_to_bytes(traffic_gb)
+        purchase_bytes = self.gb_to_bytes(granted_gb)
         now = datetime.now(timezone.utc)
         premium_period_start = month_start(now)
         current_period_start = getattr(sub, "premium_period_start_at", None)
@@ -412,7 +513,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             db_user=db_user,
             sale_mode="premium_topup",
             months=0,
-            traffic_gb=float(traffic_gb),
+            traffic_gb=float(granted_gb),
             payment_amount=payment_amount,
             end_date=getattr(sub, "end_date", None),
             provider=provider,
@@ -423,6 +524,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             "premium_topup_balance_bytes": premium_topup_balance,
             "premium_topup_used_bytes": premium_topup_used,
             "premium_is_limited": premium_is_limited,
+            "traffic_gb": float(granted_gb),
             "tariff_key": tariff.key,
         }
 

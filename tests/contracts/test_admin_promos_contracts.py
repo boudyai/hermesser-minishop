@@ -55,6 +55,13 @@ def _promo(**overrides):
     return SimpleNamespace(**values)
 
 
+def _settings():
+    return SimpleNamespace(
+        PROMO_DURATION_MULTIPLIER_MAX=12.0,
+        PROMO_TRAFFIC_MULTIPLIER_MAX=12.0,
+    )
+
+
 def _json_body(response):
     return json.loads(response.text)
 
@@ -99,7 +106,7 @@ def test_promo_create_uses_typed_body_and_response_model():
                 "valid_days": "",
                 "ignored": "compatible",
             },
-            app={"async_session_factory": lambda: session},
+            app={"async_session_factory": lambda: session, "settings": _settings()},
         )
 
         with (
@@ -126,6 +133,13 @@ def test_promo_create_uses_typed_body_and_response_model():
     assert created_payload == {
         "code": "GIFT",
         "bonus_days": 7,
+        "discount_percent": None,
+        "duration_multiplier": None,
+        "traffic_multiplier": None,
+        "applies_to": "all",
+        "min_subscription_months": None,
+        "min_traffic_gb": None,
+        "origin": "admin",
         "max_activations": 3,
         "valid_until": None,
         "created_by_admin_id": 100,
@@ -156,12 +170,17 @@ def test_promo_update_uses_typed_body_and_preserves_bool_coercion():
         promo = _promo(is_active=True, bonus_days=9)
         request = _FakeRequest(
             {"is_active": "false", "bonus_days": "9"},
-            app={"async_session_factory": lambda: session},
+            app={"async_session_factory": lambda: session, "settings": _settings()},
             match_info={"promo_id": "5"},
         )
 
         with (
             patch.object(promos_module, "_require_admin_user_id", return_value=100),
+            patch.object(
+                promos_module.promo_code_dal,
+                "get_promo_code_by_id",
+                AsyncMock(return_value=promo),
+            ),
             patch.object(
                 promos_module.promo_code_dal,
                 "update_promo_code",

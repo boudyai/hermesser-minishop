@@ -1271,6 +1271,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/subscription/quote-promo": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Quote Promo */
+    post: operations["post_quote_promo_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/support/tickets": {
     parameters: {
       query?: never;
@@ -2609,12 +2626,53 @@ export interface components {
     };
     /** PromoCreateBody */
     PromoCreateBody: {
-      /** Bonus Days */
+      /**
+       * Applies To
+       * @default all
+       */
+      applies_to: string;
+      /**
+       * Bonus Days
+       * @default 0
+       */
       bonus_days: number;
-      /** Code */
-      code: string;
+      /**
+       * Code
+       * @default null
+       */
+      code: string | null;
+      /**
+       * Discount Percent
+       * @default null
+       */
+      discount_percent: number | null;
+      /**
+       * Duration Multiplier
+       * @default null
+       */
+      duration_multiplier: number | null;
       /** Max Activations */
       max_activations: number;
+      /**
+       * Min Subscription Months
+       * @default null
+       */
+      min_subscription_months: number | null;
+      /**
+       * Min Traffic Gb
+       * @default null
+       */
+      min_traffic_gb: number | null;
+      /**
+       * Origin
+       * @default admin
+       */
+      origin: string;
+      /**
+       * Traffic Multiplier
+       * @default null
+       */
+      traffic_multiplier: number | null;
       /**
        * Valid Days
        * @default null
@@ -2623,6 +2681,8 @@ export interface components {
     };
     /** PromoOut */
     PromoOut: {
+      /** Applies To */
+      applies_to: string;
       /** Bonus Days */
       bonus_days: number;
       /** Code */
@@ -2639,12 +2699,41 @@ export interface components {
       created_by_admin_id: number | null;
       /** Current Activations */
       current_activations: number;
+      /**
+       * Discount Percent
+       * @default null
+       */
+      discount_percent: number | null;
+      /**
+       * Duration Multiplier
+       * @default null
+       */
+      duration_multiplier: number | null;
+      /** Effect Summary */
+      effect_summary: string;
       /** Id */
       id: number;
       /** Is Active */
       is_active: boolean;
       /** Max Activations */
       max_activations: number;
+      /**
+       * Min Subscription Months
+       * @default null
+       */
+      min_subscription_months: number | null;
+      /**
+       * Min Traffic Gb
+       * @default null
+       */
+      min_traffic_gb: number | null;
+      /** Origin */
+      origin: string;
+      /**
+       * Traffic Multiplier
+       * @default null
+       */
+      traffic_multiplier: number | null;
       /**
        * Valid Until
        * @default null
@@ -2654,10 +2743,25 @@ export interface components {
     /** PromoUpdateBody */
     PromoUpdateBody: {
       /**
+       * Applies To
+       * @default null
+       */
+      applies_to: string | null;
+      /**
        * Bonus Days
        * @default null
        */
       bonus_days: number | null;
+      /**
+       * Discount Percent
+       * @default null
+       */
+      discount_percent: number | null;
+      /**
+       * Duration Multiplier
+       * @default null
+       */
+      duration_multiplier: number | null;
       /**
        * Is Active
        * @default null
@@ -2668,6 +2772,26 @@ export interface components {
        * @default null
        */
       max_activations: number | null;
+      /**
+       * Min Subscription Months
+       * @default null
+       */
+      min_subscription_months: number | null;
+      /**
+       * Min Traffic Gb
+       * @default null
+       */
+      min_traffic_gb: number | null;
+      /**
+       * Origin
+       * @default null
+       */
+      origin: string | null;
+      /**
+       * Traffic Multiplier
+       * @default null
+       */
+      traffic_multiplier: number | null;
     };
     /**
      * SupportCountsOut
@@ -3402,6 +3526,11 @@ export interface components {
        */
       note: string | null;
       /**
+       * Promo Code
+       * @default null
+       */
+      promo_code: string | null;
+      /**
        * Renew Hwid Devices
        * @default null
        */
@@ -3429,6 +3558,61 @@ export interface components {
        * @default
        */
       code: unknown;
+    };
+    /** WebAppPromoQuotePayload */
+    WebAppPromoQuotePayload: {
+      /**
+       * Comment
+       * @default null
+       */
+      comment: string | null;
+      /**
+       * Description
+       * @default null
+       */
+      description: string | null;
+      /**
+       * Device Count
+       * @default null
+       */
+      device_count: unknown;
+      /**
+       * Method
+       * @default
+       */
+      method: string;
+      /**
+       * Months
+       * @default null
+       */
+      months: unknown;
+      /**
+       * Note
+       * @default null
+       */
+      note: string | null;
+      /** Promo Code */
+      promo_code: string;
+      /**
+       * Renew Hwid Devices
+       * @default null
+       */
+      renew_hwid_devices: boolean | null;
+      /**
+       * Sale Mode
+       * @default null
+       */
+      sale_mode: string | null;
+      /**
+       * Tariff Key
+       * @default null
+       */
+      tariff_key: string | null;
+      /**
+       * Traffic Gb
+       * @default null
+       */
+      traffic_gb: unknown;
     };
     /** WebAppSetPasswordPayload */
     WebAppSetPasswordPayload: {
@@ -6136,10 +6320,16 @@ export interface operations {
         };
         content: {
           "application/json": {
+            applies_to?: string;
+            code?: string;
+            effect_summary?: string;
             end_date?: string | null;
             end_date_text?: string | null;
+            min_subscription_months?: number | null;
+            min_traffic_gb?: number | null;
             /** @constant */
             ok: true;
+            requires_checkout?: boolean;
           };
         };
       };
@@ -6260,6 +6450,48 @@ export interface operations {
             ok: true;
             provider: string;
             provider_label: string;
+          };
+        };
+      };
+    };
+  };
+  post_quote_promo_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppPromoQuotePayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            applies_to?: string;
+            base_amount?: number;
+            base_stars?: number | null;
+            code?: string;
+            discount_amount?: number;
+            discount_percent?: number;
+            effect_summary?: string;
+            effective_amount?: number;
+            effective_stars?: number | null;
+            min_subscription_months?: number | null;
+            min_traffic_gb?: number | null;
+            /** @constant */
+            ok: true;
+            promo_code_id?: number;
+            reason?: string | null;
+            reason_key?: string | null;
+            valid: boolean;
           };
         };
       };

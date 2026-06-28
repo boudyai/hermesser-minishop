@@ -61,6 +61,13 @@ function isOkResponse<T extends { ok: true }>(response: T | AdminErrorResponse):
 const defaultPromoDraft = (): PromoDraft => ({
   code: "",
   bonus_days: 7,
+  discount_percent: null,
+  duration_multiplier: null,
+  traffic_multiplier: null,
+  applies_to: "all",
+  min_subscription_months: null,
+  min_traffic_gb: null,
+  origin: "admin",
   max_activations: 1,
   valid_days: 30,
 });
@@ -103,7 +110,6 @@ export function createPromosStore({
 
   async function createPromo(): Promise<void> {
     const draft = state.promoDraft;
-    if (!draft.code.trim()) return;
 
     const res = (await api(buildAdminPromosPath(), {
       method: "POST",

@@ -20,6 +20,7 @@
     DialogOptionsSkeleton,
     EmptyCard,
     PaymentMethodGrid,
+    StatusMessage,
   } from "$components/patterns/webapp/index.js";
 
   type AnyRecord = Record<string, any>;
@@ -35,6 +36,13 @@
     closeTariffChangeConfirm = () => {},
     closeTariffChangeModal = () => {},
     closeTopupModal = () => {},
+    checkoutPromoAppliedCode = "",
+    checkoutPromoInput = $bindable(""),
+    checkoutPromoIsError = false,
+    checkoutPromoPriceText = "",
+    checkoutPromoStatus = "",
+    applyCheckoutPromo = () => {},
+    clearCheckoutPromo = () => {},
     createDeviceTopupPayment = () => {},
     createTopupPayment = () => {},
     deviceTopupModalOpen = $bindable(false),
@@ -64,6 +72,13 @@
     closeTariffChangeConfirm?: VoidAction;
     closeTariffChangeModal?: VoidAction;
     closeTopupModal?: VoidAction;
+    checkoutPromoAppliedCode?: string;
+    checkoutPromoInput?: string;
+    checkoutPromoIsError?: boolean;
+    checkoutPromoPriceText?: string;
+    checkoutPromoStatus?: string;
+    applyCheckoutPromo?: VoidAction;
+    clearCheckoutPromo?: VoidAction;
     createDeviceTopupPayment?: VoidAction;
     createTopupPayment?: VoidAction;
     deviceTopupModalOpen?: boolean;
@@ -243,6 +258,10 @@
     if (isPremiumTopupContext())
       return premiumTitleFn({ ...subscription, ...(topupOptions || {}) }, t);
     return t("wa_topup_traffic");
+  }
+
+  function checkoutPromoBlock(plan: AnyRecord | null) {
+    return Boolean(plan || checkoutPromoAppliedCode || checkoutPromoStatus);
   }
 </script>
 
@@ -436,6 +455,40 @@
         {t}
         onSelect={(id) => (selectedMethod = id)}
       />
+      {#if checkoutPromoBlock(selectedTopupPlan)}
+        <div class="checkout-promo-row">
+          {#if checkoutPromoAppliedCode}
+            <span class="checkout-promo-chip">
+              {checkoutPromoAppliedCode}
+              <button type="button" onclick={clearCheckoutPromo} aria-label={t("wa_remove")}>
+                ×
+              </button>
+            </span>
+          {:else}
+            <input
+              class="input"
+              value={checkoutPromoInput}
+              oninput={(e) => (checkoutPromoInput = (e.currentTarget as HTMLInputElement).value)}
+              placeholder={t("wa_promo_enter")}
+            />
+            <Button
+              variant="secondary"
+              onclick={applyCheckoutPromo}
+              disabled={!checkoutPromoInput.trim()}
+            >
+              {t("wa_apply")}
+            </Button>
+          {/if}
+        </div>
+        {#if checkoutPromoStatus}
+          <StatusMessage error={checkoutPromoIsError}>
+            {checkoutPromoStatus}
+            {#if checkoutPromoPriceText}
+              · {checkoutPromoPriceText}
+            {/if}
+          </StatusMessage>
+        {/if}
+      {/if}
       <Button
         class="wide bottom-action payment-submit-button"
         onclick={createTopupPayment}
@@ -500,6 +553,40 @@
         {t}
         onSelect={(id) => (selectedMethod = id)}
       />
+      {#if checkoutPromoBlock(selectedDeviceTopupPlan)}
+        <div class="checkout-promo-row">
+          {#if checkoutPromoAppliedCode}
+            <span class="checkout-promo-chip">
+              {checkoutPromoAppliedCode}
+              <button type="button" onclick={clearCheckoutPromo} aria-label={t("wa_remove")}>
+                ×
+              </button>
+            </span>
+          {:else}
+            <input
+              class="input"
+              value={checkoutPromoInput}
+              oninput={(e) => (checkoutPromoInput = (e.currentTarget as HTMLInputElement).value)}
+              placeholder={t("wa_promo_enter")}
+            />
+            <Button
+              variant="secondary"
+              onclick={applyCheckoutPromo}
+              disabled={!checkoutPromoInput.trim()}
+            >
+              {t("wa_apply")}
+            </Button>
+          {/if}
+        </div>
+        {#if checkoutPromoStatus}
+          <StatusMessage error={checkoutPromoIsError}>
+            {checkoutPromoStatus}
+            {#if checkoutPromoPriceText}
+              · {checkoutPromoPriceText}
+            {/if}
+          </StatusMessage>
+        {/if}
+      {/if}
       <Button
         class="wide bottom-action payment-submit-button"
         onclick={createDeviceTopupPayment}

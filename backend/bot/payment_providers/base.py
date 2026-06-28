@@ -122,6 +122,7 @@ class WebAppPaymentContext:
     hwid_pricing_period_months: Optional[int] = None
     hwid_proration_ratio: Optional[float] = None
     hwid_full_price: Optional[float] = None
+    promo_code_id: Optional[int] = None
 
 
 @dataclass(frozen=True)
