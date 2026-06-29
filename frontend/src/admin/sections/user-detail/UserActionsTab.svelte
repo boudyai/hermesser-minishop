@@ -596,6 +596,7 @@
     </AdminButton>
     <AdminButton
       variant="primary"
+      data-admin-action="request-user-message"
       onclick={usersStore.requestSendUserMessage}
       disabled={userActionBusy || !userMessageDraft.trim()}
     >
@@ -619,6 +620,7 @@
       {#if openedUserIsBanned}
         <AdminButton
           variant="dangerSoft"
+          data-admin-action="request-user-ban-toggle"
           onclick={usersStore.requestBanToggle}
           disabled={userActionBusy}
         >
@@ -628,6 +630,7 @@
       {:else}
         <AdminButton
           variant="danger"
+          data-admin-action="request-user-ban-toggle"
           onclick={usersStore.requestBanToggle}
           disabled={userActionBusy}
         >
@@ -637,6 +640,7 @@
       {/if}
       <AdminButton
         variant="danger"
+        data-admin-action="request-user-delete"
         onclick={() => usersStore.updateState({ userDeleteOpen: true })}
         disabled={userActionBusy}
       >

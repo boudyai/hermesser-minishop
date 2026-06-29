@@ -319,7 +319,7 @@
   description={paymentDescription()}
   closeLabel={t("wa_close")}
   onclose={closePaymentModal}
-  class="payment-dialog-card"
+  class="payment-dialog-card webapp-payment-dialog"
 >
   <div class="payment-dialog-body">
     {#if tariffMode && !singleTariffMode && paymentStep === "tariff"}
@@ -622,7 +622,7 @@
   })}
   closeLabel={t("wa_close")}
   onclose={closeDeviceDisconnectDialog}
-  class="payment-dialog-card"
+  class="payment-dialog-card webapp-device-disconnect-dialog"
 >
   <div class="payment-dialog-body">
     <Button
@@ -651,7 +651,7 @@
   description={t("wa_password_modal_desc")}
   closeLabel={t("wa_close")}
   onclose={closeSetPasswordDialog}
-  class="payment-dialog-card"
+  class="payment-dialog-card webapp-set-password-dialog"
 >
   <div class="payment-dialog-body">
     <Input
@@ -686,7 +686,11 @@
 </Dialog>
 
 {#if setPasswordOpen && setPasswordPending}
-  <div class="email-code-fullscreen" role="dialog" aria-modal="true">
+  <div
+    class="email-code-fullscreen webapp-set-password-code-dialog"
+    role="dialog"
+    aria-modal="true"
+  >
     <EmailCodeScreen
       bind:code={setPasswordCode}
       email={setPasswordEmail || ""}
@@ -703,7 +707,7 @@
 {/if}
 
 {#if linkEmailOpen && linkEmailPending}
-  <div class="email-code-fullscreen" role="dialog" aria-modal="true">
+  <div class="email-code-fullscreen webapp-link-email-code-dialog" role="dialog" aria-modal="true">
     <EmailCodeScreen
       bind:code={linkEmailCode}
       email={linkEmailPending}
@@ -725,7 +729,7 @@
   description={t("wa_link_email_modal_desc")}
   closeLabel={t("wa_close")}
   onclose={closeLinkEmailDialog}
-  class="payment-dialog-card"
+  class="payment-dialog-card webapp-link-email-dialog"
 >
   <div class="payment-dialog-body">
     <div class="field-error-wrap">

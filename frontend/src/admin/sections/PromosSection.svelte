@@ -520,7 +520,7 @@
       <tbody>
         {#each promoRows as p (p.id)}
           {@const status = promoStatus(p)}
-          <tr>
+          <tr data-admin-code-id={p.id}>
             <td class="admin-cell-mono" data-label={at("promo_csv_code", {}, "Code")}>{p.code}</td>
             <td data-label={at("promo_col_type", {}, "Type")}>
               <AdminBadge variant="muted">{promoType(p)}</AdminBadge>
@@ -535,6 +535,7 @@
             <td data-label={at("promo_col_activations", {}, "Uses")}>
               <AdminButton
                 class="admin-promo-activations-btn"
+                data-admin-action="open-code-activations"
                 variant="ghost"
                 size="sm"
                 title={at("promo_activations_open", {}, "Open activations")}
@@ -553,6 +554,7 @@
             <td class="admin-cell-actions" data-label={at("actions", {}, "Actions")}>
               <div class="admin-promo-actions">
                 <AdminButton
+                  data-admin-action="open-code-settings"
                   size="icon"
                   variant="ghost"
                   title={at("btn_edit", {}, "Edit")}
@@ -562,6 +564,7 @@
                   <Sliders size={14} />
                 </AdminButton>
                 <AdminButton
+                  data-admin-action="open-code-activations"
                   size="icon"
                   variant="ghost"
                   title={at("promo_activations_open", {}, "Open activations")}
@@ -572,12 +575,14 @@
                 </AdminButton>
                 <AdminButton
                   class="admin-promo-toggle-btn"
+                  data-admin-action="toggle-code"
                   size="sm"
                   onclick={() => promosStore.togglePromo(p)}
                 >
                   {p.is_active ? at("btn_disable", {}, "Off") : at("btn_enable", {}, "On")}
                 </AdminButton>
                 <AdminButton
+                  data-admin-action="delete-code"
                   size="icon"
                   variant="danger"
                   title={at("btn_delete", {}, "Delete")}

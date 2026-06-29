@@ -470,7 +470,11 @@
                   >
                 </div>
                 <div class="admin-tariff-actions">
-                  <AdminButton size="sm" onclick={() => tariffsStore.openEditTariff(tariff)}>
+                  <AdminButton
+                    data-admin-action="open-tariff-editor"
+                    size="sm"
+                    onclick={() => tariffsStore.openEditTariff(tariff)}
+                  >
                     {at("btn_configure", {}, "Настроить")}
                   </AdminButton>
                   <AdminButton
@@ -492,6 +496,7 @@
                     {at("btn_set_default", {}, "По умолчанию")}
                   </AdminButton>
                   <AdminButton
+                    data-admin-action="open-tariff-delete"
                     size="sm"
                     variant="danger"
                     onclick={() =>

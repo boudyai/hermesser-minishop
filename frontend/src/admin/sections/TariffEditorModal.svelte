@@ -913,7 +913,7 @@
     : ""}
   closeLabel={at("close", {}, "Закрыть")}
   onclose={() => tariffsStore.updateState({ tariffDeleteOpen: false })}
-  class="admin-dialog"
+  class="admin-dialog admin-tariff-delete-dialog"
 >
   <div class="admin-form-row">
     <AdminButton onclick={() => tariffsStore.updateState({ tariffDeleteOpen: false })}

@@ -446,6 +446,7 @@
     <button
       type="button"
       class="admin-translation-locale-toggle"
+      data-admin-translation-locale={localeId}
       aria-expanded={expanded}
       onclick={() => toggleLocaleEditor(item, lang)}
     >
@@ -595,6 +596,7 @@
       <button
         type="button"
         class:is-active={audienceFilter === option}
+        data-admin-translation-audience={option}
         onclick={() => {
           audienceFilter = option;
           openGroups = [];
@@ -645,6 +647,7 @@
                   <button
                     type="button"
                     class="admin-accordion-trigger"
+                    data-admin-translation-group={panelId}
                     data-state={groupOpen ? "open" : "closed"}
                     aria-expanded={groupOpen}
                     onclick={() => toggleGroup(panelId)}

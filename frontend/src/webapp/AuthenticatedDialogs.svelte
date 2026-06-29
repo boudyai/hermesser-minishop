@@ -190,7 +190,7 @@
       )}
   closeLabel={t("wa_close")}
   onclose={closeActivationSuccessDialog}
-  class="activation-success-dialog"
+  class="activation-success-dialog webapp-activation-success-dialog"
 >
   {#snippet titleIcon()}
     <CheckCircle2 size={23} />

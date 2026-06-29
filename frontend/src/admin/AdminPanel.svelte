@@ -1,22 +1,13 @@
 <script lang="ts">
   import { QueryClient } from "@tanstack/svelte-query";
-  import {
-    ArrowLeft,
-    Check,
-    ChevronsUpDown,
-    Download,
-    Globe2,
-    Menu,
-    Plus,
-    RefreshCw,
-    Save,
-  } from "$components/ui/icons.js";
+  import { ArrowLeft, Check, ChevronsUpDown, Globe2, Menu } from "$components/ui/icons.js";
   import { onMount, setContext } from "svelte";
   import { fade } from "svelte/transition";
   import { Select } from "$components/ui/primitives.js";
   import { AdminBadge, AdminButton } from "$components/patterns/admin/index.js";
 
   import BrandMark from "$lib/webapp/BrandMark.svelte";
+  import AdminHeaderActions from "./AdminHeaderActions.svelte";
   import PaymentDetailModal from "./sections/PaymentDetailModal.svelte";
   import TariffEditorModal from "./sections/TariffEditorModal.svelte";
   import UserDetailModal from "./sections/UserDetailModal.svelte";
@@ -763,6 +754,7 @@
             type="button"
             class="admin-nav-item"
             class:active={active === item.id}
+            data-admin-section={item.id}
             onclick={() => setActive(item.id)}
           >
             <NavIcon size={16} />
@@ -856,87 +848,33 @@
           {#if meta.subtitle}<small>{meta.subtitle}</small>{/if}
         </div>
       </div>
-      <div class="admin-header-actions">
-        {#if active === "stats"}
-          <AdminButton onclick={statsStore.triggerSync} disabled={syncBusy}>
-            <RefreshCw size={14} />
-            {syncBusy
-              ? at("btn_syncing", {}, "Синхронизация...")
-              : at("btn_sync", {}, "Синхронизировать")}
-          </AdminButton>
-        {/if}
-        {#if active === "payments"}
-          <AdminButton onclick={exportPayments}>
-            <Download size={14} /> CSV
-          </AdminButton>
-        {/if}
-        {#if active === "promos"}
-          <AdminButton variant="primary" onclick={() => promosStore.setCreateOpen(true)}>
-            <Plus size={14} />
-            {at("btn_create", {}, "Создать")}
-          </AdminButton>
-        {/if}
-        {#if active === "ads"}
-          <AdminButton variant="primary" onclick={() => adsStore.setCreateOpen(true)}>
-            <Plus size={14} />
-            {at("btn_campaign", {}, "Кампания")}
-          </AdminButton>
-        {/if}
-        {#if active === "tariffs"}
-          <AdminButton variant="primary" onclick={tariffsStore.openCreateTariff}>
-            <Plus size={14} />
-            {at("btn_tariff", {}, "Тариф")}
-          </AdminButton>
-        {/if}
-        {#if active === "settings"}
-          {#if dirtyCount}
-            <AdminBadge variant="warning"
-              >{at(
-                "settings_dirty_count",
-                { count: dirtyCount },
-                "Изменений: " + dirtyCount
-              )}</AdminBadge
-            >
-          {/if}
-          <AdminButton
-            variant="primary"
-            onclick={() => settingsStore.saveSettings(onSettingsSaved)}
-            disabled={!dirtyCount || settingsSaving}
-          >
-            <Save size={14} />
-            {settingsSaving
-              ? at("btn_saving", {}, "Сохранение...")
-              : at("btn_save", {}, "Сохранить")}
-          </AdminButton>
-        {/if}
-        {#if active === "translations"}
-          {#if translationsDirtyCount}
-            <AdminBadge variant="warning"
-              >{at(
-                "settings_dirty_count",
-                { count: translationsDirtyCount },
-                "Изменений: " + translationsDirtyCount
-              )}</AdminBadge
-            >
-          {/if}
-          <AdminButton
-            variant="primary"
-            onclick={() => translationsStore.saveTranslations(onTranslationsSaved)}
-            disabled={!translationsDirtyCount || translationsSaving}
-          >
-            <Save size={14} />
-            {translationsSaving
-              ? at("btn_saving", {}, "Сохранение...")
-              : at("btn_save", {}, "Сохранить")}
-          </AdminButton>
-        {/if}
-      </div>
+      <AdminHeaderActions
+        {active}
+        {at}
+        {dirtyCount}
+        {settingsSaving}
+        {syncBusy}
+        {translationsDirtyCount}
+        {translationsSaving}
+        onCreateAd={() => adsStore.setCreateOpen(true)}
+        onCreateCode={() => promosStore.setCreateOpen(true)}
+        onCreateTariff={tariffsStore.openCreateTariff}
+        onExportPayments={exportPayments}
+        onSaveSettings={() => settingsStore.saveSettings(onSettingsSaved)}
+        onSaveTranslations={() => translationsStore.saveTranslations(onTranslationsSaved)}
+        onSyncStats={statsStore.triggerSync}
+      />
     </header>
 
     <main class="admin-main">
       <ConfigAlertsBanner {at} section={active} onNavigate={setActive} />
       {#key active}
-        <div class="admin-section-stage" in:fade={sectionFade} out:fade={sectionFade}>
+        <div
+          class="admin-section-stage"
+          data-admin-active-section={active}
+          in:fade={sectionFade}
+          out:fade={sectionFade}
+        >
           {#if activeSection}
             {@const ActiveSectionComponent = dynamicComponent(activeSection.component)}
             <ActiveSectionComponent

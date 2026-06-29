@@ -281,7 +281,7 @@
   description={tariffChangeModalDescription()}
   closeLabel={t("wa_close")}
   onclose={closeTariffChangeModal}
-  class="payment-dialog-card"
+  class="payment-dialog-card webapp-tariff-change-dialog"
 >
   <div class="payment-dialog-body">
     {#if !changeOptions}
@@ -385,7 +385,7 @@
   description={t("wa_tariff_change_confirm_desc")}
   closeLabel={t("wa_close")}
   onclose={closeTariffChangeConfirm}
-  class="payment-dialog-card"
+  class="payment-dialog-card webapp-tariff-change-confirm-dialog"
 >
   <div class="payment-dialog-body">
     <Card class="confirm-summary-card">
@@ -422,7 +422,7 @@
   description={topupModalDescription()}
   closeLabel={t("wa_close")}
   onclose={closeTopupModal}
-  class="payment-dialog-card"
+  class="payment-dialog-card webapp-topup-dialog"
 >
   <div class="payment-dialog-body">
     {#if !topupOptions}
@@ -520,7 +520,7 @@
   description={deviceTopupModalDescription()}
   closeLabel={t("wa_close")}
   onclose={closeDeviceTopupModal}
-  class="payment-dialog-card"
+  class="payment-dialog-card webapp-device-topup-dialog"
 >
   <div class="payment-dialog-body">
     {#if !deviceTopupOptions}

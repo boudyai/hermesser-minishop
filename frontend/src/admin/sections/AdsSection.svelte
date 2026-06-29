@@ -147,7 +147,7 @@
   title={at("ad_create_title", {}, "Новая кампания")}
   closeLabel={at("close", {}, "Закрыть")}
   onclose={() => adsStore.setCreateOpen(false)}
-  class="admin-dialog admin-dialog-compact"
+  class="admin-dialog admin-dialog-compact admin-ad-dialog"
 >
   <div class="admin-form" data-dialog-content>
     <div class="admin-dialog-form-section">

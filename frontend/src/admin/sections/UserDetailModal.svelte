@@ -543,6 +543,7 @@
               <span>{at("user_label_invited_users", {}, "Приглашённые")}</span>
               <strong>{referralInviteesTotal}</strong>
               <AdminButton
+                data-admin-action="open-user-referrals"
                 size="sm"
                 variant="ghost"
                 disabled={referralInviteesTotal <= 0}

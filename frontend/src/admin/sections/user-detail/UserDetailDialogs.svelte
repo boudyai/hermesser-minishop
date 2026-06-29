@@ -192,7 +192,7 @@
     : ""}
   closeLabel={at("close", {}, "Закрыть")}
   onclose={() => usersStore.updateState({ userMessageConfirmOpen: false })}
-  class="admin-dialog"
+  class="admin-dialog admin-user-message-confirm-dialog"
 >
   <ScrollArea class="admin-confirm-message-preview" maxHeight="min(280px, 45vh)">
     {userMessageDraft}
@@ -224,7 +224,7 @@
     : ""}
   closeLabel={at("close", {}, "Закрыть")}
   onclose={() => usersStore.updateState({ userBanConfirmOpen: false })}
-  class="admin-dialog"
+  class="admin-dialog admin-user-ban-confirm-dialog"
 >
   <div class="admin-dialog-actions">
     <AdminButton onclick={() => usersStore.updateState({ userBanConfirmOpen: false })}
@@ -251,7 +251,7 @@
   )}
   closeLabel={at("close", {}, "Закрыть")}
   onclose={() => usersStore.updateState({ userDeleteOpen: false })}
-  class="admin-dialog"
+  class="admin-dialog admin-user-delete-dialog"
 >
   <div class="admin-form-row">
     <AdminButton onclick={() => usersStore.updateState({ userDeleteOpen: false })}
