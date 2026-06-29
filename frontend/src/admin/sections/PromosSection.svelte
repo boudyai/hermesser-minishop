@@ -654,36 +654,11 @@
           {at}
           value={promoCreateEffectKind}
           values={promoDraft}
+          bonusRequiresPayment={Boolean(promoDraft.bonus_requires_payment)}
           onValueChange={selectCreateEffect}
           onNumberInput={updateCreateNumber}
+          onBonusRequiresPaymentChange={setCreateBonusRequiresPayment}
         />
-        {#if promoCreateEffectKind === "bonus_days"}
-          <div class="admin-promo-field-shell admin-promo-bonus-mode">
-            <AdminField label={at("promo_bonus_mode_label", {}, "Grant mode")}>
-              <label class="admin-promo-check-row">
-                <Checkbox
-                  checked={Boolean(promoDraft.bonus_requires_payment)}
-                  ariaLabel={at("promo_bonus_mode_payment", {}, "Grant after payment")}
-                  onCheckedChange={setCreateBonusRequiresPayment}
-                />
-                <span>{at("promo_bonus_mode_payment", {}, "Grant after payment")}</span>
-              </label>
-            </AdminField>
-            <small>
-              {promoDraft.bonus_requires_payment
-                ? at(
-                    "promo_bonus_mode_payment_hint",
-                    {},
-                    "The user is sent to checkout; days are added only after a paid subscription purchase."
-                  )
-                : at(
-                    "promo_bonus_mode_instant_hint",
-                    {},
-                    "The user receives the days immediately when the code is activated."
-                  )}
-            </small>
-          </div>
-        {/if}
       </div>
       <div class="admin-promo-config-block">
         <div class="admin-promo-block-head">
@@ -970,44 +945,12 @@
               value={promoEditEffectKind}
               values={promoEditDraft}
               dirtyFields={promoEffectDirtyFields}
+              bonusRequiresPayment={Boolean(promoEditDraft.bonus_requires_payment)}
+              bonusModeDirty={editFieldDirty("bonus_requires_payment")}
               onValueChange={selectEditEffect}
               onNumberInput={updateEditNumber}
+              onBonusRequiresPaymentChange={setEditBonusRequiresPayment}
             />
-            {#if promoEditEffectKind === "bonus_days"}
-              <div
-                class="admin-promo-field-shell admin-promo-bonus-mode"
-                class:is-dirty={editFieldDirty("bonus_requires_payment")}
-              >
-                <AdminField label={at("promo_bonus_mode_label", {}, "Grant mode")}>
-                  <label class="admin-promo-check-row">
-                    <Checkbox
-                      checked={Boolean(promoEditDraft.bonus_requires_payment)}
-                      ariaLabel={at("promo_bonus_mode_payment", {}, "Grant after payment")}
-                      onCheckedChange={setEditBonusRequiresPayment}
-                    />
-                    <span>{at("promo_bonus_mode_payment", {}, "Grant after payment")}</span>
-                  </label>
-                </AdminField>
-                <small>
-                  {promoEditDraft.bonus_requires_payment
-                    ? at(
-                        "promo_bonus_mode_payment_hint",
-                        {},
-                        "The user is sent to checkout; days are added only after a paid subscription purchase."
-                      )
-                    : at(
-                        "promo_bonus_mode_instant_hint",
-                        {},
-                        "The user receives the days immediately when the code is activated."
-                      )}
-                </small>
-                {#if editFieldDirty("bonus_requires_payment")}
-                  <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
-                  >
-                {/if}
-              </div>
-            {/if}
           </section>
 
           <section
@@ -1302,16 +1245,6 @@
 
   .admin-promo-field-shell :global(.admin-badge) {
     justify-self: start;
-  }
-
-  .admin-promo-bonus-mode {
-    background: color-mix(in srgb, var(--accent) 5%, transparent);
-  }
-
-  .admin-promo-bonus-mode small {
-    color: var(--admin-muted);
-    font-size: 12px;
-    line-height: 1.35;
   }
 
   .admin-promo-dialog-actions {
