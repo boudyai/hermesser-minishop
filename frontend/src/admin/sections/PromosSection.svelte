@@ -390,40 +390,42 @@
               {p.valid_until ? fmtDateShort(p.valid_until) : at("unlimited", {}, "Unlimited")}
             </td>
             <td class="admin-cell-actions" data-label={at("actions", {}, "Actions")}>
-              <AdminButton
-                size="icon"
-                variant="ghost"
-                title={at("btn_edit", {}, "Edit")}
-                aria-label={at("btn_edit", {}, "Edit")}
-                onclick={() => promosStore.openEditPromo(p)}
-              >
-                <Sliders size={14} />
-              </AdminButton>
-              <AdminButton
-                size="icon"
-                variant="ghost"
-                title={at("promo_activations_open", {}, "Open activations")}
-                aria-label={at("promo_activations_open", {}, "Open activations")}
-                onclick={() => void promosStore.openActivations(p)}
-              >
-                <FileText size={14} />
-              </AdminButton>
-              <AdminButton
-                class="admin-promo-toggle-btn"
-                size="sm"
-                onclick={() => promosStore.togglePromo(p)}
-              >
-                {p.is_active ? at("btn_disable", {}, "Off") : at("btn_enable", {}, "On")}
-              </AdminButton>
-              <AdminButton
-                size="icon"
-                variant="danger"
-                title={at("btn_delete", {}, "Delete")}
-                aria-label={at("btn_delete", {}, "Delete")}
-                onclick={() => promosStore.deletePromo(p)}
-              >
-                <Trash2 size={14} />
-              </AdminButton>
+              <div class="admin-promo-actions">
+                <AdminButton
+                  size="icon"
+                  variant="ghost"
+                  title={at("btn_edit", {}, "Edit")}
+                  aria-label={at("btn_edit", {}, "Edit")}
+                  onclick={() => promosStore.openEditPromo(p)}
+                >
+                  <Sliders size={14} />
+                </AdminButton>
+                <AdminButton
+                  size="icon"
+                  variant="ghost"
+                  title={at("promo_activations_open", {}, "Open activations")}
+                  aria-label={at("promo_activations_open", {}, "Open activations")}
+                  onclick={() => void promosStore.openActivations(p)}
+                >
+                  <FileText size={14} />
+                </AdminButton>
+                <AdminButton
+                  class="admin-promo-toggle-btn"
+                  size="sm"
+                  onclick={() => promosStore.togglePromo(p)}
+                >
+                  {p.is_active ? at("btn_disable", {}, "Off") : at("btn_enable", {}, "On")}
+                </AdminButton>
+                <AdminButton
+                  size="icon"
+                  variant="danger"
+                  title={at("btn_delete", {}, "Delete")}
+                  aria-label={at("btn_delete", {}, "Delete")}
+                  onclick={() => promosStore.deletePromo(p)}
+                >
+                  <Trash2 size={14} />
+                </AdminButton>
+              </div>
             </td>
           </tr>
         {/each}
@@ -912,8 +914,18 @@
     min-width: 900px;
   }
 
-  .admin-promos-table-wrap :global(.admin-cell-actions) {
+  .admin-promo-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
     gap: 6px;
+    min-height: 34px;
+    vertical-align: middle;
+  }
+
+  .admin-promo-actions :global(.admin-btn) {
+    flex: 0 0 auto;
+    margin-left: 0;
   }
 
   .admin-promos-table-wrap :global(.admin-promo-activations-btn.admin-btn) {
@@ -930,13 +942,16 @@
     border-radius: 8px;
   }
 
-  :global(.admin-promo-dialog) {
-    width: min(860px, calc(100vw - 32px));
+  :global(.dialog-card.admin-dialog.admin-promo-dialog) {
+    width: min(1040px, calc(100vw - 32px));
+    inline-size: min(1040px, calc(100vw - 32px));
+    max-width: none;
     max-height: min(100%, 780px);
   }
 
-  :global(.admin-promo-edit-dialog) {
-    width: min(960px, calc(100vw - 32px));
+  :global(.dialog-card.admin-dialog.admin-promo-edit-dialog) {
+    width: min(1040px, calc(100vw - 32px));
+    inline-size: min(1040px, calc(100vw - 32px));
   }
 
   :global(.admin-promo-dialog > .dialog-body-scroll),
@@ -1024,8 +1039,10 @@
     min-width: 0;
   }
 
-  :global(.admin-promo-activations-dialog) {
+  :global(.dialog-card.admin-dialog.admin-promo-activations-dialog) {
     width: min(1380px, calc(100vw - 24px));
+    inline-size: min(1380px, calc(100vw - 24px));
+    max-width: none;
     max-height: min(100%, 820px);
   }
 
@@ -1088,10 +1105,11 @@
       min-width: 0;
     }
 
-    :global(.admin-promo-dialog),
-    :global(.admin-promo-edit-dialog),
-    :global(.admin-promo-activations-dialog) {
+    :global(.dialog-card.admin-dialog.admin-promo-dialog),
+    :global(.dialog-card.admin-dialog.admin-promo-edit-dialog),
+    :global(.dialog-card.admin-dialog.admin-promo-activations-dialog) {
       width: min(100%, calc(100vw - 24px));
+      inline-size: min(100%, calc(100vw - 24px));
       padding: 14px;
       border-radius: 18px;
     }
