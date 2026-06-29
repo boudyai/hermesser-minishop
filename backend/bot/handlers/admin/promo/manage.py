@@ -36,6 +36,12 @@ PROMO_EDIT_FIELD_LABELS = {
     "max_activations": "Max uses",
     "valid_until": "Validity days",
 }
+PROMO_EFFECT_FIELDS = {
+    "bonus_days",
+    "discount_percent",
+    "duration_multiplier",
+    "traffic_multiplier",
+}
 
 
 def _none_like(value: str) -> bool:
@@ -84,6 +90,43 @@ def _promo_effects_for_update(promo: PromoCode, update_data: dict[str, Any]) -> 
     effects = PromoEffects.from_payload(payload)
     validate_effects(effects)
     return effects
+
+
+def _single_effect_update(field: str, update_data: dict[str, Any]) -> None:
+    if field not in PROMO_EFFECT_FIELDS:
+        return
+    if field == "bonus_days" and int(update_data.get("bonus_days") or 0) > 0:
+        update_data.update(
+            {
+                "discount_percent": None,
+                "duration_multiplier": None,
+                "traffic_multiplier": None,
+            }
+        )
+    elif field == "discount_percent" and float(update_data.get("discount_percent") or 0) > 0:
+        update_data.update(
+            {
+                "bonus_days": 0,
+                "duration_multiplier": None,
+                "traffic_multiplier": None,
+            }
+        )
+    elif field == "duration_multiplier" and float(update_data.get("duration_multiplier") or 1) > 1:
+        update_data.update(
+            {
+                "bonus_days": 0,
+                "discount_percent": None,
+                "traffic_multiplier": None,
+            }
+        )
+    elif field == "traffic_multiplier" and float(update_data.get("traffic_multiplier") or 1) > 1:
+        update_data.update(
+            {
+                "bonus_days": 0,
+                "discount_percent": None,
+                "duration_multiplier": None,
+            }
+        )
 
 
 def _threshold_text(effects: PromoEffects) -> str:
@@ -890,6 +933,7 @@ async def process_promo_edit_details(
         else:
             raise ValueError
 
+        _single_effect_update(field, update_data)
         _promo_effects_for_update(promo, update_data)
 
         if await promo_code_dal.update_promo_code(session, promo_id, update_data):

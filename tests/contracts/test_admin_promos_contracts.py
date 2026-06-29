@@ -149,6 +149,28 @@ def test_promo_create_uses_typed_body_and_response_model():
     assert _json_body(response)["promo"] == PromoOut.from_orm_promo(promo).model_dump(mode="json")
 
 
+def test_promo_create_rejects_multiple_effects():
+    async def run():
+        request = _FakeRequest(
+            {
+                "code": "gift",
+                "bonus_days": 7,
+                "discount_percent": 10,
+                "max_activations": 3,
+            }
+        )
+
+        with patch.object(promos_module, "_require_admin_user_id", return_value=100):
+            return await promos_module.admin_promo_create_route(request)
+
+    response = _run_direct_bad_request(run())
+
+    assert response.status == 400
+    body = _json_body(response)
+    assert body["error"] == "invalid_payload"
+    assert "multiple_effects" in body["message"]
+
+
 def test_promo_create_keeps_invalid_valid_days_error_code():
     async def run():
         request = _FakeRequest(
@@ -201,6 +223,73 @@ def test_promo_update_uses_typed_body_and_preserves_bool_coercion():
     session.commit.assert_awaited_once()
     session.refresh.assert_awaited_once_with(promo)
     assert _json_body(response)["promo"] == PromoOut.from_orm_promo(promo).model_dump(mode="json")
+
+
+def test_promo_update_can_disable_existing_multiple_effects():
+    async def run():
+        session = _FakeSession()
+        promo = _promo(is_active=True, bonus_days=7, discount_percent=10)
+        request = _FakeRequest(
+            {"is_active": False},
+            app={"async_session_factory": lambda: session, "settings": _settings()},
+            match_info={"promo_id": "5"},
+        )
+
+        with (
+            patch.object(promos_module, "_require_admin_user_id", return_value=100),
+            patch.object(
+                promos_module.promo_code_dal,
+                "get_promo_code_by_id",
+                AsyncMock(return_value=promo),
+            ),
+            patch.object(
+                promos_module.promo_code_dal,
+                "update_promo_code",
+                AsyncMock(return_value=promo),
+            ) as update_promo,
+        ):
+            response = await promos_module.admin_promo_update_route(request)
+        return response, session, update_promo
+
+    response, session, update_promo = asyncio.run(run())
+
+    assert response.status == 200
+    update_promo.assert_awaited_once_with(session, 5, {"is_active": False})
+    session.commit.assert_awaited_once()
+
+
+def test_promo_update_rejects_enabling_existing_multiple_effects():
+    async def run():
+        session = _FakeSession()
+        promo = _promo(is_active=False, bonus_days=7, discount_percent=10)
+        request = _FakeRequest(
+            {"is_active": True},
+            app={"async_session_factory": lambda: session, "settings": _settings()},
+            match_info={"promo_id": "5"},
+        )
+
+        with (
+            patch.object(promos_module, "_require_admin_user_id", return_value=100),
+            patch.object(
+                promos_module.promo_code_dal,
+                "get_promo_code_by_id",
+                AsyncMock(return_value=promo),
+            ),
+            patch.object(
+                promos_module.promo_code_dal,
+                "update_promo_code",
+                AsyncMock(),
+            ) as update_promo,
+        ):
+            response = await promos_module.admin_promo_update_route(request)
+        return response, session, update_promo
+
+    response, session, update_promo = asyncio.run(run())
+
+    assert response.status == 400
+    assert _json_body(response)["error"] == "multiple_effects"
+    update_promo.assert_not_awaited()
+    session.commit.assert_not_awaited()
 
 
 def test_promo_update_returns_no_changes_for_empty_typed_body():

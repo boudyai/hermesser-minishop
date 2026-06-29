@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { Checkbox, Input, ScrollArea } from "$components/ui/index.js";
-  import { FileText, Sliders, Trash2, User } from "$components/ui/icons.js";
+  import { Checkbox, Input } from "$components/ui/index.js";
+  import { FileText, Sliders, Trash2 } from "$components/ui/icons.js";
   import { getContext, onMount } from "svelte";
   import Dialog from "$components/ui/dialog.svelte";
   import {
@@ -14,12 +14,16 @@
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
   import { TableHandler } from "@vincjo/datatables";
+  import PromoActivationsDialog from "./promos/PromoActivationsDialog.svelte";
+  import PromoEffectSelector from "./promos/PromoEffectSelector.svelte";
   import type { PromosStore } from "../../lib/admin/stores/promosStore";
   import type { components } from "../../lib/api/openapi.generated";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type Promo = components["schemas"]["PromoOut"];
-  type PromoDraft = components["schemas"]["PromoCreateBody"];
+  type PromoDraft = Omit<components["schemas"]["PromoCreateBody"], "valid_days"> & {
+    valid_days: number;
+  };
   type PromoPatch = components["schemas"]["PromoUpdateBody"];
   type PromoActivation = components["schemas"]["PromoActivationOut"];
   type CreateNumberField =
@@ -31,6 +35,8 @@
     | "min_traffic_gb"
     | "max_activations"
     | "valid_days";
+  type PromoEffectKind =
+    "bonus_days" | "discount_percent" | "duration_multiplier" | "traffic_multiplier";
   type EffectLike = {
     bonus_days?: number | null;
     discount_percent?: number | null;
@@ -57,7 +63,6 @@
 
   const promosStore = getContext<PromosStore>("promosStore");
   const promosTable = new TableHandler<Promo>();
-  const activationsTable = new TableHandler<PromoActivation>();
 
   const promos = $derived(promosStore.promos as Promo[]);
   const promosTotal = $derived(Number(promosStore.promosTotal || 0));
@@ -89,10 +94,30 @@
     }) as PromoDraft
   );
   const promoRows = $derived(promosTable.rows as Promo[]);
-  const activationRows = $derived(activationsTable.rows as PromoActivation[]);
+  let promoCreateEffectKind = $state<PromoEffectKind>("bonus_days");
+  let promoEditEffectKind = $state<PromoEffectKind>("bonus_days");
+  let previousCreateOpen = $state(false);
+  let previousEditPromoId = $state<number | null>(null);
 
   $effect(() => promosTable.setRows(promos));
-  $effect(() => activationsTable.setRows(activations));
+  $effect(() => {
+    if (promoCreateOpen && !previousCreateOpen) {
+      promoCreateEffectKind = effectKind(promoDraft);
+    } else if (!promoCreateOpen) {
+      promoCreateEffectKind = "bonus_days";
+    }
+    previousCreateOpen = promoCreateOpen;
+  });
+  $effect(() => {
+    const editPromoId = promoEditing?.id ?? null;
+    if (promoEditOpen && editPromoId !== previousEditPromoId) {
+      promoEditEffectKind = effectKind(promoEditDraft);
+      previousEditPromoId = editPromoId;
+    } else if (!promoEditOpen) {
+      promoEditEffectKind = "bonus_days";
+      previousEditPromoId = null;
+    }
+  });
 
   const promosPageCount = $derived(
     Math.max(1, Math.ceil(Number(promosTotal || 0) / promosStore.PROMOS_PAGE_SIZE))
@@ -111,18 +136,6 @@
     at("promo_col_valid_until", {}, "Valid until"),
     at("actions", {}, "Actions"),
   ]);
-  const activationHeaders = $derived([
-    at("user", {}, "User"),
-    at("date", {}, "Date"),
-    at("payment_detail_payment_section", {}, "Payment"),
-    at("amount", {}, "Amount"),
-    at("promo_col_base_amount", {}, "Base"),
-    at("promo_col_discount_amount", {}, "Discount"),
-    at("promo_col_grant", {}, "Grant"),
-    at("promo_col_effect", {}, "Effect"),
-    at("status", {}, "Status"),
-    at("provider", {}, "Provider"),
-  ]);
   const scopeItems = $derived([
     { value: "all", label: at("promo_scope_all", {}, "All") },
     { value: "subscription", label: at("promo_scope_subscription", {}, "Subscription") },
@@ -130,7 +143,6 @@
     { value: "traffic_topup", label: at("promo_scope_traffic_topup", {}, "Traffic top-up") },
     { value: "hwid", label: at("promo_scope_hwid", {}, "HWID") },
   ]);
-
   onMount(() => {
     promosStore.loadPromos();
   });
@@ -154,6 +166,48 @@
   function multiplierText(value: number | null | undefined): string | null {
     if (value == null || Number(value) === 1) return null;
     return `x${numberText(value)}`;
+  }
+
+  function positiveNumber(
+    value: number | string | null | undefined,
+    fallback: number,
+    minimum = 0
+  ): number {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > minimum ? parsed : fallback;
+  }
+
+  function effectKind(promo: EffectLike): PromoEffectKind {
+    if (Number(promo.bonus_days || 0) > 0) return "bonus_days";
+    if (Number(promo.discount_percent || 0) > 0) return "discount_percent";
+    if (Number(promo.duration_multiplier || 1) > 1) return "duration_multiplier";
+    if (Number(promo.traffic_multiplier || 1) > 1) return "traffic_multiplier";
+    return "bonus_days";
+  }
+
+  function singleEffectPatch(kind: PromoEffectKind, source: EffectLike): Partial<PromoDraft> {
+    return {
+      bonus_days:
+        kind === "bonus_days" ? Math.max(1, Math.trunc(positiveNumber(source.bonus_days, 7))) : 0,
+      discount_percent:
+        kind === "discount_percent" ? positiveNumber(source.discount_percent, 10) : null,
+      duration_multiplier:
+        kind === "duration_multiplier" ? positiveNumber(source.duration_multiplier, 2, 1) : null,
+      traffic_multiplier:
+        kind === "traffic_multiplier" ? positiveNumber(source.traffic_multiplier, 2, 1) : null,
+    };
+  }
+
+  function selectCreateEffect(value: string): void {
+    const kind = value as PromoEffectKind;
+    promoCreateEffectKind = kind;
+    promosStore.updateDraft(singleEffectPatch(kind, promoDraft));
+  }
+
+  function selectEditEffect(value: string): void {
+    const kind = value as PromoEffectKind;
+    promoEditEffectKind = kind;
+    promosStore.updateEditDraft(singleEffectPatch(kind, promoEditDraft));
   }
 
   function scopeLabel(scope: string | null | undefined): string {
@@ -226,53 +280,6 @@
       return { label: at("promo_status_used_up", {}, "Used up"), variant: "warning" };
     }
     return { label: at("badge_active", {}, "Active"), variant: "success" };
-  }
-
-  function activationEffectText(row: PromoActivation): string {
-    if (row.effect_summary) return row.effect_summary;
-    const parts = effectPieces(row);
-    return parts.length ? parts.join(" + ") : "-";
-  }
-
-  function paymentLabel(row: PromoActivation): string {
-    if (!row.payment_id) return at("promo_activation_standalone", {}, "Standalone");
-    return `#${row.payment_id}`;
-  }
-
-  function amountLabel(row: PromoActivation): string {
-    if (row.payment_amount == null) return "-";
-    return fmtMoney(Number(row.payment_amount), row.payment_currency);
-  }
-
-  function baseAmountLabel(row: PromoActivation): string {
-    if (row.base_amount == null) return "-";
-    return fmtMoney(Number(row.base_amount), row.payment_currency);
-  }
-
-  function discountAmountLabel(row: PromoActivation): string {
-    if (row.discount_amount == null || Number(row.discount_amount || 0) <= 0) return "-";
-    return fmtMoney(Number(row.discount_amount), row.payment_currency);
-  }
-
-  function gbText(value: number | null | undefined): string {
-    if (value == null) return "";
-    return `${numberText(value)} GB`;
-  }
-
-  function grantLabel(row: PromoActivation): string {
-    const parts: string[] = [];
-    if (Number(row.granted_days || 0) > 0) {
-      parts.push(`+${numberText(row.granted_days)} ${at("days_short", {}, "d")}`);
-    }
-    if (row.charged_gb != null && row.granted_gb != null) {
-      parts.push(`${gbText(row.charged_gb)} -> ${gbText(row.granted_gb)}`);
-    } else if (row.granted_gb != null) {
-      parts.push(gbText(row.granted_gb));
-    }
-    if (row.charged_months != null && Number(row.granted_days || 0) > 0) {
-      parts.push(`${numberText(row.charged_months)} mo`);
-    }
-    return parts.join(", ") || "-";
   }
 
   function validUntilInputValue(value: string | null | undefined): string {
@@ -478,74 +485,63 @@
           />
         </AdminField>
       </div>
-      <div class="admin-form-row-3">
-        <AdminField label={at("promo_label_bonus_days", {}, "Bonus days")}>
-          <Input
-            type="number"
-            class="input"
-            min="0"
-            value={String(promoDraft.bonus_days || 0)}
-            oninput={(e) => updateCreateNumber("bonus_days", inputValue(e))}
-          />
-        </AdminField>
-        <AdminField label={at("promo_label_discount", {}, "Discount %")}>
-          <Input
-            type="number"
-            class="input"
-            min="0"
-            max="100"
-            step="0.01"
-            value={promoDraft.discount_percent == null ? "" : String(promoDraft.discount_percent)}
-            oninput={(e) => updateCreateNumber("discount_percent", inputValue(e))}
-          />
-        </AdminField>
-        <AdminField label={at("promo_label_duration_multiplier", {}, "Duration x")}>
-          <Input
-            type="number"
-            class="input"
-            min="1"
-            step="0.001"
-            value={promoDraft.duration_multiplier == null
-              ? ""
-              : String(promoDraft.duration_multiplier)}
-            oninput={(e) => updateCreateNumber("duration_multiplier", inputValue(e))}
-          />
-        </AdminField>
+      <div class="admin-promo-config-block">
+        <div class="admin-promo-block-head">
+          <div class="admin-promo-block-title">
+            <strong>{at("promo_col_effect", {}, "Effect")}</strong>
+            <small
+              >{at(
+                "promo_effect_single_hint",
+                {},
+                "Choose one effect; values do not stack."
+              )}</small
+            >
+          </div>
+        </div>
+        <PromoEffectSelector
+          {at}
+          value={promoCreateEffectKind}
+          values={promoDraft}
+          onValueChange={selectCreateEffect}
+          onNumberInput={updateCreateNumber}
+        />
       </div>
-      <div class="admin-form-row-3">
-        <AdminField label={at("promo_label_traffic_multiplier", {}, "Traffic x")}>
-          <Input
-            type="number"
-            class="input"
-            min="1"
-            step="0.001"
-            value={promoDraft.traffic_multiplier == null
-              ? ""
-              : String(promoDraft.traffic_multiplier)}
-            oninput={(e) => updateCreateNumber("traffic_multiplier", inputValue(e))}
-          />
-        </AdminField>
-        <AdminField label={at("promo_label_min_months", {}, "Min months")}>
-          <Input
-            type="number"
-            class="input"
-            min="1"
-            value={promoDraft.min_subscription_months == null
-              ? ""
-              : String(promoDraft.min_subscription_months)}
-            oninput={(e) => updateCreateNumber("min_subscription_months", inputValue(e))}
-          />
-        </AdminField>
-        <AdminField label={at("promo_label_min_gb", {}, "Min GB")}>
-          <Input
-            type="number"
-            class="input"
-            min="0"
-            step="0.01"
-            value={promoDraft.min_traffic_gb == null ? "" : String(promoDraft.min_traffic_gb)}
-            oninput={(e) => updateCreateNumber("min_traffic_gb", inputValue(e))}
-          />
-        </AdminField>
+      <div class="admin-promo-config-block">
+        <div class="admin-promo-block-head">
+          <div class="admin-promo-block-title">
+            <strong>{at("promo_col_eligibility", {}, "Eligibility")}</strong>
+            <small>
+              {at(
+                "promo_conditions_hint",
+                {},
+                "Optional minimum purchase requirements checked before the code can be applied."
+              )}
+            </small>
+          </div>
+        </div>
+        <div class="admin-form-row-2">
+          <AdminField label={at("promo_label_min_months", {}, "Min months")}>
+            <Input
+              type="number"
+              class="input"
+              min="1"
+              value={promoDraft.min_subscription_months == null
+                ? ""
+                : String(promoDraft.min_subscription_months)}
+              oninput={(e) => updateCreateNumber("min_subscription_months", inputValue(e))}
+            />
+          </AdminField>
+          <AdminField label={at("promo_label_min_gb", {}, "Min GB")}>
+            <Input
+              type="number"
+              class="input"
+              min="0"
+              step="0.01"
+              value={promoDraft.min_traffic_gb == null ? "" : String(promoDraft.min_traffic_gb)}
+              oninput={(e) => updateCreateNumber("min_traffic_gb", inputValue(e))}
+            />
+          </AdminField>
+        </div>
       </div>
       <div class="admin-form-row-2">
         <AdminField label={at("promo_label_max_activations", {}, "Max uses")}>
@@ -682,62 +678,35 @@
         <header class="admin-editor-section-head">
           <div class="admin-editor-section-title">
             <strong>{at("promo_col_effect", {}, "Effect")}</strong>
+            <small
+              >{at(
+                "promo_effect_single_hint",
+                {},
+                "Choose one effect; values do not stack."
+              )}</small
+            >
           </div>
         </header>
-        <div class="admin-form-row-3">
-          <AdminField label={at("promo_label_bonus_days", {}, "Bonus days")}>
-            <Input
-              type="number"
-              class="input"
-              min="0"
-              value={String(promoEditDraft.bonus_days || 0)}
-              oninput={(e) => updateEditNumber("bonus_days", inputValue(e))}
-            />
-          </AdminField>
-          <AdminField label={at("promo_label_discount", {}, "Discount %")}>
-            <Input
-              type="number"
-              class="input"
-              min="0"
-              max="100"
-              step="0.01"
-              value={promoEditDraft.discount_percent == null
-                ? ""
-                : String(promoEditDraft.discount_percent)}
-              oninput={(e) => updateEditNumber("discount_percent", inputValue(e))}
-            />
-          </AdminField>
-          <AdminField label={at("promo_label_duration_multiplier", {}, "Duration x")}>
-            <Input
-              type="number"
-              class="input"
-              min="1"
-              step="0.001"
-              value={promoEditDraft.duration_multiplier == null
-                ? ""
-                : String(promoEditDraft.duration_multiplier)}
-              oninput={(e) => updateEditNumber("duration_multiplier", inputValue(e))}
-            />
-          </AdminField>
-          <AdminField label={at("promo_label_traffic_multiplier", {}, "Traffic x")}>
-            <Input
-              type="number"
-              class="input"
-              min="1"
-              step="0.001"
-              value={promoEditDraft.traffic_multiplier == null
-                ? ""
-                : String(promoEditDraft.traffic_multiplier)}
-              oninput={(e) => updateEditNumber("traffic_multiplier", inputValue(e))}
-            />
-          </AdminField>
-        </div>
+        <PromoEffectSelector
+          {at}
+          value={promoEditEffectKind}
+          values={promoEditDraft}
+          onValueChange={selectEditEffect}
+          onNumberInput={updateEditNumber}
+        />
       </section>
 
       <section class="admin-editor-section admin-promo-editor-section">
         <header class="admin-editor-section-head">
           <div class="admin-editor-section-title">
             <strong>{at("promo_col_eligibility", {}, "Eligibility")}</strong>
+            <small>
+              {at(
+                "promo_conditions_hint",
+                {},
+                "Optional minimum purchase requirements checked before the code can be applied."
+              )}
+            </small>
           </div>
         </header>
         <div class="admin-form-row-2">
@@ -779,135 +748,22 @@
   {/if}
 </Dialog>
 
-<Dialog
+<PromoActivationsDialog
   open={activationsOpen}
-  title={activationsPromo
-    ? at(
-        "promo_activations_title",
-        { code: activationsPromo.code },
-        `Activations ${activationsPromo.code}`
-      )
-    : at("promo_activations_title_empty", {}, "Activations")}
-  closeLabel={at("close", {}, "Close")}
-  onclose={promosStore.closeActivations}
-  class="admin-dialog admin-promo-activations-dialog"
->
-  <div class="admin-promo-activations-body" data-dialog-content>
-    {#if activationsLoading}
-      <AdminTableSkeleton
-        headers={activationHeaders}
-        rows={6}
-        widths={[
-          "160px",
-          "104px",
-          "72px",
-          "86px",
-          "86px",
-          "86px",
-          "120px",
-          "120px",
-          "86px",
-          "90px",
-        ]}
-      />
-    {:else if !activationRows.length}
-      <AdminEmptyState tone="card">
-        <span class="admin-muted">{at("promo_activations_empty", {}, "No activations")}</span>
-      </AdminEmptyState>
-    {:else}
-      <ScrollArea class="admin-promo-activations-scroll" maxHeight="min(58vh, 520px)">
-        <AdminTable class="admin-promo-activations-table">
-          <thead>
-            <tr>
-              <th>{at("user", {}, "User")}</th>
-              <th>{at("date", {}, "Date")}</th>
-              <th>{at("payment_detail_payment_section", {}, "Payment")}</th>
-              <th>{at("amount", {}, "Amount")}</th>
-              <th>{at("promo_col_base_amount", {}, "Base")}</th>
-              <th>{at("promo_col_discount_amount", {}, "Discount")}</th>
-              <th>{at("promo_col_grant", {}, "Grant")}</th>
-              <th>{at("promo_col_effect", {}, "Effect")}</th>
-              <th>{at("status", {}, "Status")}</th>
-              <th>{at("provider", {}, "Provider")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each activationRows as row (row.activation_id)}
-              <tr>
-                <td class="admin-cell-user-with-action" data-label={at("user", {}, "User")}>
-                  <span class="admin-promos-user-cell">
-                    <AdminButton
-                      class="admin-promos-user-btn"
-                      variant="ghost"
-                      size="icon"
-                      title={at("payments_open_user", {}, "Open user card")}
-                      aria-label={at("payments_open_user", {}, "Open user card")}
-                      onclick={() => onOpenUserCard(row.user_id)}
-                    >
-                      <User size={14} />
-                    </AdminButton>
-                    <span class="admin-promos-user-name">
-                      {row.user_label || row.user_id}
-                      <small>ID {row.user_id}</small>
-                    </span>
-                  </span>
-                </td>
-                <td data-label={at("date", {}, "Date")}>{fmtDate(row.activated_at)}</td>
-                <td
-                  class="admin-cell-mono"
-                  data-label={at("payment_detail_payment_section", {}, "Payment")}
-                >
-                  {paymentLabel(row)}
-                </td>
-                <td data-label={at("amount", {}, "Amount")}>{amountLabel(row)}</td>
-                <td data-label={at("promo_col_base_amount", {}, "Base")}>
-                  {baseAmountLabel(row)}
-                </td>
-                <td data-label={at("promo_col_discount_amount", {}, "Discount")}>
-                  {discountAmountLabel(row)}
-                </td>
-                <td class="admin-cell-wrap" data-label={at("promo_col_grant", {}, "Grant")}>
-                  {grantLabel(row)}
-                </td>
-                <td class="admin-cell-wrap" data-label={at("promo_col_effect", {}, "Effect")}>
-                  {activationEffectText(row)}
-                </td>
-                <td data-label={at("status", {}, "Status")}>
-                  {#if row.payment_status}
-                    <AdminBadge variant={paymentStatusVariant(row.payment_status)}>
-                      {row.payment_status}
-                    </AdminBadge>
-                  {:else}
-                    <AdminBadge variant="muted">
-                      {at("promo_activation_standalone", {}, "Standalone")}
-                    </AdminBadge>
-                  {/if}
-                </td>
-                <td data-label={at("provider", {}, "Provider")}>
-                  {row.payment_provider || "-"}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </AdminTable>
-      </ScrollArea>
-    {/if}
-    <AdminPagination
-      page={activationsPage}
-      pageCount={activationsPageCount}
-      total={activationsTotal}
-      pageLabel={at("page_short", {}, "Page")}
-      ofLabel={at("pagination_of", {}, "of")}
-      totalLabel={at("total", {}, "Total")}
-      jumpLabel={at("page_short", {}, "Page")}
-      jumpAriaLabel={at("pagination_jump_aria", {}, "Go to page")}
-      goLabel={at("pagination_go", {}, "Go")}
-      prevLabel={at("back", {}, "Back")}
-      nextLabel={at("next", {}, "Next")}
-      onPageChange={(page) => promosStore.setActivationsPage(page)}
-    />
-  </div>
-</Dialog>
+  promo={activationsPromo}
+  rows={activations}
+  loading={activationsLoading}
+  page={activationsPage}
+  pageCount={activationsPageCount}
+  total={activationsTotal}
+  {at}
+  {fmtDate}
+  {fmtMoney}
+  {paymentStatusVariant}
+  onClose={promosStore.closeActivations}
+  {onOpenUserCard}
+  onPageChange={(page) => promosStore.setActivationsPage(page)}
+/>
 
 <style>
   .admin-promos-table-wrap :global(.admin-promos-table) {
@@ -963,10 +819,29 @@
     max-width: 100% !important;
   }
 
-  .admin-form-row-3 {
+  .admin-promo-config-block {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
+    min-width: 0;
+  }
+
+  .admin-promo-block-head,
+  .admin-promo-block-title,
+  .admin-editor-section-title {
+    min-width: 0;
+  }
+
+  .admin-promo-block-title,
+  .admin-editor-section-title {
+    display: grid;
+    gap: 3px;
+  }
+
+  .admin-promo-block-title small,
+  .admin-editor-section-title small {
+    color: var(--admin-muted);
+    font-size: 12px;
+    line-height: 1.35;
   }
 
   .admin-promo-check-row {
@@ -1033,81 +908,13 @@
     min-height: 20px;
   }
 
-  .admin-promo-activations-body {
-    display: grid;
-    gap: 12px;
-    min-width: 0;
-  }
-
-  :global(.dialog-card.admin-dialog.admin-promo-activations-dialog) {
-    width: min(1380px, calc(100vw - 24px));
-    inline-size: min(1380px, calc(100vw - 24px));
-    max-width: none;
-    max-height: min(100%, 820px);
-  }
-
-  :global(.admin-promo-activations-dialog > .dialog-body-scroll),
-  :global(.admin-promo-activations-dialog .dialog-body-scroll > .scroll-area__viewport),
-  :global(.admin-promo-activations-dialog .dialog-body-scroll > .scroll-area__viewport > div) {
-    box-sizing: border-box;
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: 100% !important;
-  }
-
-  :global(.admin-promo-activations-scroll) {
-    width: 100%;
-  }
-
-  :global(.admin-promo-activations-table) {
-    min-width: 1180px;
-  }
-
-  .admin-promos-user-cell {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-  }
-
-  .admin-promos-user-name {
-    display: grid;
-    min-width: 0;
-    gap: 2px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .admin-promos-user-name small {
-    color: var(--admin-muted);
-    font-family: var(--font-mono);
-    font-size: 11px;
-  }
-
-  .admin-cell-user-with-action :global(.admin-promos-user-btn.admin-btn) {
-    width: 30px;
-    height: 30px;
-    min-width: 30px;
-    min-height: 30px;
-    flex-shrink: 0;
-    padding: 0;
-    border-radius: 7px;
-  }
-
   @media (max-width: 720px) {
-    .admin-form-row-3 {
-      grid-template-columns: 1fr;
-    }
-
-    .admin-promos-table-wrap :global(.admin-promos-table),
-    :global(.admin-promo-activations-table) {
+    .admin-promos-table-wrap :global(.admin-promos-table) {
       min-width: 0;
     }
 
     :global(.dialog-card.admin-dialog.admin-promo-dialog),
-    :global(.dialog-card.admin-dialog.admin-promo-edit-dialog),
-    :global(.dialog-card.admin-dialog.admin-promo-activations-dialog) {
+    :global(.dialog-card.admin-dialog.admin-promo-edit-dialog) {
       width: min(100%, calc(100vw - 24px));
       inline-size: min(100%, calc(100vw - 24px));
       padding: 14px;

@@ -142,6 +142,17 @@ class PromoEffects:
         return self.bonus_days > 0 or self.has_discount or self.has_multiplier
 
     @property
+    def active_effect_count(self) -> int:
+        return sum(
+            (
+                self.bonus_days > 0,
+                self.has_discount,
+                self.duration_multiplier > 1.0,
+                self.traffic_multiplier > 1.0,
+            )
+        )
+
+    @property
     def is_bonus_days_only(self) -> bool:
         return (
             self.bonus_days > 0
@@ -188,6 +199,8 @@ def validate_effects(
         errors.append("invalid_applies_to")
     if not effects.has_effect:
         errors.append("empty_effect")
+    if effects.active_effect_count > 1:
+        errors.append("multiple_effects")
     if effects.bonus_days < 0:
         errors.append("invalid_bonus_days")
     if effects.discount_percent is not None and not (0 < effects.discount_percent <= 100):

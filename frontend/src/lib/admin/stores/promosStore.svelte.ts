@@ -25,6 +25,14 @@ type PromoDraft = Omit<components["schemas"]["PromoCreateBody"], "valid_days"> &
   valid_days: number;
 };
 type PromoPatch = components["schemas"]["PromoUpdateBody"];
+type PromoEffectKind =
+  "bonus_days" | "discount_percent" | "duration_multiplier" | "traffic_multiplier";
+type PromoEffectPayload = {
+  bonus_days?: number | null;
+  discount_percent?: number | null;
+  duration_multiplier?: number | null;
+  traffic_multiplier?: number | null;
+};
 type PromoPatchResponse = Extract<ApiResponse<"/api/admin/promos/{promo_id}">, { promo: Promo }>;
 type PromoDeleteResponse = Extract<
   ApiResponse<"/api/admin/promos/{promo_id}">,
@@ -125,6 +133,31 @@ function promoToPatchDraft(promo: Promo): PromoPatch {
   };
 }
 
+function finiteNumber(value: number | null | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function effectKindFromPayload(payload: PromoEffectPayload): PromoEffectKind {
+  if (finiteNumber(payload.bonus_days, 0) > 0) return "bonus_days";
+  if (finiteNumber(payload.discount_percent, 0) > 0) return "discount_percent";
+  if (finiteNumber(payload.duration_multiplier, 1) > 1) return "duration_multiplier";
+  if (finiteNumber(payload.traffic_multiplier, 1) > 1) return "traffic_multiplier";
+  return "bonus_days";
+}
+
+function normalizeEffectPayload<T extends PromoEffectPayload>(payload: T): T {
+  const kind = effectKindFromPayload(payload);
+  return {
+    ...payload,
+    bonus_days:
+      kind === "bonus_days" ? Math.max(0, Math.trunc(finiteNumber(payload.bonus_days, 0))) : 0,
+    discount_percent: kind === "discount_percent" ? payload.discount_percent : null,
+    duration_multiplier: kind === "duration_multiplier" ? payload.duration_multiplier : null,
+    traffic_multiplier: kind === "traffic_multiplier" ? payload.traffic_multiplier : null,
+  } as T;
+}
+
 export function createPromosStore({
   api,
   onToast,
@@ -172,7 +205,7 @@ export function createPromosStore({
   }
 
   async function createPromo(): Promise<void> {
-    const draft = state.promoDraft;
+    const draft = normalizeEffectPayload(state.promoDraft);
 
     const res = (await api(buildAdminPromosPath(), {
       method: "POST",
@@ -193,9 +226,10 @@ export function createPromosStore({
     const promo = state.promoEditing;
     if (!promo) return;
     const path = buildAdminPromoPath(promo.id);
+    const draft = normalizeEffectPayload(state.promoEditDraft);
     const res = (await api(path, {
       method: "PATCH",
-      body: JSON.stringify(state.promoEditDraft),
+      body: JSON.stringify(draft),
     })) as PromoPatchResponse | AdminErrorResponse;
     if (isOkResponse(res)) {
       const payload = unwrap(res);

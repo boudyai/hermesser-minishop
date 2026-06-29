@@ -55,6 +55,28 @@ describe("promosStore", () => {
     expect(toasts).toEqual(["Code saved"]);
   });
 
+  it("saves only one active effect when editing old mixed rows", async () => {
+    const updated = promo({ bonus_days: 0, discount_percent: 15, effect_summary: "-15%" });
+    const api = vi.fn().mockResolvedValue({ ok: true, promo: updated });
+    const { store } = makeStore(api);
+    store.promos = [promo({ bonus_days: 7, discount_percent: 20, effect_summary: "+7d + -20%" })];
+
+    store.openEditPromo(store.promos[0]);
+    store.updateEditDraft({
+      bonus_days: 0,
+      discount_percent: 15,
+      duration_multiplier: null,
+      traffic_multiplier: null,
+    });
+    await store.savePromo();
+
+    const body = JSON.parse(api.mock.calls[0][1].body);
+    expect(body.bonus_days).toBe(0);
+    expect(body.discount_percent).toBe(15);
+    expect(body.duration_multiplier).toBeNull();
+    expect(body.traffic_multiplier).toBeNull();
+  });
+
   it("loads activation history for the selected row", async () => {
     const row = {
       activation_id: 9,

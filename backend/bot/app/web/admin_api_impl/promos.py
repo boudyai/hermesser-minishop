@@ -173,24 +173,37 @@ async def admin_promo_update_route(request: web.Request) -> web.Response:
             current.current_activations or 0
         ):
             return _error(400, "max_activations_below_current")
-        merged = {
-            "bonus_days": getattr(current, "bonus_days", 0),
-            "discount_percent": getattr(current, "discount_percent", None),
-            "duration_multiplier": getattr(current, "duration_multiplier", None),
-            "traffic_multiplier": getattr(current, "traffic_multiplier", None),
-            "applies_to": getattr(current, "applies_to", "all"),
-            "min_subscription_months": getattr(current, "min_subscription_months", None),
-            "min_traffic_gb": getattr(current, "min_traffic_gb", None),
+        effect_fields = {
+            "bonus_days",
+            "discount_percent",
+            "duration_multiplier",
+            "traffic_multiplier",
+            "applies_to",
+            "min_subscription_months",
+            "min_traffic_gb",
         }
-        merged.update({key: value for key, value in update_data.items() if key in merged})
-        try:
-            validate_effects(
-                PromoEffects.from_payload(merged),
-                max_duration_multiplier=float(settings.PROMO_DURATION_MULTIPLIER_MAX),
-                max_traffic_multiplier=float(settings.PROMO_TRAFFIC_MULTIPLIER_MAX),
-            )
-        except ValueError as exc:
-            return _error(400, str(exc) or "invalid_effects")
+        should_validate_effects = bool(effect_fields & update_data.keys()) or (
+            update_data.get("is_active") is True
+        )
+        if should_validate_effects:
+            merged = {
+                "bonus_days": getattr(current, "bonus_days", 0),
+                "discount_percent": getattr(current, "discount_percent", None),
+                "duration_multiplier": getattr(current, "duration_multiplier", None),
+                "traffic_multiplier": getattr(current, "traffic_multiplier", None),
+                "applies_to": getattr(current, "applies_to", "all"),
+                "min_subscription_months": getattr(current, "min_subscription_months", None),
+                "min_traffic_gb": getattr(current, "min_traffic_gb", None),
+            }
+            merged.update({key: value for key, value in update_data.items() if key in merged})
+            try:
+                validate_effects(
+                    PromoEffects.from_payload(merged),
+                    max_duration_multiplier=float(settings.PROMO_DURATION_MULTIPLIER_MAX),
+                    max_traffic_multiplier=float(settings.PROMO_TRAFFIC_MULTIPLIER_MAX),
+                )
+            except ValueError as exc:
+                return _error(400, str(exc) or "invalid_effects")
         promo = await promo_code_dal.update_promo_code(session, promo_id, update_data)
         await session.commit()
         await session.refresh(promo)
