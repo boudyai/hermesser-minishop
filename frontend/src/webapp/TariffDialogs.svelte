@@ -24,6 +24,12 @@
   } from "$components/patterns/webapp/index.js";
 
   type AnyRecord = Record<string, any>;
+  type DeviceTopupPlan = {
+    device_count?: number | string | null;
+    months?: number | string | null;
+    subtitle?: string | null;
+    valid_until_text?: string | null;
+  };
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type VoidAction = () => void;
 
@@ -220,13 +226,13 @@
       : "";
   }
 
-  function deviceTopupPlanTitle(plan: AnyRecord) {
+  function deviceTopupPlanTitle(plan: DeviceTopupPlan) {
     return t("wa_hwid_devices_package", {
       count: Number(plan?.device_count || plan?.months || 0),
     });
   }
 
-  function deviceTopupPlanHint(plan: AnyRecord) {
+  function deviceTopupPlanHint(plan: DeviceTopupPlan) {
     if (plan?.valid_until_text) {
       return t("wa_hwid_devices_active_until", { date: plan.valid_until_text });
     }
@@ -264,7 +270,7 @@
     return t("wa_topup_traffic");
   }
 
-  function checkoutPromoBlock(plan: AnyRecord | null) {
+  function checkoutPromoBlock(plan: unknown | null) {
     return Boolean(plan || checkoutPromoAppliedCode || checkoutPromoStatus);
   }
 </script>

@@ -33,6 +33,10 @@
   } from "../lib/webapp/tariffs.js";
 
   type AnyRecord = Record<string, any>;
+  type DeviceToDisconnect = {
+    display_name?: string | null;
+    index?: number | string | null;
+  };
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type VoidAction = () => void;
 
@@ -103,7 +107,7 @@
     createPayment?: VoidAction;
     deviceConfirmOpen?: boolean;
     deviceDisconnectBusy?: boolean;
-    deviceToDisconnect?: AnyRecord | null;
+    deviceToDisconnect?: DeviceToDisconnect | null;
     disconnectDevice?: VoidAction;
     linkEmailBusy?: boolean;
     linkEmailCode?: string;

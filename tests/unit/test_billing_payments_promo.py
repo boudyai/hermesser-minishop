@@ -2,7 +2,7 @@ from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
-from bot.app.web.webapp.billing_payments import _resolve_checkout_promo
+from bot.app.web.webapp.billing_checkout_adjustments import _resolve_checkout_promo
 
 
 class BillingPaymentsPromoTests(IsolatedAsyncioTestCase):
@@ -24,7 +24,8 @@ class BillingPaymentsPromoTests(IsolatedAsyncioTestCase):
         )
 
         with patch(
-            "bot.app.web.webapp.billing_payments.promo_code_dal.get_active_promo_code_by_code_str",
+            "bot.app.web.webapp.billing_checkout_adjustments."
+            "promo_code_dal.get_active_promo_code_by_code_str",
             AsyncMock(return_value=promo),
         ):
             result, error = await _resolve_checkout_promo(
