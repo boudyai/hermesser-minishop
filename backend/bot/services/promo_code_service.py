@@ -198,7 +198,20 @@ class PromoCodeService:
 
         if new_end_date:
             activation_recorded = await promo_code_dal.record_promo_activation(
-                session, promo_data.promo_code_id, user_id, payment_id=None
+                session,
+                promo_data.promo_code_id,
+                user_id,
+                payment_id=None,
+                effect_summary=summarize_effects(effects),
+                bonus_days=effects.bonus_days,
+                discount_percent=effects.discount_percent,
+                duration_multiplier=(
+                    effects.duration_multiplier if effects.duration_multiplier != 1.0 else None
+                ),
+                traffic_multiplier=(
+                    effects.traffic_multiplier if effects.traffic_multiplier != 1.0 else None
+                ),
+                applies_to=effects.applies_to,
             )
             promo_incremented = await promo_code_dal.increment_promo_code_usage(
                 session, promo_data.promo_code_id

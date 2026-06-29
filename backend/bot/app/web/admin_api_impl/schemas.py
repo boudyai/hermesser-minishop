@@ -337,6 +337,80 @@ def _payment_user_display_label(loaded_user: Any, payment_user_id: int) -> str:
     return label or str(payment_user_id)
 
 
+def _float_or_none(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+class PromoActivationOut(HttpResponseModel):
+    activation_id: int
+    promo_id: int
+    user_id: int
+    user_label: str
+    telegram_id: int | None = None
+    activated_at: datetime | None = None
+    payment_id: int | None = None
+    payment_amount: float | None = None
+    payment_currency: str | None = None
+    payment_status: str | None = None
+    payment_provider: str | None = None
+    payment_sale_mode: str | None = None
+    payment_description: str | None = None
+    payment_created_at: datetime | None = None
+    effect_summary: str | None = None
+    bonus_days: int | None = None
+    discount_percent: float | None = None
+    duration_multiplier: float | None = None
+    traffic_multiplier: float | None = None
+    applies_to: str | None = None
+
+    @classmethod
+    def from_orm_activation(cls, activation: Any) -> "PromoActivationOut":
+        loaded_user = activation.__dict__.get("user")
+        loaded_payment = activation.__dict__.get("payment")
+        user_label = _display_label(loaded_user, int(activation.user_id)) or str(activation.user_id)
+        telegram_id = None
+        if loaded_user is not None and getattr(loaded_user, "telegram_id", None) is not None:
+            try:
+                telegram_id = int(loaded_user.telegram_id)
+            except (TypeError, ValueError):
+                telegram_id = None
+        return cls(
+            activation_id=int(activation.activation_id),
+            promo_id=int(activation.promo_code_id),
+            user_id=int(activation.user_id),
+            user_label=user_label,
+            telegram_id=telegram_id,
+            activated_at=activation.activated_at,
+            payment_id=int(activation.payment_id) if activation.payment_id else None,
+            payment_amount=(
+                float(loaded_payment.amount)
+                if loaded_payment is not None and loaded_payment.amount is not None
+                else None
+            ),
+            payment_currency=loaded_payment.currency if loaded_payment is not None else None,
+            payment_status=loaded_payment.status if loaded_payment is not None else None,
+            payment_provider=loaded_payment.provider if loaded_payment is not None else None,
+            payment_sale_mode=loaded_payment.sale_mode if loaded_payment is not None else None,
+            payment_description=loaded_payment.description if loaded_payment is not None else None,
+            payment_created_at=loaded_payment.created_at if loaded_payment is not None else None,
+            effect_summary=getattr(activation, "effect_summary", None),
+            bonus_days=(
+                int(activation.bonus_days)
+                if getattr(activation, "bonus_days", None) is not None
+                else None
+            ),
+            discount_percent=_float_or_none(getattr(activation, "discount_percent", None)),
+            duration_multiplier=_float_or_none(getattr(activation, "duration_multiplier", None)),
+            traffic_multiplier=_float_or_none(getattr(activation, "traffic_multiplier", None)),
+            applies_to=getattr(activation, "applies_to", None),
+        )
+
+
 class PaymentOut(HttpResponseModel):
     payment_id: int
     user_id: int

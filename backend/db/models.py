@@ -401,6 +401,12 @@ class PromoCodeActivation(Base):
     user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=False)
     activated_at = Column(DateTime(timezone=True), server_default=func.now())
     payment_id = Column(Integer, ForeignKey("payments.payment_id"), nullable=True)
+    effect_summary = Column(String, nullable=True)
+    bonus_days = Column(Integer, nullable=True)
+    discount_percent = Column(Numeric(5, 2), nullable=True)
+    duration_multiplier = Column(Numeric(6, 3), nullable=True)
+    traffic_multiplier = Column(Numeric(6, 3), nullable=True)
+    applies_to = Column(String(32), nullable=True)
 
     promo_code = relationship("PromoCode", back_populates="activations")
     user = relationship("User", back_populates="promo_code_activations")

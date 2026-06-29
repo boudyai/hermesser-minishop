@@ -6,7 +6,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra.promo_policies import PromoRedemptionContext, evaluate_promo_redemption
-from bot.services.promo_effects import PromoEffects
+from bot.services.promo_effects import PromoEffects, summarize_effects
 from db.dal import promo_code_dal
 
 logger = logging.getLogger(__name__)
@@ -74,5 +74,15 @@ async def consume_payment_promo(
         promo_code_id,
         user_id,
         payment_id=payment_id,
+        effect_summary=summarize_effects(effects),
+        bonus_days=effects.bonus_days,
+        discount_percent=effects.discount_percent,
+        duration_multiplier=effects.duration_multiplier
+        if effects.duration_multiplier != 1.0
+        else None,
+        traffic_multiplier=effects.traffic_multiplier
+        if effects.traffic_multiplier != 1.0
+        else None,
+        applies_to=effects.applies_to,
     )
     return activation is not None

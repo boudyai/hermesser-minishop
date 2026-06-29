@@ -1233,6 +1233,34 @@ def _migration_0038_extend_promo_code_effects(connection: Connection) -> None:
         )
 
 
+def _migration_0039_add_promo_activation_effect_snapshots(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns: Set[str] = {col["name"] for col in inspector.get_columns("promo_code_activations")}
+    statements: List[str] = []
+
+    if "effect_summary" not in columns:
+        statements.append("ALTER TABLE promo_code_activations ADD COLUMN effect_summary VARCHAR")
+    if "bonus_days" not in columns:
+        statements.append("ALTER TABLE promo_code_activations ADD COLUMN bonus_days INTEGER")
+    if "discount_percent" not in columns:
+        statements.append(
+            "ALTER TABLE promo_code_activations ADD COLUMN discount_percent NUMERIC(5, 2)"
+        )
+    if "duration_multiplier" not in columns:
+        statements.append(
+            "ALTER TABLE promo_code_activations ADD COLUMN duration_multiplier NUMERIC(6, 3)"
+        )
+    if "traffic_multiplier" not in columns:
+        statements.append(
+            "ALTER TABLE promo_code_activations ADD COLUMN traffic_multiplier NUMERIC(6, 3)"
+        )
+    if "applies_to" not in columns:
+        statements.append("ALTER TABLE promo_code_activations ADD COLUMN applies_to VARCHAR(32)")
+
+    for stmt in statements:
+        connection.execute(text(stmt))
+
+
 MIGRATIONS: List[Migration] = [
     Migration(
         id="0001_add_channel_subscription_fields",
@@ -1423,6 +1451,11 @@ MIGRATIONS: List[Migration] = [
         id="0038_extend_promo_code_effects",
         description="Extend bonus code effects and attribution fields",
         upgrade=_migration_0038_extend_promo_code_effects,
+    ),
+    Migration(
+        id="0039_add_promo_activation_effect_snapshots",
+        description="Snapshot code effects on activation records",
+        upgrade=_migration_0039_add_promo_activation_effect_snapshots,
     ),
 ]
 

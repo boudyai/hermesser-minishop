@@ -11,7 +11,7 @@ from aiohttp import web
 import bot.app.web.admin_api  # noqa: F401 - populates admin_api_impl module namespaces
 from bot.app.web.admin_api_impl import common as common_module
 from bot.app.web.admin_api_impl import promos as promos_module
-from bot.app.web.admin_api_impl.schemas import PromoOut
+from bot.app.web.admin_api_impl.schemas import PromoActivationOut, PromoOut
 
 
 class _FakeRequest:
@@ -214,3 +214,113 @@ def test_promo_update_returns_no_changes_for_empty_typed_body():
 
     assert response.status == 400
     assert _json_body(response)["error"] == "no_changes"
+
+
+def test_promo_update_rejects_max_activations_below_current_count():
+    async def run():
+        session = _FakeSession()
+        promo = _promo(current_activations=2, max_activations=5)
+        request = _FakeRequest(
+            {"max_activations": 1},
+            app={"async_session_factory": lambda: session, "settings": _settings()},
+            match_info={"promo_id": "5"},
+        )
+
+        with (
+            patch.object(promos_module, "_require_admin_user_id", return_value=100),
+            patch.object(
+                promos_module.promo_code_dal,
+                "get_promo_code_by_id",
+                AsyncMock(return_value=promo),
+            ),
+            patch.object(
+                promos_module.promo_code_dal,
+                "update_promo_code",
+                AsyncMock(),
+            ) as update_promo,
+        ):
+            response = await promos_module.admin_promo_update_route(request)
+        return response, session, update_promo
+
+    response, session, update_promo = asyncio.run(run())
+
+    assert response.status == 400
+    assert _json_body(response)["error"] == "max_activations_below_current"
+    update_promo.assert_not_awaited()
+    session.commit.assert_not_awaited()
+
+
+def test_promo_activations_route_returns_user_and_payment_context():
+    async def run():
+        session = _FakeSession()
+        promo = _promo()
+        user = SimpleNamespace(
+            user_id=42,
+            telegram_id=4242,
+            first_name="Ada",
+            last_name="Lovelace",
+            username="ada",
+            email=None,
+        )
+        payment = SimpleNamespace(
+            payment_id=77,
+            amount=80.0,
+            currency="RUB",
+            status="succeeded",
+            provider="yookassa",
+            sale_mode="subscription@standard",
+            description="Subscription",
+            created_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+        )
+        activation = SimpleNamespace(
+            activation_id=9,
+            promo_code_id=5,
+            user_id=42,
+            activated_at=datetime(2026, 1, 3, tzinfo=timezone.utc),
+            payment_id=77,
+            user=user,
+            payment=payment,
+            effect_summary="-20%",
+            bonus_days=0,
+            discount_percent=20,
+            duration_multiplier=None,
+            traffic_multiplier=None,
+            applies_to="subscription",
+        )
+        request = _FakeRequest(
+            {},
+            app={"async_session_factory": lambda: session},
+            match_info={"promo_id": "5"},
+            query={"page": "0", "page_size": "25"},
+        )
+
+        with (
+            patch.object(promos_module, "_require_admin_user_id", return_value=100),
+            patch.object(
+                promos_module.promo_code_dal,
+                "get_promo_code_by_id",
+                AsyncMock(return_value=promo),
+            ),
+            patch.object(
+                promos_module.promo_code_dal,
+                "get_promo_activations_by_code_id",
+                AsyncMock(return_value=[activation]),
+            ) as get_activations,
+            patch.object(
+                promos_module.promo_code_dal,
+                "count_promo_activations_by_code_id",
+                AsyncMock(return_value=1),
+            ),
+        ):
+            response = await promos_module.admin_promo_activations_route(request)
+        return response, session, activation, get_activations
+
+    response, session, activation, get_activations = asyncio.run(run())
+
+    assert response.status == 200
+    get_activations.assert_awaited_once_with(session, 5, limit=25, offset=0)
+    body = _json_body(response)
+    assert body["total"] == 1
+    assert body["activations"] == [
+        PromoActivationOut.from_orm_activation(activation).model_dump(mode="json")
+    ]

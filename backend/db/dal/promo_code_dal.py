@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import and_, case, delete, func, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
 from db.models import Payment, PromoCode, PromoCodeActivation
 
@@ -105,6 +106,10 @@ async def get_promo_activations_by_code_id(
     """Get activation history for a specific promo code with optional pagination."""
     stmt = (
         select(PromoCodeActivation)
+        .options(
+            selectinload(PromoCodeActivation.user),
+            selectinload(PromoCodeActivation.payment),
+        )
         .where(PromoCodeActivation.promo_code_id == promo_code_id)
         .order_by(PromoCodeActivation.activated_at.desc())
         .offset(offset)
@@ -192,7 +197,17 @@ async def get_user_activation_for_promo(
 
 
 async def record_promo_activation(
-    session: AsyncSession, promo_code_id: int, user_id: int, payment_id: Optional[int] = None
+    session: AsyncSession,
+    promo_code_id: int,
+    user_id: int,
+    payment_id: Optional[int] = None,
+    *,
+    effect_summary: Optional[str] = None,
+    bonus_days: Optional[int] = None,
+    discount_percent: Optional[float] = None,
+    duration_multiplier: Optional[float] = None,
+    traffic_multiplier: Optional[float] = None,
+    applies_to: Optional[str] = None,
 ) -> Optional[PromoCodeActivation]:
     existing_activation = await get_user_activation_for_promo(session, promo_code_id, user_id)
     if existing_activation:
@@ -223,6 +238,12 @@ async def record_promo_activation(
         "promo_code_id": promo_code_id,
         "user_id": user_id,
         "payment_id": payment_id,
+        "effect_summary": effect_summary,
+        "bonus_days": bonus_days,
+        "discount_percent": discount_percent,
+        "duration_multiplier": duration_multiplier,
+        "traffic_multiplier": traffic_multiplier,
+        "applies_to": applies_to,
         "activated_at": datetime.now(timezone.utc),
     }
     new_activation = PromoCodeActivation(**activation_data)

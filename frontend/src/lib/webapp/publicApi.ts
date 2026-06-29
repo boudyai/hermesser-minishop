@@ -530,6 +530,18 @@ export function buildAdminPromoPath(promoId: string | number): AdminPromoPath {
   );
 }
 
+export type AdminPromoActivationsPath = BuiltApiPath<"/api/admin/promos/{promo_id}/activations">;
+export function buildAdminPromoActivationsPath(
+  promoId: string | number,
+  params?: URLSearchParams
+): AdminPromoActivationsPath {
+  const base = `/admin/promos/${encodeURIComponent(String(promoId))}/activations`;
+  const query = params?.toString();
+  return builtApiPath<"/api/admin/promos/{promo_id}/activations">(
+    query ? `${base}?${query}` : base
+  );
+}
+
 export type AdminAdsPath = "/admin/ads";
 export function buildAdminAdsPath(): AdminAdsPath {
   return "/admin/ads";

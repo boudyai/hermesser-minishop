@@ -483,6 +483,23 @@ export interface paths {
     patch: operations["patch_admin_promo_update_route"];
     trace?: never;
   };
+  "/api/admin/promos/{promo_id}/activations": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Promo Activations */
+    get: operations["get_admin_promo_activations_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/settings": {
     parameters: {
       query?: never;
@@ -2624,6 +2641,97 @@ export interface components {
       /** User Label */
       user_label: string;
     };
+    /** PromoActivationOut */
+    PromoActivationOut: {
+      /**
+       * Activated At
+       * @default null
+       */
+      activated_at: string | null;
+      /** Activation Id */
+      activation_id: number;
+      /**
+       * Applies To
+       * @default null
+       */
+      applies_to: string | null;
+      /**
+       * Bonus Days
+       * @default null
+       */
+      bonus_days: number | null;
+      /**
+       * Discount Percent
+       * @default null
+       */
+      discount_percent: number | null;
+      /**
+       * Duration Multiplier
+       * @default null
+       */
+      duration_multiplier: number | null;
+      /**
+       * Effect Summary
+       * @default null
+       */
+      effect_summary: string | null;
+      /**
+       * Payment Amount
+       * @default null
+       */
+      payment_amount: number | null;
+      /**
+       * Payment Created At
+       * @default null
+       */
+      payment_created_at: string | null;
+      /**
+       * Payment Currency
+       * @default null
+       */
+      payment_currency: string | null;
+      /**
+       * Payment Description
+       * @default null
+       */
+      payment_description: string | null;
+      /**
+       * Payment Id
+       * @default null
+       */
+      payment_id: number | null;
+      /**
+       * Payment Provider
+       * @default null
+       */
+      payment_provider: string | null;
+      /**
+       * Payment Sale Mode
+       * @default null
+       */
+      payment_sale_mode: string | null;
+      /**
+       * Payment Status
+       * @default null
+       */
+      payment_status: string | null;
+      /** Promo Id */
+      promo_id: number;
+      /**
+       * Telegram Id
+       * @default null
+       */
+      telegram_id: number | null;
+      /**
+       * Traffic Multiplier
+       * @default null
+       */
+      traffic_multiplier: number | null;
+      /** User Id */
+      user_id: number;
+      /** User Label */
+      user_label: string;
+    };
     /** PromoCreateBody */
     PromoCreateBody: {
       /**
@@ -4611,6 +4719,35 @@ export interface operations {
             /** @constant */
             ok: true;
             promo: components["schemas"]["PromoOut"];
+          };
+        };
+      };
+    };
+  };
+  get_admin_promo_activations_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        promo_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            activations: components["schemas"]["PromoActivationOut"][];
+            /** @constant */
+            ok: true;
+            page: number;
+            page_size: number;
+            total: number;
           };
         };
       };

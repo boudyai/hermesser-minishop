@@ -21,7 +21,7 @@ from .common import (
     _error,
     _ok,
 )
-from .schemas import PromoCreateBody, PromoOut, PromoUpdateBody
+from .schemas import PromoActivationOut, PromoCreateBody, PromoOut, PromoUpdateBody
 
 register_contract(
     "admin_promos_list_route",
@@ -53,6 +53,22 @@ register_contract(
         request_model=PromoUpdateBody,
         response_schema=ok_envelope_for(PromoOut, key="promo"),
         models=(PromoUpdateBody, PromoOut),
+    ),
+)
+register_contract(
+    "admin_promo_activations_route",
+    RouteContract(
+        response_schema=ok_envelope_for(
+            PromoActivationOut,
+            key="activations",
+            many=True,
+            extra={
+                "page": {"type": "integer", "minimum": 0},
+                "page_size": {"type": "integer", "minimum": 1, "maximum": 100},
+                "total": {"type": "integer", "minimum": 0},
+            },
+        ),
+        models=(PromoActivationOut,),
     ),
 )
 register_contract(
@@ -149,6 +165,10 @@ async def admin_promo_update_route(request: web.Request) -> web.Response:
         current = await promo_code_dal.get_promo_code_by_id(session, promo_id)
         if not current:
             return _error(404, "not_found")
+        if "max_activations" in update_data and int(update_data["max_activations"]) < int(
+            current.current_activations or 0
+        ):
+            return _error(400, "max_activations_below_current")
         merged = {
             "bonus_days": getattr(current, "bonus_days", 0),
             "discount_percent": getattr(current, "discount_percent", None),
@@ -171,6 +191,37 @@ async def admin_promo_update_route(request: web.Request) -> web.Response:
         await session.commit()
         await session.refresh(promo)
     return _ok({"promo": PromoOut.from_orm_promo(promo).model_dump(mode="json")})
+
+
+async def admin_promo_activations_route(request: web.Request) -> web.Response:
+    _require_admin_user_id(request)
+    promo_id = int(request.match_info["promo_id"])
+    page = max(0, int(request.query.get("page", 0) or 0))
+    page_size = min(100, max(1, int(request.query.get("page_size", 25) or 25)))
+    async_session_factory: sessionmaker = get_session_factory(request)
+    async with async_session_factory() as session:
+        promo = await promo_code_dal.get_promo_code_by_id(session, promo_id)
+        if not promo:
+            return _error(404, "not_found")
+        activations = await promo_code_dal.get_promo_activations_by_code_id(
+            session,
+            promo_id,
+            limit=page_size,
+            offset=page * page_size,
+        )
+        total = await promo_code_dal.count_promo_activations_by_code_id(session, promo_id)
+        rows = [
+            PromoActivationOut.from_orm_activation(activation).model_dump(mode="json")
+            for activation in activations
+        ]
+    return _ok(
+        {
+            "activations": rows,
+            "page": page,
+            "page_size": page_size,
+            "total": int(total or 0),
+        }
+    )
 
 
 async def admin_promo_delete_route(request: web.Request) -> web.Response:
