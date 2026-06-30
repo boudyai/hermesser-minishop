@@ -733,7 +733,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("/webapp-default-logo.webp", nginx_conf)
         self.assertIn("proxy_pass http://backend:8081;", nginx_conf)
 
-    def test_frontend_nginx_proxies_shell_routes_for_dynamic_head(self):
+    def test_frontend_nginx_serves_shell_routes_from_static_index(self):
         nginx_conf = Path("deploy/docker/frontend/nginx.conf").read_text(encoding="utf-8")
         marker = 'location ~ "^/(?:$|login/password$|home$|install$|trial$|s/[a-f0-9]{32}$'
 
@@ -741,8 +741,8 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         start = nginx_conf.index(marker)
         shell_block = nginx_conf[start : nginx_conf.index("\n\n", start)]
 
-        self.assertIn("proxy_pass http://backend:8081;", shell_block)
-        self.assertIn("proxy_set_header Host $host;", shell_block)
+        self.assertIn("try_files /index.html =404;", shell_block)
+        self.assertNotIn("proxy_pass http://backend:8081;", shell_block)
         self.assertIn("devices$", shell_block)
         self.assertIn("admin(?:/.*)?$", shell_block)
 
