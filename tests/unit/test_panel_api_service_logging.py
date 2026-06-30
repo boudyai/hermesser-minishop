@@ -495,6 +495,28 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(users, [{"uuid": "legacy-user"}])
         self.assertEqual(calls, ["/users/stream", "/users"])
 
+    async def test_get_all_panel_users_falls_back_when_stream_is_legacy_uuid_route(self):
+        service = self._make_service()
+        calls = []
+
+        async def fake_request(method, endpoint, **kwargs):
+            calls.append(endpoint)
+            if endpoint == "/users/stream":
+                return {
+                    "error": True,
+                    "status_code": 400,
+                    "message": "Validation failed",
+                    "errors": [{"validation": "uuid", "path": ["uuid"]}],
+                }
+            return {"response": {"users": [{"uuid": "legacy-user"}]}}
+
+        service._request = AsyncMock(side_effect=fake_request)
+
+        users = await service.get_all_panel_users()
+
+        self.assertEqual(users, [{"uuid": "legacy-user"}])
+        self.assertEqual(calls, ["/users/stream", "/users"])
+
     async def test_get_all_panel_users_falls_back_to_100_when_large_page_fails(self):
         service = self._make_service()
         requested_sizes = []

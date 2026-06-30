@@ -8,7 +8,7 @@
 Канонический вход - npm-команды из корня репозитория:
 
 ```powershell
-Copy-Item deploy/dev/remnawave-dev.env.example .env.remnawave-dev
+npm run dev:stand:use:2.8.0
 npm run dev:stand:config
 npm run dev:stand:up
 ```
@@ -24,7 +24,7 @@ npm run dev:stand:up
 
 ## Версии
 
-Пинованные версии, проверенные 2026-06-30:
+Пинованные версии latest-пресета, проверенные 2026-06-30:
 
 - Remnawave Panel `v2.8.0` (`remnawave/backend:2.8.0`)
 - Remnawave Node `v2.8.0` (`remnawave/node:2.8.0`)
@@ -36,7 +36,7 @@ npm run dev:stand:up
 `REMNAWAVE_NODE_VERSION` фиксирует версию для локальной node-части стенда, если она
 поднимается отдельно.
 
-Чтобы обновить Remnawave, поменяйте в `.env.remnawave-dev`:
+Чтобы вручную проверить другую связку Remnawave, поменяйте в `.env.remnawave-dev`:
 
 ```env
 REMNAWAVE_DEV_VERSION=2.8.0
@@ -46,6 +46,49 @@ REMNAWAVE_SUBSCRIPTION_PAGE_VERSION=7.2.6
 
 Эти же версии зафиксированы в `deploy/dev/remnawave-versions.lock.json`.
 Full-stack QA проверяет, что env example и lock-файл не разъехались.
+
+## Версионные пресеты
+
+Для проверки совместимости не копируйте весь compose-файл в папку версии. Dev stand использует
+один overlay `docker-compose.remnawave-dev.yml`, а версии и локальные volume names задаются
+маленькими пресетами в `deploy/dev/remnawave-stands/<panel-version>/`:
+
+- `stand.env` - теги Panel, Node, Subscription Page и version-specific volumes.
+- `versions.lock.json` - machine-readable lock для тестов и ревью.
+
+Сейчас поддерживаются два пресета:
+
+- `2.8.0`: Panel `2.8.0`, Node `2.8.0`, Subscription Page `7.2.6`.
+- `2.7.4`: Panel `2.7.4`, Node `2.7.0`, Subscription Page `7.2.4`.
+
+Переключение на previous compatibility preset:
+
+```powershell
+npm run dev:stand:down
+npm run dev:stand:use:2.7.4
+npm run dev:stand:config
+npm run dev:stand:up
+```
+
+Возврат на latest:
+
+```powershell
+npm run dev:stand:down
+npm run dev:stand:use:2.8.0
+npm run dev:stand:config
+npm run dev:stand:up
+```
+
+Пресеты используют разные Docker volumes (`*-274`, `*-280`), чтобы миграции панели 2.8.0 не
+портили базу для 2.7.4 и наоборот. Одновременно эти стенды не запускаются: у compose остаются
+фиксированные container names и локальные порты. Если когда-нибудь понадобится параллельный запуск,
+тогда нужно будет параметризовать еще project name, container names и ports, но сейчас это лишний
+операционный вес.
+
+Политика поддержки: держим latest-пресет и один предыдущий совместимый пресет, пока реально
+поддерживаем upgrade path. Более старые версии добавляем только если релиз панели меняет API,
+webhook-контракты или схему данных так, что без отдельной регрессии высокий риск. Неактуальные
+пресеты можно удалять после явного решения, когда они больше не проверяются и не нужны пользователям.
 
 ## Переменные окружения
 
@@ -180,10 +223,10 @@ docker compose --env-file .env.remnawave-dev `
   run --rm dev-seed
 ```
 
-Overlay использует отдельные volumes
-`remnawave-minishop-runes-dev-db-data` и
-`remnawave-minishop-runes-dev-redis-data`, чтобы не портить старый локальный
-dev-стек с другими кредами.
+Overlay использует version-specific volumes из выбранного пресета, например
+`remnawave-minishop-runes-dev-db-data-280` и
+`remnawave-minishop-runes-dev-redis-data-280`, чтобы не портить старый локальный
+dev-стек и не смешивать базы разных версий Remnawave.
 
 ## Smoke-проверка стенда
 
@@ -204,7 +247,7 @@ docker compose --env-file .env.remnawave-dev `
   -f docker-compose.remnawave-dev.yml `
   --profile seed `
   exec -T remnawave-db psql -U postgres -d postgres `
-  -c "select name from api_tokens where uuid='30000000-0000-4000-8000-000000000001'; select username from users where username like 'runes_%' order by username;"
+  -c "select uuid from api_tokens where uuid='30000000-0000-4000-8000-000000000001'; select username from users where username like 'runes_%' order by username;"
 ```
 
 ## Автоматизация реальных QA-сценариев
