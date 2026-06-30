@@ -99,7 +99,6 @@
     openInstallOrConnect?: Action;
     openLoginTelegram?: Action;
     openPaymentModal?: Action;
-    openPromoCheckout?: Action;
     openPremiumTopupModal?: Action;
     openPublicConnectLink?: Action;
     openRegularTopupModal?: Action;
@@ -120,8 +119,6 @@
     profileEmail?: string;
     profileTelegramId?: string;
     promoBusy?: boolean;
-    promoCheckoutCode?: string;
-    promoCheckoutSummary?: string;
     promoCode?: string;
     promoFieldError?: string;
     promoIsError?: boolean;
@@ -248,7 +245,6 @@
     openInstallOrConnect: openInstallOrConnectProp = noopAction,
     openLoginTelegram: openLoginTelegramProp = noopAction,
     openPaymentModal: openPaymentModalProp = noopAction,
-    openPromoCheckout: openPromoCheckoutProp = noopAction,
     openPremiumTopupModal: openPremiumTopupModalProp = noopAction,
     openPublicConnectLink: openPublicConnectLinkProp = noopAction,
     openRegularTopupModal: openRegularTopupModalProp = noopAction,
@@ -348,8 +344,6 @@
 
   const promoCode = $derived(actionsStore.promoCode);
   const promoBusy = $derived(actionsStore.promoBusy);
-  const promoCheckoutCode = $derived(actionsStore.promoCheckoutCode);
-  const promoCheckoutSummary = $derived(actionsStore.promoCheckoutSummary);
   const promoStatus = $derived(actionsStore.promoStatus);
   const promoIsError = $derived(actionsStore.promoIsError);
   const promoFieldError = $derived(actionsStore.promoFieldError);
@@ -534,9 +528,6 @@
   const openPaymentModal = $derived(
     appActions ? appActions.openPaymentModal : openPaymentModalProp
   );
-  const openPromoCheckout = $derived(
-    appActions ? appActions.openPromoCheckout : openPromoCheckoutProp
-  );
   const openPremiumTopupModal = $derived(
     appActions ? appActions.openPremiumTopupModal : openPremiumTopupModalProp
   );
@@ -713,7 +704,6 @@
       {openInstallOrConnect}
       openLinkEmailDialog={openSettingsLinkEmailDialog}
       {openPaymentModal}
-      {openPromoCheckout}
       {openPremiumTopupModal}
       {openRegularTopupModal}
       openSetPasswordDialog={openSettingsSetPasswordDialog}
@@ -728,8 +718,6 @@
       {profileEmail}
       {profileTelegramId}
       {promoBusy}
-      {promoCheckoutCode}
-      {promoCheckoutSummary}
       {promoCode}
       {promoFieldError}
       {promoIsError}

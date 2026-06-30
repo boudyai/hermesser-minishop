@@ -51,6 +51,10 @@ export type BillingState = {
   checkoutPromoStatus: string;
   checkoutPromoIsError: boolean;
   checkoutPromoPriceText: string;
+  checkoutPromoDiscountPercent: number;
+  checkoutPromoAppliesTo: string;
+  checkoutPromoMinSubscriptionMonths: number | null;
+  checkoutPromoMinTrafficGb: number | null;
 };
 export type BillingStore = BillingState & {
   update(updater: (snapshot: BillingState) => BillingState): void;
@@ -157,6 +161,10 @@ export function createBillingStore({
     checkoutPromoStatus: "",
     checkoutPromoIsError: false,
     checkoutPromoPriceText: "",
+    checkoutPromoDiscountPercent: 0,
+    checkoutPromoAppliesTo: "all",
+    checkoutPromoMinSubscriptionMonths: null,
+    checkoutPromoMinTrafficGb: null,
     update: updateState,
     openPaymentModal,
     closePaymentModal,
@@ -199,6 +207,32 @@ export function createBillingStore({
     state.checkoutPromoInput = value;
     state.checkoutPromoStatus = "";
     state.checkoutPromoIsError = false;
+    if (String(value || "").trim() !== String(state.checkoutPromoAppliedCode || "").trim()) {
+      state.checkoutPromoAppliedCode = "";
+      state.checkoutPromoPriceText = "";
+      Object.assign(state, resetCheckoutPromoQuote());
+    }
+  }
+
+  function optionalNumber(value: unknown): number | null {
+    if (value == null || value === "") return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+
+  function resetCheckoutPromoQuote(): Pick<
+    BillingState,
+    | "checkoutPromoDiscountPercent"
+    | "checkoutPromoAppliesTo"
+    | "checkoutPromoMinSubscriptionMonths"
+    | "checkoutPromoMinTrafficGb"
+  > {
+    return {
+      checkoutPromoDiscountPercent: 0,
+      checkoutPromoAppliesTo: "all",
+      checkoutPromoMinSubscriptionMonths: null,
+      checkoutPromoMinTrafficGb: null,
+    };
   }
 
   function checkoutPromoCode(): string | null {
@@ -310,6 +344,8 @@ export function createBillingStore({
         ...s,
         checkoutPromoIsError: true,
         checkoutPromoStatus: t("wa_promo_select_plan_first", {}, "Choose a plan first"),
+        checkoutPromoPriceText: "",
+        ...resetCheckoutPromoQuote(),
       }));
       return;
     }
@@ -327,16 +363,22 @@ export function createBillingStore({
             stringField(payload.reason) ||
             t("wa_promo_activation_failed", {}, "Code does not apply here"),
           checkoutPromoPriceText: "",
+          ...resetCheckoutPromoQuote(),
         }));
         return;
       }
+      const appliedCode = stringField(payload.code || body.promo_code);
       updateState((s) => ({
         ...s,
-        checkoutPromoInput: "",
-        checkoutPromoAppliedCode: stringField(payload.code || body.promo_code),
+        checkoutPromoInput: appliedCode,
+        checkoutPromoAppliedCode: appliedCode,
         checkoutPromoIsError: false,
         checkoutPromoStatus: stringField(payload.effect_summary),
         checkoutPromoPriceText: promoPriceText(payload),
+        checkoutPromoDiscountPercent: Math.max(0, Number(payload.discount_percent || 0)),
+        checkoutPromoAppliesTo: stringField(payload.applies_to) || "all",
+        checkoutPromoMinSubscriptionMonths: optionalNumber(payload.min_subscription_months),
+        checkoutPromoMinTrafficGb: optionalNumber(payload.min_traffic_gb),
       }));
     } catch (error: unknown) {
       updateState((s) => ({
@@ -347,6 +389,7 @@ export function createBillingStore({
         checkoutPromoStatus:
           stringField(asRecord(error).message) || t("wa_promo_activation_failed"),
         checkoutPromoPriceText: "",
+        ...resetCheckoutPromoQuote(),
       }));
     }
   }
@@ -359,6 +402,7 @@ export function createBillingStore({
       checkoutPromoStatus: "",
       checkoutPromoIsError: false,
       checkoutPromoPriceText: "",
+      ...resetCheckoutPromoQuote(),
     }));
   }
 

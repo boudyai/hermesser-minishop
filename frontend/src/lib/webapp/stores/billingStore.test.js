@@ -93,6 +93,10 @@ describe("billingStore", () => {
           valid: true,
           code: "SAVE10",
           effect_summary: "-10%",
+          discount_percent: 10,
+          applies_to: "subscription",
+          min_subscription_months: null,
+          min_traffic_gb: null,
           effective_amount: 90,
         }),
       },
@@ -119,9 +123,12 @@ describe("billingStore", () => {
       promo_code: "SAVE10",
     });
     expect(store).toMatchObject({
+      checkoutPromoInput: "SAVE10",
       checkoutPromoAppliedCode: "SAVE10",
       checkoutPromoPriceText: "90.00",
       checkoutPromoStatus: "-10%",
+      checkoutPromoDiscountPercent: 10,
+      checkoutPromoAppliesTo: "subscription",
     });
     expect(billing.planPaymentBody).toHaveBeenLastCalledWith(
       { id: "plan-1", tariff_key: "pro" },

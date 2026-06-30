@@ -527,19 +527,6 @@ a {
   gap: 8px;
 }
 
-.promo-checkout-handoff {
-  display: grid;
-  gap: 9px;
-  margin-top: 10px;
-}
-
-.promo-checkout-actions {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: center;
-}
-
 .traffic-meta {
   display: flex;
   align-items: center;
@@ -1082,6 +1069,41 @@ a {
   font-weight: 850;
 }
 
+.promo-price-pair {
+  display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.promo-price-pair s,
+.promo-price-pair b {
+  min-width: 0;
+  overflow: hidden;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.promo-price-pair s {
+  max-width: 48%;
+  color: var(--muted);
+  font-size: 0.72em;
+  font-weight: 750;
+  opacity: 0.62;
+  text-decoration-thickness: 1px;
+}
+
+.promo-price-pair b {
+  max-width: 52%;
+  color: var(--accent);
+  font-size: 0.9em;
+  font-weight: 900;
+}
+
 .period-card em {
   color: var(--muted);
   font-size: 10px;
@@ -1206,6 +1228,14 @@ a {
   font-weight: 900;
   line-height: 1.2;
   overflow-wrap: anywhere;
+}
+
+.option-row-meta .promo-price-pair {
+  justify-content: flex-end;
+  max-width: 100%;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .option-row-meta small {
@@ -3050,9 +3080,6 @@ a {
     grid-template-columns: 1fr;
   }
 
-  .promo-checkout-actions {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

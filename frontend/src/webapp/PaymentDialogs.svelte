@@ -6,7 +6,6 @@
     CircleX,
     LockKeyhole,
     TriangleAlert,
-    X,
   } from "$components/ui/icons.js";
   import { Tooltip } from "$components/ui/primitives.js";
 
@@ -20,6 +19,7 @@
     PaymentMethodGrid,
     StatusMessage,
   } from "$components/patterns/webapp/index.js";
+  import CheckoutPromoRow from "./CheckoutPromoRow.svelte";
   import {
     planKey as planKeyFn,
     planDisplayTitle as planDisplayTitleFn,
@@ -92,6 +92,10 @@
     checkoutPromoIsError = false,
     checkoutPromoPriceText = "",
     checkoutPromoStatus = "",
+    checkoutPromoDiscountPercent = 0,
+    checkoutPromoAppliesTo = "all",
+    checkoutPromoMinSubscriptionMonths = null,
+    checkoutPromoMinTrafficGb = null,
     applyCheckoutPromo = () => {},
     backToTariffList = () => {},
     clearCheckoutPromo = () => {},
@@ -155,6 +159,10 @@
     checkoutPromoIsError?: boolean;
     checkoutPromoPriceText?: string;
     checkoutPromoStatus?: string;
+    checkoutPromoDiscountPercent?: number;
+    checkoutPromoAppliesTo?: string;
+    checkoutPromoMinSubscriptionMonths?: number | null;
+    checkoutPromoMinTrafficGb?: number | null;
     applyCheckoutPromo?: VoidAction;
     backToTariffList?: VoidAction;
     clearCheckoutPromo?: VoidAction;
@@ -205,8 +213,72 @@
     return priceLabelFn(planWithSelectedHwidRenewal(plan), selectedMethod);
   }
   function checkoutPaymentPriceLabel(plan: AnyRecord | null) {
+    const promoPrice = checkoutPromoPriceParts(planWithSelectedHwidRenewal(plan));
+    if (promoPrice) return promoPrice.discounted;
     if (checkoutPromoAppliedCode && checkoutPromoPriceText) return checkoutPromoPriceText;
     return paymentPriceLabel(plan);
+  }
+  function checkoutPromoDiscount() {
+    const value = Number(checkoutPromoDiscountPercent || 0);
+    if (!checkoutPromoAppliedCode || !Number.isFinite(value) || value <= 0) return 0;
+    return Math.min(100, value);
+  }
+  function planSaleModeBase(plan: AnyRecord | null) {
+    const fallback =
+      Number(plan?.device_count || 0) > 0
+        ? "hwid_devices"
+        : Number(plan?.traffic_gb || 0) > 0
+          ? "traffic"
+          : "subscription";
+    const saleMode = String(plan?.sale_mode || fallback).toLowerCase();
+    if (["traffic", "traffic_package"].includes(saleMode)) return "traffic";
+    if (["topup", "premium_topup"].includes(saleMode)) return "traffic_topup";
+    if (["hwid_device", "hwid_devices", "hwid_devices_renewal"].includes(saleMode)) return "hwid";
+    return "subscription";
+  }
+  function checkoutPromoScopeMatches(plan: AnyRecord | null) {
+    const scope = String(checkoutPromoAppliesTo || "all").toLowerCase();
+    const base = planSaleModeBase(plan);
+    return scope === "all" || scope === base;
+  }
+  function checkoutPromoThresholdMatches(plan: AnyRecord | null) {
+    const base = planSaleModeBase(plan);
+    const minMonths = Number(checkoutPromoMinSubscriptionMonths || 0);
+    const minTrafficGb = Number(checkoutPromoMinTrafficGb || 0);
+    if (base === "subscription" && minMonths > 0) {
+      return Number(plan?.months || 0) >= minMonths;
+    }
+    if ((base === "traffic" || base === "traffic_topup") && minTrafficGb > 0) {
+      return Number(plan?.traffic_gb || plan?.months || 0) >= minTrafficGb;
+    }
+    return true;
+  }
+  function checkoutPromoAffectsPlan(plan: AnyRecord | null) {
+    return (
+      checkoutPromoDiscount() > 0 &&
+      checkoutPromoScopeMatches(plan) &&
+      checkoutPromoThresholdMatches(plan)
+    );
+  }
+  function discountedCheckoutPlan(plan: AnyRecord | null) {
+    const discount = checkoutPromoDiscount();
+    if (!plan || discount <= 0) return plan;
+    const multiplier = Math.max(0, 1 - discount / 100);
+    const next: AnyRecord = { ...plan };
+    if (Number(plan.price || 0) > 0) {
+      next.price = Math.round(Number(plan.price || 0) * multiplier * 100) / 100;
+    }
+    if (Number(plan.stars_price || 0) > 0) {
+      next.stars_price = Math.max(1, Math.round(Number(plan.stars_price || 0) * multiplier));
+    }
+    return next;
+  }
+  function checkoutPromoPriceParts(plan: AnyRecord | null) {
+    if (!checkoutPromoAffectsPlan(plan)) return null;
+    return {
+      base: priceLabelFn(plan, selectedMethod),
+      discounted: priceLabelFn(discountedCheckoutPlan(plan), selectedMethod),
+    };
   }
   const selectedPlanForPayment = $derived(planWithSelectedHwidRenewal(selectedPlan));
   const paymentMethods = $derived(methodsForPlan(methods, selectedPlanForPayment));
@@ -412,6 +484,7 @@
         {/if}
         <div class="period-grid period-grid-two-columns">
           {#each selectedTariffPlans as plan}
+            {@const promoPrice = checkoutPromoPriceParts(plan)}
             <button
               class:active={planKey(selectedPlan) === planKey(plan)}
               class="period-card"
@@ -419,7 +492,14 @@
               onclick={() => (selectedPlan = plan)}
             >
               <strong>{planSubtitle(plan) || planDisplayTitle(plan)}</strong>
-              <span>{priceLabel(plan)}</span>
+              {#if promoPrice}
+                <span class="promo-price-pair">
+                  <s>{promoPrice.base}</s>
+                  <b>{promoPrice.discounted}</b>
+                </span>
+              {:else}
+                <span>{priceLabel(plan)}</span>
+              {/if}
               {#if planUnitHint(plan)}
                 <small>{planUnitHint(plan)}</small>
               {/if}
@@ -441,38 +521,15 @@
           <EmptyCard>{t("wa_payment_methods_not_configured")}</EmptyCard>
         {/if}
         {#if checkoutPromoBlock()}
-          <div class="checkout-promo-row">
-            {#if checkoutPromoAppliedCode}
-              <span class="checkout-promo-chip">
-                {checkoutPromoAppliedCode}
-                <button type="button" onclick={clearCheckoutPromo} aria-label={t("wa_remove")}>
-                  <X size={14} />
-                </button>
-              </span>
-            {:else}
-              <Input
-                class="input"
-                value={checkoutPromoInput}
-                oninput={(e) => (checkoutPromoInput = (e.currentTarget as HTMLInputElement).value)}
-                placeholder={t("wa_promo_enter")}
-              />
-              <Button
-                variant="secondary"
-                onclick={applyCheckoutPromo}
-                disabled={!checkoutPromoInput.trim()}
-              >
-                {t("wa_apply")}
-              </Button>
-            {/if}
-          </div>
-          {#if checkoutPromoStatus}
-            <StatusMessage error={checkoutPromoIsError}>
-              {checkoutPromoStatus}
-              {#if checkoutPromoPriceText}
-                - {checkoutPromoPriceText}
-              {/if}
-            </StatusMessage>
-          {/if}
+          <CheckoutPromoRow
+            bind:value={checkoutPromoInput}
+            appliedCode={checkoutPromoAppliedCode}
+            isError={checkoutPromoIsError}
+            status={checkoutPromoStatus}
+            onApply={applyCheckoutPromo}
+            onClear={clearCheckoutPromo}
+            {t}
+          />
         {/if}
         <Button
           class="wide bottom-action payment-submit-button"
@@ -534,6 +591,7 @@
       {/if}
       <div class="period-grid period-grid-two-columns">
         {#each plans as plan}
+          {@const promoPrice = checkoutPromoPriceParts(plan)}
           <button
             class:active={planKey(selectedPlan) === planKey(plan)}
             class="period-card"
@@ -544,7 +602,14 @@
             {#if planSubtitle(plan)}
               <em>{planSubtitle(plan)}</em>
             {/if}
-            <span>{priceLabel(plan)}</span>
+            {#if promoPrice}
+              <span class="promo-price-pair">
+                <s>{promoPrice.base}</s>
+                <b>{promoPrice.discounted}</b>
+              </span>
+            {:else}
+              <span>{priceLabel(plan)}</span>
+            {/if}
             {#if planUnitHint(plan)}
               <small>{planUnitHint(plan)}</small>
             {/if}
@@ -566,38 +631,15 @@
         <EmptyCard>{t("wa_payment_methods_not_configured")}</EmptyCard>
       {/if}
       {#if checkoutPromoBlock()}
-        <div class="checkout-promo-row">
-          {#if checkoutPromoAppliedCode}
-            <span class="checkout-promo-chip">
-              {checkoutPromoAppliedCode}
-              <button type="button" onclick={clearCheckoutPromo} aria-label={t("wa_remove")}>
-                <X size={14} />
-              </button>
-            </span>
-          {:else}
-            <Input
-              class="input"
-              value={checkoutPromoInput}
-              oninput={(e) => (checkoutPromoInput = (e.currentTarget as HTMLInputElement).value)}
-              placeholder={t("wa_promo_enter")}
-            />
-            <Button
-              variant="secondary"
-              onclick={applyCheckoutPromo}
-              disabled={!checkoutPromoInput.trim()}
-            >
-              {t("wa_apply")}
-            </Button>
-          {/if}
-        </div>
-        {#if checkoutPromoStatus}
-          <StatusMessage error={checkoutPromoIsError}>
-            {checkoutPromoStatus}
-            {#if checkoutPromoPriceText}
-              - {checkoutPromoPriceText}
-            {/if}
-          </StatusMessage>
-        {/if}
+        <CheckoutPromoRow
+          bind:value={checkoutPromoInput}
+          appliedCode={checkoutPromoAppliedCode}
+          isError={checkoutPromoIsError}
+          status={checkoutPromoStatus}
+          onApply={applyCheckoutPromo}
+          onClear={clearCheckoutPromo}
+          {t}
+        />
       {/if}
       <Button
         class="wide bottom-action payment-submit-button"

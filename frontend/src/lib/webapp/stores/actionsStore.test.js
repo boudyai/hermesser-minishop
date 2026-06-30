@@ -16,7 +16,7 @@ function makeActionsStore(overrides = {}) {
 }
 
 describe("actionsStore", () => {
-  it("keeps checkout-only code available for checkout handoff", async () => {
+  it("opens checkout for checkout-only promo codes", async () => {
     const { deps, store } = makeActionsStore({
       api: vi.fn().mockResolvedValue({
         ok: true,
@@ -28,7 +28,6 @@ describe("actionsStore", () => {
 
     store.setPromoCode("SAVE10");
     await store.applyPromo();
-    store.openPromoCheckout();
 
     expect(store).toMatchObject({
       promoCheckoutCode: "SAVE10",

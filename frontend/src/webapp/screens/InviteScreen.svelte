@@ -13,14 +13,11 @@
     referralOneBonusPerReferee = false,
     referralWelcomeBonusDays = 0,
     promoBusy = false,
-    promoCheckoutCode = "",
-    promoCheckoutSummary = "",
     promoCode = "",
     promoFieldError = "",
     promoIsError = false,
     promoStatus = "",
     applyPromo = () => {},
-    openPromoCheckout = () => {},
     setPromoCode = () => {},
     clearPromoFieldError = () => {},
     copyText = () => {},
@@ -175,22 +172,7 @@
         {t("wa_activate")}
       </Button>
     </div>
-    {#if promoCheckoutCode}
-      <div class="promo-checkout-handoff">
-        <StatusMessage>
-          {promoCheckoutSummary || promoStatus || t("promo_code_requires_checkout")}
-        </StatusMessage>
-        <div class="promo-checkout-actions">
-          <Button onclick={openPromoCheckout}>{t("wa_promo_go_checkout")}</Button>
-          <Button
-            variant="outline"
-            onclick={() => copyText(promoCheckoutCode, t("wa_link_copied"))}
-          >
-            {t("wa_copy")}
-          </Button>
-        </div>
-      </div>
-    {:else if promoStatus && !(promoIsError && promoFieldError)}
+    {#if promoStatus && !(promoIsError && promoFieldError)}
       <StatusMessage error={promoIsError}>{promoStatus}</StatusMessage>
     {/if}
   </Card>

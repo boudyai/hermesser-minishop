@@ -145,6 +145,7 @@ export function createActionsStore({
         state.promoStatus =
           summary || t("promo_code_requires_checkout", {}, "Apply this code at checkout.");
         state.promoIsError = false;
+        startCheckoutPromo(state.promoCheckoutCode);
         return;
       }
       state.promoCode = "";

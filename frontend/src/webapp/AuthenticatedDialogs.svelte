@@ -108,6 +108,10 @@
   checkoutPromoIsError={billingStore.checkoutPromoIsError}
   checkoutPromoPriceText={billingStore.checkoutPromoPriceText}
   checkoutPromoStatus={billingStore.checkoutPromoStatus}
+  checkoutPromoDiscountPercent={billingStore.checkoutPromoDiscountPercent}
+  checkoutPromoAppliesTo={billingStore.checkoutPromoAppliesTo}
+  checkoutPromoMinSubscriptionMonths={billingStore.checkoutPromoMinSubscriptionMonths}
+  checkoutPromoMinTrafficGb={billingStore.checkoutPromoMinTrafficGb}
   applyCheckoutPromo={billingStore.applyCheckoutPromo}
   clearCheckoutPromo={billingStore.clearCheckoutPromo}
   {hasMultipleTariffs}
@@ -157,6 +161,10 @@
   checkoutPromoIsError={billingStore.checkoutPromoIsError}
   checkoutPromoPriceText={billingStore.checkoutPromoPriceText}
   checkoutPromoStatus={billingStore.checkoutPromoStatus}
+  checkoutPromoDiscountPercent={billingStore.checkoutPromoDiscountPercent}
+  checkoutPromoAppliesTo={billingStore.checkoutPromoAppliesTo}
+  checkoutPromoMinSubscriptionMonths={billingStore.checkoutPromoMinSubscriptionMonths}
+  checkoutPromoMinTrafficGb={billingStore.checkoutPromoMinTrafficGb}
   applyCheckoutPromo={billingStore.applyCheckoutPromo}
   clearCheckoutPromo={billingStore.clearCheckoutPromo}
   createDeviceTopupPayment={billingStore.createDeviceTopupPayment}
