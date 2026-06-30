@@ -168,6 +168,10 @@ class HwidTariffSwitchConversionTests(unittest.IsolatedAsyncioTestCase):
                     AsyncMock(return_value=updated),
                 ),
                 patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.deactivate_other_active_subscriptions",
+                    AsyncMock(),
+                ),
+                patch(
                     "bot.services.subscription_service_impl.lifecycle.tariff_dal.create_tariff_change",
                     AsyncMock(),
                 ) as create_change,
@@ -256,6 +260,10 @@ class HwidTariffSwitchConversionTests(unittest.IsolatedAsyncioTestCase):
                 patch(
                     "bot.services.subscription_service_impl.lifecycle.subscription_dal.update_subscription",
                     AsyncMock(return_value=updated),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.deactivate_other_active_subscriptions",
+                    AsyncMock(),
                 ),
                 patch(
                     "bot.services.subscription_service_impl.lifecycle.tariff_dal.create_tariff_change",

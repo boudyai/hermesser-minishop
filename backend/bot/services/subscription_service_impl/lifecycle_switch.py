@@ -253,6 +253,13 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 updated_panel,
             )
             return None
+        panel_subscription_uuid = str(getattr(updated, "panel_subscription_uuid", "") or "").strip()
+        if panel_subscription_uuid:
+            await subscription_dal.deactivate_other_active_subscriptions(
+                session,
+                db_user.panel_user_uuid,
+                panel_subscription_uuid,
+            )
         if converted_bytes:
             await tariff_dal.create_traffic_topup(
                 session,
