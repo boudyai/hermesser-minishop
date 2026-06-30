@@ -180,6 +180,59 @@ class PanelApiResourcesMixin:
         )
         return False
 
+    async def get_hwid_devices_stats(self) -> Optional[Dict[str, Any]]:
+        """Return HWID aggregate stats, including Remnawave 2.8 byPlatform[].byApp."""
+        response_data = await self._request("GET", "/hwid/devices/stats", log_full_response=False)
+        response = _panel_dict_response(response_data)
+        if response is not None:
+            return response
+        logging.error("Failed to get HWID device stats. Response: %s", response_data)
+        return None
+
+    async def get_hwid_devices_top_users(
+        self,
+        *,
+        start: int = 0,
+        size: int = 10,
+    ) -> Optional[Dict[str, Any]]:
+        params = {"start": max(0, int(start)), "size": max(1, int(size))}
+        response_data = await self._request(
+            "GET",
+            "/hwid/devices/top-users",
+            params=params,
+            log_full_response=False,
+        )
+        response = _panel_dict_response(response_data)
+        if response is not None:
+            return response
+        logging.error("Failed to get HWID top users. Response: %s", response_data)
+        return None
+
+    async def restart_node(self, node_uuid: str, *, force_restart: bool = False) -> bool:
+        endpoint = f"/nodes/{node_uuid}/actions/restart"
+        response_data = await self._request(
+            "POST",
+            endpoint,
+            json={"forceRestart": bool(force_restart)},
+            log_full_response=False,
+        )
+        if response_data and not response_data.get("error"):
+            return True
+        logging.error("Failed to restart node %s. Response: %s", node_uuid, response_data)
+        return False
+
+    async def restart_all_nodes(self, *, force_restart: bool = False) -> bool:
+        response_data = await self._request(
+            "POST",
+            "/nodes/actions/restart-all",
+            json={"forceRestart": bool(force_restart)},
+            log_full_response=False,
+        )
+        if response_data and not response_data.get("error"):
+            return True
+        logging.error("Failed to restart all nodes. Response: %s", response_data)
+        return False
+
     async def update_bot_db_sync_status(
         self,
         session: AsyncSession,

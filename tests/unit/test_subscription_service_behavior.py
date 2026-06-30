@@ -205,10 +205,10 @@ class SubscriptionServiceCalculationTests(unittest.TestCase):
                 service._extract_panel_traffic_details(
                     {
                         "userTraffic": {
-                            "usedTrafficBytes": 15,
+                            "usedTrafficBytes": "15",
                             "trafficLimitStrategy": "MONTH",
                         },
-                        "trafficLimitBytes": 100,
+                        "trafficLimitBytes": 100.0,
                     }
                 ),
                 (15, 100, "MONTH"),
