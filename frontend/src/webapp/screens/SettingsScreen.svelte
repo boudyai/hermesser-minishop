@@ -17,6 +17,7 @@
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
   import EnvEditor from "../components/EnvEditor.svelte";
   import BotTokenInput from "../components/BotTokenInput.svelte";
+  import TenantDangerZone from "../components/TenantDangerZone.svelte";
 
   type AnyRecord = Record<string, any>;
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -29,6 +30,7 @@
 
   type Props = {
     appSettings?: AnyRecord;
+    subscription?: AnyRecord;
     currentLang?: string;
     currentLanguageOption?: LanguageOption | null;
     emailAuthEnabled?: boolean;
@@ -69,6 +71,7 @@
 
   let {
     appSettings = {},
+    subscription = {},
     currentLang = "ru",
     currentLanguageOption = null,
     emailAuthEnabled = true,
@@ -134,6 +137,7 @@
   </Card>
   <EnvEditor {t} />
   <BotTokenInput {appSettings} />
+  <TenantDangerZone {appSettings} {subscription} />
   {#if telegramNotificationsNeedPrompt}
     <TelegramNotificationsBanner
       startLink={telegramNotificationsStartLink}

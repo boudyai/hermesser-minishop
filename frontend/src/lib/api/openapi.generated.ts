@@ -1494,6 +1494,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/tenant": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Tenant Delete */
+    delete: operations["delete_tenant_delete_route"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/tenant/logs": {
     parameters: {
       query?: never;
@@ -1556,6 +1573,23 @@ export interface paths {
     put?: never;
     /** Tenant Restart */
     post: operations["post_tenant_restart_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/tenant/suspend": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Tenant Suspend */
+    post: operations["post_tenant_suspend_route"];
     delete?: never;
     options?: never;
     head?: never;
@@ -7292,6 +7326,29 @@ export interface operations {
       };
     };
   };
+  delete_tenant_delete_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
   get_tenant_logs_route: {
     parameters: {
       query?: never;
@@ -7368,6 +7425,29 @@ export interface operations {
     };
   };
   post_tenant_restart_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_tenant_suspend_route: {
     parameters: {
       query?: never;
       header?: never;

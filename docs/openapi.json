@@ -12928,6 +12928,45 @@
         ]
       }
     },
+    "/api/tenant": {
+      "delete": {
+        "operationId": "delete_tenant_delete_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Tenant Delete",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
     "/api/tenant/logs": {
       "get": {
         "operationId": "get_tenant_logs_route",
@@ -13110,6 +13149,45 @@
           }
         ],
         "summary": "Tenant Restart",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/tenant/suspend": {
+      "post": {
+        "operationId": "post_tenant_suspend_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Tenant Suspend",
         "tags": [
           "tenant"
         ]

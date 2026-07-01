@@ -134,4 +134,10 @@ AUTH_ROUTE_CONTRACTS: dict[str, RouteContract] = {
     "tenant_logs_refresh_route": user_contract(
         response_schema=ok_envelope_with(),
     ),
+    "tenant_suspend_route": user_contract(
+        response_schema=ok_envelope_with(),
+    ),
+    "tenant_delete_route": user_contract(
+        response_schema=ok_envelope_with(),
+    ),
 }

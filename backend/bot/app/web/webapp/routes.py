@@ -74,10 +74,12 @@ from .devices import (
 from .env import (
     env_route,
     env_update_route,
+    tenant_delete_route,
     tenant_logs_refresh_route,
     tenant_logs_route,
     tenant_quota_route,
     tenant_restart_route,
+    tenant_suspend_route,
 )
 from .guides import (
     public_subscription_guides_route,
@@ -207,6 +209,8 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/api/tenant/quota", tenant_quota_route)
     app.router.add_get("/api/tenant/logs", tenant_logs_route)
     app.router.add_post("/api/tenant/logs/refresh", tenant_logs_refresh_route)
+    app.router.add_post("/api/tenant/suspend", tenant_suspend_route)
+    app.router.add_delete("/api/tenant", tenant_delete_route)
     app.router.add_get("/api/support/tickets", support_tickets_route)
     app.router.add_post("/api/support/tickets", support_create_ticket_route)
     app.router.add_get("/api/support/tickets/{id:\\d+}", support_ticket_detail_route)

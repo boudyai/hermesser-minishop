@@ -159,3 +159,30 @@ async def tenant_logs_refresh_route(request: web.Request) -> web.Response:
     if not ok:
         return _json_error(502, "logs_refresh_failed", "Failed to refresh logs")
     return json_response({"ok": True})
+
+
+# ============================================
+# Suspend / delete (self-service)
+# ============================================
+
+
+async def tenant_suspend_route(request: web.Request) -> web.Response:
+    result = await _resolve_tenant(request)
+    if isinstance(result, web.Response):
+        return result
+    panel_service, tenant_id = result
+    ok = await panel_service.update_user_status_on_panel(tenant_id, enable=False)
+    if not ok:
+        return _json_error(502, "suspend_failed", "Failed to suspend tenant")
+    return json_response({"ok": True})
+
+
+async def tenant_delete_route(request: web.Request) -> web.Response:
+    result = await _resolve_tenant(request)
+    if isinstance(result, web.Response):
+        return result
+    panel_service, tenant_id = result
+    ok = await panel_service.delete_user_from_panel(tenant_id)
+    if not ok:
+        return _json_error(502, "delete_failed", "Failed to delete tenant")
+    return json_response({"ok": True})
