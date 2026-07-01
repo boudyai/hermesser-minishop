@@ -64,7 +64,7 @@
   title={at("promo_create_title", {}, "Create code")}
   closeLabel={at("close", {}, "Close")}
   onclose={onClose}
-  class="admin-dialog admin-promo-dialog admin-promo-edit-dialog"
+  class="admin-dialog admin-promo-dialog admin-promo-create-dialog"
 >
   <div class="admin-promo-edit-body admin-promo-create-body" data-dialog-content>
     <div class="admin-promo-edit-summary">
