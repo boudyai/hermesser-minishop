@@ -22,8 +22,10 @@ from .payloads import (
     WebAppEmailMagicAuthPayload,
     WebAppEmailPasswordPayload,
     WebAppEmailRequestPayload,
+    WebAppEnvUpdatePayload,
     WebAppPromoApplyPayload,
     WebAppTelegramAuthPayload,
+    WebAppTrialActivatePayload,
 )
 
 AUTH_ROUTE_CONTRACTS: dict[str, RouteContract] = {
@@ -83,6 +85,7 @@ AUTH_ROUTE_CONTRACTS: dict[str, RouteContract] = {
         ),
     ),
     "activate_trial_route": user_contract(
+        request_model=WebAppTrialActivatePayload,
         response_schema=ok_envelope_with(
             {
                 "activated": BOOLEAN_SCHEMA,
@@ -93,6 +96,16 @@ AUTH_ROUTE_CONTRACTS: dict[str, RouteContract] = {
                 "config_link": NULLABLE_STRING_SCHEMA,
                 "connect_url": NULLABLE_STRING_SCHEMA,
             }
+        ),
+    ),
+    "env_route": user_contract(
+        response_schema=ok_envelope_with(
+            {"env_content": NULLABLE_STRING_SCHEMA},
+            required=["env_content"],
         )
+    ),
+    "env_update_route": user_contract(
+        request_model=WebAppEnvUpdatePayload,
+        response_schema=ok_envelope_with(),
     ),
 }

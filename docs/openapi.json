@@ -4902,6 +4902,17 @@
         "title": "WebAppEmailRequestPayload",
         "type": "object"
       },
+      "WebAppEnvUpdatePayload": {
+        "properties": {
+          "env_content": {
+            "default": "",
+            "title": "Env Content",
+            "type": "string"
+          }
+        },
+        "title": "WebAppEnvUpdatePayload",
+        "type": "object"
+      },
       "WebAppLanguagePayload": {
         "properties": {
           "language": {
@@ -5248,6 +5259,26 @@
           }
         },
         "title": "WebAppTelegramAuthPayload",
+        "type": "object"
+      },
+      "WebAppTrialActivatePayload": {
+        "properties": {
+          "bot_token": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bot Token"
+          }
+        },
+        "title": "WebAppTrialActivatePayload",
         "type": "object"
       },
       "WebappTheme": {
@@ -10341,6 +10372,99 @@
         ]
       }
     },
+    "/api/env": {
+      "get": {
+        "operationId": "get_env_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "env_content": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "env_content"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Env",
+        "tags": [
+          "env"
+        ]
+      },
+      "put": {
+        "operationId": "put_env_update_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppEnvUpdatePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Env Update",
+        "tags": [
+          "env"
+        ]
+      }
+    },
     "/api/i18n": {
       "get": {
         "operationId": "get_i18n_route",
@@ -12727,6 +12851,16 @@
     "/api/trial/activate": {
       "post": {
         "operationId": "post_activate_trial_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppTrialActivatePayload"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {

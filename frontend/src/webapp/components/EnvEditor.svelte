@@ -89,12 +89,7 @@
       </small>
     {/if}
 
-    <Button
-      variant="primary"
-      size="md"
-      onclick={save}
-      disabled={!dirty || saving}
-    >
+    <Button variant="primary" size="md" onclick={save} disabled={!dirty || saving}>
       <Save size={16} />
       {saving
         ? t("wa_settings_env_saving", {}, "Saving...")

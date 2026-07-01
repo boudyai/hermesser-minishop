@@ -1135,6 +1135,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/env": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Env */
+    get: operations["get_env_route"];
+    /** Env Update */
+    put: operations["put_env_update_route"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/i18n": {
     parameters: {
       query?: never;
@@ -3661,6 +3679,14 @@ export interface components {
        */
       start_param: string | null;
     };
+    /** WebAppEnvUpdatePayload */
+    WebAppEnvUpdatePayload: {
+      /**
+       * Env Content
+       * @default
+       */
+      env_content: string;
+    };
     /** WebAppLanguagePayload */
     WebAppLanguagePayload: {
       /** Language */
@@ -3835,6 +3861,14 @@ export interface components {
        * @default null
        */
       start_param: string | null;
+    };
+    /** WebAppTrialActivatePayload */
+    WebAppTrialActivatePayload: {
+      /**
+       * Bot Token
+       * @default null
+       */
+      bot_token: string | null;
     };
     /**
      * WebappTheme
@@ -6187,6 +6221,57 @@ export interface operations {
       };
     };
   };
+  get_env_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            env_content: string | null;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  put_env_update_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEnvUpdatePayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
   get_i18n_route: {
     parameters: {
       query?: never;
@@ -7093,7 +7178,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppTrialActivatePayload"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
