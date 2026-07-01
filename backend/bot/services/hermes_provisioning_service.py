@@ -18,8 +18,14 @@ from uuid import NAMESPACE_DNS, uuid5
 
 import aiohttp
 
-from backend.bot.services.panel_api_service import PanelApiService
-from backend.config.settings import Settings
+try:
+    from backend.bot.services.panel_api_service import PanelApiService
+    from backend.config.settings import Settings
+except ImportError:
+    # ponytail: VPS container runs with pythonpath=backend, so bare imports work;
+    # local venv uses pythonpath=. so the backend.* prefix is required. Both work.
+    from bot.services.panel_api_service import PanelApiService  # type: ignore[no-redef]
+    from config.settings import Settings  # type: ignore[no-redef]
 
 log = logging.getLogger(__name__)
 
