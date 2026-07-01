@@ -113,6 +113,8 @@
   const hermesMode = $derived(
     String(appSettings?.panel_write_mode || "").toLowerCase() === "hermes"
   );
+  const hasBotToken = $derived(Boolean(appSettings?.has_bot_token));
+  const hermesTokenRequired = $derived(Boolean(hermesMode && !hasBotToken));
   function trafficPercent(sub: AnyRecord) {
     return trafficPercentFn(sub);
   }
@@ -467,6 +469,25 @@
         </Card>
       {/if}
     {:else}
+      {#if hermesTokenRequired}
+        <Card class="trial-card">
+          <div class="trial-card-head">
+            <Gift size={22} />
+            <span>
+              <strong>
+                {t("wa_home_set_token_first_title", {}, "Укажите токен бота")}
+              </strong>
+              <small>
+                {t(
+                  "wa_home_set_token_first_hint",
+                  {},
+                  "Перейдите в Настройки → Bot token и вставьте токен из @BotFather"
+                )}
+              </small>
+            </span>
+          </div>
+        </Card>
+      {/if}
       {#if referralWelcomeRequiresTelegram}
         <Card class="trial-card trial-offer-card">
           <div class="trial-card-head">

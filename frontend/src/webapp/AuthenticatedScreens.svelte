@@ -366,6 +366,7 @@
     {/if}
   {:else if screen === "settings"}
     <SettingsScreen
+      {appSettings}
       {currentLang}
       {currentLanguageOption}
       {emailAuthEnabled}

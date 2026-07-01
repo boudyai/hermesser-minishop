@@ -16,6 +16,7 @@
   import { LanguageSelect } from "$components/patterns/webapp/index.js";
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
   import EnvEditor from "../components/EnvEditor.svelte";
+  import BotTokenInput from "../components/BotTokenInput.svelte";
 
   type AnyRecord = Record<string, any>;
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -27,6 +28,7 @@
   };
 
   type Props = {
+    appSettings?: AnyRecord;
     currentLang?: string;
     currentLanguageOption?: LanguageOption | null;
     emailAuthEnabled?: boolean;
@@ -66,6 +68,7 @@
   };
 
   let {
+    appSettings = {},
     currentLang = "ru",
     currentLanguageOption = null,
     emailAuthEnabled = true,
@@ -130,6 +133,7 @@
     </div>
   </Card>
   <EnvEditor {t} />
+  <BotTokenInput {appSettings} />
   {#if telegramNotificationsNeedPrompt}
     <TelegramNotificationsBanner
       startLink={telegramNotificationsStartLink}
