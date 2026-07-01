@@ -1071,7 +1071,7 @@ a {
 
 .promo-price-pair {
   display: inline-flex;
-  max-width: 100%;
+  max-width: none;
   min-width: 0;
   align-items: baseline;
   justify-content: center;
@@ -1081,15 +1081,12 @@ a {
 
 .promo-price-pair s,
 .promo-price-pair b {
-  min-width: 0;
-  overflow: hidden;
+  flex: 0 0 auto;
   line-height: 1.1;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .promo-price-pair s {
-  max-width: 48%;
   color: var(--muted);
   font-size: 0.72em;
   font-weight: 750;
@@ -1098,7 +1095,6 @@ a {
 }
 
 .promo-price-pair b {
-  max-width: 52%;
   color: var(--accent);
   font-size: 0.9em;
   font-weight: 900;
@@ -1250,6 +1246,18 @@ a {
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent),
     inset 0 1px 0 var(--inset-highlight);
+}
+
+@media (min-width: 461px) {
+  .payment-dialog-card {
+    width: min(100%, 640px);
+  }
+
+  .option-row-meta {
+    flex: 1 0 max-content;
+    min-width: max-content;
+    max-width: 64%;
+  }
 }
 
 .tariff-row {
