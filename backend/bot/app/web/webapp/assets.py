@@ -464,6 +464,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
             "registrationInviteOnlyEnabled": cached["registration_invite_only_enabled"],
             "appVersion": _resolve_app_version(),
             "appRepositoryUrl": APP_REPOSITORY_URL,
+            "panelWriteMode": str(getattr(settings.panel_settings, "write_mode", "") or ""),
         },
         "i18n": _filter_webapp_i18n_payload(locales_data, i18n_scope),
     }

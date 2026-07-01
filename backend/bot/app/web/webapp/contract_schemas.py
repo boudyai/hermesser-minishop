@@ -420,6 +420,7 @@ WEBAPP_SETTINGS_SCHEMA: dict[str, Any] = {
         "subscription_purchase_description": STRING_SCHEMA,
         "subscription_guides_enabled": BOOLEAN_SCHEMA,
         "email_auth_enabled": BOOLEAN_SCHEMA,
+        "panel_write_mode": STRING_SCHEMA,
     },
 }
 ME_RESPONSE_SCHEMA: dict[str, Any] = ok_envelope_with(

@@ -110,8 +110,18 @@
 
   let nowMs = $state(Date.now());
 
+  const hermesMode = $derived(
+    String(appSettings?.panel_write_mode || "").toLowerCase() === "hermes"
+  );
   function trafficPercent(sub: AnyRecord) {
     return trafficPercentFn(sub);
+  }
+  function activeStatusTitle() {
+    if (hermesMode) return t("wa_home_bot_active", {}, "Бот активен");
+    return trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active");
+  }
+  function installButtonTitle() {
+    return hermesMode ? t("wa_open_bot", {}, "Открыть бота") : t("wa_install_and_configure");
   }
   function trafficLabel(sub: AnyRecord) {
     return trafficLabelFn(sub, t);
@@ -302,7 +312,7 @@
           <CheckCircle2 class="sub-status-icon" size={23} />
           <div class="sub-status-main">
             <h2>
-              {trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active")} | {subscriptionTermDisplayText}
+              {activeStatusTitle()} | {subscriptionTermDisplayText}
             </h2>
             <div
               class:sub-status-details-with-tariff={hasActiveTariffSubscription &&
@@ -502,11 +512,17 @@
             </span>
           </div>
           <p class="trial-card-description">
-            {t(
-              "wa_trial_offer_description",
-              { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
-              "Активируйте триал: {duration} доступа и {traffic} для скачивания без оплаты."
-            )}
+            {hermesMode
+              ? t(
+                  "wa_trial_offer_description_hermes",
+                  { duration: trialDurationLabel() },
+                  "Активируйте триал: {duration} бесплатного хостинга для вашего Telegram-бота с Hermes Agent."
+                )
+              : t(
+                  "wa_trial_offer_description",
+                  { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
+                  "Активируйте триал: {duration} доступа и {traffic} для скачивания без оплаты."
+                )}
           </p>
           <div class="trial-card-facts">
             <span>
@@ -569,7 +585,7 @@
       {#if subscription.active}
         <Button class="wide" onclick={openConnectLink}>
           <Download size={18} />
-          {t("wa_install_and_configure")}
+          {installButtonTitle()}
         </Button>
       {/if}
       <Button

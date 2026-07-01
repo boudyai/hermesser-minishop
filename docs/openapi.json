@@ -10863,6 +10863,9 @@
                         "my_devices_enabled": {
                           "type": "boolean"
                         },
+                        "panel_write_mode": {
+                          "type": "string"
+                        },
                         "server_status_url": {
                           "type": [
                             "string",
