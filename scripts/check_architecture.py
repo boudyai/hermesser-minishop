@@ -354,7 +354,11 @@ def _check_frontend_weak_typing(cfg: dict, issues: list[str]) -> None:
     if not checks:
         return
 
-    pattern = re.compile(r"\b(?:as\s+any|Record<\s*string\s*,\s*any\s*>|\bAnyRecord\b)")
+    pattern = re.compile(
+        r"\b(?:as\s+any|Record<\s*string\s*,\s*any\s*>|\bAnyRecord\b)"
+        r"|\(\s*\.\.\.[A-Za-z_$][\w$]*\s*:\s*any\[\]\s*\)\s*=>\s*any\b"
+        r"|:\s*any\b"
+    )
     extensions = set(checks["extensions"])
     allowlist = list(checks.get("allowlist", []))
     allowed_counts = checks.get("allowed_counts", {})
@@ -393,7 +397,8 @@ def _check_frontend_weak_typing(cfg: dict, issues: list[str]) -> None:
             if count > allowed:
                 issues.append(
                     f"[frontend-weak-typing] {rel}: found {count} weak typing patterns, "
-                    f"allowed {allowed} (as any / Record<string, any> / AnyRecord)"
+                    f"allowed {allowed} (as any / Record<string, any> / AnyRecord / "
+                    "callback any / : any)"
                 )
             elif count < allowed:
                 issues.append(

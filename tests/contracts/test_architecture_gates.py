@@ -154,6 +154,50 @@ def test_frontend_weak_typing_guard_rejects_as_any(
     assert "frontend/src/weak.ts" in output
 
 
+def test_frontend_weak_typing_guard_rejects_any_action_callbacks(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["frontend_weak_typing"] = {
+        "scopes": ["frontend/src"],
+        "extensions": [".svelte"],
+        "allowlist": [],
+    }
+    _write(
+        tmp_path,
+        "frontend/src/coordinator.svelte",
+        "<script>type Action = (...args: any[]) => any;</script>\n",
+    )
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 1
+    assert "[frontend-weak-typing]" in output
+    assert "frontend/src/coordinator.svelte" in output
+
+
+def test_frontend_weak_typing_guard_rejects_any_annotations(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["frontend_weak_typing"] = {
+        "scopes": ["frontend/src"],
+        "extensions": [".ts"],
+        "allowlist": [],
+    }
+    _write(tmp_path, "frontend/src/annotation.ts", "let value: any = raw;\n")
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 1
+    assert "[frontend-weak-typing]" in output
+    assert "frontend/src/annotation.ts" in output
+
+
 def test_frontend_weak_typing_guard_enforces_baseline_counts(
     tmp_path,
     monkeypatch,
