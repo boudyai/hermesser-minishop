@@ -6558,6 +6558,7 @@ export interface operations {
               auto_renew_provider_label?: string | null;
               base_hwid_device_limit?: number | null;
               billing_model?: string | null;
+              bot_username?: string | null;
               can_topup_devices?: boolean;
               can_topup_premium_traffic?: boolean;
               can_topup_regular_traffic?: boolean;

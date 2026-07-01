@@ -11036,6 +11036,12 @@
                             "null"
                           ]
                         },
+                        "bot_username": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "can_topup_devices": {
                           "type": "boolean"
                         },

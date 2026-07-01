@@ -443,6 +443,7 @@ def _serialize_subscription(
             can_topup_devices = False
 
     panel_short_uuid = str(active.get("panel_short_uuid") or "").strip()
+    bot_username = str(active.get("bot_username") or "").strip()
     share_token = str(
         install_share_token or getattr(local_sub, "install_share_token", "") or ""
     ).strip()
@@ -502,6 +503,7 @@ def _serialize_subscription(
         "config_link": None,
         "connect_url": None,
         "panel_short_uuid": panel_short_uuid or None,
+        "bot_username": bot_username or None,
         "traffic_limit": None,
         "traffic_used": None,
         "traffic_limit_bytes": 0,

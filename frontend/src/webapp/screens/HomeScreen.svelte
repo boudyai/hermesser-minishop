@@ -16,6 +16,7 @@
   import { AttentionDot } from "$components/ui/index.js";
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
+  import BotStatusCard from "../components/BotStatusCard.svelte";
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
   import { LinearProgress } from "$components/patterns/webapp/index.js";
   import { formatTrafficGb } from "../../lib/webapp/formatters.js";
@@ -380,6 +381,10 @@
         </div>
       {/if}
     </Card>
+
+    {#if subscription.active && hermesMode}
+      <BotStatusCard {subscription} {appSettings} />
+    {/if}
 
     {#if subscription.active}
       {#if regularTrafficLimitVisible(subscription)}
