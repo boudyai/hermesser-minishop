@@ -1,8 +1,8 @@
 import type { ApiClient, DevicesResponse, PostPayload } from "../publicApi";
 import { buildDevicesDisconnectPath, buildDevicesPath, unwrap } from "../publicApi";
+import type { DeviceView } from "../types";
 
 type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-type DeviceRecord = Record<string, unknown>;
 export type DevicesState = {
   devicesData: DevicesResponse | null;
   devicesLoaded: boolean;
@@ -11,12 +11,12 @@ export type DevicesState = {
   devicesIsError: boolean;
   devicesErrorCode: string;
   deviceConfirmOpen: boolean;
-  deviceToDisconnect: DeviceRecord | null;
+  deviceToDisconnect: DeviceView | null;
   deviceDisconnectBusy: boolean;
 };
 export type DevicesStore = DevicesState & {
   loadDevices(devicesEnabled: boolean, force?: boolean): Promise<void>;
-  openDeviceDisconnectDialog(device: DeviceRecord): void;
+  openDeviceDisconnectDialog(device: DeviceView): void;
   closeDeviceDisconnectDialog(): void;
   disconnectDevice(devicesEnabled: boolean): Promise<void>;
 };
@@ -71,7 +71,7 @@ export function createDevicesStore({
         store.devicesBusy = false;
       }
     },
-    openDeviceDisconnectDialog(device: DeviceRecord) {
+    openDeviceDisconnectDialog(device: DeviceView) {
       store.deviceToDisconnect = device;
       store.deviceConfirmOpen = true;
     },

@@ -3,22 +3,22 @@ import { formatTrafficBytes, formatFraction, roundToHalf } from "./formatters.js
 type WebappRecord = Record<string, unknown>;
 type SubscriptionTraffic = WebappRecord & {
   days_left?: number | string;
-  end_date_text?: string;
-  premium_limit?: string;
-  premium_limit_bytes?: number | string;
+  end_date_text?: string | null;
+  premium_limit?: string | null;
+  premium_limit_bytes?: number | string | null;
   premium_node_labels?: unknown[];
   premium_squad_labels?: unknown[];
-  premium_title?: string;
-  premium_topup_balance_bytes?: number | string;
+  premium_title?: string | null;
+  premium_topup_balance_bytes?: number | string | null;
   premium_unlimited_override?: boolean;
-  premium_used?: string;
-  premium_used_bytes?: number | string;
+  premium_used?: string | null;
+  premium_used_bytes?: number | string | null;
   regular_unlimited_override?: boolean;
-  traffic_limit?: string;
-  traffic_limit_bytes?: number | string;
-  traffic_limit_strategy?: string;
-  traffic_used?: string;
-  traffic_used_bytes?: number | string;
+  traffic_limit?: string | null;
+  traffic_limit_bytes?: number | string | null;
+  traffic_limit_strategy?: string | null;
+  traffic_used?: string | null;
+  traffic_used_bytes?: number | string | null;
 };
 type TranslateFn = (key: string, params?: Record<string, string>, fallback?: string) => string;
 type TermLabelDeps = {

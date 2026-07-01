@@ -12,14 +12,21 @@ export type TelegramWebApp = Record<string, unknown> & {
   expand?: () => void;
 };
 
+export type TelegramMiniAppAuthTimeout = {
+  signal?: AbortSignal;
+  promise: Promise<unknown>;
+  clear(): void;
+  timedOut: boolean;
+};
+
 type TelegramSdkLike<Tg> = {
   initData: string;
   refresh(): Tg;
   hasLaunchParams(): boolean;
   load(timeoutMs?: number): Promise<Tg>;
   readInitDataFromLocation(): string;
-  ensureForAction?: () => Promise<Tg>;
-  createMiniAppAuthTimeout?: () => unknown;
+  ensureForAction: () => Promise<Tg>;
+  createMiniAppAuthTimeout: () => TelegramMiniAppAuthTimeout;
 };
 
 type CreateTelegramSdk<Tg> = (options: {

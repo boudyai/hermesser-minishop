@@ -2,6 +2,17 @@ import { LANGUAGE_LABELS, normalizeLanguageCode, resolveLocaleKey } from "./cons
 import { formatTemplate, formatFraction, roundToHalf } from "./formatters.js";
 import { unitPluralBucket } from "./plurals.js";
 
+/**
+ * @typedef {{
+ *   messages?: Record<string, unknown>;
+ *   defaultLang?: string;
+ *   getLang?: (() => string) | null;
+ * }} I18nOptions
+ */
+
+/**
+ * @param {I18nOptions} [options]
+ */
 export function createI18n({
   messages: initialMessages = {},
   defaultLang = "ru",

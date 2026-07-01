@@ -1,10 +1,8 @@
+import { recordOrNull } from "./domainTypes.js";
+import type { WebappMockSource, WebappRecord } from "./types";
+
 type AuthStoreLike = {
-  update(updater: (state: Record<string, unknown>) => Record<string, unknown>): void;
-};
-type MockSource = {
-  data?: {
-    auth_demo?: Record<string, unknown>;
-  };
+  update(updater: (state: WebappRecord) => WebappRecord): void;
 };
 
 const DEMO_AUTH_MODES = ["auth", "login", "register"];
@@ -13,8 +11,8 @@ const DEFAULT_DEMO_TELEGRAM_ID = 7410865527;
 const DEFAULT_DEMO_TELEGRAM_USERNAME = "u3252a8";
 const DEFAULT_DEMO_TELEGRAM_FIRST_NAME = "3252a8";
 
-function authDemo(source: MockSource) {
-  return source.data?.auth_demo || {};
+function authDemo(source: WebappMockSource): WebappRecord {
+  return recordOrNull(source.data?.auth_demo) || {};
 }
 
 export function createDemoAuth({
@@ -26,7 +24,7 @@ export function createDemoAuth({
 }: {
   authStore: AuthStoreLike;
   getCurrentSearchParams: () => URLSearchParams;
-  getMockSource: () => MockSource;
+  getMockSource: () => WebappMockSource;
   getParentSearchParams: () => URLSearchParams | null;
   isMockEnabled: () => boolean;
 }) {

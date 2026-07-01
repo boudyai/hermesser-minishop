@@ -99,7 +99,8 @@
         <code>{referral.webapp_link || referral.bot_link || t("wa_link_unavailable")}</code>
         <Button
           class="referral-copy-button"
-          onclick={() => copyText(String(referral.webapp_link || referral.bot_link || ""), t("wa_link_copied"))}
+          onclick={() =>
+            copyText(String(referral.webapp_link || referral.bot_link || ""), t("wa_link_copied"))}
         >
           {t("wa_copy")}
           <Copy size={17} />

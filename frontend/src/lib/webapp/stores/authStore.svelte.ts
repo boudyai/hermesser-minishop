@@ -27,7 +27,7 @@ type PendingEmailCodeSession = {
   cooldownUntil: number;
 };
 type TelegramLoginTimeout = {
-  signal: AbortSignal;
+  signal?: AbortSignal;
   promise: Promise<unknown>;
   clear(): void;
   timedOut: boolean;

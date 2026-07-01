@@ -7,8 +7,7 @@ import {
 import type { ApplyPostLoadBillingDeeplinksInput } from "./billingDeeplinkEffects.js";
 import type { LoadSectionDataInput } from "./sectionDataLoader.js";
 import { shellState } from "./shellState.svelte";
-
-type WebappRecord = Record<string, unknown>;
+import type { PlanView, SubscriptionView, WebappData, WebappRecord } from "./types";
 
 export type AppLoadDataOptions = {
   adminSection?: string | null;
@@ -35,7 +34,7 @@ type AppLoadExecutorDeps = {
   adminRuntime: AdminRuntime;
   applyPostLoadBillingDeeplinks: (input: ApplyPostLoadBillingDeeplinksInput) => void;
   currentSearchParams: () => URLSearchParams;
-  dataClientLoadData: (options: { fresh: boolean }) => Promise<WebappRecord>;
+  dataClientLoadData: (options: { fresh: boolean }) => Promise<WebappData>;
   getModalState: () => ModalState;
   getWindowSearch: () => string;
   hydrateSupportUnread: (input: { supportEnabled: boolean; unreadCount: unknown }) => void;
@@ -94,7 +93,7 @@ export function createAppLoadExecutor({
   showAdminUnavailable,
   syncLoadedRoute,
 }: AppLoadExecutorDeps) {
-  async function loadData(options: AppLoadDataOptions = {}): Promise<WebappRecord> {
+  async function loadData(options: AppLoadDataOptions = {}): Promise<WebappData> {
     const currentQuery = currentSearchParams();
     const initialRoute = resolveInitialLoadRoute({
       activeTab: shellState.activeTab,
@@ -181,9 +180,9 @@ export function createAppLoadExecutor({
 
     applyPostLoadBillingDeeplinks({
       defaultMethod: defaultPaymentMethodId(payload),
-      plans: arrayField(payload.plans) as ApplyPostLoadBillingDeeplinksInput["plans"],
+      plans: arrayField(payload.plans) as PlanView[],
       search: getWindowSearch(),
-      subscription: recordField(payload.subscription),
+      subscription: recordField(payload.subscription) as SubscriptionView,
     });
     return payload;
   }

@@ -31,15 +31,21 @@
     methodSelectable,
     methodsForPlan,
   } from "../lib/webapp/tariffs.js";
-  import type { TariffView, TermUnitLabel } from "$lib/webapp/types.js";
+  import type {
+    DeviceView,
+    PaymentMethodView,
+    PlanView,
+    SubscriptionView,
+    TariffView,
+    TermUnitLabel,
+    Translate,
+    VoidAction,
+  } from "$lib/webapp/types.js";
 
-  type AnyRecord = Record<string, any>;
-  type DeviceToDisconnect = {
+  type DeviceToDisconnect = DeviceView & {
     display_name?: string | null;
     index?: number | string | null;
   };
-  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-  type VoidAction = () => void;
 
   let {
     createPayment = () => {},
@@ -124,16 +130,16 @@
     linkEmailStatus?: string;
     linkEmailValue?: string;
     hasMultipleTariffs?: boolean;
-    methods?: AnyRecord[];
+    methods?: PaymentMethodView[];
     payBusy?: boolean;
     paymentModalOpen?: boolean;
     paymentStep?: string;
-    plans?: AnyRecord[];
+    plans?: PlanView[];
     selectedMethod?: string;
-    selectedPlan?: AnyRecord | null;
+    selectedPlan?: PlanView | null;
     selectedTariff?: TariffView | null;
     selectedTariffKey?: string;
-    selectedTariffPlans?: AnyRecord[];
+    selectedTariffPlans?: PlanView[];
     renewHwidDevices?: boolean;
     setPasswordBusy?: boolean;
     setPasswordCode?: string;
@@ -146,7 +152,7 @@
     setPasswordStatus?: string;
     setPasswordValue?: string;
     singleTariffMode?: boolean;
-    subscription?: AnyRecord;
+    subscription?: SubscriptionView;
     subscriptionPurchaseDescription?: string;
     tariffCatalog?: TariffView[];
     tariffMode?: boolean;
@@ -177,7 +183,7 @@
     confirmSetPassword?: VoidAction;
   } = $props();
 
-  function priceLabel(plan: AnyRecord | null) {
+  function priceLabel(plan: PlanView | null) {
     return priceLabelFn(plan, selectedMethod);
   }
   function methodUsesStars() {
@@ -185,23 +191,24 @@
       .toLowerCase()
       .includes("stars");
   }
-  function hwidRenewalFor(plan: AnyRecord | null) {
+  function hwidRenewalFor(plan: PlanView | null) {
     return plan?.hwid_renewal?.available ? plan.hwid_renewal : null;
   }
-  function isSubscriptionPlan(plan: AnyRecord | null) {
+  function isSubscriptionPlan(plan: PlanView | null) {
     const saleMode = String(plan?.sale_mode || "subscription").toLowerCase();
     return saleMode === "subscription";
   }
-  function hwidRenewalAvailableForMethod(plan: AnyRecord | null) {
+  function hwidRenewalAvailableForMethod(plan: PlanView | null) {
     const renewal = hwidRenewalFor(plan);
     if (!subscription?.active || !isSubscriptionPlan(plan) || !renewal) return false;
     if (methodUsesStars()) return Number(renewal.stars_price || 0) > 0;
     return Number(renewal.price || 0) > 0;
   }
-  function planWithSelectedHwidRenewal(plan: AnyRecord | null) {
+  function planWithSelectedHwidRenewal(plan: PlanView | null) {
     if (!plan || !renewHwidDevices || !hwidRenewalAvailableForMethod(plan)) return plan;
     const renewal = hwidRenewalFor(plan);
-    const withRenewal: AnyRecord = {
+    if (!renewal) return plan;
+    const withRenewal: PlanView = {
       ...plan,
       price: Number(plan.price || 0) + Number(renewal.price || 0),
     };
@@ -210,10 +217,10 @@
     }
     return withRenewal;
   }
-  function paymentPriceLabel(plan: AnyRecord | null) {
+  function paymentPriceLabel(plan: PlanView | null) {
     return priceLabelFn(planWithSelectedHwidRenewal(plan), selectedMethod);
   }
-  function checkoutPaymentPriceLabel(plan: AnyRecord | null) {
+  function checkoutPaymentPriceLabel(plan: PlanView | null) {
     const promoPrice = checkoutPromoPriceParts(planWithSelectedHwidRenewal(plan));
     if (promoPrice) return promoPrice.discounted;
     if (checkoutPromoAppliedCode && checkoutPromoPriceText) return checkoutPromoPriceText;
@@ -224,7 +231,7 @@
     if (!checkoutPromoAppliedCode || !Number.isFinite(value) || value <= 0) return 0;
     return Math.min(100, value);
   }
-  function planSaleModeBase(plan: AnyRecord | null) {
+  function planSaleModeBase(plan: PlanView | null) {
     const fallback =
       Number(plan?.device_count || 0) > 0
         ? "hwid_devices"
@@ -237,12 +244,12 @@
     if (["hwid_device", "hwid_devices", "hwid_devices_renewal"].includes(saleMode)) return "hwid";
     return "subscription";
   }
-  function checkoutPromoScopeMatches(plan: AnyRecord | null) {
+  function checkoutPromoScopeMatches(plan: PlanView | null) {
     const scope = String(checkoutPromoAppliesTo || "all").toLowerCase();
     const base = planSaleModeBase(plan);
     return scope === "all" || scope === base;
   }
-  function checkoutPromoThresholdMatches(plan: AnyRecord | null) {
+  function checkoutPromoThresholdMatches(plan: PlanView | null) {
     const base = planSaleModeBase(plan);
     const minMonths = Number(checkoutPromoMinSubscriptionMonths || 0);
     const minTrafficGb = Number(checkoutPromoMinTrafficGb || 0);
@@ -254,18 +261,18 @@
     }
     return true;
   }
-  function checkoutPromoAffectsPlan(plan: AnyRecord | null) {
+  function checkoutPromoAffectsPlan(plan: PlanView | null) {
     return (
       checkoutPromoDiscount() > 0 &&
       checkoutPromoScopeMatches(plan) &&
       checkoutPromoThresholdMatches(plan)
     );
   }
-  function discountedCheckoutPlan(plan: AnyRecord | null) {
+  function discountedCheckoutPlan(plan: PlanView | null) {
     const discount = checkoutPromoDiscount();
     if (!plan || discount <= 0) return plan;
     const multiplier = Math.max(0, 1 - discount / 100);
-    const next: AnyRecord = { ...plan };
+    const next: PlanView = { ...plan };
     if (Number(plan.price || 0) > 0) {
       next.price = Math.round(Number(plan.price || 0) * multiplier * 100) / 100;
     }
@@ -274,7 +281,7 @@
     }
     return next;
   }
-  function checkoutPromoPriceParts(plan: AnyRecord | null) {
+  function checkoutPromoPriceParts(plan: PlanView | null) {
     if (!checkoutPromoAffectsPlan(plan)) return null;
     return {
       base: priceLabelFn(plan, selectedMethod),
@@ -292,7 +299,7 @@
       selectedMethod = firstMethod;
     }
   });
-  function hwidRenewalPriceLabel(plan: AnyRecord | null = selectedPlan) {
+  function hwidRenewalPriceLabel(plan: PlanView | null = selectedPlan) {
     const renewal = hwidRenewalFor(plan);
     if (!renewal) return "";
     return priceLabelFn(
@@ -315,10 +322,10 @@
       !showHwidRenewalBlock()
     );
   }
-  function hwidRenewalCount(plan: AnyRecord | null = selectedPlan) {
+  function hwidRenewalCount(plan: PlanView | null = selectedPlan) {
     return Number(hwidRenewalFor(plan)?.device_count || subscription?.extra_hwid_devices || 0);
   }
-  function hwidRenewalHint(plan: AnyRecord | null = selectedPlan) {
+  function hwidRenewalHint(plan: PlanView | null = selectedPlan) {
     const renewal = hwidRenewalFor(plan);
     if (renewal?.valid_from_text && renewal?.valid_until_text) {
       return t("wa_hwid_devices_renewal_checkbox_hint", {
@@ -334,19 +341,19 @@
       subscription?.extra_hwid_devices_valid_until_text
     );
   }
-  function planKey(plan: AnyRecord | null) {
+  function planKey(plan: PlanView | null) {
     return planKeyFn(plan);
   }
-  function planDisplayTitle(plan: AnyRecord | null) {
+  function planDisplayTitle(plan: PlanView | null) {
     return planDisplayTitleFn(plan, { trafficMode, t });
   }
-  function planSubtitle(plan: AnyRecord | null) {
+  function planSubtitle(plan: PlanView | null) {
     return planSubtitleFn(plan, { t, termUnitLabel });
   }
-  function planUnitHint(plan: AnyRecord | null) {
+  function planUnitHint(plan: PlanView | null) {
     return planUnitHintFn(plan, { trafficMode, selectedMethod, t });
   }
-  function tariffLimitLabel(tariff: AnyRecord) {
+  function tariffLimitLabel(tariff: TariffView) {
     return tariffLimitLabelFn(tariff, { t });
   }
 

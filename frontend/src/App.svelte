@@ -79,18 +79,29 @@
   import { CSRF_COOKIE_NAME, readCookie } from "./lib/webapp/session.js";
   import { createTelegramRuntime, type TelegramWebApp } from "./lib/webapp/telegramRuntime.js";
   import { resetShellState, shellState } from "./lib/webapp/shellState.svelte";
+  import {
+    asWebappRecord,
+    asWebappRecordOrNull,
+    type AdminPanelProps,
+    type SubscriptionView,
+    type UserProfile,
+    type WebappConfig,
+    type WebappData,
+    type WebappMockRuntime,
+    type WebappMockSource,
+    type WebappRecord,
+  } from "./lib/webapp/types.js";
 
-  type AnyRecord = Record<string, any>;
-  let { mockRuntime = null }: { mockRuntime?: AnyRecord | null } = $props();
+  let { mockRuntime = null }: { mockRuntime?: WebappMockRuntime | null } = $props();
 
-  function initialMockRuntime(): AnyRecord | null {
+  function initialMockRuntime(): WebappMockRuntime | null {
     return mockRuntime;
   }
 
   const stableMockRuntime = initialMockRuntime();
 
   const FALLBACK_BRAND_TITLE = "Subscription";
-  const EMPTY_MOCK: AnyRecord = {
+  const EMPTY_MOCK: WebappMockSource = {
     config: {
       title: FALLBACK_BRAND_TITLE,
       primaryColor: "#00fe7a",
@@ -107,7 +118,9 @@
       themes_catalog: { default_theme: "dark", themes: [] },
     },
   };
-  const MOCK_SOURCE: AnyRecord = stableMockRuntime?.source || EMPTY_MOCK;
+  const MOCK_SOURCE: WebappMockSource = stableMockRuntime?.source || EMPTY_MOCK;
+  const MOCK_DATA = MOCK_SOURCE.data || {};
+  const runtimeMockApi = stableMockRuntime?.mockApi || null;
   const previewBoardComponent = stableMockRuntime?.PreviewBoard || null;
   const isDocsDemo = stableMockRuntime?.docsDemo === true;
   const routePrefix = isDocsDemo ? "/demo/runtime" : "";
@@ -115,20 +128,20 @@
   const isAppLaunchRoute = isExternalAppLaunchPath(window.location.pathname);
   stableMockRuntime?.applyPreviewMock?.(query.get("mock"));
   const isPreviewBoard = Boolean(previewBoardComponent) && query.get("preview") === "all";
-  const injectedConfig = readJsonScript("webapp-config") as AnyRecord | null;
-  const injectedI18n = readJsonScript("i18n") as AnyRecord | null;
+  const injectedConfig = asWebappRecordOrNull(readJsonScript("webapp-config"));
+  const injectedI18n = asWebappRecordOrNull(readJsonScript("i18n"));
   const isLocalShell =
     window.location.protocol === "file:" ||
     ["", "localhost", "127.0.0.1"].includes(window.location.hostname);
-  const MOCK: AnyRecord | null =
+  const MOCK: WebappMockSource | null =
     stableMockRuntime?.mockApi && !injectedConfig && (isLocalShell || isDocsDemo)
       ? MOCK_SOURCE
       : null;
-  const CFG: AnyRecord = {
+  const CFG = {
     ...MOCK_SOURCE.config,
     ...(MOCK ? MOCK.config : {}),
     ...(injectedConfig || {}),
-  };
+  } as WebappConfig;
   const docsDemoRouter = createDocsDemoRouter({
     currentSearchParams,
     getParentRouteConsumed: () => docsDemoParentRouteConsumed,
@@ -143,12 +156,12 @@
   const syncAppSectionPath = docsDemoRouter.syncAppSectionPath;
   const themePreviewKey = String(CFG.themePreviewKey || query.get("theme_preview") || "").trim();
   const themePreviewDraft = readThemePreviewDraft(themePreviewKey);
-  const I18N: AnyRecord = injectedI18n || {};
+  const I18N: WebappRecord = injectedI18n || {};
 
   resetShellState({
     appLaunchTarget: isAppLaunchRoute ? readExternalAppLaunchTarget() : "",
     csrfToken: MOCK ? "" : readCookie(CSRF_COOKIE_NAME) || "",
-    data: isPreviewBoard ? structuredCloneSafe(MOCK_SOURCE.data) : null,
+    data: isPreviewBoard ? structuredCloneSafe(MOCK_DATA) : null,
     mode: isAppLaunchRoute ? "appLaunch" : isPreviewBoard ? "preview" : "loading",
     token: MOCK ? "local-preview" : "",
   });
@@ -160,12 +173,14 @@
   const mode = $derived(shellState.mode);
   const activeTab = $derived(shellState.activeTab);
   const screen = $derived(shellState.screen);
-  const data: AnyRecord | null = $derived(shellState.data as AnyRecord | null);
-  const user: AnyRecord = $derived((data?.user || {}) as AnyRecord);
+  const data: WebappData | null = $derived(
+    asWebappRecordOrNull(shellState.data) as WebappData | null
+  );
+  const user: UserProfile = $derived(asWebappRecord(data?.user) as UserProfile);
   const isAdmin = $derived(Boolean(user?.is_admin));
   const appLaunchTarget = $derived(shellState.appLaunchTarget);
-  const publicInstallSubscription: AnyRecord | null = $derived(
-    shellState.publicInstallSubscription as AnyRecord | null
+  const publicInstallSubscription: SubscriptionView | null = $derived(
+    asWebappRecordOrNull(shellState.publicInstallSubscription) as SubscriptionView | null
   );
   const publicInstallToken = $derived(shellState.publicInstallToken);
   const autoRenewBusy = $derived(shellState.autoRenewBusy);
@@ -175,7 +190,9 @@
   const languageClickGuardArmed = $derived(shellState.languageClickGuardArmed);
   const guestLanguage = $derived(shellState.guestLanguage);
   const emailAvatarUrl = $derived(shellState.emailAvatarUrl);
-  const adminBundleApi: AnyRecord | null = $derived(shellState.adminBundleApi as AnyRecord | null);
+  const adminBundleApi: WebappRecord | null = $derived(
+    asWebappRecordOrNull(shellState.adminBundleApi)
+  );
   const adminBundleError = $derived(shellState.adminBundleError);
   const adminMountTarget = $derived(shellState.adminMountTarget);
   const adminActiveSection = $derived(shellState.adminActiveSection);
@@ -208,7 +225,7 @@
     messages: I18N,
     defaultLang: "ru",
     getLang: () => user?.language_code || guestLanguage || CFG.language || "ru",
-  } as any);
+  });
   const normalizeLangCode = i18n.normalizeLangCode;
   const t = i18n.t;
   const termUnitLabel = i18n.termUnitLabel;
@@ -236,7 +253,7 @@
     },
     loadData: (options) => loadData(options as AppLoadDataOptions),
     mergeMessages: (messages) => {
-      i18n.mergeMessages((messages || {}) as AnyRecord);
+      i18n.mergeMessages(asWebappRecord(messages));
     },
     reloadWindow: () => {
       if (typeof window !== "undefined") window.location.reload();
@@ -245,7 +262,7 @@
       installGuidesStore.reset();
     },
     setBundleState: (api, error) => {
-      const nextApi = api as AnyRecord | null;
+      const nextApi = asWebappRecordOrNull(api);
       if (adminBundleApi !== nextApi) shellState.adminBundleApi = nextApi;
       if (adminBundleError !== error) shellState.adminBundleError = error;
     },
@@ -272,8 +289,8 @@
       showLogin();
     },
     mockApi:
-      MOCK && stableMockRuntime?.mockApi
-        ? (path, options, context) => stableMockRuntime.mockApi(path, options, context)
+      MOCK && runtimeMockApi
+        ? (path, options, context) => runtimeMockApi(path, options, context)
         : null,
     getMockContext: () => ({ currentLang, normalizeLangCode, clone: structuredCloneSafe }),
   });
@@ -310,7 +327,7 @@
     publicApi,
     setToken,
     loadData,
-    telegramSdk: telegramSdk as any,
+    telegramSdk,
     getTg: () => tg,
     t,
     currentLang: () => currentLang,
@@ -330,9 +347,9 @@
     openExternalLink,
     onSubscriptionActivationPending: rememberActivationPending,
     onSubscriptionActivated: handleSubscriptionActivated,
-    tg: initialTg as any,
+    tg: initialTg,
     getTg: () => tg || telegramSdk.refresh(),
-    telegramSdk: telegramSdk as any,
+    telegramSdk,
   });
   const { applyPostLoadBillingDeeplinks } = createBillingDeeplinkEffects({
     billingStore,
@@ -443,7 +460,7 @@
     clearToken,
     markManualLogout,
     showLogin,
-    telegramSdk: telegramSdk as any,
+    telegramSdk,
     getTg: () => tg,
     getCurrentUser: () => data?.user || user || {},
     getTelegramMiniAppInitData: () =>
@@ -500,7 +517,7 @@
       i18nMessages: I18N,
       isDemoAuthMock: () => demoAuth.isDemoAuthMock(),
       languageName,
-      mockData: MOCK_SOURCE.data,
+      mockData: MOCK_DATA,
       mockEnabled: Boolean(MOCK),
       normalizeLangCode,
       readTelegramMiniAppInitDataFromLocation,
@@ -668,7 +685,7 @@
     adminRuntime,
     applyPostLoadBillingDeeplinks,
     currentSearchParams,
-    dataClientLoadData: (options) => dataClient.loadData(options) as Promise<AnyRecord>,
+    dataClientLoadData: (options) => dataClient.loadData(options),
     getModalState: () => ({
       changeModalOpen,
       deviceTopupModalOpen,
@@ -752,7 +769,7 @@
     getMethods: () => methods,
     getOrigin: () => (typeof window !== "undefined" ? window.location.origin : ""),
     getPlans: () => plans,
-    getPreloadHost: () => (typeof window !== "undefined" ? (window as unknown as AnyRecord) : null),
+    getPreloadHost: () => (typeof window !== "undefined" ? asWebappRecord(window) : null),
     getRoutePathname: routePathnameFromLocation,
     getSelectedPlan: () => selectedPlan,
     getSelectedTariffPlans: () => selectedTariffPlans,
@@ -775,7 +792,7 @@
     t,
   });
 
-  const adminPanelProps: AnyRecord = $derived(
+  const adminPanelProps: AdminPanelProps = $derived(
     buildAdminPanelProps({
       adminActiveSection,
       api,
@@ -806,9 +823,9 @@
 
   let lastAdminMountTarget: HTMLElement | null = null;
   let lastAdminMountShouldMount = false;
-  let lastAdminMountProps: AnyRecord | null = null;
+  let lastAdminMountProps: AdminPanelProps | null = null;
 
-  function sameAdminMountProps(left: AnyRecord | null, right: AnyRecord): boolean {
+  function sameAdminMountProps(left: AdminPanelProps | null, right: AdminPanelProps): boolean {
     if (!left) return false;
     const leftKeys = Object.keys(left);
     const rightKeys = Object.keys(right);
@@ -836,8 +853,8 @@
     adminRuntime.syncAdminMount({ props: adminPanelProps, shouldMount, target });
   });
 
-  async function loadData(options: AppLoadDataOptions = {}) {
-    return appLoadExecutor.loadData(options) as Promise<AnyRecord>;
+  async function loadData(options: AppLoadDataOptions = {}): Promise<WebappData> {
+    return appLoadExecutor.loadData(options);
   }
 
   function showToast(message: unknown) {
@@ -868,7 +885,7 @@
   {#key currentLang}
     {#if isPreviewBoard}
       {@const PreviewBoardComponent = previewBoardComponent}
-      <PreviewBoardComponent config={CFG} mockData={MOCK_SOURCE.data} />
+      <PreviewBoardComponent config={CFG} mockData={MOCK_DATA} />
     {:else}
       <AppModeContent
         {accountStore}

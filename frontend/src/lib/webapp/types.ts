@@ -3,7 +3,6 @@ import type { Component } from "svelte";
 import type { AppDataView } from "./appDataView";
 import type {
   WebappBillingAction,
-  WebappBillingPlan,
   WebappBillingTarget,
   WebappData,
   WebappRecord,
@@ -75,6 +74,7 @@ export type ReferralBonusDetail = NonNullable<ReferralState["bonus_details"]>[nu
 export type DevicesData = Partial<DevicesResponse> & WebappRecord;
 export type DeviceView = NonNullable<DevicesResponse["devices"]>[number] & WebappRecord;
 export type TrialActivationResult = TrialActivateResponse & WebappRecord;
+export type WebappDataSnapshot = Partial<WebappData> & WebappRecord;
 export type BillingOptionsResponse = TariffTopupOptionsResponse & WebappRecord;
 export type DeviceTopupOptions = DeviceTopupOptionsResponse & WebappRecord;
 export type TariffChangeOptions = TariffChangeOptionsResponse & WebappRecord;
@@ -122,11 +122,11 @@ export type InstallGuidesConfig = InstallGuideRecord & {
 
 export type WebappMockSource = WebappRecord & {
   config?: WebappConfig;
-  data?: WebappData;
+  data?: WebappDataSnapshot;
 };
 export type PreviewBoardComponent = Component<{
   config: WebappConfig;
-  mockData: WebappData;
+  mockData: WebappDataSnapshot;
 }>;
 export type WebappMockRuntime = WebappRecord & {
   PreviewBoard?: PreviewBoardComponent | null;
@@ -172,8 +172,7 @@ export function installPlatformsFromConfig(
       const platformRecord = recordOrNull(platform);
       return platformRecord ? ({ key, ...platformRecord } as InstallGuidePlatform) : null;
     })
-    .filter(
-      (platform): platform is InstallGuidePlatform =>
-        Boolean(platform && Array.isArray(platform.apps) && platform.apps.length)
+    .filter((platform): platform is InstallGuidePlatform =>
+      Boolean(platform && Array.isArray(platform.apps) && platform.apps.length)
     );
 }

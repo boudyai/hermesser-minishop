@@ -127,12 +127,7 @@
       ".svelte"
     ],
     "allowlist": [],
-    "allowed_counts": {
-      "frontend/src/App.svelte": 33,
-      "frontend/src/webapp/PaymentDialogs.svelte": 30,
-      "frontend/src/webapp/TariffDialogs.svelte": 24,
-      "frontend/src/webapp/screens/HomeScreen.svelte": 23
-    }
+    "allowed_counts": {}
   },
   "frontend_api_calls": {
     "scopes": [

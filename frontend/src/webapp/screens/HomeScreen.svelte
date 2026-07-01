@@ -31,12 +31,19 @@
     premiumServerLabels as premiumServerLabelsFn,
     activeSubscriptionTermLabel as activeSubscriptionTermLabelFn,
   } from "../../lib/webapp/traffic.js";
+  import type {
+    AppSettings,
+    BooleanAction,
+    BrandConfig,
+    ReferralState,
+    SubscriptionView,
+    TermUnitLabel,
+    Translate,
+    VoidAction,
+  } from "$lib/webapp/types.js";
 
   const SUBSCRIPTION_EXPIRY_WARNING_MS = 72 * 60 * 60 * 1000;
   const SUBSCRIPTION_EXPIRING_SOON_MS = 24 * 60 * 60 * 1000;
-
-  type AnyRecord = Record<string, any>;
-  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
   let {
     appSettings = {},
@@ -73,19 +80,19 @@
     primaryPayActionLabel = () => "",
     t = (key) => key,
   }: {
-    appSettings?: AnyRecord;
-    brand?: AnyRecord;
+    appSettings?: AppSettings;
+    brand?: BrandConfig;
     brandTitle?: string;
     canChangeTariff?: boolean;
     premiumTrafficTopupBarClickable?: boolean;
     premiumTrafficTopupUnlocked?: boolean;
     regularTrafficTopupBarClickable?: boolean;
     regularTrafficTopupUnlocked?: boolean;
-    referral?: AnyRecord;
+    referral?: ReferralState;
     currentTariffName?: string;
     hasActiveTariffSubscription?: boolean;
     hasMultipleTariffs?: boolean;
-    subscription?: AnyRecord;
+    subscription?: SubscriptionView;
     autoRenewBusy?: boolean;
     linkTelegramBusy?: boolean;
     telegramNotificationsNeedPrompt?: boolean;
@@ -93,41 +100,41 @@
     telegramNotificationsStatus?: string;
     trafficMode?: boolean;
     trialBusy?: boolean;
-    termUnitLabel?: (value: number, unit: string) => string;
-    activateTrial?: () => void;
-    toggleAutoRenew?: (enabled: boolean) => void;
-    linkTelegramAndActivateTrial?: () => void;
-    linkTelegramAndClaimReferralWelcome?: () => void;
-    openConnectLink?: () => void;
-    openPaymentModal?: () => void;
-    openTelegramNotificationsBot?: () => void;
-    openRegularTopupModal?: () => void;
-    openPremiumTopupModal?: () => void;
-    openTariffChangeModal?: () => void;
+    termUnitLabel?: TermUnitLabel;
+    activateTrial?: VoidAction;
+    toggleAutoRenew?: BooleanAction;
+    linkTelegramAndActivateTrial?: VoidAction;
+    linkTelegramAndClaimReferralWelcome?: VoidAction;
+    openConnectLink?: VoidAction;
+    openPaymentModal?: VoidAction;
+    openTelegramNotificationsBot?: VoidAction;
+    openRegularTopupModal?: VoidAction;
+    openPremiumTopupModal?: VoidAction;
+    openTariffChangeModal?: VoidAction;
     primaryPayActionLabel?: () => string;
     t?: Translate;
   } = $props();
 
   let nowMs = $state(Date.now());
 
-  function trafficPercent(sub: AnyRecord) {
+  function trafficPercent(sub: SubscriptionView) {
     return trafficPercentFn(sub);
   }
-  function trafficLabel(sub: AnyRecord) {
+  function trafficLabel(sub: SubscriptionView) {
     return trafficLabelFn(sub, t);
   }
-  function trafficResetLabel(sub: AnyRecord) {
+  function trafficResetLabel(sub: SubscriptionView) {
     return trafficResetLabelFn(sub, t);
   }
-  function regularTrafficLimitVisible(sub: AnyRecord = subscription) {
+  function regularTrafficLimitVisible(sub: SubscriptionView = subscription) {
     return regularTrafficLimitVisibleFn(sub);
   }
-  function regularTrafficDepleted(sub: AnyRecord = subscription) {
+  function regularTrafficDepleted(sub: SubscriptionView = subscription) {
     const used = Number(sub?.traffic_used_bytes || 0);
     const limit = Number(sub?.traffic_limit_bytes || 0);
     return limit > 0 && used >= limit;
   }
-  function regularTrafficCardClass(sub: AnyRecord = subscription) {
+  function regularTrafficCardClass(sub: SubscriptionView = subscription) {
     return [
       "traffic-card-compact",
       regularTrafficTopupBarClickable ? "traffic-card-clickable" : "",
@@ -136,33 +143,33 @@
       .filter(Boolean)
       .join(" ");
   }
-  function regularTrafficMetaLabel(sub: AnyRecord = subscription) {
+  function regularTrafficMetaLabel(sub: SubscriptionView = subscription) {
     return regularTrafficDepleted(sub) ? t("wa_traffic_depleted") : trafficResetLabel(sub);
   }
-  function premiumTrafficAvailable(sub: AnyRecord = subscription) {
+  function premiumTrafficAvailable(sub: SubscriptionView = subscription) {
     return !regularTrafficDepleted(sub);
   }
-  function premiumTrafficPercent(sub: AnyRecord) {
+  function premiumTrafficPercent(sub: SubscriptionView) {
     return premiumTrafficPercentFn(sub);
   }
-  function premiumTrafficLimitVisible(sub: AnyRecord = subscription) {
+  function premiumTrafficLimitVisible(sub: SubscriptionView = subscription) {
     return premiumTrafficLimitVisibleFn(sub);
   }
-  function premiumTrafficLabel(sub: AnyRecord) {
+  function premiumTrafficLabel(sub: SubscriptionView) {
     return premiumTrafficLabelFn(sub, t);
   }
-  function premiumTitle(sub: AnyRecord = subscription) {
+  function premiumTitle(sub: SubscriptionView = subscription) {
     return premiumTitleFn(sub, t);
   }
-  function premiumTrafficMetaLabel(sub: AnyRecord = subscription) {
+  function premiumTrafficMetaLabel(sub: SubscriptionView = subscription) {
     return sub?.premium_is_limited
       ? t("wa_premium_access_limited", {}, "Доступ к premium временно ограничен")
       : t("wa_premium_reset_monthly", {}, "Отдельный лимит на месяц");
   }
-  function premiumServerLabels(sub: AnyRecord) {
+  function premiumServerLabels(sub: SubscriptionView) {
     return premiumServerLabelsFn(sub);
   }
-  function activeSubscriptionTermLabel(sub: AnyRecord) {
+  function activeSubscriptionTermLabel(sub: SubscriptionView) {
     return activeSubscriptionTermLabelFn(sub, { t, termUnitLabel });
   }
   function trialTrafficLabel() {
@@ -176,7 +183,7 @@
       unit: termUnitLabel(days, "day"),
     });
   }
-  function parseSubscriptionEndMs(sub: AnyRecord) {
+  function parseSubscriptionEndMs(sub: SubscriptionView) {
     const raw = String(sub?.end_date || "").trim();
     if (!raw) return null;
     const parsed = Date.parse(raw);
@@ -191,7 +198,7 @@
     const match = String(text || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
     return match ? `${match[3]}.${match[2]}.${match[1]}` : "";
   }
-  function subscriptionEndDateLabel(sub: AnyRecord) {
+  function subscriptionEndDateLabel(sub: SubscriptionView) {
     return dateOnlyFromEndText(sub?.end_date_text) || dateOnlyFromIso(sub?.end_date);
   }
   function formatSubscriptionCountdown(ms: number) {

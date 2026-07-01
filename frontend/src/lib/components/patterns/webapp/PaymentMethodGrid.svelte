@@ -23,7 +23,9 @@
   }
 
   function methodTitle(method: PaymentMethod) {
-    return typeof method?.name === "string" && method.name ? method.name : t("wa_method_other_title");
+    return typeof method?.name === "string" && method.name
+      ? method.name
+      : t("wa_method_other_title");
   }
 
   function methodIcon(method: PaymentMethod): IconComponent | null {

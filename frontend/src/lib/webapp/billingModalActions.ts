@@ -1,6 +1,5 @@
 import type { BillingPlan, PaymentMethod, TariffCatalogEntry } from "./tariffs";
-
-type WebappRecord = Record<string, unknown>;
+import type { SubscriptionView } from "./types";
 
 type BillingModalStore = {
   closeDeviceTopupModal: () => void;
@@ -8,9 +7,9 @@ type BillingModalStore = {
   openPaymentModal: (
     tariffMode: boolean,
     singleTariffMode: boolean,
-    tariffCatalog: WebappRecord[],
-    subscription: WebappRecord,
-    plans: WebappRecord[],
+    tariffCatalog: TariffCatalogEntry[],
+    subscription: SubscriptionView,
+    plans: BillingPlan[],
     defaultMethod?: string
   ) => void;
   openTariffChangeModal: (defaultMethod?: string) => void;
@@ -29,7 +28,7 @@ type BillingModalActionDeps = {
   methods: () => PaymentMethod[];
   plans: () => BillingPlan[];
   singleTariffMode: () => boolean;
-  subscription: () => WebappRecord;
+  subscription: () => SubscriptionView;
   tariffCatalog: () => TariffCatalogEntry[];
   tariffMode: () => boolean;
 };

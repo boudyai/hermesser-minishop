@@ -4,22 +4,22 @@ export type WebappRecord = Record<string, unknown>;
 export type WebappData = MeResponse & WebappRecord;
 
 export type WebappBillingPlan = WebappRecord & {
-  device_count?: number | string;
+  device_count?: number | string | null;
   hwid_renewal?: WebappRecord;
-  months?: number | string;
-  sale_mode?: string;
-  tariff_key?: string;
-  traffic_gb?: number | string;
+  months?: number | string | null;
+  sale_mode?: string | null;
+  tariff_key?: string | null;
+  traffic_gb?: number | string | null;
 };
 
 export type WebappBillingAction = WebappRecord & {
-  mode?: string;
-  months?: number | string;
-  traffic_gb?: number | string;
+  mode?: string | null;
+  months?: number | string | null;
+  traffic_gb?: number | string | null;
 };
 
 export type WebappBillingTarget = WebappRecord & {
-  tariff_key?: string;
+  tariff_key?: string | null;
 };
 
 export function recordField(value: unknown): WebappRecord {

@@ -1,9 +1,8 @@
 import type { BillingPlan, TariffCatalogEntry } from "./tariffs.js";
-
-type WebappRecord = Record<string, unknown>;
+import type { SubscriptionView } from "./types";
 
 type TariffActionsBillingStore = {
-  backToTariffList: (subscription: WebappRecord, tariffCatalog: TariffCatalogEntry[]) => void;
+  backToTariffList: (subscription: SubscriptionView, tariffCatalog: TariffCatalogEntry[]) => void;
   continueWithSelectedTariff: (selectedTariffPlans: BillingPlan[]) => void;
   selectTariff: (tariff: TariffCatalogEntry, plans: BillingPlan[]) => void;
 };
@@ -12,7 +11,7 @@ type TariffActionDeps = {
   billingStore: TariffActionsBillingStore;
   getPlans: () => BillingPlan[];
   getSelectedTariffPlans: () => BillingPlan[];
-  getSubscription: () => WebappRecord;
+  getSubscription: () => SubscriptionView;
   getTariffCatalog: () => TariffCatalogEntry[];
 };
 

@@ -5,26 +5,37 @@ type TranslateFn = (key: string, params?: Record<string, string>, fallback?: str
 type TermUnitLabel = (value: number, unit: "month") => string;
 
 export type BillingPlan = WebappRecord & {
-  billing_model?: string;
-  currency?: string;
-  description?: string;
-  id?: string | number;
+  billing_model?: string | null;
+  currency?: string | null;
+  description?: string | null;
+  device_count?: number | string | null;
+  hwid_renewal?: WebappRecord & {
+    available?: boolean;
+    currency?: string | null;
+    device_count?: number | string | null;
+    price?: number | string | null;
+    stars_price?: number | string | null;
+    valid_from_text?: string | null;
+    valid_until_text?: string | null;
+  };
+  id?: string | number | null;
   is_default_tariff?: boolean;
   key?: string;
-  min_amount?: number | string;
-  min_currency?: string;
-  mode?: string;
-  months?: number | string;
-  monthly_gb?: number | string;
-  price?: number | string;
-  sale_mode?: string;
-  stars_price?: number | string;
-  subtitle?: string;
-  tariff_key?: string;
-  tariff_name?: string;
-  title?: string;
-  traffic_gb?: number | string;
+  min_amount?: number | string | null;
+  min_currency?: string | null;
+  mode?: string | null;
+  months?: number | string | null;
+  monthly_gb?: number | string | null;
+  price?: number | string | null;
+  sale_mode?: string | null;
+  stars_price?: number | string | null;
+  subtitle?: string | null;
+  tariff_key?: string | null;
+  tariff_name?: string | null;
+  title?: string | null;
+  traffic_gb?: number | string | null;
   traffic_packages?: unknown[];
+  valid_until_text?: string | null;
 };
 export type TariffCatalogEntry = {
   billing_model: string;
@@ -107,7 +118,7 @@ export function priceLabel(plan: BillingPlan | null | undefined, methodId = ""):
   ) {
     return `${Number(plan?.stars_price)} ⭐`;
   }
-  return formatMoney(plan?.price || 0, plan?.currency);
+  return formatMoney(plan?.price || 0, plan?.currency || undefined);
 }
 
 export function methodAmountForPlan(
@@ -251,7 +262,7 @@ export function planUnitHint(
     ) {
       return `${Number(Number(plan?.stars_price) / gb).toFixed(0)} ⭐${t("wa_per_gb_short")}`;
     }
-    return `${formatMoney(Number(plan?.price || 0) / gb, plan?.currency)}${t("wa_per_gb_short")}`;
+    return `${formatMoney(Number(plan?.price || 0) / gb, plan?.currency || undefined)}${t("wa_per_gb_short")}`;
   }
   const months = Number(plan?.months || 0);
   if (!months || months <= 1) return "";
@@ -263,5 +274,5 @@ export function planUnitHint(
   ) {
     return `${Number(Number(plan?.stars_price) / months).toFixed(0)} ⭐${t("wa_per_month_short")}`;
   }
-  return `${formatMoney(Number(plan?.price || 0) / months, plan?.currency)}${t("wa_per_month_short")}`;
+  return `${formatMoney(Number(plan?.price || 0) / months, plan?.currency || undefined)}${t("wa_per_month_short")}`;
 }
