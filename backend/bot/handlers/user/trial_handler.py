@@ -70,6 +70,41 @@ async def request_trial_confirmation_handler(
             pass
         return
 
+    # Hermes mode: trial requires a bot token, which is collected via the Mini App.
+    # If the user reaches this callback (no WebApp URL configured), redirect them.
+    if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes":
+        mini_app_url = getattr(settings, "SUBSCRIPTION_MINI_APP_URL", "") or ""
+        from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+
+        keyboard = None
+        if mini_app_url:
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=_("menu_personal_account_button"),
+                            web_app=WebAppInfo(url=mini_app_url),
+                        )
+                    ]
+                ]
+            )
+        await callback_message(callback).edit_text(
+            _(
+                "trial_hermes_redirect_hint",
+                fallback=(
+                    "To activate a trial, open the Mini App and enter"
+                    " your bot token from @BotFather."
+                ),
+            ),
+            reply_markup=keyboard
+            or get_main_menu_inline_keyboard(current_lang, i18n, settings, False),
+        )
+        try:
+            await callback.answer()
+        except Exception:
+            pass
+        return
+
     # Directly activate trial without confirmation
     activation_result = await subscription_service.activate_trial_subscription(session, user_id)
 

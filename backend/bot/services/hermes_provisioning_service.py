@@ -99,7 +99,29 @@ class HermesProvisioningService(PanelApiService):
             if resp.status == 202:
                 data = await resp.json()
                 tenant_id = data.get("tenant_id", "")
-                log.info("Hermes tenant created: %s (user_id=%s)", tenant_id, user_id)
+                tenant_status = data.get("status", "")
+                jobs_queued = data.get("jobs_queued", [])
+                log.info(
+                    "Hermes tenant: %s (user_id=%s, status=%s)", tenant_id, user_id, tenant_status
+                )
+
+                # Renewal reactivation: if the tenant already existed and is
+                # suspended (expired subscription), re-activate it so the
+                # container restarts and the LiteLLM key gets un-revoked.
+                if tenant_status in ("suspended", "payment_expiring") and not jobs_queued:
+                    log.info("Reactivating suspended tenant %s after renewal", tenant_id)
+                    async with session.post(
+                        f"{self._core_base_url}/shop/tenants/{tenant_id}/activate"
+                    ) as activate_resp:
+                        if activate_resp.status not in (200, 202):
+                            act_body = await activate_resp.text()
+                            log.error(
+                                "Reactivation failed for %s: %s %s",
+                                tenant_id,
+                                activate_resp.status,
+                                act_body[:200],
+                            )
+
                 return {"response": {"uuid": tenant_id, "username": username_on_panel}}
             body = await resp.text()
             log.error("provisioning-core POST /shop/tenants failed: %s %s", resp.status, body[:200])
