@@ -28,22 +28,7 @@ from .base import (
 from .shared import RecurringProviderService
 
 PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (
-    freekassa.SPEC,
     platega.SBP_SPEC,
-    platega.CRYPTO_SPEC,
-    severpay.SPEC,
-    wata.SPEC,
-    wata.CRYPTO_SPEC,
-    yookassa.SPEC,
-    stars.SPEC,
-    cryptopay.SPEC,
-    heleket.SPEC,
-    paykilla.SPEC,
-    lava.SPEC,
-    pally.SPEC,
-    cloudpayments.SPEC,
-    stripe.SPEC,
-    qa.SPEC,
 )
 
 

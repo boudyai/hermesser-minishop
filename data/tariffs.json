@@ -1,0 +1,29 @@
+{
+  "default_tariff": "standard",
+  "default_currency": "rub",
+  "tariffs": [
+    {
+      "key": "standard",
+      "names": { "ru": "Hermes Agent", "en": "Hermes Agent" },
+      "descriptions": {
+        "ru": "Личный AI-ассистент в Telegram",
+        "en": "Personal AI assistant in Telegram"
+      },
+      "premium_names": { "ru": "", "en": "" },
+      "squad_uuids": [],
+      "premium_squad_uuids": [],
+      "billing_model": "period",
+      "monthly_gb": 0,
+      "topup_packages": {},
+      "premium_topup_packages": {},
+      "hwid_device_limit": 0,
+      "hwid_device_packages": {},
+      "prices_rub": { "1": 500 },
+      "prices_stars": {},
+      "referral_bonus_days_inviter": { "1": 3 },
+      "referral_bonus_days_referee": { "1": 1 },
+      "enabled_periods": [1],
+      "enabled": true
+    }
+  ]
+}
