@@ -16,6 +16,7 @@ from bot.services.audience_segmentation import AudienceSegmentationService
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.notification_service import NotificationService
 from bot.services.outbound_messaging import OutboundMessagingService
+from bot.services.hermes_provisioning_service import HermesProvisioningService
 from bot.services.panel_api_service import PanelApiService
 from bot.services.panel_dry_run_api_service import PanelDryRunApiService
 from bot.services.panel_webhook_service import PanelWebhookService
@@ -33,11 +34,13 @@ def build_core_services(
     i18n: JsonI18n,
     bot_username_for_default_return: str,
 ) -> CoreServices:
-    panel_service = (
-        PanelDryRunApiService(settings)
-        if bool(settings.panel_dry_run_enabled)
-        else PanelApiService(settings)
-    )
+    panel_write_mode = (settings.panel_settings.write_mode or "").lower()
+    if panel_write_mode == "hermes":
+        panel_service = HermesProvisioningService(settings)
+    elif bool(settings.panel_dry_run_enabled):
+        panel_service = PanelDryRunApiService(settings)
+    else:
+        panel_service = PanelApiService(settings)
     subscription_service = SubscriptionService(settings, panel_service, bot, i18n)
     referral_service = ReferralService(settings, subscription_service, bot, i18n)
     promo_code_service = PromoCodeService(settings, subscription_service, bot, i18n)
