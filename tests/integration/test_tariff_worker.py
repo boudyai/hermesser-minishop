@@ -36,10 +36,8 @@ def _tariffs_config_payload() -> dict:
 class _FormatI18n:
     def gettext(self, _lang, key, **kwargs):
         templates = {
-            "traffic_reset_regular_notification": "regular reset {available} {used} {limit_total}",
-            "traffic_reset_premium_notification": (
-                "premium reset {available} {used} {limit_total}\n{servers}"
-            ),
+            "traffic_reset_regular_notification": "regular reset {limit_total}",
+            "traffic_reset_premium_notification": ("premium reset {limit_total}\n{servers}"),
             "traffic_warning_regular_almost": "regular almost {left_pct} {limit_total}",
             "traffic_warning_regular_depleted": "regular depleted {limit_total}",
             "traffic_warning_premium_almost": (
@@ -122,6 +120,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         worker._user_lang = AsyncMock(return_value="en")
         session = AsyncMock()
         current_period = datetime(2026, 6, 1, tzinfo=timezone.utc)
+        previous_period = datetime(2026, 5, 1, tzinfo=timezone.utc)
         sub = SimpleNamespace(subscription_id=10, user_id=123, traffic_used_bytes=1)
 
         with (
@@ -149,6 +148,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 used=1,
                 limit=100,
                 period_start_at=current_period,
+                previous_period_start=previous_period,
             )
 
         create_warning.assert_awaited_once()
@@ -159,7 +159,8 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         bot.send_message.assert_awaited_once()
         sent_text = bot.send_message.await_args.args[1]
         self.assertIn("regular reset", sent_text)
-        self.assertIn("99 B", sent_text)
+        self.assertIn("100 B", sent_text)
+        self.assertNotIn("99 B", sent_text)
 
     async def test_regular_reset_notice_skips_when_current_period_already_near_limit(self):
         bot = AsyncMock()
@@ -188,6 +189,40 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 used=85,
                 limit=100,
                 period_start_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+                previous_period_start=datetime(2026, 5, 1, tzinfo=timezone.utc),
+            )
+
+        has_warning.assert_not_awaited()
+        bot.send_message.assert_not_awaited()
+
+    async def test_regular_reset_notice_skips_same_period_limit_increase(self):
+        bot = AsyncMock()
+        worker = TariffTrafficWorker(
+            settings=SimpleNamespace(
+                DEFAULT_LANGUAGE="en",
+                email_auth_configured=False,
+                tariff_traffic_warning_levels=[85],
+            ),
+            session_factory=SimpleNamespace(),
+            panel_service=SimpleNamespace(),
+            subscription_service=SimpleNamespace(),
+            bot=bot,
+            i18n=_FormatI18n(),
+        )
+        session = AsyncMock()
+
+        with patch(
+            "bot.services.tariff_worker_regular.tariff_dal.has_warning_level_between",
+            new=AsyncMock(),
+        ) as has_warning:
+            await worker._maybe_send_regular_reset_notice(
+                session,
+                SimpleNamespace(subscription_id=10, user_id=123),
+                _PeriodTariff(),
+                used=int(817.2 * (1024**3)),
+                limit=1000 * (1024**3),
+                period_start_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+                previous_period_start=datetime(2026, 6, 1, tzinfo=timezone.utc),
             )
 
         has_warning.assert_not_awaited()
