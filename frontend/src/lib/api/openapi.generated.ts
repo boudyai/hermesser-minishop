@@ -1494,6 +1494,74 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/tenant/logs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Tenant Logs */
+    get: operations["get_tenant_logs_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/tenant/logs/refresh": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Tenant Logs Refresh */
+    post: operations["post_tenant_logs_refresh_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/tenant/quota": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Tenant Quota */
+    get: operations["get_tenant_quota_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/tenant/restart": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Tenant Restart */
+    post: operations["post_tenant_restart_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/trial/activate": {
     parameters: {
       query?: never;
@@ -7218,6 +7286,104 @@ export interface operations {
             topup_kind?: string;
             traffic_percent?: number;
             warning_levels?: number[];
+          };
+        };
+      };
+    };
+  };
+  get_tenant_logs_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            logs: string;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_tenant_logs_refresh_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  get_tenant_quota_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            budget_duration?: string | null;
+            max_budget?: number | null;
+            /** @constant */
+            ok: true;
+            remaining?: number | null;
+            spent?: number | null;
+            tenant_id?: string;
+          };
+        };
+      };
+    };
+  };
+  post_tenant_restart_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
           };
         };
       };

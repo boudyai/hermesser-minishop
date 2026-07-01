@@ -12922,6 +12922,193 @@
         ]
       }
     },
+    "/api/tenant/logs": {
+      "get": {
+        "operationId": "get_tenant_logs_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "logs": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "logs"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Tenant Logs",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/tenant/logs/refresh": {
+      "post": {
+        "operationId": "post_tenant_logs_refresh_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Tenant Logs Refresh",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/tenant/quota": {
+      "get": {
+        "operationId": "get_tenant_quota_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "budget_duration": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "max_budget": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "remaining": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "spent": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "tenant_id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Tenant Quota",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/tenant/restart": {
+      "post": {
+        "operationId": "post_tenant_restart_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Tenant Restart",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
     "/api/trial/activate": {
       "post": {
         "operationId": "post_activate_trial_route",

@@ -74,6 +74,10 @@ from .devices import (
 from .env import (
     env_route,
     env_update_route,
+    tenant_logs_refresh_route,
+    tenant_logs_route,
+    tenant_quota_route,
+    tenant_restart_route,
 )
 from .guides import (
     public_subscription_guides_route,
@@ -199,6 +203,10 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/api/devices/topup-options", device_topup_options_route)
     app.router.add_get("/api/env", env_route)
     app.router.add_put("/api/env", env_update_route)
+    app.router.add_post("/api/tenant/restart", tenant_restart_route)
+    app.router.add_get("/api/tenant/quota", tenant_quota_route)
+    app.router.add_get("/api/tenant/logs", tenant_logs_route)
+    app.router.add_post("/api/tenant/logs/refresh", tenant_logs_refresh_route)
     app.router.add_get("/api/support/tickets", support_tickets_route)
     app.router.add_post("/api/support/tickets", support_create_ticket_route)
     app.router.add_get("/api/support/tickets/{id:\\d+}", support_ticket_detail_route)

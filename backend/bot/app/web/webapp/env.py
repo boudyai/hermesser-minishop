@@ -1,4 +1,4 @@
-"""Tenant .env editor endpoints for the webapp."""
+"""Tenant management endpoints for the webapp (env editor, restart, quota, logs)."""
 
 import logging
 from typing import Any
@@ -28,6 +28,36 @@ async def _get_tenant_id(
     if not active:
         return None
     return str(active.get("user_id") or "").strip() or None
+
+
+async def _get_hermes_panel_service(
+    subscription_service: SubscriptionService,
+) -> HermesProvisioningService | None:
+    panel_service = getattr(subscription_service, "panel_service", None)
+    if not isinstance(panel_service, HermesProvisioningService):
+        return None
+    return panel_service
+
+
+async def _resolve_tenant(
+    request: web.Request,
+) -> tuple[HermesProvisioningService, str] | web.Response:
+    """Resolve the caller's HermesProvisioningService + tenant_id, or return an error response."""
+    user_id = _require_user_id(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
+    subscription_service: SubscriptionService = get_subscription_service(request)
+
+    panel_service = await _get_hermes_panel_service(subscription_service)
+    if panel_service is None:
+        return _json_error(503, "hermes_disabled", "Hermes mode not active")
+
+    async with async_session_factory() as session:
+        tenant_id = await _get_tenant_id(subscription_service, session, user_id)
+
+    if not tenant_id:
+        return _json_error(404, "no_active_subscription", "No active subscription")
+
+    return panel_service, tenant_id
 
 
 async def env_route(request: web.Request) -> web.Response:
@@ -71,4 +101,61 @@ async def env_update_route(request: web.Request) -> web.Response:
     if not ok:
         return _json_error(502, "env_update_failed", "Failed to update env")
 
+    return json_response({"ok": True})
+
+
+# ============================================
+# Restart
+# ============================================
+
+
+async def tenant_restart_route(request: web.Request) -> web.Response:
+    result = await _resolve_tenant(request)
+    if isinstance(result, web.Response):
+        return result
+    panel_service, tenant_id = result
+    ok = await panel_service.restart_tenant(tenant_id)
+    if not ok:
+        return _json_error(502, "restart_failed", "Failed to queue restart")
+    return json_response({"ok": True})
+
+
+# ============================================
+# Quota
+# ============================================
+
+
+async def tenant_quota_route(request: web.Request) -> web.Response:
+    result = await _resolve_tenant(request)
+    if isinstance(result, web.Response):
+        return result
+    panel_service, tenant_id = result
+    quota = await panel_service.get_tenant_quota(tenant_id)
+    if quota is None:
+        return _json_error(502, "quota_fetch_failed", "Failed to fetch quota")
+    return json_response({"ok": True, **quota})
+
+
+# ============================================
+# Logs
+# ============================================
+
+
+async def tenant_logs_route(request: web.Request) -> web.Response:
+    result = await _resolve_tenant(request)
+    if isinstance(result, web.Response):
+        return result
+    panel_service, tenant_id = result
+    logs = await panel_service.get_tenant_logs(tenant_id)
+    return json_response({"ok": True, "logs": logs})
+
+
+async def tenant_logs_refresh_route(request: web.Request) -> web.Response:
+    result = await _resolve_tenant(request)
+    if isinstance(result, web.Response):
+        return result
+    panel_service, tenant_id = result
+    ok = await panel_service.refresh_tenant_logs(tenant_id)
+    if not ok:
+        return _json_error(502, "logs_refresh_failed", "Failed to refresh logs")
     return json_response({"ok": True})

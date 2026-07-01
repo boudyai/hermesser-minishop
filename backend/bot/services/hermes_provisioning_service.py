@@ -272,3 +272,40 @@ class HermesProvisioningService(PanelApiService):
             body = await resp.text()
             log.error("PUT /shop/tenants/%s/env failed: %s %s", tenant_id, resp.status, body[:200])
             return False
+
+    # ============================================
+    # Tenant management (restart, quota, logs)
+    # ============================================
+
+    async def restart_tenant(self, tenant_id: str) -> bool:
+        session = await self._core_get_session()
+        async with session.post(f"{self._core_base_url}/shop/tenants/{tenant_id}/restart") as resp:
+            if resp.status == 202:
+                log.info("Tenant %s restart queued", tenant_id)
+                return True
+            body = await resp.text()
+            log.error("Restart failed for %s: %s %s", tenant_id, resp.status, body[:200])
+            return False
+
+    async def get_tenant_quota(self, tenant_id: str) -> Dict[str, Any] | None:
+        session = await self._core_get_session()
+        async with session.get(f"{self._core_base_url}/shop/tenants/{tenant_id}/quota") as resp:
+            if resp.status == 200:
+                return await resp.json()
+            log.error("Quota fetch failed for %s: %s", tenant_id, resp.status)
+            return None
+
+    async def get_tenant_logs(self, tenant_id: str) -> str:
+        session = await self._core_get_session()
+        async with session.get(f"{self._core_base_url}/shop/tenants/{tenant_id}/logs") as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                return data.get("logs", "")
+            return ""
+
+    async def refresh_tenant_logs(self, tenant_id: str) -> bool:
+        session = await self._core_get_session()
+        async with session.post(
+            f"{self._core_base_url}/shop/tenants/{tenant_id}/logs/refresh"
+        ) as resp:
+            return resp.status == 202

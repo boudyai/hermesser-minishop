@@ -113,4 +113,25 @@ AUTH_ROUTE_CONTRACTS: dict[str, RouteContract] = {
         request_model=WebAppBotTokenPayload,
         response_schema=ok_envelope_with({"bot_username": STRING_SCHEMA}),
     ),
+    "tenant_restart_route": user_contract(
+        response_schema=ok_envelope_with(),
+    ),
+    "tenant_quota_route": user_contract(
+        response_schema=ok_envelope_with(
+            {
+                "tenant_id": STRING_SCHEMA,
+                "max_budget": NULLABLE_NUMBER_SCHEMA,
+                "spent": NULLABLE_NUMBER_SCHEMA,
+                "remaining": NULLABLE_NUMBER_SCHEMA,
+                "budget_duration": NULLABLE_STRING_SCHEMA,
+            },
+            required=[],
+        ),
+    ),
+    "tenant_logs_route": user_contract(
+        response_schema=ok_envelope_with({"logs": STRING_SCHEMA}),
+    ),
+    "tenant_logs_refresh_route": user_contract(
+        response_schema=ok_envelope_with(),
+    ),
 }
