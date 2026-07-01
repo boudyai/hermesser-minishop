@@ -13,7 +13,7 @@ from ._typing import SubscriptionServiceMixinContract
 
 class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
     async def activate_trial_subscription(
-        self, session: AsyncSession, user_id: int
+        self, session: AsyncSession, user_id: int, bot_token: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         if not self.settings.TRIAL_ENABLED or self.settings.TRIAL_DURATION_DAYS <= 0:
             return {
@@ -43,7 +43,9 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
             panel_sub_link_id,
             panel_short_uuid,
             panel_user_created_now,
-        ) = await self._get_or_create_panel_user_link_details(session, user_id, db_user)
+        ) = await self._get_or_create_panel_user_link_details(
+            session, user_id, db_user, bot_token=bot_token
+        )
 
         if not panel_user_uuid or not panel_sub_link_id:
             logging.error(f"Failed to get panel link details for trial user {user_id}.")

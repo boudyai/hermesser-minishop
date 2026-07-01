@@ -13,14 +13,13 @@ See initial-docs/minishop-integration-map.md §1/§3 for the full method map.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import NAMESPACE_DNS, uuid5
 
 import aiohttp
 
-from backend.config.settings import Settings
 from backend.bot.services.panel_api_service import PanelApiService
+from backend.config.settings import Settings
 
 log = logging.getLogger(__name__)
 
@@ -77,6 +76,7 @@ class HermesProvisioningService(PanelApiService):
         hwid_device_limit: Optional[int] = None,
         specific_squad_uuids: Optional[List[str]] = None,
         external_squad_uuid: Optional[str] = None,
+        bot_token: Optional[str] = None,
         description: Optional[str] = None,
         tag: Optional[str] = None,
         status: str = "ACTIVE",
@@ -87,13 +87,13 @@ class HermesProvisioningService(PanelApiService):
             return {"error": True, "status_code": 400, "message": "telegram_id required"}
 
         user_id = self._user_id_from_telegram(telegram_id)
-        # ponytail: bot_token placeholder — real token collected via Mini App
-        # before this point. TODO: wire actual bot_token from user onboarding.
-        bot_token = f"placeholder:{user_id}"
+        if not bot_token:
+            log.error("create_panel_user requires bot_token for hermes tenant creation")
+            return {"error": True, "status_code": 400, "message": "bot_token required"}
 
         session = await self._core_get_session()
         async with session.post(
-            f"{self._core_base_url}/tenants",
+            f"{self._core_base_url}/shop/tenants",
             json={"user_id": user_id, "bot_token": bot_token},
         ) as resp:
             if resp.status == 202:
@@ -102,7 +102,7 @@ class HermesProvisioningService(PanelApiService):
                 log.info("Hermes tenant created: %s (user_id=%s)", tenant_id, user_id)
                 return {"response": {"uuid": tenant_id, "username": username_on_panel}}
             body = await resp.text()
-            log.error("provisioning-core POST /tenants failed: %s %s", resp.status, body[:200])
+            log.error("provisioning-core POST /shop/tenants failed: %s %s", resp.status, body[:200])
             return {"error": True, "status_code": resp.status, "message": body[:500]}
 
     async def update_user_details_on_panel(
@@ -119,9 +119,7 @@ class HermesProvisioningService(PanelApiService):
     ) -> bool:
         action = "activate" if enable else "suspend"
         session = await self._core_get_session()
-        async with session.post(
-            f"{self._core_base_url}/tenants/{user_uuid}/{action}"
-        ) as resp:
+        async with session.post(f"{self._core_base_url}/shop/tenants/{user_uuid}/{action}") as resp:
             if resp.status in (200, 202):
                 log.info("Tenant %s %sd", user_uuid, action)
                 return True
@@ -129,29 +127,28 @@ class HermesProvisioningService(PanelApiService):
             log.error("Tenant %s %s failed: %s %s", user_uuid, action, resp.status, body[:200])
             return False
 
-    async def delete_user_from_panel(
-        self, user_uuid: str, log_response: bool = False
-    ) -> Optional[Dict[str, Any]]:
+    async def delete_user_from_panel(self, user_uuid: str, log_response: bool = False) -> bool:
+        del log_response
         session = await self._core_get_session()
         async with session.post(
-            f"{self._core_base_url}/tenants/{user_uuid}/delete",
+            f"{self._core_base_url}/shop/tenants/{user_uuid}/delete",
             json={"retain_backup_days": 30},
         ) as resp:
             if resp.status in (200, 202):
                 log.info("Tenant %s deleted", user_uuid)
-                return {"response": {"uuid": user_uuid, "deleted": True}}
+                return True
             if resp.status == 404:
                 log.info("Tenant %s already deleted", user_uuid)
-                return {"response": {"uuid": user_uuid, "deleted": True}}
+                return True
             body = await resp.text()
             log.error("Tenant %s delete failed: %s %s", user_uuid, resp.status, body[:200])
-            return {"error": True, "status_code": resp.status, "message": body[:500]}
+            return False
 
     async def get_user_by_uuid(
         self, user_uuid: str, log_response: bool = False
     ) -> Optional[Dict[str, Any]]:
         session = await self._core_get_session()
-        async with session.get(f"{self._core_base_url}/tenants/{user_uuid}") as resp:
+        async with session.get(f"{self._core_base_url}/shop/tenants/{user_uuid}") as resp:
             if resp.status == 200:
                 data = await resp.json()
                 return {
@@ -161,7 +158,7 @@ class HermesProvisioningService(PanelApiService):
                 }
             if resp.status == 404:
                 return None
-            log.error("GET /tenants/%s failed: %s", user_uuid, resp.status)
+            log.error("GET /shop/tenants/%s failed: %s", user_uuid, resp.status)
             return None
 
     async def get_users_by_filter(
@@ -176,7 +173,9 @@ class HermesProvisioningService(PanelApiService):
         return None
 
     async def get_all_panel_users(
-        self, page_size: int, log_responses: bool = False
+        self,
+        page_size: Optional[int] = None,
+        log_responses: bool = False,
     ) -> Optional[List[Dict[str, Any]]]:
         return []
 
@@ -184,13 +183,17 @@ class HermesProvisioningService(PanelApiService):
     # Proxy-specific methods: no-ops
     # ============================================
 
-    async def get_subscription_link(self, short_uuid: str) -> str:
+    async def get_subscription_link(
+        self,
+        short_uuid_or_sub_uuid: str,
+        client_type: Optional[str] = None,
+    ) -> Optional[str]:
         return ""
 
     async def get_user_devices(self, user_uuid: str) -> List[Dict[str, Any]]:
         return []
 
-    async def disconnect_device(self, device_id: str) -> bool:
+    async def disconnect_device(self, user_uuid: str, hwid: str) -> bool:
         return True
 
     async def get_internal_squads(self) -> List[Dict[str, Any]]:
@@ -214,9 +217,7 @@ class HermesProvisioningService(PanelApiService):
     async def get_user_bandwidth_stats(self, user_uuid: str) -> Optional[Dict[str, Any]]:
         return None
 
-    async def add_users_to_internal_squad(
-        self, squad_uuid: str, user_uuids: List[str]
-    ) -> bool:
+    async def add_users_to_internal_squad(self, squad_uuid: str, user_uuids: List[str]) -> bool:
         return True
 
     async def remove_users_from_internal_squad(
@@ -230,9 +231,7 @@ class HermesProvisioningService(PanelApiService):
 
     async def get_user_env(self, tenant_id: str) -> str:
         session = await self._core_get_session()
-        async with session.get(
-            f"{self._core_base_url}/shop/tenants/{tenant_id}/env"
-        ) as resp:
+        async with session.get(f"{self._core_base_url}/shop/tenants/{tenant_id}/env") as resp:
             if resp.status == 200:
                 data = await resp.json()
                 return data.get("env_content", "")

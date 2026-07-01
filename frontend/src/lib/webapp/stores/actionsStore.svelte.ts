@@ -36,7 +36,7 @@ export type ActionsStore = ActionsState & {
   applyPromo(): Promise<void>;
   openPromoCheckout(): void;
   claimReferralWelcomeBonus(): Promise<void>;
-  activateTrial(): Promise<void>;
+  activateTrial(botToken?: string): Promise<void>;
 };
 
 function asRecord(value: unknown): MaybeRecord {
@@ -195,15 +195,19 @@ export function createActionsStore({
     }
   }
 
-  async function activateTrial() {
+  async function activateTrial(botToken?: string) {
     if (state.trialBusy) return;
     state.trialBusy = true;
     state.trialActivationResult = null;
     state.trialActivationError = "";
     try {
+      const trimmed = (botToken ?? "").trim();
+      const payload: PostPayload<"/api/trial/activate"> = {
+        bot_token: trimmed || null,
+      };
       const response = await api(buildTrialActivatePath(), {
         method: "POST",
-        body: JSON.stringify({} as PostPayload<"/api/trial/activate">),
+        body: JSON.stringify(payload),
       });
       const responsePayload = unwrap(response);
       state.trialActivationResult = responsePayload;

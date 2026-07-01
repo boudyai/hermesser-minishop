@@ -89,7 +89,11 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
         return payload
 
     async def _get_or_create_panel_user_link_details(
-        self, session: AsyncSession, user_id: int, db_user: Optional[User] = None
+        self,
+        session: AsyncSession,
+        user_id: int,
+        db_user: Optional[User] = None,
+        bot_token: Optional[str] = None,
     ) -> Tuple[Optional[str], Optional[str], Optional[str], bool]:
         if not db_user:
             db_user = await user_dal.get_user_by_id(session, user_id)
@@ -157,6 +161,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                         username_on_panel=panel_username_on_panel_standard,
                         telegram_id=telegram_id_for_panel,
                         email=db_user.email,
+                        bot_token=bot_token,
                         description=self._panel_description_for_user(db_user),
                         specific_squad_uuids=self.settings.parsed_user_squad_uuids,
                         external_squad_uuid=self.settings.parsed_user_external_squad_uuid,
@@ -182,6 +187,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                     username_on_panel=panel_username_on_panel_standard,
                     telegram_id=telegram_id_for_panel,
                     email=db_user.email,
+                    bot_token=bot_token,
                     description=self._panel_description_for_user(db_user),
                     specific_squad_uuids=self.settings.parsed_user_squad_uuids,
                     external_squad_uuid=self.settings.parsed_user_external_squad_uuid,

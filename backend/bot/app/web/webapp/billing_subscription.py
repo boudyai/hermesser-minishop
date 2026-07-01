@@ -21,6 +21,7 @@ from bot.app.web.webapp.common import (
 from bot.app.web.webapp.payloads import (
     WebAppAutoRenewPayload,
     WebAppPromoApplyPayload,
+    WebAppTrialActivatePayload,
 )
 from bot.services.promo_code_service import PromoCheckoutRequired, PromoCodeService
 from bot.services.subscription_service_impl.core import SubscriptionService
@@ -189,6 +190,13 @@ async def subscription_auto_renew_route(request: web.Request) -> web.Response:
 
 async def activate_trial_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
+    # bot_token is optional on the request body; only parse when the client
+    # actually sent one. This keeps POST-without-body working (and test fakes
+    # that don't mock request.json()).
+    if getattr(request, "can_read_body", False):
+        trial_payload = await _parse_model_payload(request, WebAppTrialActivatePayload)
+    else:
+        trial_payload = WebAppTrialActivatePayload()
     rate_limit_response = await _enforce_webapp_rate_limit(
         request,
         user_id=user_id,
@@ -200,6 +208,9 @@ async def activate_trial_route(request: web.Request) -> web.Response:
     settings: Settings = get_settings(request)
     if not settings.TRIAL_ENABLED or settings.TRIAL_DURATION_DAYS <= 0:
         return _json_error(400, "trial_unavailable", "Trial is not available")
+    hermes_mode = str(settings.panel_settings.write_mode or "").lower() == "hermes"
+    if hermes_mode and not trial_payload.bot_token:
+        return _json_error(400, "bot_token_required", "BotFather token is required")
 
     async_session_factory: sessionmaker = get_session_factory(request)
     subscription_service: SubscriptionService = get_subscription_service(request)
@@ -218,7 +229,14 @@ async def activate_trial_route(request: web.Request) -> web.Response:
                 telegram_required_reason,
             )
 
-        activation_result = await subscription_service.activate_trial_subscription(session, user_id)
+        if trial_payload.bot_token:
+            activation_result = await subscription_service.activate_trial_subscription(
+                session, user_id, bot_token=trial_payload.bot_token
+            )
+        else:
+            activation_result = await subscription_service.activate_trial_subscription(
+                session, user_id
+            )
         if not activation_result or not activation_result.get("activated"):
             await session.rollback()
             message_key = (

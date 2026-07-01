@@ -12,6 +12,7 @@ TariffKeyString = Annotated[str, StringConstraints(min_length=1, max_length=128)
 OptionalTariffKeyString = Annotated[str, StringConstraints(max_length=128)]
 SaleModeString = Annotated[str, StringConstraints(max_length=64)]
 LongTextString = Annotated[str, StringConstraints(max_length=4096)]
+BotTokenString = Annotated[str, StringConstraints(min_length=10, max_length=256)]
 ChangeModeString = Annotated[str, StringConstraints(min_length=1, max_length=64)]
 LanguageString = Annotated[str, StringConstraints(min_length=2, max_length=16)]
 DeviceTokenString = Annotated[str, StringConstraints(min_length=8, max_length=128)]
@@ -86,6 +87,26 @@ class WebAppPromoApplyPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     code: Any = ""
+
+
+class WebAppTrialActivatePayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    bot_token: Optional[BotTokenString] = None
+
+    @field_validator("bot_token", mode="before")
+    @classmethod
+    def _strip_bot_token(cls, value: Optional[str]) -> Optional[str]:
+        stripped = (value or "").strip()
+        if stripped and (":" not in stripped or not stripped.split(":", 1)[0].isdigit()):
+            raise ValueError("invalid_bot_token")
+        return stripped or None
+
+
+class WebAppEnvUpdatePayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    env_content: str = ""
 
 
 class WebAppPaymentCreatePayload(BaseModel):

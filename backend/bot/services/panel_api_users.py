@@ -430,11 +430,13 @@ class PanelApiUsersMixin:
         hwid_device_limit: Optional[int] = None,
         specific_squad_uuids: Optional[List[str]] = None,
         external_squad_uuid: Optional[str] = None,
+        bot_token: Optional[str] = None,
         description: Optional[str] = None,
         tag: Optional[str] = None,
         status: str = "ACTIVE",
         log_response: bool = False,
     ) -> Optional[Dict[str, Any]]:
+        _ = bot_token
 
         username_is_valid = (
             3 <= len(username_on_panel) <= 36
