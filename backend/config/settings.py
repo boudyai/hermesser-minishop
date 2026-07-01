@@ -445,7 +445,8 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
         default="auto",
         description=(
             "Panel write behavior: auto uses dry-run in development/test runtimes, "
-            "live always writes to Remnawave, dry_run validates and logs mutations only."
+            "live always writes to Remnawave, dry_run validates and logs mutations only, "
+            "hermes writes to provisioning-core."
         ),
     )
     PANEL_DRY_RUN_VALIDATE_REMOTE: bool = Field(

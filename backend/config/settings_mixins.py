@@ -820,8 +820,8 @@ class SettingsValidationMixin:
     @classmethod
     def validate_panel_write_mode(cls, v):
         value = str(v or "auto").strip().lower().replace("-", "_")
-        if value not in {"auto", "live", "dry_run"}:
-            raise ValueError("PANEL_WRITE_MODE must be one of: auto, live, dry_run")
+        if value not in {"auto", "live", "dry_run", "hermes"}:
+            raise ValueError("PANEL_WRITE_MODE must be one of: auto, live, dry_run, hermes")
         return value
 
     @field_validator("USER_TRAFFIC_STRATEGY", "TRIAL_TRAFFIC_STRATEGY", mode="before")

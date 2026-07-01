@@ -286,6 +286,27 @@
       </h1>
       <p>{t("wa_install_subtitle", {}, "Choose your platform and app.")}</p>
     </div>
+    {#if !finalSubscriptionLink}
+      <div class="install-hermes-status" style="padding:1.5rem;max-width:480px">
+        {#if subscription?.active}
+          <p style="font-size:1.1rem;font-weight:600;margin-bottom:0.5rem">
+            {t("wa_hermes_bot_active", {}, "Your AI bot is active")}
+          </p>
+          {#if subscription?.end_date_text}
+            <p style="color:var(--muted, #888);margin-bottom:0.25rem">
+              {t("wa_hermes_paid_until", {}, "Paid until")}: {subscription.end_date_text}
+            </p>
+          {/if}
+          {#if subscription?.remaining_text}
+            <p style="color:var(--muted, #888)">{subscription.remaining_text}</p>
+          {/if}
+        {:else}
+          <p style="font-size:1.1rem;font-weight:600">
+            {t("wa_hermes_bot_inactive", {}, "Your AI bot is not active")}
+          </p>
+        {/if}
+      </div>
+    {/if}
     {#if installGuidesStore?.enabled && config && platforms.length}
       <div class="install-platform-topbar">
         <Select.Root

@@ -97,6 +97,17 @@ class SettingsTests(unittest.TestCase):
 
         self.assertFalse(settings.panel_dry_run_enabled)
 
+    def test_panel_write_mode_accepts_hermes(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            PANEL_WRITE_MODE="hermes",
+        )
+
+        self.assertEqual(settings.PANEL_WRITE_MODE, "hermes")
+
     def test_panel_write_mode_rejects_unknown_value(self):
         with self.assertRaises(ValidationError):
             Settings(
