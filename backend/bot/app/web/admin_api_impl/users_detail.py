@@ -18,6 +18,7 @@ from bot.app.web.context import (
     get_settings,
 )
 from bot.services.referral_service import ReferralService
+from bot.utils.install_links import ensure_user_install_guide_share_url
 from config.settings import Settings
 from db.dal import message_log_dal, payment_dal, subscription_dal, user_dal
 from db.models import Payment, Subscription, User, UserTelegramAvatar
@@ -574,6 +575,24 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
             logger.warning("Failed to ensure referral code for user %s: %s", target_id, exc_ref)
             await session.rollback()
 
+        install_share_url: Optional[str] = None
+        if active_sub is not None:
+            try:
+                install_share_url = await ensure_user_install_guide_share_url(
+                    session,
+                    settings,
+                    target_id,
+                    local_subscription=active_sub,
+                )
+                await session.commit()
+            except Exception as exc_install:  # pragma: no cover - defensive
+                logger.warning(
+                    "Failed to build install guide share link for user %s: %s",
+                    target_id,
+                    exc_install,
+                )
+                await session.rollback()
+
     referral_service: Optional[ReferralService] = get_referral_service(request)
     bot_username = get_bot_username(request)
     referral_bot_link: Optional[str] = None
@@ -636,6 +655,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
             "recent_payments": [_serialize_payment(p) for p in recent_payments],
             "log_count": int(log_count or 0),
             "subscription_url": subscription_url,
+            "install_share_url": install_share_url,
             "last_vpn_connected_at": last_vpn_connected_at,
             "vpn_connection_status": vpn_connection_status,
             "referral": {

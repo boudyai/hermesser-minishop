@@ -5333,6 +5333,7 @@ export interface operations {
         content: {
           "application/json": {
             active_subscription: components["schemas"]["AdminSubscriptionOut"] | null;
+            install_share_url: string | null;
             last_vpn_connected_at: string | null;
             log_count: number;
             /** @constant */

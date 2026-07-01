@@ -183,6 +183,7 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
                 }
             )
         )
+        install_links = AsyncMock(return_value="https://app.example/s/share")
         request = SimpleNamespace(
             app={
                 "settings": SimpleNamespace(SUBSCRIPTION_MINI_APP_URL=None),
@@ -226,15 +227,19 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
                 "ensure_referral_code",
                 AsyncMock(return_value="REF"),
             ),
+            patch.object(users_detail, "ensure_user_install_guide_share_url", install_links),
         ):
             response = await users_module.admin_user_detail_route(request)
 
         payload = json.loads(response.text)
         self.assertEqual(response.status, 200)
         self.assertEqual(payload["subscription_url"], "https://panel.example/sub/short")
+        self.assertEqual(payload["install_share_url"], "https://app.example/s/share")
         self.assertEqual(payload["vpn_connection_status"], "connected")
         self.assertEqual(payload["last_vpn_connected_at"], "2026-06-05T12:00:00+00:00")
         panel_service.get_user_by_uuid.assert_awaited_once_with("panel-from-sub")
+        install_links.assert_awaited_once()
+        self.assertIs(install_links.await_args.kwargs["local_subscription"], active_sub)
 
 
 if __name__ == "__main__":

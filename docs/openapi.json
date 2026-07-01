@@ -8345,6 +8345,12 @@
                         }
                       ]
                     },
+                    "install_share_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "last_vpn_connected_at": {
                       "type": [
                         "string",
@@ -8443,6 +8449,7 @@
                     "recent_payments",
                     "log_count",
                     "subscription_url",
+                    "install_share_url",
                     "last_vpn_connected_at",
                     "vpn_connection_status",
                     "referral"

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.middlewares.i18n import JsonI18n
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.utils.install_links import ensure_user_install_guide_share_url
 from bot.utils.telegram_markup import (
     is_profile_link_error,
     remove_profile_link_buttons,
@@ -354,7 +355,7 @@ async def format_user_card(
     except Exception as e:
         logging.error(f"Error getting user statistics for {user.user_id}: {e}")
 
-    # Links section: subscription page + both referral links.
+    # Links section: subscription page + install guide + both referral links.
     link_lines: list[str] = []
 
     # Subscription URL — the user's panel-issued config link.
@@ -369,6 +370,24 @@ async def format_user_card(
         except Exception as exc_sub:
             logging.warning(
                 "Failed to fetch subscriptionUrl for user %s: %s", user.user_id, exc_sub
+            )
+
+    # Install guide public share link from the Mini App.
+    if settings is not None:
+        try:
+            install_share_url = await ensure_user_install_guide_share_url(
+                session,
+                settings,
+                user.user_id,
+                user.panel_user_uuid,
+            )
+            if install_share_url:
+                link_lines.append(f"{_('admin_user_install_share_link_label')} {install_share_url}")
+        except Exception as exc_install:
+            logging.warning(
+                "Failed to build install guide share link for user %s: %s",
+                user.user_id,
+                exc_install,
             )
 
     # Referral links — bot deep-link + webapp deep-link.

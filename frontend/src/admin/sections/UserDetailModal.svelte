@@ -555,7 +555,7 @@
             </li>
           </ul>
 
-          {#if openedUserDetail.subscription_url || openedUserDetail.referral?.bot_link || openedUserDetail.referral?.webapp_link}
+          {#if openedUserDetail.subscription_url || openedUserDetail.install_share_url || openedUserDetail.referral?.bot_link || openedUserDetail.referral?.webapp_link}
             <div class="admin-subsection-title">{at("user_section_links", {}, "Ссылки")}</div>
             <div class="admin-link-list">
               {#if openedUserDetail.subscription_url}
@@ -581,6 +581,35 @@
                       usersStore.copyToClipboard(
                         openedUserDetail.subscription_url,
                         at("user_sub_link_copied", {}, "Ссылка на подписку скопирована")
+                      )}
+                  >
+                    <Copy size={14} />
+                  </AdminButton>
+                </div>
+              {/if}
+              {#if openedUserDetail.install_share_url}
+                <div class="admin-link-row">
+                  <div class="admin-link-row-meta">
+                    <span class="admin-link-row-label"
+                      >{at("user_label_install_share", {}, "Install guide")}</span
+                    >
+                    <a
+                      class="admin-link-row-url"
+                      href={openedUserDetail.install_share_url}
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      {openedUserDetail.install_share_url}
+                    </a>
+                  </div>
+                  <AdminButton
+                    size="icon"
+                    variant="icon"
+                    title={at("user_copy_tooltip", {}, "Copy")}
+                    onclick={() =>
+                      usersStore.copyToClipboard(
+                        openedUserDetail.install_share_url,
+                        at("user_install_share_link_copied", {}, "Install guide link copied")
                       )}
                   >
                     <Copy size={14} />

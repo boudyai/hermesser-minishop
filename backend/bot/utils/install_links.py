@@ -38,6 +38,41 @@ def bot_install_guide_url(settings: Settings) -> Optional[str]:
     return install_url if isinstance(install_url, str) else None
 
 
+def install_guide_share_links_enabled(settings: Settings) -> bool:
+    return bool(
+        subscription_guides_available(settings) and subscription_mini_app_install_url(settings)
+    )
+
+
+async def ensure_user_install_guide_share_url(
+    session: AsyncSession,
+    settings: Settings,
+    user_id: int,
+    panel_user_uuid: Optional[str] = None,
+    local_subscription: Optional[Any] = None,
+) -> Optional[str]:
+    if not install_guide_share_links_enabled(settings):
+        return None
+
+    try:
+        local_sub = (
+            local_subscription
+            if local_subscription is not None
+            else await subscription_dal.get_active_subscription_by_user_id(
+                session,
+                user_id,
+                panel_user_uuid,
+            )
+        )
+        if local_sub is None:
+            return None
+        share_token = await subscription_dal.ensure_install_share_token(session, local_sub)
+        return subscription_public_install_url(settings, share_token)
+    except Exception:
+        logging.exception("Failed to resolve install guide share link for user %s.", user_id)
+        return None
+
+
 async def ensure_user_install_guide_links(
     session: AsyncSession,
     settings: Settings,
@@ -49,23 +84,13 @@ async def ensure_user_install_guide_links(
     if not personal_url:
         return InstallGuideLinks()
 
-    public_share_url = None
-    try:
-        local_sub = (
-            local_subscription
-            if local_subscription is not None
-            else await subscription_dal.get_active_subscription_by_user_id(
-                session,
-                user_id,
-                panel_user_uuid,
-            )
-        )
-        if local_sub is not None:
-            share_token = await subscription_dal.ensure_install_share_token(session, local_sub)
-            public_share_url = subscription_public_install_url(settings, share_token)
-    except Exception:
-        logging.exception("Failed to resolve install guide share link for user %s.", user_id)
-
+    public_share_url = await ensure_user_install_guide_share_url(
+        session,
+        settings,
+        user_id,
+        panel_user_uuid,
+        local_subscription=local_subscription,
+    )
     return InstallGuideLinks(personal_url=personal_url, public_share_url=public_share_url)
 
 

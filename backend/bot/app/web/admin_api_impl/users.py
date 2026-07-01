@@ -128,6 +128,7 @@ register_contract(
                 "recent_payments": {"type": "array", "items": schema_ref(PaymentOut)},
                 "log_count": INTEGER_SCHEMA,
                 "subscription_url": NULLABLE_STRING_SCHEMA,
+                "install_share_url": NULLABLE_STRING_SCHEMA,
                 "last_vpn_connected_at": NULLABLE_STRING_SCHEMA,
                 "vpn_connection_status": STRING_SCHEMA,
                 "referral": {

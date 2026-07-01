@@ -103,6 +103,20 @@ def test_extend_tariff_current_badge_is_localized():
         assert messages["admin_user_tariff_current_badge"]
 
 
+def test_user_detail_links_include_install_share_link():
+    source = _source()
+
+    assert "openedUserDetail.install_share_url" in source
+    assert "user_label_install_share" in source
+    assert "user_install_share_link_copied" in source
+
+    for language in ("ru", "en"):
+        messages = json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text("utf-8"))
+        assert messages["admin_user_install_share_link_label"]
+        assert messages["admin_user_label_install_share"]
+        assert messages["admin_user_install_share_link_copied"]
+
+
 def test_action_save_buttons_require_dirty_valid_state():
     source = _actions_source()
 
