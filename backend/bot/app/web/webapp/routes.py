@@ -70,6 +70,10 @@ from .devices import (
     devices_route,
     disconnect_device_route,
 )
+from .env import (
+    env_route,
+    env_update_route,
+)
 from .guides import (
     public_subscription_guides_route,
     subscription_guides_route,
@@ -191,6 +195,8 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/api/devices", devices_route)
     app.router.add_post("/api/devices/disconnect", disconnect_device_route)
     app.router.add_get("/api/devices/topup-options", device_topup_options_route)
+    app.router.add_get("/api/env", env_route)
+    app.router.add_put("/api/env", env_update_route)
     app.router.add_get("/api/support/tickets", support_tickets_route)
     app.router.add_post("/api/support/tickets", support_create_ticket_route)
     app.router.add_get("/api/support/tickets/{id:\\d+}", support_ticket_detail_route)

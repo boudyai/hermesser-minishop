@@ -223,3 +223,31 @@ class HermesProvisioningService(PanelApiService):
         self, squad_uuid: str, user_uuids: List[str]
     ) -> bool:
         return True
+
+    # ============================================
+    # Env editor (shop API)
+    # ============================================
+
+    async def get_user_env(self, tenant_id: str) -> str:
+        session = await self._core_get_session()
+        async with session.get(
+            f"{self._core_base_url}/shop/tenants/{tenant_id}/env"
+        ) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                return data.get("env_content", "")
+            log.error("GET /shop/tenants/%s/env failed: %s", tenant_id, resp.status)
+            return ""
+
+    async def set_user_env(self, tenant_id: str, content: str) -> bool:
+        session = await self._core_get_session()
+        async with session.put(
+            f"{self._core_base_url}/shop/tenants/{tenant_id}/env",
+            json={"env_content": content},
+        ) as resp:
+            if resp.status == 200:
+                log.info("Env updated for tenant %s", tenant_id)
+                return True
+            body = await resp.text()
+            log.error("PUT /shop/tenants/%s/env failed: %s %s", tenant_id, resp.status, body[:200])
+            return False

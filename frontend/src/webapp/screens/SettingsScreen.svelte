@@ -15,6 +15,7 @@
   import { AttentionDot } from "$components/ui/index.js";
   import { LanguageSelect } from "$components/patterns/webapp/index.js";
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
+  import EnvEditor from "../components/EnvEditor.svelte";
 
   type AnyRecord = Record<string, any>;
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -128,6 +129,7 @@
       <small>{profileTelegramId}</small>
     </div>
   </Card>
+  <EnvEditor {t} />
   {#if telegramNotificationsNeedPrompt}
     <TelegramNotificationsBanner
       startLink={telegramNotificationsStartLink}
