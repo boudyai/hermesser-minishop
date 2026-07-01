@@ -109,6 +109,12 @@ class WebAppEnvUpdatePayload(BaseModel):
     env_content: str = ""
 
 
+class WebAppBotTokenPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    bot_token: BotTokenString
+
+
 class WebAppPaymentCreatePayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 

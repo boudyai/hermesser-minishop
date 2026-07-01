@@ -104,6 +104,11 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
             )
             return None, None, None, False
 
+        # Fallback: if no bot_token was passed explicitly (e.g. paid flow),
+        # use the one the user stored via PUT /api/account/bot_token.
+        if not bot_token:
+            bot_token = getattr(db_user, "pending_bot_token", None) or None
+
         current_local_panel_uuid = db_user.panel_user_uuid
         panel_username_on_panel_standard = await self._panel_username_for_user(session, db_user)
         telegram_id_for_panel = self._telegram_id_for_panel(db_user)

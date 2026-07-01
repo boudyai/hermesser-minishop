@@ -256,6 +256,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             "subscription_guides_enabled": subscription_guides_available(settings),
             "email_auth_enabled": settings.email_auth_configured,
             "panel_write_mode": str(getattr(settings.panel_settings, "write_mode", "") or ""),
+            "has_bot_token": bool(getattr(db_user, "pending_bot_token", None)),
         },
     }
 

@@ -218,6 +218,11 @@ async def activate_trial_route(request: web.Request) -> web.Response:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
             return _json_error(403, "access_denied", "Access denied")
+
+        # In hermes mode, fall back to the stored pending token if body didn't carry one.
+        effective_token = trial_payload.bot_token
+        if not effective_token:
+            effective_token = getattr(db_user, "pending_bot_token", None) or None
         lang = _normalize_language(
             getattr(db_user, "language_code", None) or settings.DEFAULT_LANGUAGE
         )
@@ -229,9 +234,9 @@ async def activate_trial_route(request: web.Request) -> web.Response:
                 telegram_required_reason,
             )
 
-        if trial_payload.bot_token:
+        if effective_token:
             activation_result = await subscription_service.activate_trial_subscription(
-                session, user_id, bot_token=trial_payload.bot_token
+                session, user_id, bot_token=effective_token
             )
         else:
             activation_result = await subscription_service.activate_trial_subscription(

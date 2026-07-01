@@ -4631,6 +4631,21 @@
         "title": "WebAppAutoRenewPayload",
         "type": "object"
       },
+      "WebAppBotTokenPayload": {
+        "properties": {
+          "bot_token": {
+            "maxLength": 256,
+            "minLength": 10,
+            "title": "Bot Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bot_token"
+        ],
+        "title": "WebAppBotTokenPayload",
+        "type": "object"
+      },
       "WebAppDeviceDisconnectPayload": {
         "properties": {
           "token": {
@@ -5461,6 +5476,59 @@
           }
         ],
         "summary": "Account Avatar",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/bot_token": {
+      "put": {
+        "operationId": "put_account_bot_token_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppBotTokenPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "bot_username": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "bot_username"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Bot Token",
         "tags": [
           "account"
         ]
@@ -10858,6 +10926,9 @@
                       "additionalProperties": false,
                       "properties": {
                         "email_auth_enabled": {
+                          "type": "boolean"
+                        },
+                        "has_bot_token": {
                           "type": "boolean"
                         },
                         "my_devices_enabled": {

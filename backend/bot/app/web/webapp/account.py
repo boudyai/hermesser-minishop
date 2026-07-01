@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+import aiohttp
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
 
@@ -45,6 +46,7 @@ from .common import (
     _telegram_id_for_user,
 )
 from .payloads import (
+    WebAppBotTokenPayload,
     WebAppEmailCodePayload,
     WebAppEmailPayload,
     WebAppLanguagePayload,
@@ -485,6 +487,43 @@ async def account_language_route(request: web.Request) -> web.Response:
 
     await _invalidate_webapp_user_caches(settings, user_id)
     return json_response({"ok": True, "language": language})
+
+
+async def account_bot_token_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    settings: Settings = get_settings(request)
+    body = await _parse_model_payload(request, WebAppBotTokenPayload)
+    token = body.bot_token.strip()
+
+    if not token or ":" not in token or not token.split(":", 1)[0].isdigit():
+        return _json_error(400, "invalid_bot_token", "Invalid bot token format")
+
+    # Validate via Telegram getMe — rejects dead/revoked tokens before we store them.
+    try:
+        async with aiohttp.ClientSession() as http_session:
+            async with http_session.get(
+                f"https://api.telegram.org/bot{token}/getMe",
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                data = await resp.json()
+                if not data.get("ok"):
+                    return _json_error(400, "invalid_bot_token", "Telegram rejected this token")
+                bot_username = data.get("result", {}).get("username", "")
+    except Exception:
+        logger.exception("getMe validation failed for user %s", user_id)
+        return _json_error(502, "telegram_check_failed", "Could not verify token with Telegram")
+
+    async_session_factory: sessionmaker = get_session_factory(request)
+    async with async_session_factory() as session:
+        db_user = await user_dal.get_user_by_id(session, user_id)
+        if not db_user or db_user.is_banned:
+            await session.rollback()
+            return _json_error(403, "access_denied", "Access denied")
+        db_user.pending_bot_token = token
+        await session.commit()
+
+    await _invalidate_webapp_user_caches(settings, user_id)
+    return json_response({"ok": True, "bot_username": bot_username})
 
 
 def _telegram_photo_url_value(telegram_user: Dict[str, Any]) -> Optional[str]:

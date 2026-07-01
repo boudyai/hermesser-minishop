@@ -6,6 +6,7 @@ from bot.app.web.admin_api_impl.routes import (
 
 from .account import (
     account_avatar_route,
+    account_bot_token_route,
     account_email_request_route,
     account_email_verify_route,
     account_language_route,
@@ -178,6 +179,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     )
     app.router.add_get("/api/account/avatar", account_avatar_route)
     app.router.add_post("/api/account/language", account_language_route)
+    app.router.add_put("/api/account/bot_token", account_bot_token_route)
     app.router.add_post("/api/account/email/request", account_email_request_route)
     app.router.add_post("/api/account/email/verify", account_email_verify_route)
     app.router.add_post("/api/account/password/request", account_password_request_route)

@@ -21,6 +21,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/account/bot_token": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Account Bot Token */
+    put: operations["put_account_bot_token_route"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/account/email/request": {
     parameters: {
       query?: never;
@@ -3554,6 +3571,11 @@ export interface components {
       /** Enabled */
       enabled: boolean;
     };
+    /** WebAppBotTokenPayload */
+    WebAppBotTokenPayload: {
+      /** Bot Token */
+      bot_token: string;
+    };
     /** WebAppDeviceDisconnectPayload */
     WebAppDeviceDisconnectPayload: {
       /** Token */
@@ -3970,6 +3992,34 @@ export interface operations {
         };
         content: {
           "image/jpeg": string;
+        };
+      };
+    };
+  };
+  put_account_bot_token_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppBotTokenPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            bot_username: string;
+            /** @constant */
+            ok: true;
+          };
         };
       };
     };
@@ -6411,6 +6461,7 @@ export interface operations {
             };
             settings: {
               email_auth_enabled?: boolean;
+              has_bot_token?: boolean;
               my_devices_enabled?: boolean;
               panel_write_mode?: string;
               server_status_url?: string | null;

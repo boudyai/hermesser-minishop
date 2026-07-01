@@ -1330,6 +1330,13 @@ def _migration_0041_add_bonus_payment_mode_flag(connection: Connection) -> None:
         )
 
 
+def _migration_0042_add_pending_bot_token(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns: Set[str] = {col["name"] for col in inspector.get_columns("users")}
+    if "pending_bot_token" not in columns:
+        connection.execute(text("ALTER TABLE users ADD COLUMN pending_bot_token TEXT"))
+
+
 MIGRATIONS: List[Migration] = [
     Migration(
         id="0001_add_channel_subscription_fields",
@@ -1533,8 +1540,13 @@ MIGRATIONS: List[Migration] = [
     ),
     Migration(
         id="0041_add_bonus_payment_mode_flag",
-        description="Choose whether bonus days are granted immediately or after payment",
+        description="Add bonus_requires_payment flag to promo_codes",
         upgrade=_migration_0041_add_bonus_payment_mode_flag,
+    ),
+    Migration(
+        id="0042_add_pending_bot_token",
+        description="Add pending_bot_token column to users for Hermes tenant provisioning",
+        upgrade=_migration_0042_add_pending_bot_token,
     ),
 ]
 

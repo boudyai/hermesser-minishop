@@ -18,6 +18,7 @@ from .contract_schemas import (
     user_contract,
 )
 from .payloads import (
+    WebAppBotTokenPayload,
     WebAppEmailCodeAuthPayload,
     WebAppEmailMagicAuthPayload,
     WebAppEmailPasswordPayload,
@@ -107,5 +108,9 @@ AUTH_ROUTE_CONTRACTS: dict[str, RouteContract] = {
     "env_update_route": user_contract(
         request_model=WebAppEnvUpdatePayload,
         response_schema=ok_envelope_with(),
+    ),
+    "account_bot_token_route": user_contract(
+        request_model=WebAppBotTokenPayload,
+        response_schema=ok_envelope_with({"bot_username": STRING_SCHEMA}),
     ),
 }
