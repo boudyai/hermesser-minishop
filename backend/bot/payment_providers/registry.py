@@ -3,20 +3,20 @@ from __future__ import annotations
 from typing import Any, Dict, Iterable, List, Mapping, Optional, cast
 
 from . import (
-    cloudpayments,
-    cryptopay,
-    freekassa,
-    heleket,
-    lava,
-    pally,
-    paykilla,
+    cloudpayments,  # noqa: F401  # side-effect: registers provider spec on import
+    cryptopay,  # noqa: F401  # side-effect: registers provider spec on import
+    freekassa,  # noqa: F401  # side-effect: registers provider spec on import
+    heleket,  # noqa: F401  # side-effect: registers provider spec on import
+    lava,  # noqa: F401  # side-effect: registers provider spec on import
+    pally,  # noqa: F401  # side-effect: registers provider spec on import
+    paykilla,  # noqa: F401  # side-effect: registers provider spec on import
     platega,
-    qa,
-    severpay,
-    stars,
-    stripe,
-    wata,
-    yookassa,
+    qa,  # noqa: F401  # side-effect: registers provider spec on import
+    severpay,  # noqa: F401  # side-effect: registers provider spec on import
+    stars,  # noqa: F401  # side-effect: registers provider spec on import
+    stripe,  # noqa: F401  # side-effect: registers provider spec on import
+    wata,  # noqa: F401  # side-effect: registers provider spec on import
+    yookassa,  # noqa: F401  # side-effect: registers provider spec on import
 )
 from .base import (
     PaymentProviderPresentation,
@@ -27,9 +27,7 @@ from .base import (
 )
 from .shared import RecurringProviderService
 
-PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (
-    platega.SBP_SPEC,
-)
+PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (platega.SBP_SPEC,)
 
 
 # Provider configs (env-loaded BaseSettings models) live here as a process-wide

@@ -14,9 +14,9 @@ from bot.payment_providers import (
 from bot.payment_providers.shared import RecurringProviderService
 from bot.services.audience_segmentation import AudienceSegmentationService
 from bot.services.email_auth_service import EmailAuthService
+from bot.services.hermes_provisioning_service import HermesProvisioningService
 from bot.services.notification_service import NotificationService
 from bot.services.outbound_messaging import OutboundMessagingService
-from bot.services.hermes_provisioning_service import HermesProvisioningService
 from bot.services.panel_api_service import PanelApiService
 from bot.services.panel_dry_run_api_service import PanelDryRunApiService
 from bot.services.panel_webhook_service import PanelWebhookService
