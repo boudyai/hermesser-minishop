@@ -38,8 +38,9 @@ def get_main_menu_inline_keyboard(
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
     support_link = settings.support_settings.link
+    is_hermes = str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
 
-    if show_trial_button and settings.TRIAL_ENABLED:
+    if show_trial_button and settings.TRIAL_ENABLED and not is_hermes:
         builder.row(_trial_activation_button(lang, i18n_instance, settings))
 
     if settings.SUBSCRIPTION_MINI_APP_URL:
@@ -57,14 +58,29 @@ def get_main_menu_inline_keyboard(
             )
         )
 
-    if telegram_bot_menu_enabled_for_user(settings, user_id=user_id, is_admin=is_admin):
+    # ponytail: in hermes mode the main menu offers tenant management directly
+    # (status / logs / restart / suspend / delete) so users never have to open
+    # the Mini App. In proxy mode the menu is unchanged.
+    if is_hermes:
+        builder.row(
+            InlineKeyboardButton(text="📊 Статус", callback_data="tenant:status"),
+            InlineKeyboardButton(text="📋 Логи", callback_data="tenant:logs"),
+        )
+        builder.row(
+            InlineKeyboardButton(text="🔧 Токен бота", callback_data="main_action:set_token"),
+        )
+
+    if (
+        telegram_bot_menu_enabled_for_user(settings, user_id=user_id, is_admin=is_admin)
+        and not is_hermes
+    ):
         builder.row(
             InlineKeyboardButton(
                 text=_(key="menu_bot_interface_button"), callback_data="main_action:bot_interface"
             )
         )
 
-    if settings.SERVER_STATUS_URL:
+    if settings.SERVER_STATUS_URL and not is_hermes:
         builder.row(
             InlineKeyboardButton(
                 text=_(key="menu_server_status_button"), url=settings.SERVER_STATUS_URL
@@ -74,7 +90,7 @@ def get_main_menu_inline_keyboard(
     if support_link:
         builder.row(InlineKeyboardButton(text=_(key="menu_support_button"), url=support_link))
 
-    if settings.PRIVACY_POLICY_URL or settings.USER_AGREEMENT_URL:
+    if (settings.PRIVACY_POLICY_URL or settings.USER_AGREEMENT_URL) and not is_hermes:
         builder.row(
             InlineKeyboardButton(text=_(key="menu_info_button"), callback_data="main_action:info")
         )

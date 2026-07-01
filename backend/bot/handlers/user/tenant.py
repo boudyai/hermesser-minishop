@@ -271,6 +271,29 @@ async def token_command(
     await state.set_state(TokenFSM.waiting_for_token)
 
 
+@router.callback_query(F.data == "main_action:set_token")
+async def set_token_callback(
+    callback: types.CallbackQuery,
+    state: FSMContext,
+    settings: Settings,
+) -> None:
+    if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
+        await callback.answer()
+        return
+    await state.set_state(TokenFSM.waiting_for_token)
+    text = (
+        "🔧 Введите токен вашего бота из @BotFather:\n\n"
+        "Формат: 123456789:ABCdef...\n\n"
+        "Создайте бота: откройте @BotFather → /newbot"
+    )
+    if callback.message:
+        try:
+            await callback.message.edit_text(text)
+        except Exception:
+            pass
+    await callback.answer()
+
+
 @router.message(StateFilter(TokenFSM.waiting_for_token))
 async def token_input(
     message: types.Message,
