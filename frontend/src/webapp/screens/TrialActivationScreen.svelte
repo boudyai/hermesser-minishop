@@ -196,6 +196,16 @@
             "Создайте бота через @BotFather и вставьте сюда его токен. Бот будет принимать сообщения от ваших клиентов."
           )}
         </p>
+        <details style="margin: 0 0 10px; font-size: 12px; color: var(--muted);">
+          <summary style="cursor: pointer;">Как получить токен (пошагово)?</summary>
+          <ol style="padding-left: 20px; margin: 6px 0 0;">
+            <li>Откройте <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> в Telegram</li>
+            <li>Отправьте команду <code>/newbot</code></li>
+            <li>Задайте имя и @username бота</li>
+            <li>Скопируйте токен вида <code>123456789:ABCdef...</code></li>
+            <li>Вставьте его в поле ниже</li>
+          </ol>
+        </details>
         <label class="trial-token-input">
           <span>{t("wa_trial_bot_token_label", {}, "BotFather token")}</span>
           <input

@@ -77,7 +77,15 @@ async def send_main_menu(
         settings, subscription_service, session, user_id
     )
 
-    text = _(key="main_menu_greeting", user_name=user_full_name)
+    is_hermes = str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
+    if is_hermes:
+        text = (
+            f"Привет, {user_full_name}! 👋\n\n"
+            "Я хостю AI-ботов для Telegram. Управляйте своим агентом через кнопки ниже "
+            "или откройте Личный кабинет."
+        )
+    else:
+        text = _(key="main_menu_greeting", user_name=user_full_name)
     reply_markup = get_main_menu_inline_keyboard(
         current_lang,
         i18n,

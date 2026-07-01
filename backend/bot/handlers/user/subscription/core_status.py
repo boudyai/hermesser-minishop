@@ -416,7 +416,12 @@ async def my_subscription_command_handler(
                 ]
             )
 
-        if settings.tariffs_config and local_sub and local_sub.tariff_key:
+        if (
+            settings.tariffs_config
+            and local_sub
+            and local_sub.tariff_key
+            and str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes"
+        ):
             tariff_actions = []
             if _has_multiple_enabled_tariffs(settings):
                 tariff_actions.append(
