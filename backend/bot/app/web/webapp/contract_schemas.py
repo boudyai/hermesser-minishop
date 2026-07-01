@@ -342,6 +342,13 @@ WEBAPP_SUBSCRIPTION_SCHEMA: dict[str, Any] = {
         "auto_renew_can_enable": BOOLEAN_SCHEMA,
         "auto_renew_provider_label": NULLABLE_STRING_SCHEMA,
         "provider": NULLABLE_STRING_SCHEMA,
+        # Hermes-mode tenant lifecycle state (provisioning-core side).
+        # Always present so the contract is stable; null in non-hermes mode
+        # or when the user has no panel_user_uuid yet.
+        "tenant_status": NULLABLE_STRING_SCHEMA,
+        "tenant_desired_state": NULLABLE_STRING_SCHEMA,
+        "tenant_actual_state": NULLABLE_STRING_SCHEMA,
+        "tenant_last_state_change": NULLABLE_STRING_SCHEMA,
     },
 }
 REFERRAL_BONUS_DETAIL_SCHEMA: dict[str, Any] = {

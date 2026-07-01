@@ -388,7 +388,7 @@
     {/if}
 
     {#if !subscription.active}
-      <OnboardingWizard {appSettings} />
+      <OnboardingWizard {appSettings} {subscription} />
     {/if}
 
     {#if subscription.active}

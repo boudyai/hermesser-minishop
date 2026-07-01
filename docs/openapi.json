@@ -11237,6 +11237,30 @@
                             "null"
                           ]
                         },
+                        "tenant_actual_state": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "tenant_desired_state": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "tenant_last_state_change": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "tenant_status": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "tier_baseline_bytes": {
                           "type": [
                             "integer",

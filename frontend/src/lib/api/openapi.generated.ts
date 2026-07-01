@@ -6634,6 +6634,10 @@ export interface operations {
               tariff_description?: string | null;
               tariff_key?: string | null;
               tariff_name?: string | null;
+              tenant_actual_state?: string | null;
+              tenant_desired_state?: string | null;
+              tenant_last_state_change?: string | null;
+              tenant_status?: string | null;
               tier_baseline_bytes?: number | null;
               topup_balance_bytes?: number | null;
               traffic_limit?: string;

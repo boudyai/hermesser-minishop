@@ -169,6 +169,24 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
         getattr(db_user, "telegram_notifications_status", None)
     )
     telegram_notifications_link = telegram_notifications_start_link(get_bot_username(request))
+
+    # Best-effort: in hermes mode pull the tenant's runtime state from
+    # provisioning-core. The service caches for 5s, so a single page load
+    # is one core hit at most. Failure to fetch is non-fatal — we surface
+    # null fields and the UI falls back to its no-state copy.
+    tenant_state: Optional[Dict[str, Any]] = None
+    panel_service = getattr(subscription_service, "panel_service", None)
+    if (
+        str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
+        and db_user.panel_user_uuid
+        and panel_service is not None
+        and hasattr(panel_service, "get_tenant_state")
+    ):
+        try:
+            tenant_state = await panel_service.get_tenant_state(str(db_user.panel_user_uuid))
+        except Exception as exc:  # noqa: BLE001 — best-effort
+            logger.debug("hermes tenant state fetch failed: %s", exc)
+            tenant_state = None
     return {
         "user": {
             "id": user_id,
@@ -198,6 +216,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             local_sub,
             lang,
             install_share_token=install_share_token,
+            tenant_state=tenant_state,
         ),
         "referral": {
             "code": referral_code,
@@ -377,6 +396,7 @@ def _serialize_subscription(
     lang: Optional[str] = None,
     *,
     install_share_token: Optional[str] = None,
+    tenant_state: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     if lang is None:
         request = None
@@ -390,6 +410,13 @@ def _serialize_subscription(
         active = active_or_local_sub
         local_sub = local_sub_or_lang
 
+    # Ponytail: in hermes mode the runtime tenant lifecycle (provisioning_vm,
+    # payment_expiring, error, …) is owned by provisioning-core, not the
+    # shop-side Subscription row. The async call site in _build_user_payload
+    # fetches it once and threads it through here; the sync call site in
+    # tests passes ``tenant_state=None`` and gets stable null fields back.
+    tenant_runtime_fields = _tenant_runtime_fields(tenant_state)
+
     if not active:
         return {
             "active": False,
@@ -401,6 +428,7 @@ def _serialize_subscription(
             "panel_short_uuid": None,
             "install_share_token": None,
             "install_share_url": None,
+            **tenant_runtime_fields,
         }
 
     end_date = active.get("end_date")
@@ -552,6 +580,29 @@ def _serialize_subscription(
         "auto_renew_can_enable": bool(auto_renew_supported and auto_renew_service_active),
         "auto_renew_provider_label": auto_renew_provider_label,
         "provider": getattr(local_sub, "provider", None),
+        **tenant_runtime_fields,
+    }
+
+
+def _tenant_runtime_fields(state: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Project a tenant runtime state dict into the subscription payload shape.
+
+    All fields are nullable: when the panel service can't be reached or the
+    tenant doesn't exist yet (e.g. mid-trial before provisioning), we surface
+    ``None`` rather than omit them so the contract stays stable.
+    """
+    if not state:
+        return {
+            "tenant_status": None,
+            "tenant_desired_state": None,
+            "tenant_actual_state": None,
+            "tenant_last_state_change": None,
+        }
+    return {
+        "tenant_status": str(state.get("status") or "unknown"),
+        "tenant_desired_state": state.get("desired_state"),
+        "tenant_actual_state": state.get("actual_state"),
+        "tenant_last_state_change": state.get("last_state_change"),
     }
 
 

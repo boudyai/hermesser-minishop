@@ -13,6 +13,7 @@ See initial-docs/minishop-integration-map.md §1/§3 for the full method map.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any, Dict, List, Optional
 from uuid import NAMESPACE_DNS, uuid5
 
@@ -43,6 +44,11 @@ class HermesProvisioningService(PanelApiService):
         self._core_base_url = (self.base_url or "").rstrip("/")
         self._core_api_key = self.api_key or ""
         self._core_session: Optional[aiohttp.ClientSession] = None
+        # Tenant-state cache: 5s TTL is short enough that the UI reflects
+        # in-flight provisioning jobs within a few seconds, while keeping
+        # the per-page-load cost at one core hit per tenant.
+        self._tenant_state_cache: Dict[str, tuple[float, Dict[str, Any]]] = {}
+        self._tenant_state_ttl_seconds: float = 5.0
 
     async def _core_get_session(self) -> aiohttp.ClientSession:
         if self._core_session is None or self._core_session.closed:
@@ -315,3 +321,53 @@ class HermesProvisioningService(PanelApiService):
             f"{self._core_base_url}/shop/tenants/{tenant_id}/logs/refresh"
         ) as resp:
             return resp.status == 202
+
+    async def get_tenant_state(self, tenant_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch tenant runtime state from provisioning-core with short TTL cache.
+
+        Returns None if the tenant doesn't exist (404) or the core is unreachable
+        AND no cache is available. Returns a dict with: tenant_id, status,
+        desired_state, actual_state, last_state_change (ISO 8601 string or None).
+        Used by the webapp serializer to drive the in-progress / error /
+        grace-period UI states on HomeScreen.
+        """
+        now = time.monotonic()
+        cached = self._tenant_state_cache.get(tenant_id)
+        if cached is not None and (now - cached[0]) < self._tenant_state_ttl_seconds:
+            return cached[1]
+        try:
+            session = await self._core_get_session()
+        except Exception as exc:  # noqa: BLE001 — best-effort cache
+            log.warning("Tenant state fetch — session build failed for %s: %s", tenant_id, exc)
+            return cached[1] if cached is not None else None
+        try:
+            async with session.get(f"{self._core_base_url}/shop/tenants/{tenant_id}") as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    last_change = data.get("last_state_change")
+                    result: Dict[str, Any] = {
+                        "tenant_id": str(data.get("tenant_id", tenant_id)),
+                        "status": str(data.get("status", "unknown") or "unknown"),
+                        "desired_state": str(data.get("desired_state", "unknown") or "unknown"),
+                        "actual_state": str(data.get("actual_state", "unknown") or "unknown"),
+                        "last_state_change": (last_change.isoformat() if last_change else None),
+                    }
+                    self._tenant_state_cache[tenant_id] = (now, result)
+                    return result
+                if resp.status == 404:
+                    # Don't cache 404 — tenant may be created imminently (trial).
+                    return None
+                log.error("GET /shop/tenants/%s failed: %s", tenant_id, resp.status)
+                return cached[1] if cached is not None else None
+        except aiohttp.ClientError as exc:
+            log.warning("Tenant state fetch network error for %s: %s", tenant_id, exc)
+            return cached[1] if cached is not None else None
+        except Exception as exc:  # noqa: BLE001 — defensive
+            log.warning("Tenant state fetch unexpected error for %s: %s", tenant_id, exc)
+            return cached[1] if cached is not None else None
+
+    def invalidate_tenant_state(self, tenant_id: str) -> None:
+        """Drop the cached tenant state for a given id. Call after restart / suspend /
+        activate / delete so the next page load reflects fresh state without waiting
+        for TTL expiry."""
+        self._tenant_state_cache.pop(tenant_id, None)
