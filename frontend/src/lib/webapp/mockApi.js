@@ -4,8 +4,15 @@ import SETTINGS_MANIFEST_SECTIONS from "./settingsManifest.generated.json";
 import { withDemoAvatar, withDemoAvatarDetail, withDemoAvatarTicket } from "./demoAvatars.js";
 import { structuredCloneSafe } from "../safeClone.js";
 import { readJsonScript } from "./browser.js";
+import {
+  compareNullableDate,
+  jsonBody,
+  paged,
+  queryParams,
+  stringDate,
+  writeDemoLanguage,
+} from "./demoMockRuntime.js";
 
-const DEMO_LANGUAGE_STORAGE_KEY = "rw_minishop_demo_language";
 const DEMO_I18N_SCRIPT_ID = "i18n";
 const DEMO_TRANSLATION_GROUP_RULES = [
   ["admin_appearance_", "admin_appearance"],
@@ -410,18 +417,6 @@ function demoProviderCurrencySupport() {
   ];
 }
 
-function queryParams(path) {
-  return new URLSearchParams(String(path || "").split("?")[1] || "");
-}
-
-function jsonBody(options) {
-  try {
-    return options?.body ? JSON.parse(String(options.body)) : {};
-  } catch {
-    return {};
-  }
-}
-
 function isDeviceTopupSaleMode(value) {
   return deviceTopupSaleModes.has(String(value || "").toLowerCase());
 }
@@ -720,38 +715,6 @@ function applyDemoDeviceTopup(deviceCount) {
   };
 }
 
-function writeDemoLanguage(language) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage?.setItem(DEMO_LANGUAGE_STORAGE_KEY, language);
-  } catch {
-    // Demo storage can be unavailable in private contexts; the in-memory mock still updates.
-  }
-}
-
-function paged(items, params, fallbackSize = 25) {
-  const total = items.length;
-  if (params.has("limit") || params.has("offset")) {
-    const limit = Math.max(1, Number(params.get("limit") || fallbackSize));
-    const offset = Math.max(0, Number(params.get("offset") || 0));
-    return {
-      items: items.slice(offset, offset + limit),
-      total,
-      page: Math.floor(offset / limit),
-      pageSize: limit,
-    };
-  }
-  const page = Math.max(0, Number(params.get("page") || 0));
-  const pageSize = Math.max(1, Number(params.get("page_size") || fallbackSize));
-  const start = page * pageSize;
-  return { items: items.slice(start, start + pageSize), total, page, pageSize };
-}
-
-function stringDate(value) {
-  const time = Date.parse(value || "");
-  return Number.isFinite(time) ? time : 0;
-}
-
 function userName(user) {
   return (
     [user?.first_name, user?.last_name].filter(Boolean).join(" ").trim() ||
@@ -790,15 +753,6 @@ function withDemoAdminUserMetrics(user) {
     invited_users_count: invitedCount,
     subscription_expires_at: subscriptionExpiresAt,
   };
-}
-
-function compareNullableDate(a, b, direction = "asc") {
-  const at = stringDate(a);
-  const bt = stringDate(b);
-  if (!at && !bt) return 0;
-  if (!at) return 1;
-  if (!bt) return -1;
-  return direction === "desc" ? bt - at : at - bt;
 }
 
 function withDemoAvatars(users, size = 96) {

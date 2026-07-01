@@ -1,11 +1,8 @@
 import { adminErrorMessage } from "../errors.js";
 import {
   unwrap,
-  type ApiResponse,
   type ApiClient,
-  type GetResponse,
   type PostPayload,
-  type PostResponse,
   buildAdminAdsPath,
   buildAdminAdPath,
   buildAdminAdTogglePath,
@@ -15,19 +12,12 @@ import { snapshotForPayload } from "./snapshotForPayload.svelte";
 import { defineRawStateProperty } from "./rawStateProperty";
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
-type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
-  path: Path,
-  options?: Parameters<ApiClient["api"]>[1]
-) => Promise<ApiResponse<Path> | AdminErrorResponse>;
+type AdminApi = ApiClient["api"];
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type Ad = components["schemas"]["AdOut"];
 type AdDraft = components["schemas"]["AdCreateBody"];
 type AdToggleBody = components["schemas"]["AdToggleBody"];
-type AdsListResponse = GetResponse<"/api/admin/ads">;
-type AdCreateResponse = PostResponse<"/api/admin/ads">;
-type AdDeleteResponse = Extract<ApiResponse<"/api/admin/ads/{campaign_id}">, { ok: true }>;
-type AdToggleResponse = Extract<ApiResponse<"/api/admin/ads/{campaign_id}/toggle">, { ok: true }>;
 type AdsState = {
   ads: Ad[];
   adsTotals: Record<string, number> | null;
@@ -74,7 +64,7 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
   async function loadAds(): Promise<void> {
     state.adsLoading = true;
     try {
-      const data = (await api(buildAdminAdsPath())) as AdsListResponse | AdminErrorResponse;
+      const data = await api(buildAdminAdsPath());
       if (isOkResponse(data)) {
         const payload = unwrap(data);
         ads = payload.campaigns || [];
@@ -89,10 +79,10 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
     const draft = snapshotForPayload(state.adDraft);
     if (!draft.source.trim() || !draft.start_param.trim()) return;
 
-    const res = (await api(buildAdminAdsPath(), {
+    const res = await api(buildAdminAdsPath(), {
       method: "POST",
       body: JSON.stringify(draft satisfies PostPayload<"/api/admin/ads">),
-    })) as AdCreateResponse | AdminErrorResponse;
+    });
 
     if (isOkResponse(res)) {
       onToast(at("ad_created", {}, "Кампания создана"));
@@ -108,10 +98,10 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
     const adSnapshot = snapshotForPayload(ad);
     const path = buildAdminAdTogglePath(adSnapshot.id);
     const body = { is_active: !adSnapshot.is_active } satisfies Partial<AdToggleBody>;
-    const res = (await api(path, {
+    const res = await api(path, {
       method: "POST",
       body: JSON.stringify(body),
-    })) as AdToggleResponse | AdminErrorResponse;
+    });
     if (isOkResponse(res)) {
       ads = ads.map((c) => (c.id === ad.id ? { ...c, is_active: !ad.is_active } : c));
     } else {
@@ -121,7 +111,7 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
 
   async function deleteAd(ad: Ad): Promise<void> {
     const path = buildAdminAdPath(ad.id);
-    const res = (await api(path, { method: "DELETE" })) as AdDeleteResponse | AdminErrorResponse;
+    const res = await api(path, { method: "DELETE" });
     if (isOkResponse(res)) {
       ads = ads.filter((c) => c.id !== ad.id);
       onToast(at("ad_deleted", {}, "Кампания удалена"));

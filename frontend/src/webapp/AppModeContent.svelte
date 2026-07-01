@@ -634,7 +634,9 @@
       openTelegramLogin={openLoginTelegram}
       {openExternalLink}
       {submitEmailOnEnter}
-      onBackToLogin={() => (screen = "login")}
+      onBackToLogin={() => {
+        screen = "login";
+      }}
       clearLoginEmailError={() => {
         loginEmailFieldError = "";
         loginEmailTooltipOpen = false;

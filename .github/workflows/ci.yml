@@ -58,6 +58,10 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=6144
 
+      - name: TypeScript typecheck
+        run: npm run typecheck:ts
+        working-directory: frontend
+
       - name: Check generated API types are in sync
         run: |
           npm run generate:api-types

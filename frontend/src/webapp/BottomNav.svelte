@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import {
     Gift,
     Home,
@@ -10,6 +10,29 @@
   import { AttentionDot } from "$components/ui/index.js";
 
   import BrandMark from "$lib/webapp/BrandMark.svelte";
+
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type Action = () => void;
+
+  type Props = {
+    activeTab?: string;
+    brand?: Record<string, unknown>;
+    brandTitle?: string;
+    devicesEnabled?: boolean;
+    hasUnlinkedIdentity?: boolean;
+    isAdmin?: boolean;
+    onAdmin?: Action;
+    onDevices?: Action;
+    onHome?: Action;
+    onInvite?: Action;
+    onSettings?: Action;
+    onSupport?: Action;
+    supportEnabled?: boolean;
+    supportUnreadCount?: number;
+    supportUnreadLoaded?: boolean;
+    supportUnreadLoading?: boolean;
+    t?: Translate;
+  };
 
   let {
     activeTab = "home",
@@ -29,7 +52,7 @@
     onSupport = () => {},
     onSettings = () => {},
     t = (key) => key,
-  } = $props();
+  }: Props = $props();
 
   const visibleNavItems = $derived(3 + (devicesEnabled ? 1 : 0) + (supportEnabled ? 1 : 0));
   const adminLabel = $derived(t("admin_nav_title", {}, "Админ-панель"));

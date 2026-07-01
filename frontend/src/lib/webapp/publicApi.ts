@@ -67,6 +67,16 @@ export type ApiResponse<Path extends string> =
   | JsonResponse<OperationFor<Path, "put">>
   | JsonResponse<OperationFor<Path, "patch">>
   | JsonResponse<OperationFor<Path, "delete">>;
+type MethodForOptions<Options> = Options extends { method?: infer Method }
+  ? Method extends string
+    ? Lowercase<Method> extends HttpMethod
+      ? Lowercase<Method>
+      : HttpMethod
+    : "get"
+  : "get";
+export type ApiResponseFor<Path extends string, Options = undefined> = JsonResponse<
+  OperationFor<Path, MethodForOptions<Options>>
+>;
 export type GetResponse<Path extends string> = JsonResponse<OperationFor<Path, "get">>;
 export type PostPayload<Path extends string> = JsonRequestBody<OperationFor<Path, "post">>;
 export type PostResponse<Path extends string> = JsonResponse<OperationFor<Path, "post">>;
@@ -197,7 +207,10 @@ function requestSignal(
 }
 
 export type ApiClient = {
-  api<Path extends ApiPathInput>(path: Path, options?: RequestInit): Promise<ApiResponse<Path>>;
+  api<Path extends ApiPathInput, Options extends RequestInit | undefined = undefined>(
+    path: Path,
+    options?: Options
+  ): Promise<ApiResponseFor<Path, Options>>;
   apiUnchecked(path: string, options?: RequestInit): Promise<Record<string, unknown>>;
   publicApi<Path extends ApiPathInput>(
     path: Path,
@@ -688,11 +701,11 @@ export function createApiClient({
     }
   }
 
-  async function api<Path extends ApiPathInput>(
-    path: Path,
-    options: RequestInit = {}
-  ): Promise<ApiResponse<Path>> {
-    return (await requestJson(path, options)) as ApiResponse<Path>;
+  async function api<
+    Path extends ApiPathInput,
+    Options extends RequestInit | undefined = undefined,
+  >(path: Path, options: Options = {} as Options): Promise<ApiResponseFor<Path, Options>> {
+    return (await requestJson(path, options)) as ApiResponseFor<Path, Options>;
   }
 
   async function apiUnchecked(

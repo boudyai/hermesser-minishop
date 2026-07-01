@@ -1,16 +1,27 @@
-export function formatTemplate(template, params = {}) {
+type TemplateParams = Record<string, unknown>;
+
+type TelegramProfile =
+  | (Record<string, unknown> & {
+      first_name?: unknown;
+      last_name?: unknown;
+      username?: unknown;
+    })
+  | null
+  | undefined;
+
+export function formatTemplate(template: unknown, params: TemplateParams = {}): string {
   const text = String(template ?? "");
   return text.replace(/\{(\w+)\}/g, (_, key) => String(params[key] ?? `{${key}}`));
 }
 
-export function formatMoney(value, currency = "RUB") {
+export function formatMoney(value: unknown, currency = "RUB"): string {
   const numeric = Number(value || 0);
   const formatted = Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(2);
   const symbol = currency === "RUB" ? "₽" : currency;
   return `${formatted} ${symbol}`;
 }
 
-export function formatTrafficGb(value) {
+export function formatTrafficGb(value: unknown): string {
   const numeric = Number(value || 0);
   const formatted = Number.isInteger(numeric)
     ? String(numeric)
@@ -18,35 +29,35 @@ export function formatTrafficGb(value) {
   return `${formatted} GB`;
 }
 
-export function formatTrafficBytes(value) {
+export function formatTrafficBytes(value: unknown): string {
   const gb = Number(value || 0) / 1073741824;
   return formatTrafficGb(gb);
 }
 
-export function formatCompactNumber(value) {
+export function formatCompactNumber(value: unknown): string {
   const numeric = Number(value || 0);
   return Number.isInteger(numeric)
     ? String(numeric)
     : numeric.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 }
 
-export function roundToHalf(value) {
+export function roundToHalf(value: unknown): number {
   return Math.round(Number(value || 0) * 2) / 2;
 }
 
-export function formatFraction(value) {
+export function formatFraction(value: unknown): string {
   const n = Number(value || 0);
   if (Number.isInteger(n)) return String(n);
   return n.toFixed(1);
 }
 
-export function normalizedEmail(value) {
+export function normalizedEmail(value: unknown): string {
   return String(value || "")
     .trim()
     .toLowerCase();
 }
 
-export function telegramName(profile, fallback) {
+export function telegramName(profile: TelegramProfile, fallback = ""): string {
   const username = String(profile?.username || "").trim();
   if (username) return `@${username}`;
   const first = String(profile?.first_name || "").trim();

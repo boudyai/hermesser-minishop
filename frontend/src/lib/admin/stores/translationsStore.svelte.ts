@@ -3,8 +3,7 @@ import {
   buildAdminTranslationsPath,
   unwrap,
   type ApiClient,
-  type ApiResponse,
-  type GetResponse,
+  type ApiResponseFor,
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
 import { defineRawStateProperty } from "./rawStateProperty";
@@ -17,18 +16,16 @@ type AdminErrorResponse = {
   detail?: string;
   errors?: Record<string, unknown>;
 };
-type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
+type AdminApi = <
+  Path extends Parameters<ApiClient["api"]>[0],
+  Options extends RequestInit | undefined = undefined,
+>(
   path: Path,
-  options?: Parameters<ApiClient["api"]>[1]
-) => Promise<ApiResponse<Path> | AdminErrorResponse>;
+  options?: Options
+) => Promise<ApiResponseFor<Path, Options> | AdminErrorResponse>;
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-type TranslationsResponse = GetResponse<"/api/admin/translations">;
 type TranslationsPatchPayload = components["schemas"]["AdminTranslationsPatchBody"];
-type TranslationsPatchResponse = Extract<
-  ApiResponse<"/api/admin/translations">,
-  { applied: number }
->;
 
 export type TranslationLanguage = {
   code: string;
@@ -187,8 +184,7 @@ export function createTranslationsStore({
   async function loadTranslations(): Promise<void> {
     updateState((s) => ({ ...s, translationsLoading: true, translationsDirty: {} }));
     try {
-      const data = (await api(buildAdminTranslationsPath())) as
-        TranslationsResponse | AdminErrorResponse;
+      const data = await api(buildAdminTranslationsPath());
       if (isOkResponse(data)) {
         const result = unwrap(data);
         updateState((s) => ({
@@ -274,10 +270,10 @@ export function createTranslationsStore({
         updates[change.lang][change.key] = change.value;
       }
       const payload: TranslationsPatchPayload = { updates, deletes };
-      const res = (await api(buildAdminTranslationsPath(), {
-        method: "PATCH",
+      const res = await api(buildAdminTranslationsPath(), {
+        method: "PATCH" as const,
         body: JSON.stringify(payload),
-      })) as TranslationsPatchResponse | AdminErrorResponse;
+      });
       if (isOkResponse(res)) {
         const result = unwrap(res);
         onToast(

@@ -1,4 +1,5 @@
-<script>
+<script lang="ts">
+  import type { LanguageOption } from "$lib/webapp/languageView.js";
   import {
     Check,
     ChevronsUpDown,
@@ -18,30 +19,82 @@
   import { StatusMessage } from "$components/patterns/webapp/index.js";
   import { shouldShowInviteOnlyHint } from "$lib/webapp/authHelpers.js";
 
+  type WebappConfig = Record<string, unknown> & {
+    emailAuthEnabled?: boolean;
+    registrationInviteOnlyEnabled?: boolean;
+  };
+  type Brand = Record<string, unknown>;
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type Action = () => void | Promise<void>;
+
+  type Props = {
+    authBusy?: boolean;
+    authIsError?: boolean;
+    authResendCooldown?: number;
+    authStatus?: string;
+    brand?: Brand;
+    brandTitle?: string;
+    CFG: WebappConfig;
+    clearLoginEmailError: (event?: Event) => void;
+    currentLang?: string;
+    currentLanguageOption?: LanguageOption | null;
+    email?: string;
+    emailCode?: string;
+    emailPassword?: string;
+    languageClickGuard?: boolean;
+    languageClickGuardArmed?: boolean;
+    languageMenuOpen?: boolean;
+    languageOptions?: LanguageOption[];
+    loginEmailFieldError?: string;
+    loginEmailTooltipOpen?: boolean;
+    loginWithEmailPassword: Action;
+    onBackToLogin: Action;
+    openExternalLink: (url: string) => void;
+    openTelegramLogin: Action;
+    passwordLoginFallback?: boolean;
+    passwordLoginMode?: boolean;
+    pendingEmail?: string;
+    privacyPolicyUrl?: string;
+    requestEmailCode: Action;
+    screen?: string;
+    setLanguageMenuOpen?: (open: boolean) => void;
+    setPasswordLoginMode: (enabled: boolean) => void;
+    submitEmailOnEnter: (event: KeyboardEvent) => void;
+    t: Translate;
+    telegramLoginBusy?: boolean;
+    telegramLoginChecking?: boolean;
+    telegramLoginLabel?: string;
+    telegramLoginUnavailable?: boolean;
+    telegramLoginUnavailableMessage?: string;
+    updateLoginLanguage?: (language: string) => void;
+    userAgreementUrl?: string;
+    verifyEmailCode: Action;
+  };
+
   let {
-    screen,
+    screen = "login",
     CFG,
     brand = {},
-    brandTitle,
+    brandTitle = "",
     email = $bindable(""),
     emailPassword = $bindable(""),
     emailCode = $bindable(""),
-    pendingEmail,
-    authStatus,
-    authIsError,
-    authBusy,
-    authResendCooldown,
-    loginEmailFieldError,
-    loginEmailTooltipOpen,
-    passwordLoginFallback,
-    passwordLoginMode,
-    telegramLoginBusy,
-    telegramLoginUnavailable,
-    telegramLoginChecking,
-    telegramLoginLabel,
-    telegramLoginUnavailableMessage,
-    privacyPolicyUrl,
-    userAgreementUrl,
+    pendingEmail = "",
+    authStatus = "",
+    authIsError = false,
+    authBusy = false,
+    authResendCooldown = 0,
+    loginEmailFieldError = "",
+    loginEmailTooltipOpen = false,
+    passwordLoginFallback = false,
+    passwordLoginMode = false,
+    telegramLoginBusy = false,
+    telegramLoginUnavailable = false,
+    telegramLoginChecking = false,
+    telegramLoginLabel = "",
+    telegramLoginUnavailableMessage = "",
+    privacyPolicyUrl = "",
+    userAgreementUrl = "",
     currentLang = "ru",
     currentLanguageOption = null,
     languageOptions = [],
@@ -60,7 +113,7 @@
     onBackToLogin,
     clearLoginEmailError,
     setPasswordLoginMode,
-  } = $props();
+  }: Props = $props();
 
   let authPanelHeight = $state(0);
 
@@ -69,8 +122,9 @@
   const authCardHeight = $derived(authPanelHeight ? `${authPanelHeight}px` : undefined);
   const showLanguageSelect = $derived(languageOptions.length > 1);
   const showInviteOnlyHint = $derived(shouldShowInviteOnlyHint(CFG));
+  const languageSelectContentProps = { trapFocus: false } as Record<string, unknown>;
 
-  function closeLanguageFromGuard(event) {
+  function closeLanguageFromGuard(event: Event) {
     event.preventDefault();
     event.stopPropagation();
     if (languageClickGuardArmed) setLanguageMenuOpen(false);
@@ -340,7 +394,7 @@
                 side="bottom"
                 align="center"
                 sideOffset={7}
-                trapFocus={false}
+                {...languageSelectContentProps}
               >
                 <Select.Viewport class="language-select-viewport">
                   {#each languageOptions as option (option.value)}

@@ -1,7 +1,7 @@
 import { DEMO_DATASET } from "./demoDataset.js";
 import { withDemoAvatar } from "./demoAvatars.js";
+import { readStoredDemoLanguage } from "./demoMockRuntime.js";
 
-const DEMO_LANGUAGE_STORAGE_KEY = "rw_minishop_demo_language";
 const DEFAULT_DISPOSABLE_EMAIL_DOMAINS = [
   "10minutemail.com",
   "10minutemail.net",
@@ -108,15 +108,6 @@ const DEFAULT_DISPOSABLE_EMAIL_DOMAINS = [
   "yopmail.fr",
   "yopmail.net",
 ].join("\n");
-
-function readStoredDemoLanguage() {
-  if (typeof window === "undefined") return "";
-  try {
-    return window.localStorage?.getItem(DEMO_LANGUAGE_STORAGE_KEY) || "";
-  } catch {
-    return "";
-  }
-}
 
 const DEFAULT_THEME_VARIANTS = {
   dark: {

@@ -1,4 +1,6 @@
-export function ruPlural(value, one, few, many) {
+export type PluralBucket = "one" | "few" | "many";
+
+export function ruPlural<T extends string>(value: unknown, one: T, few: T, many: T): T {
   const n = Math.abs(Number(value || 0));
   const mod10 = n % 10;
   const mod100 = n % 100;
@@ -7,13 +9,13 @@ export function ruPlural(value, one, few, many) {
   return many;
 }
 
-export function ruFractionAware(value, one, few, many) {
+export function ruFractionAware<T extends string>(value: unknown, one: T, few: T, many: T): T {
   const n = Number(value || 0);
   if (!Number.isInteger(n)) return few;
   return ruPlural(n, one, few, many);
 }
 
-export function unitPluralBucket(value, lang) {
+export function unitPluralBucket(value: unknown, lang: unknown): PluralBucket {
   if (String(lang || "").toLowerCase() === "ru") {
     const n = Number(value || 0);
     if (!Number.isInteger(n)) {

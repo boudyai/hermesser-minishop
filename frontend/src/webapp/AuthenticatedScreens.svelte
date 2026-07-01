@@ -327,9 +327,9 @@
       {promoIsError}
       {promoStatus}
       {applyPromo}
-      setPromoCode={setPromoCode as any}
+      {setPromoCode}
       {clearPromoFieldError}
-      copyText={copyText as any}
+      {copyText}
       {t}
     />
   {:else if screen === "devices"}

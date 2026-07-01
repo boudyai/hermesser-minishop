@@ -1,14 +1,16 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
+  import type { Snippet } from "svelte";
+  import type { HTMLAttributes } from "svelte/elements";
 
-  /**
-   * @type {{
-   *   variant?: 'default' | 'outline' | 'destructive' | 'success' | 'muted';
-   *   class?: string;
-   *   children?: import('svelte').Snippet;
-   * }}
-   */
-  let { variant = "default", class: className = "", children, ...rest } = $props();
+  type BadgeVariant = "default" | "destructive" | "muted" | "outline" | "success";
+  type Props = Omit<HTMLAttributes<HTMLSpanElement>, "class" | "children"> & {
+    children?: Snippet;
+    class?: string;
+    variant?: BadgeVariant;
+  };
+
+  let { variant = "default", class: className = "", children, ...rest }: Props = $props();
 </script>
 
 <span

@@ -3,8 +3,7 @@ import {
   buildAdminSettingsPath,
   unwrap,
   type ApiClient,
-  type ApiResponse,
-  type GetResponse,
+  type ApiResponseFor,
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
 import { snapshotForPayload } from "./snapshotForPayload.svelte";
@@ -16,15 +15,16 @@ type AdminErrorResponse = {
   detail?: string;
   errors?: Record<string, unknown>;
 };
-type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
+type AdminApi = <
+  Path extends Parameters<ApiClient["api"]>[0],
+  Options extends RequestInit | undefined = undefined,
+>(
   path: Path,
-  options?: Parameters<ApiClient["api"]>[1]
-) => Promise<ApiResponse<Path> | AdminErrorResponse>;
+  options?: Options
+) => Promise<ApiResponseFor<Path, Options> | AdminErrorResponse>;
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-type SettingsResponse = GetResponse<"/api/admin/settings">;
 type SettingsPatchPayload = components["schemas"]["AdminSettingsPatchBody"];
-type SettingsPatchResponse = Extract<ApiResponse<"/api/admin/settings">, { applied: number }>;
 
 export type SettingChoice = {
   value: string;
@@ -137,7 +137,7 @@ export function createSettingsStore({ api, onToast, at }: SettingsStoreOptions):
   async function loadSettings(): Promise<void> {
     updateState((s) => ({ ...s, settingsLoading: true, settingsDirty: {} }));
     try {
-      const data = (await api(buildAdminSettingsPath())) as SettingsResponse | AdminErrorResponse;
+      const data = await api(buildAdminSettingsPath());
       if (isOkResponse(data)) {
         const result = unwrap(data);
         updateState((s) => ({
@@ -198,10 +198,10 @@ export function createSettingsStore({ api, onToast, at }: SettingsStoreOptions):
         else updates[key] = change.value;
       }
       const payload: SettingsPatchPayload = { updates, deletes };
-      const res = (await api(buildAdminSettingsPath(), {
+      const res = await api(buildAdminSettingsPath(), {
         method: "PATCH",
         body: JSON.stringify(payload),
-      })) as SettingsPatchResponse | AdminErrorResponse;
+      });
       if (isOkResponse(res)) {
         onToast(at("settings_saved", {}, "Настройки сохранены"));
         updateState((s) => ({ ...s, settingsDirty: {} }));

@@ -1,4 +1,12 @@
-const ADMIN_ERROR_KEYS = {
+type AdminErrorPayload = {
+  detail?: unknown;
+  error?: unknown;
+  message?: unknown;
+};
+
+type AdminTranslate = (key: string, vars?: Record<string, unknown>, fallback?: string) => string;
+
+const ADMIN_ERROR_KEYS: Record<string, string> = {
   admin_telegram_unavailable: "error_admin_telegram_unavailable",
   access_denied: "error_access_denied",
   backup_create_busy: "error_backup_busy",
@@ -44,12 +52,13 @@ const ADMIN_ERROR_KEYS = {
   write_failed: "error_write_failed",
 };
 
-export function adminErrorMessage(result, at, fallback = "") {
+export function adminErrorMessage(result: unknown, at: AdminTranslate, fallback = ""): string {
   if (!result) return fallback || at("error", {}, "Ошибка");
 
-  const code = typeof result === "string" ? result : String(result.error || "");
+  const payload = typeof result === "object" ? (result as AdminErrorPayload) : null;
+  const code = typeof result === "string" ? result : String(payload?.error || result || "");
   const rawMessage =
-    typeof result === "string" ? "" : String(result.message || result.detail || "").trim();
+    typeof result === "string" ? "" : String(payload?.message || payload?.detail || "").trim();
   const key = ADMIN_ERROR_KEYS[code];
 
   if (key) {

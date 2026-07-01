@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import {
     CircleQuestionMark,
     Copy,
@@ -13,6 +13,47 @@
   import Card from "$components/ui/card.svelte";
   import Input from "$components/ui/input.svelte";
   import { StatusMessage } from "$components/patterns/webapp/index.js";
+
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type Action = () => void | Promise<void>;
+  type CopyText = (text?: string, message?: string) => void | Promise<void>;
+
+  type Referral = Record<string, unknown> & {
+    bot_link?: string;
+    webapp_link?: string;
+  };
+
+  type ReferralBonus = Record<string, unknown> & {
+    details?: ReferralBonus[];
+    friend_days?: unknown;
+    friend_max_days?: unknown;
+    friend_min_days?: unknown;
+    id?: string | number;
+    inviter_days?: unknown;
+    inviter_max_days?: unknown;
+    inviter_min_days?: unknown;
+    months?: unknown;
+    tariff_key?: string;
+    tariff_name?: string;
+    title?: string;
+  };
+
+  type Props = {
+    applyPromo?: Action;
+    clearPromoFieldError?: Action;
+    copyText?: CopyText;
+    promoBusy?: boolean;
+    promoCode?: string;
+    promoFieldError?: string;
+    promoIsError?: boolean;
+    promoStatus?: string;
+    referral?: Referral;
+    referralBonusDetails?: ReferralBonus[];
+    referralOneBonusPerReferee?: boolean;
+    referralWelcomeBonusDays?: number;
+    setPromoCode?: (value: string) => void;
+    t?: Translate;
+  };
 
   let {
     referral = {},
@@ -29,7 +70,7 @@
     clearPromoFieldError = () => {},
     copyText = () => {},
     t = (key) => key,
-  } = $props();
+  }: Props = $props();
 
   const tariffBonusSummaries = $derived(
     referralBonusDetails.filter((bonus) => Array.isArray(bonus.details))
@@ -44,7 +85,7 @@
     !promoIsError && hasPromoCode && promoStatus ? String(promoStatus).trim() : ""
   );
 
-  function daysRange(minDays, maxDays) {
+  function daysRange(minDays: unknown, maxDays: unknown): string {
     return t("wa_referral_bonus_range_days", {
       min: Number(minDays || 0),
       max: Number(maxDays || 0),

@@ -1,15 +1,12 @@
 import { adminErrorMessage } from "../errors.js";
 import { buildAdminHealthPath } from "../../webapp/publicApi";
-import { unwrap, type ApiClient, type ApiResponse, type GetResponse } from "../../webapp/publicApi";
+import { unwrap, type ApiClient, type GetResponse } from "../../webapp/publicApi";
 
 const HEALTH_QUERY_KEY = ["admin", "health"] as const;
 const HEALTH_STALE_MS = 60 * 1000;
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
-type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
-  path: Path,
-  options?: Parameters<ApiClient["api"]>[1]
-) => Promise<ApiResponse<Path> | AdminErrorResponse>;
+type AdminApi = ApiClient["api"];
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type HealthResponse = GetResponse<"/api/admin/health">;
 type HealthQueryKey = typeof HEALTH_QUERY_KEY;
@@ -45,9 +42,9 @@ export type HealthStore = HealthState & {
 };
 
 class AdminHealthError extends Error {
-  payload: AdminErrorResponse | null;
+  payload: unknown;
 
-  constructor(message: string, payload: AdminErrorResponse | null) {
+  constructor(message: string, payload: unknown) {
     super(message);
     this.name = "AdminHealthError";
     this.payload = payload;
@@ -107,7 +104,7 @@ export function createHealthStore({
   }
 
   async function requestHealth(refresh: boolean): Promise<HealthResponse> {
-    const data = (await api(buildAdminHealthPath(refresh))) as HealthResponse | AdminErrorResponse;
+    const data = await api(buildAdminHealthPath(refresh));
     if (!isOkResponse(data)) {
       throw new AdminHealthError(adminErrorMessage(data, at, "load_failed"), data);
     }

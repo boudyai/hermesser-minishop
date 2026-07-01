@@ -16,7 +16,7 @@ def test_devices_labels_use_subscription_limit_before_devices_payload():
 
     script = textwrap.dedent(
         """
-        const mod = await import("./frontend/src/lib/webapp/devicesLabels.js");
+        const mod = await import("./frontend/src/lib/webapp/devicesLabels.ts");
         const t = (key, params = {}, fallback = "") => {
           if (key === "wa_devices_count") return `${params.current}/${params.max}`;
           if (key === "wa_devices_unlimited") return "Unlimited";
