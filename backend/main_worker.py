@@ -259,16 +259,10 @@ def _backup_worker_task(ctx: PluginContext) -> Coroutine[Any, Any, None]:
 def _core_worker_tasks() -> List[WorkerTaskSpec]:
     return [
         WorkerTaskSpec(
-            name="TariffTrafficWorker",
-            factory=_tariff_worker_task,
-            enabled=lambda settings: bool(settings.tariffs_config),
-        ),
-        WorkerTaskSpec(
             name="SubscriptionNotificationWorker",
             factory=_subscription_notification_task,
         ),
         WorkerTaskSpec(name="BackupWorker", factory=_backup_worker_task),
-        WorkerTaskSpec(name="PanelSyncLoop", factory=_panel_sync_loop),
     ]
 
 

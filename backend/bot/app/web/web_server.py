@@ -141,8 +141,6 @@ async def build_and_start_web_app(
             f"Telegram webhook route configured at: [POST] {telegram_webhook_path} (relative to base URL)"  # noqa: E501
         )
 
-    from bot.services.panel_webhook_service import panel_webhook_route
-
     registered_webhook_paths: set[str] = set()
     for spec in iter_provider_specs():
         webhook_route = spec.load_webhook_route()
@@ -157,10 +155,7 @@ async def build_and_start_web_app(
         app.router.add_post(path, webhook_route)
         logging.info("%s webhook route configured at: [POST] %s", spec.label, path)
 
-    panel_path = settings.panel_webhook_path
-    if panel_path.startswith("/"):
-        app.router.add_post(panel_path, panel_webhook_route)
-        logging.info(f"Panel webhook route configured at: [POST] {panel_path}")
+    # Panel webhook removed — Remnawave callbacks no longer apply in hermes mode.
 
     if plugin_context is not None:
         setup_web_plugins(plugin_context, app, scope=WEB_SCOPE_WEBHOOKS)
