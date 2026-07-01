@@ -199,7 +199,10 @@
         <details style="margin: 0 0 10px; font-size: 12px; color: var(--muted);">
           <summary style="cursor: pointer;">Как получить токен (пошагово)?</summary>
           <ol style="padding-left: 20px; margin: 6px 0 0;">
-            <li>Откройте <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> в Telegram</li>
+            <li>
+              Откройте <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a
+              > в Telegram
+            </li>
             <li>Отправьте команду <code>/newbot</code></li>
             <li>Задайте имя и @username бота</li>
             <li>Скопируйте токен вида <code>123456789:ABCdef...</code></li>

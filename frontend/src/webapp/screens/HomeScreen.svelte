@@ -17,6 +17,7 @@
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import BotStatusCard from "../components/BotStatusCard.svelte";
+  import OnboardingWizard from "../components/OnboardingWizard.svelte";
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
   import { LinearProgress } from "$components/patterns/webapp/index.js";
   import { formatTrafficGb } from "../../lib/webapp/formatters.js";
@@ -384,6 +385,10 @@
 
     {#if subscription.active && hermesMode}
       <BotStatusCard {subscription} {appSettings} />
+    {/if}
+
+    {#if !subscription.active}
+      <OnboardingWizard {appSettings} />
     {/if}
 
     {#if subscription.active}
