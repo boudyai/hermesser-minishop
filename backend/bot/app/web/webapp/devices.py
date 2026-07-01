@@ -14,8 +14,10 @@ from bot.app.web.context import (
     get_subscription_service,
 )
 from bot.app.web.http_contracts import HttpResponseModel
-from bot.app.web.webapp.cache_helpers import webapp_cached_user_payload
-from bot.infra.redis import cache_delete, redis_key
+from bot.app.web.webapp.cache_helpers import (
+    invalidate_webapp_user_caches,
+    webapp_cached_user_payload,
+)
 from bot.services.subscription_service_impl.core import SubscriptionService
 from config.settings import Settings
 from db.dal import user_dal
@@ -212,7 +214,7 @@ async def disconnect_device_route(request: web.Request) -> web.Response:
         success = await panel_service.disconnect_device(panel_user_uuid, target_hwid)
         if not success:
             return _json_error(502, "device_disconnect_failed", "Failed to disconnect device")
-        await cache_delete(settings, redis_key(settings, "cache", "webapp", "devices", user_id))
+        await invalidate_webapp_user_caches(settings, user_id, include_devices=True)
         await session.commit()
 
     return json_response({"ok": True})

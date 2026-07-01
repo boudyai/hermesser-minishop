@@ -4,6 +4,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 USER_DETAIL = REPO_ROOT / "frontend/src/admin/sections/UserDetailModal.svelte"
+USER_DETAIL_CSS = REPO_ROOT / "frontend/src/admin/sections/UserDetailModal.css"
 USER_ACTIONS = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserActionsTab.svelte"
 STATS_SECTION = REPO_ROOT / "frontend/src/admin/sections/StatsSection.svelte"
 ADMIN_PANEL = REPO_ROOT / "frontend/src/admin/AdminPanel.svelte"
@@ -76,6 +77,24 @@ def test_extend_action_styles_fill_the_actions_column():
         "grid-template-columns: minmax(112px, 0.72fr) minmax(220px, 1.28fr) minmax(136px, auto);"
     ) in css
     assert re.search(r"\.admin-reset-trial-btn\s*{[^}]*width:\s*100%", css, re.S)
+
+
+def test_inactive_tabs_override_specific_tab_display_rules():
+    css = ADMIN_CSS.read_text(encoding="utf-8")
+    user_detail_css = USER_DETAIL_CSS.read_text(encoding="utf-8")
+
+    assert re.search(
+        r"\.admin-tabs-root\s+\.admin-tabs-content\[data-state=\"inactive\"\]\s*{[^}]*display:\s*none",
+        css,
+        re.S,
+    )
+    assert '\n.admin-tabs-content[data-state="inactive"] {' not in css
+    assert ".admin-user-dialog .admin-user-logs-tab" in user_detail_css
+    assert re.search(
+        r"\.admin-user-dialog\s+\.admin-user-logs-tab\s*{[^}]*display:\s*flex",
+        user_detail_css,
+        re.S,
+    )
 
 
 def test_extend_tariff_current_badge_is_localized():
