@@ -344,13 +344,18 @@ class HermesProvisioningService(PanelApiService):
             async with session.get(f"{self._core_base_url}/shop/tenants/{tenant_id}") as resp:
                 if resp.status == 200:
                     data = await resp.json()
+                    # ``resp.json()`` parses the FastAPI response into
+                    # primitives, so ``last_state_change`` is already an
+                    # ISO 8601 string (or None) — pass it through verbatim.
+                    # Pydantic-side ``datetime`` conversion is the
+                    # producer's job, not the consumer's.
                     last_change = data.get("last_state_change")
                     result: Dict[str, Any] = {
                         "tenant_id": str(data.get("tenant_id", tenant_id)),
                         "status": str(data.get("status", "unknown") or "unknown"),
                         "desired_state": str(data.get("desired_state", "unknown") or "unknown"),
                         "actual_state": str(data.get("actual_state", "unknown") or "unknown"),
-                        "last_state_change": (last_change.isoformat() if last_change else None),
+                        "last_state_change": (str(last_change) if last_change else None),
                     }
                     self._tenant_state_cache[tenant_id] = (now, result)
                     return result
