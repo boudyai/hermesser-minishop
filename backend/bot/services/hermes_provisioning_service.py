@@ -89,6 +89,7 @@ class HermesProvisioningService(PanelApiService):
         specific_squad_uuids: Optional[List[str]] = None,
         external_squad_uuid: Optional[str] = None,
         bot_token: Optional[str] = None,
+        bot_username: Optional[str] = None,
         description: Optional[str] = None,
         tag: Optional[str] = None,
         status: str = "ACTIVE",
@@ -103,10 +104,19 @@ class HermesProvisioningService(PanelApiService):
             log.error("create_panel_user requires bot_token for hermes tenant creation")
             return {"error": True, "status_code": 400, "message": "bot_token required"}
 
+        # ponytail: pass bot_username through so the core populates
+        # tenants.bot_username at create time. The minishop side already
+        # resolved it via Telegram getMe at the entry point; without
+        # this, the field stays NULL and the UI can't show the bot's
+        # @handle on the Home card.
+        payload: Dict[str, Any] = {"user_id": user_id, "bot_token": bot_token}
+        if bot_username:
+            payload["bot_username"] = str(bot_username).lstrip("@").strip() or None
+
         session = await self._core_get_session()
         async with session.post(
             f"{self._core_base_url}/shop/tenants",
-            json={"user_id": user_id, "bot_token": bot_token},
+            json=payload,
         ) as resp:
             if resp.status == 202:
                 data = await resp.json()
@@ -354,7 +364,9 @@ class HermesProvisioningService(PanelApiService):
             log.error("PUT /shop/tenants/%s/env failed: %s %s", tenant_id, resp.status, body[:200])
             return False
 
-    async def update_tenant_bot_token(self, tenant_id: str, bot_token: str) -> bool:
+    async def update_tenant_bot_token(
+        self, tenant_id: str, bot_token: str, bot_username: Optional[str] = None
+    ) -> bool:
         """Apply a freshly-saved bot token to a running tenant.
 
         Returns True on 202; False on 4xx/5xx. The bot token was already
@@ -364,11 +376,16 @@ class HermesProvisioningService(PanelApiService):
         user reloads the status screen, the container is rewriting
         secrets.env and restarting with the new token.
         """
+        payload: Dict[str, Any] = {"bot_token": bot_token}
+        if bot_username:
+            # ponytail: the core updates tenants.bot_username alongside
+            # the encrypted token so the Home card shows the @handle.
+            payload["bot_username"] = str(bot_username).lstrip("@").strip() or None
         session = await self._core_get_session()
         try:
             async with session.put(
                 f"{self._core_base_url}/shop/tenants/{tenant_id}/bot_token",
-                json={"bot_token": bot_token},
+                json=payload,
             ) as resp:
                 if resp.status == 202:
                     log.info("Bot token update queued for tenant %s", tenant_id)
