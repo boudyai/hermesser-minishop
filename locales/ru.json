@@ -587,6 +587,7 @@
   "my_hermes_container_status_suspended": "остановлен ⏸",
   "my_hermes_container_status_error": "ошибка ❌",
   "my_hermes_container_status_unknown": "неизвестно",
+  "my_hermes_container_status_deleted": "удалён 🗑",
   "my_hermes_llm_budget_used": "использовано {spent}",
   "my_hermes_llm_budget_unavailable": "недоступно",
   "my_hermes_bot_username_unknown": "не указан",

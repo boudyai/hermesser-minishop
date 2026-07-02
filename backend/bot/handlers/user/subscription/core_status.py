@@ -114,6 +114,21 @@ async def my_subscription_command_handler(
                 active["llm_max_budget"] = quota.get("max_budget")
         except Exception as exc:
             logging.debug("get_tenant_quota failed for bot status card: %s", exc)
+        # ponytail: also fetch the tenant lifecycle state so the
+        # bot card's "Контейнер:" line reflects the real core
+        # state (active / provisioning / suspended / deleted / …)
+        # instead of always falling through to "неизвестно".
+        # The Mini App serializer does the same fetch via
+        # _tenant_runtime_fields(tenant_state); the bot path
+        # historically didn't, so /status showed a wrong label
+        # for tenants in the `deleting` state.
+        try:
+            tenant_state = await panel_service.get_tenant_state(str(active["user_id"]))
+            if isinstance(tenant_state, dict):
+                active["tenant_status"] = tenant_state.get("status")
+                active["tenant_actual_state"] = tenant_state.get("actual_state")
+        except Exception as exc:
+            logging.debug("get_tenant_state failed for bot status card: %s", exc)
 
     if not active:
         text = get_text("subscription_not_active")
@@ -688,6 +703,12 @@ def _format_hermes_container_status(active: dict[str, Any], get_text: Any) -> st
         return get_text("my_hermes_container_status_suspended")
     if status in ("error", "failed"):
         return get_text("my_hermes_container_status_error")
+    # ponytail: map deleting / deleted / archived to the new
+    # "deleted" label so the bot menu reflects the actual core
+    # state instead of showing "unknown" when the user has
+    # nuked the container.
+    if status in ("deleting", "deleted", "archived"):
+        return get_text("my_hermes_container_status_deleted")
     return get_text("my_hermes_container_status_unknown")
 
 

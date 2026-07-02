@@ -186,3 +186,45 @@ async def tenant_delete_route(request: web.Request) -> web.Response:
     if not ok:
         return _json_error(502, "delete_failed", "Failed to delete tenant")
     return json_response({"ok": True})
+
+
+# ponytail: the user-facing "Создать нового бота" flow re-runs
+# create_panel_user with the stored bot_token. The core's create
+# endpoint detects the existing row in (deleting / deleted / archived)
+# state, resurrects it in place and enqueues the create jobs. This
+# is separate from activate_trial_subscription which is blocked
+# when the user already has an active subscription.
+async def tenant_recreate_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
+    subscription_service: SubscriptionService = get_subscription_service(request)
+
+    panel_service = getattr(subscription_service, "panel_service", None)
+    if panel_service is None or not isinstance(panel_service, HermesProvisioningService):
+        return _json_error(503, "hermes_disabled", "Hermes mode not active")
+
+    from db.dal import user_dal
+
+    async with async_session_factory() as session:
+        db_user = await user_dal.get_user_by_id(session, user_id)
+        if not db_user or not db_user.panel_user_uuid or not db_user.pending_bot_token:
+            return _json_error(
+                400,
+                "no_tenant_or_token",
+                "Нет сохранённого токена бота. Сначала добавьте токен в настройках.",
+            )
+        panel_user_uuid = str(db_user.panel_user_uuid)
+        bot_token = str(db_user.pending_bot_token)
+        bot_username = str(getattr(db_user, "pending_bot_username", "") or "")
+        telegram_id = int(db_user.telegram_id or 0)
+
+    username_on_panel = f"tg_{telegram_id}" if telegram_id else f"hermes-{panel_user_uuid[:8]}"
+    result = await panel_service.create_panel_user(
+        username_on_panel=username_on_panel,
+        telegram_id=telegram_id,
+        bot_token=bot_token,
+        bot_username=bot_username or None,
+    )
+    if not result or result.get("error"):
+        return _json_error(502, "recreate_failed", "Failed to re-create bot on provisioning core")
+    return json_response({"ok": True})

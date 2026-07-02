@@ -587,6 +587,7 @@
   "my_hermes_container_status_suspended": "stopped ⏸",
   "my_hermes_container_status_error": "error ❌",
   "my_hermes_container_status_unknown": "unknown",
+  "my_hermes_container_status_deleted": "deleted 🗑",
   "my_hermes_llm_budget_used": "{spent} used",
   "my_hermes_llm_budget_unavailable": "unavailable",
   "my_hermes_bot_username_unknown": "not set",

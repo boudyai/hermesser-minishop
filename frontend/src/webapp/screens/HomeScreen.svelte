@@ -148,7 +148,26 @@
     hermesCardBusy = true;
     hermesCardError = null;
     try {
-      await activateTrial();
+      // ponytail: the user has an active local subscription
+      // already, so /api/trial/activate returns 400 with
+      // "trial_already_had_subscription_or_trial". Use the
+      // dedicated re-create endpoint which re-runs
+      // create_panel_user with the stored bot_token — the
+      // provisioning-core resurrects the existing tenant row
+      // in place and enqueues fresh create_litellm_key +
+      // create_vm jobs.
+      const result = await apiUnchecked("/tenant/recreate", {
+        method: "POST",
+      });
+      if (!result || result.ok === false) {
+        hermesCardError = t(
+          "wa_hermes_bot_action_recreate_failed",
+          {},
+          "Failed to create. Try again or contact support."
+        );
+      } else {
+        setTimeout(() => window.location.reload(), 1500);
+      }
     } catch (_e) {
       hermesCardError = t(
         "wa_hermes_bot_action_recreate_failed",
