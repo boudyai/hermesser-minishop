@@ -314,6 +314,20 @@ async def main_action_callback_handler(
 
         await user_tenant_handlers.set_token_callback(callback, state, settings)
         return
+    if is_hermes and action in ("subscribe", "my_subscription", "request_trial"):
+        # ponytail: in Hermes mode the proxy subscription picker is the
+        # wrong surface. The bot menu's "Подписаться" / "Моя подписка"
+        # / "Пробный период" buttons must drive the user into the
+        # hosted-bots flow (token FSM + create/recreate) instead.
+        # Falls back to the proxy picker when the panel service is not
+        # the Hermes adapter.
+        from . import tenant as user_tenant_handlers
+
+        await user_tenant_handlers.ensure_bot_creation_entrypoint(
+            callback, state, settings, subscription_service, session
+        )
+        await callback.answer()
+        return
     if action == "subscribe":
         await user_subscription_handlers.display_subscription_options(
             callback, i18n_data, settings, session

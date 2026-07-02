@@ -544,8 +544,12 @@ async def account_bot_token_route(request: web.Request) -> web.Response:
                     else None
                 )
                 if isinstance(panel_service, HermesProvisioningService):
+                    owner_telegram_id = int(db_user.telegram_id or 0) or None
                     applied_to_tenant = await panel_service.update_tenant_bot_token(
-                        tenant_uuid, token, bot_username=bot_username
+                        tenant_uuid,
+                        token,
+                        bot_username=bot_username,
+                        owner_telegram_id=owner_telegram_id,
                     )
             except Exception:
                 logger.exception(

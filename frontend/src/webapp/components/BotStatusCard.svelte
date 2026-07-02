@@ -1,7 +1,7 @@
 <script lang="ts">
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
-  import { RefreshCw, Activity, FileText, ExternalLink } from "$components/ui/icons.js";
+  import { RefreshCw, Activity, FileText } from "$components/ui/icons.js";
 
   type AnyRecord = Record<string, any>;
   type ApiUnchecked = (
@@ -17,10 +17,6 @@
 
   const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
   const active = $derived(Boolean(subscription?.active));
-  const botUsername = $derived(
-    String(subscription?.bot_username || appSettings?.bot_username || "").trim()
-  );
-  const tMeUrl = $derived(botUsername ? `https://t.me/${botUsername}` : "");
   // ponytail: the core rejects restart/logs actions on tenants in
   // non-actionable states (deleting, deleted, archived) with a 409.
   // Disable the buttons here so the user doesn't keep seeing failures
@@ -143,14 +139,6 @@
         <span>Статус бота</span>
       </div>
       <div style="display: flex; gap: 6px; align-items: center;">
-        {#if tMeUrl}
-          <a href={tMeUrl} target="_blank" rel="noopener">
-            <Button variant="secondary">
-              <ExternalLink size={14} />
-              @{tMeUrl.split("/").pop() || botUsername}
-            </Button>
-          </a>
-        {/if}
         <Button variant="secondary" onclick={loadLogs} disabled={busy || !actionsEnabled}>
           <FileText size={14} />
           Логи

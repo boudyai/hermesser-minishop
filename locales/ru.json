@@ -581,7 +581,7 @@
   "admin_payment_traffic_label": "🗂 Трафик: <b>{traffic_gb} ГБ</b>",
   "admin_payment_months_label": "📅 Период: <b>{months} мес.</b>",
   "my_subscription_details": "🔐 <b>Моя подписка</b>\n\n⏰ Статус: <b>{status}</b>\n📅 Действует до: <b>{end_date}</b>\n📆 Осталось дней: <b>{days_left}</b>\n\n🔗 Ссылка на конфигурацию:\n<code>{config_link}</code>\n\n📊 Трафик ({traffic_period}):\nЛимит: <b>{traffic_limit}</b>\nИспользовано: <b>{traffic_used}</b>",
-  "my_hermes_subscription_details": "🤖 <b>Хостинг ботов</b>\n\n⏰ Статус: <b>{status}</b>\n📅 Действует до: <b>{end_date}</b>\n📆 Осталось дней: <b>{days_left}</b>\n\n🔑 Бот: @{bot_username}\n⚡ Бюджет LLM: {llm_budget}\n🖥 Контейнер: <b>{container_status}</b>",
+  "my_hermes_subscription_details": "🤖 <b>Хостинг ботов</b>\n\n⏰ Статус: <b>{status}</b>\n📅 Действует до: <b>{end_date}</b>\n📆 Осталось дней: <b>{days_left}</b>\n\n🔑 Бот: @{bot_username}\n⚡ Бюджет CornLLM: {llm_budget}\n🖥 Контейнер: <b>{container_status}</b>",
   "my_hermes_container_status_active": "работает ✅",
   "my_hermes_container_status_provisioning": "создаётся…",
   "my_hermes_container_status_suspended": "остановлен ⏸",

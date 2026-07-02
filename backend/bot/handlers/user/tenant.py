@@ -189,10 +189,7 @@ async def _render_status(
         return
 
     if tenant_status in ("provisioning_vm", "provisioning_litellm_key", "created", "error"):
-        text = (
-            "⏳ Бот запускается… Это занимает ~30 секунд.\n"
-            "Повторите /status через минуту."
-        )
+        text = "⏳ Бот запускается… Это занимает ~30 секунд.\nПовторите /status через минуту."
         await _reply_or_edit(
             target_message,
             text,
@@ -326,8 +323,101 @@ async def restart_confirm_callback(
 
 
 # ============================================
-# /token FSM
+# Bot creation entrypoint (token FSM + create/recreate)
 # ============================================
+
+
+async def ensure_bot_creation_entrypoint(
+    callback: types.CallbackQuery,
+    state: FSMContext,
+    settings: Settings,
+    subscription_service: SubscriptionService,
+    async_session_factory,
+) -> None:
+    """Routes the user into the bot-creation flow used by the bot menu.
+
+    In Hermes mode the bot menu's "Создать бота" / "Подписаться" buttons
+    used to drop the user into the old proxy subscription options (the
+    VPN-style price + payment method picker). That is the wrong surface:
+    there is no proxy here, only hosted Hermes tenants. This entrypoint
+    instead:
+      - if the user already has a saved token AND a missing/deleted
+        tenant AND an active subscription → call create_panel_user
+        right now and show the standard "token saved, bot running" reply.
+      - otherwise → enter the token FSM and ask for a BotFather token.
+
+    Returns silently if Hermes mode is off or the panel service is
+    unavailable.
+    """
+    if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
+        await callback.answer()
+        return
+    panel_service = await _get_hermes_panel(subscription_service)
+    if panel_service is None:
+        await callback.answer("Сервис недоступен", show_alert=True)
+        return
+
+    user_id = callback.from_user.id
+    from db.dal import user_dal
+
+    async with async_session_factory() as session:
+        db_user = await user_dal.get_user_by_id(session, user_id)
+        if db_user is None or db_user.is_banned:
+            await callback.answer("Доступ запрещён", show_alert=True)
+            return
+
+        # ponytail: if we already have a token and a deleted/missing
+        # tenant plus an active subscription, jump straight to
+        # create_panel_user. This mirrors the Mini App
+        # /api/tenant/recreate flow. The actual run happens in the
+        # background — the user gets a "running" status reply.
+        has_active_sub = False
+        try:
+            active = await subscription_service.get_active_subscription_details(session, user_id)
+            has_active_sub = bool(active)
+        except Exception:
+            has_active_sub = False
+
+        panel_uuid = str(db_user.panel_user_uuid or "").strip()
+        tenant_state = await panel_service.get_tenant_state(panel_uuid) if panel_uuid else None
+        tenant_status = str((tenant_state or {}).get("status") or "").lower()
+        tenant_missing = not panel_uuid or tenant_status in ("", "deleted", "archived")
+        pending_token = str(getattr(db_user, "pending_bot_token", "") or "")
+        pending_username = str(getattr(db_user, "pending_bot_username", "") or "")
+
+        if pending_token and tenant_missing and has_active_sub:
+            telegram_id = int(getattr(db_user, "telegram_id", 0) or user_id)
+            username_on_panel = (
+                f"tg_{telegram_id}" if telegram_id else f"hermes-{panel_uuid[:8] or 'new'}"
+            )
+            try:
+                result = await panel_service.create_panel_user(
+                    username_on_panel=username_on_panel,
+                    telegram_id=telegram_id,
+                    bot_token=pending_token,
+                    bot_username=pending_username or None,
+                )
+            except Exception:
+                logger.exception("ensure_bot_creation: create_panel_user failed for %s", user_id)
+                result = None
+            await callback.answer()
+            if result and not result.get("error"):
+                text = f"✅ Ваш бот @{pending_username} создаётся и запустится через ~30 секунд."
+            else:
+                text = (
+                    "⚠️ Не удалось создать бота автоматически. Попробуйте позже или "
+                    "откройте Личный кабинет."
+                )
+            if callback.message:
+                try:
+                    await callback.message.edit_text(text)
+                except Exception:
+                    pass
+            return
+
+    # No token (or no active subscription): drop into the token FSM.
+    await set_token_callback(callback, state, settings)
+    await callback.answer()
 
 
 @router.message(Command("token"))
@@ -405,6 +495,7 @@ async def token_input(
 
     applied_to_tenant = True
     tenant_uuid = ""
+    created_via_bot = False
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
@@ -412,6 +503,7 @@ async def token_input(
             await _safe_delete_message(message)
             return
         db_user.pending_bot_token = token
+        db_user.pending_bot_username = bot_username or db_user.pending_bot_username
         await session.commit()
         # ponytail: if a tenant already exists, push the new token to
         # provisioning-core so the worker drains update_secrets right
@@ -419,28 +511,75 @@ async def token_input(
         # running bot keeps using the old one until the next trial /
         # paid activation. Best-effort: failure surfaces in the reply.
         tenant_uuid = str(db_user.panel_user_uuid or "").strip()
-        if tenant_uuid and subscription_service is not None:
+        if subscription_service is not None:
             from bot.services.hermes_provisioning_service import (
                 HermesProvisioningService,
             )
 
             panel_service = getattr(subscription_service, "panel_service", None)
             if isinstance(panel_service, HermesProvisioningService):
-                try:
-                    applied_to_tenant = await panel_service.update_tenant_bot_token(
-                        tenant_uuid, token
-                    )
-                except Exception:
-                    logger.exception(
-                        "update_tenant_bot_token failed for user %s tenant %s",
-                        user_id,
-                        tenant_uuid,
-                    )
-                    applied_to_tenant = False
+                if tenant_uuid:
+                    try:
+                        owner_telegram_id = int(getattr(db_user, "telegram_id", 0) or 0) or None
+                        applied_to_tenant = await panel_service.update_tenant_bot_token(
+                            tenant_uuid,
+                            token,
+                            bot_username=bot_username,
+                            owner_telegram_id=owner_telegram_id,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "update_tenant_bot_token failed for user %s tenant %s",
+                            user_id,
+                            tenant_uuid,
+                        )
+                        applied_to_tenant = False
+                else:
+                    # ponytail: bot menu flow — user typed a token but
+                    # has no tenant yet. If they have an active
+                    # subscription, run the same create_panel_user the
+                    # Mini App uses, then the worker drains
+                    # create_litellm_key + create_vm. Surfaces a
+                    # "running" status reply instead of leaving them
+                    # stuck at the token-saved page.
+                    has_active_sub = False
+                    try:
+                        active = await subscription_service.get_active_subscription_details(
+                            session, user_id
+                        )
+                        has_active_sub = bool(active)
+                    except Exception:
+                        has_active_sub = False
+                    if has_active_sub:
+                        telegram_id = int(getattr(db_user, "telegram_id", 0) or user_id)
+                        username_on_panel = (
+                            f"tg_{telegram_id}" if telegram_id else f"hermes-{user_id}"
+                        )
+                        try:
+                            result = await panel_service.create_panel_user(
+                                username_on_panel=username_on_panel,
+                                telegram_id=telegram_id,
+                                bot_token=token,
+                                bot_username=bot_username or None,
+                            )
+                            if result and not result.get("error"):
+                                created_via_bot = True
+                                applied_to_tenant = True
+                                tenant_uuid = str((result.get("response") or {}).get("uuid") or "")
+                                if tenant_uuid:
+                                    db_user.panel_user_uuid = tenant_uuid
+                                    await session.commit()
+                        except Exception:
+                            logger.exception(
+                                "create_panel_user from bot token flow failed for %s",
+                                user_id,
+                            )
 
     await state.clear()
     await _safe_delete_message(message)
-    if applied_to_tenant:
+    if created_via_bot:
+        text = f"✅ Ваш бот @{bot_username} создаётся и запустится через ~30 секунд."
+    elif applied_to_tenant:
         text = (
             f"✅ Токен сохранён! Ваш бот @{bot_username} обновлён и перезапускается (~30 секунд)."
         )
@@ -578,7 +717,7 @@ async def _confirm_suspend(
         return
     text = (
         "⏸ Приостановить бота?\n\n"
-        "Контейнер будет остановлен, а LiteLLM-ключ заблокирован.\n"
+        "Контейнер будет остановлен, а ключ CornLLM заблокирован.\n"
         "Вы сможете возобновить бота, оплатив подписку."
     )
     markup = types.InlineKeyboardMarkup(

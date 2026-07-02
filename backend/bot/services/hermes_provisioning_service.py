@@ -108,8 +108,15 @@ class HermesProvisioningService(PanelApiService):
         # tenants.bot_username at create time. The minishop side already
         # resolved it via Telegram getMe at the entry point; without
         # this, the field stays NULL and the UI can't show the bot's
-        # @handle on the Home card.
-        payload: Dict[str, Any] = {"user_id": user_id, "bot_token": bot_token}
+        # @handle on the Home card. owner_telegram_id is the customer's
+        # numeric Telegram user ID — provisioner uses it to scope the
+        # hosted Hermes bot to the owner (TELEGRAM_ALLOWED_USERS) and
+        # to make the customer's DM the platform home channel.
+        payload: Dict[str, Any] = {
+            "user_id": user_id,
+            "bot_token": bot_token,
+            "owner_telegram_id": int(telegram_id),
+        }
         if bot_username:
             payload["bot_username"] = str(bot_username).lstrip("@").strip() or None
 
@@ -382,7 +389,11 @@ class HermesProvisioningService(PanelApiService):
             return False
 
     async def update_tenant_bot_token(
-        self, tenant_id: str, bot_token: str, bot_username: Optional[str] = None
+        self,
+        tenant_id: str,
+        bot_token: str,
+        bot_username: Optional[str] = None,
+        owner_telegram_id: Optional[int] = None,
     ) -> bool:
         """Apply a freshly-saved bot token to a running tenant.
 
@@ -398,6 +409,13 @@ class HermesProvisioningService(PanelApiService):
             # ponytail: the core updates tenants.bot_username alongside
             # the encrypted token so the Home card shows the @handle.
             payload["bot_username"] = str(bot_username).lstrip("@").strip() or None
+        if owner_telegram_id is not None:
+            # ponytail: include the owner's numeric Telegram user ID so
+            # the provisioner can refresh TELEGRAM_ALLOWED_USERS +
+            # home_channel on this update_secrets job. Without this
+            # the existing allow-list survives but the new owner
+            # (e.g. bot transferred) would still be blocked.
+            payload["owner_telegram_id"] = int(owner_telegram_id)
         session = await self._core_get_session()
         try:
             async with session.put(

@@ -54,7 +54,7 @@
   }
 
   async function suspend() {
-    if (!confirm("Приостановить бота? LiteLLM-ключ будет заблокирован.")) return;
+    if (!confirm("Приостановить бота? Ключ CornLLM будет заблокирован.")) return;
     busy = "suspend";
     error = null;
     try {
@@ -99,7 +99,7 @@
   <Card>
     <h3 style="margin: 0 0 8px; font-size: 15px; color: var(--danger);">⚠️ Опасная зона</h3>
     <p style="margin: 0 0 10px; color: var(--muted); font-size: 12px;">
-      Приостановка блокирует контейнер и LiteLLM-ключ. Удаление останавливает контейнер; данные
+      Приостановка блокирует контейнер и ключ CornLLM. Удаление останавливает контейнер; данные
       хранилища сохраняются 30 дней.
     </p>
     {#if !showDelete}

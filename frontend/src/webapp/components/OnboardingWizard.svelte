@@ -128,7 +128,7 @@
     <Card>
       <h3 style="margin: 0 0 8px; font-size: 16px;">⚙️ Разворачиваем вашего бота…</h3>
       <p style="margin: 0 0 6px; color: var(--muted); font-size: 13px;">
-        Обычно занимает 20–40 секунд. Создаём контейнер, ключ LLM и запускаем Hermes Agent.
+        Обычно занимает 20–40 секунд. Создаём контейнер, ключ CornLLM и запускаем Hermes Agent.
       </p>
       <p style="margin: 0 0 12px; color: var(--muted); font-size: 12px;">
         Статус: <code>{tenantStatus}</code>
