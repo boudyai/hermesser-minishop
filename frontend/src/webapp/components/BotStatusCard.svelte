@@ -51,6 +51,23 @@
     return data;
   }
 
+  function deriveRemaining(
+    max: number | null,
+    spent: number | null,
+    cached: number | null
+  ): number | null {
+    // ponytail: trust max_budget - spent over the cached remaining
+    // column. The cached remaining lags topups because the server
+    // updates max_budget synchronously but only refreshes spent via
+    // the worker's fetch_quota cycle. After a +5 USD topup on a
+    // +10 USD budget the user used to see "remaining=10" instead
+    // of "remaining=15" until the next refresh.
+    if (max !== null && spent !== null) {
+      return Math.max(0, max - spent);
+    }
+    return cached;
+  }
+
   function askRestart() {
     confirmRestart = true;
   }
@@ -84,7 +101,11 @@
       };
       quotaMax = data.max_budget ?? null;
       quotaSpent = data.spent ?? null;
-      quotaRemaining = data.remaining ?? null;
+      quotaRemaining = deriveRemaining(
+        data.max_budget ?? null,
+        data.spent ?? null,
+        data.remaining ?? null
+      );
     } catch {
       // Quota not available — non-fatal, just hide the card.
     }
@@ -113,7 +134,14 @@
 
   $effect(() => {
     if (hermesMode && active) {
+      // ponytail: the server's quota GET now commits and enqueues a
+      // fetch_quota job, but the worker still needs ~5-10s to drain
+      // it. Refresh the card once after a short delay so a stale
+      // "remaining=10" after a recent topup gets corrected without
+      // the user having to navigate away and back.
       refreshQuota();
+      const timer = window.setTimeout(refreshQuota, 7_000);
+      return () => window.clearTimeout(timer);
     }
   });
 
@@ -129,8 +157,14 @@
 
   function fmtRub(v: number | null): string {
     if (v === null) return "—";
-    const rub = Math.round(v * 100);
-    return `${rub} ₽`;
+    const rub = v * 100;
+    // ponytail: keep kopecks when the amount is fractional so
+    // 9.49 ₽ doesn't collapse to 9 ₽. Whole-ruble amounts still
+    // render without decimals.
+    if (Math.abs(rub - Math.round(rub)) < 1e-6) {
+      return `${Math.round(rub)} ₽`;
+    }
+    return `${rub.toFixed(2)} ₽`;
   }
 </script>
 

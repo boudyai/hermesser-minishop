@@ -209,10 +209,17 @@ async def _render_status(
     quota = await panel_service.get_tenant_quota(tenant_id)
     quota_text = ""
     if quota:
+        from bot.utils.currency_format import format_rub, format_rub_pair
+
         max_b = quota.get("max_budget")
         remaining = quota.get("remaining")
+        # ponytail: the Telegram /status used to render USD via
+        # `f"${float(remaining):.2f}"` — but the rest of the bot
+        # (Mini App card, my-subscription copy) is in rubles. Show
+        # the same units everywhere; `format_rub_pair` keeps kopecks
+        # when the value is fractional (e.g. "9.49 / 1500 ₽").
         if max_b is not None and remaining is not None:
-            quota_text = f"\n💰 Бюджет: ${float(remaining):.2f} / ${float(max_b):.2f}"
+            quota_text = f"\n💰 Бюджет: {format_rub_pair(0, max_b, default='—')} (осталось {format_rub(remaining, default='—')})"
 
     text = f"🤖 Бот активен{quota_text}\nИспользуйте кнопки ниже для управления:"
     markup = types.InlineKeyboardMarkup(
