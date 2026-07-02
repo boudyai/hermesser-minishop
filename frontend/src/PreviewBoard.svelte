@@ -1,4 +1,4 @@
-﻿<script>
+﻿<script lang="ts">
   import {
     ArrowRight,
     CheckCircle2,
@@ -27,15 +27,47 @@
   import PreviewMethods from "./preview/PreviewMethods.svelte";
   import PreviewNav from "./preview/PreviewNav.svelte";
 
-  let { config = {}, mockData = {} } = $props();
+  type PreviewConfig = {
+    title?: string;
+    logoUrl?: string;
+    primaryColor?: string;
+  };
+  type PreviewPlan = { title?: string; price: number; months: number };
+  type PreviewSubscription = {
+    end_date_text?: string;
+    traffic_used?: string;
+    traffic_limit?: string;
+  };
+  type PreviewUser = {
+    first_name?: string;
+    username?: string;
+    email?: string;
+    telegram_id?: number | string;
+    telegram_linked?: boolean;
+    telegram_photo_url?: string;
+  };
+  type PreviewMockData = {
+    plans?: PreviewPlan[];
+    subscription?: PreviewSubscription;
+    payment_methods?: { name?: string }[];
+    user?: PreviewUser;
+  };
+  type Props = {
+    config?: PreviewConfig;
+    mockData?: PreviewMockData;
+  };
+
+  let { config = {}, mockData = {} }: Props = $props();
 
   const title = $derived(config.title || "Subscription");
   const logoUrl = $derived(config.logoUrl || "/webapp-default-logo.webp");
   const plans = $derived(mockData.plans || []);
-  const sub = $derived(mockData.subscription || {});
+  const sub: PreviewSubscription = $derived(mockData.subscription || {});
   const methods = $derived(mockData.payment_methods || []);
-  const user = $derived(mockData.user || {});
-  const tariffs = [
+  const user: PreviewUser = $derived(mockData.user || {});
+  type IconComponent = typeof Zap;
+
+  const tariffs: [string, string, string, string, IconComponent][] = [
     [
       "subscription",
       "Подписка",
@@ -52,7 +84,7 @@
     [100, 990],
     [300, 2190],
   ];
-  const settingsRows = $derived([
+  const settingsRows: [IconComponent, string, string][] = $derived([
     [Globe2, "Язык интерфейса", "Русский"],
     [
       Send,
@@ -71,7 +103,7 @@
   );
   const previewAvatar = $derived(user.telegram_photo_url || "");
 
-  function money(value) {
+  function money(value: number): string {
     return `${value} ₽`;
   }
 </script>

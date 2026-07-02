@@ -1,10 +1,22 @@
-<script>
+<script lang="ts">
   import { Send } from "$components/ui/icons.js";
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import { AttentionDot } from "$components/ui/index.js";
 
-  let { startLink = "", status = "unknown", onOpenBot = () => {}, t = (key) => key } = $props();
+  type Props = {
+    startLink?: string;
+    status?: string;
+    onOpenBot?: () => void;
+    t?: (key: string) => string;
+  };
+
+  let {
+    startLink = "",
+    status = "unknown",
+    onOpenBot = () => {},
+    t = (key) => key,
+  }: Props = $props();
 
   const isBlocked = $derived(status === "blocked");
   const title = $derived(

@@ -67,15 +67,7 @@
     "scopes": [
       "frontend/src"
     ],
-    "allowlist": [
-      "frontend/src/PreviewBoard.svelte",
-      "frontend/src/lib/webapp/BrandMark.svelte",
-      "frontend/src/preview/BackTitle.svelte",
-      "frontend/src/preview/PhoneFrame.svelte",
-      "frontend/src/preview/PreviewMethods.svelte",
-      "frontend/src/preview/PreviewNav.svelte",
-      "frontend/src/webapp/TelegramNotificationsBanner.svelte"
-    ]
+    "allowlist": []
   },
   "frontend_api_calls": {
     "scopes": [

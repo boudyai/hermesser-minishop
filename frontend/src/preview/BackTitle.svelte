@@ -1,7 +1,12 @@
-<script>
+<script lang="ts">
   import { ArrowLeft } from "$components/ui/icons.js";
 
-  let { title = "", subtitle = "" } = $props();
+  type Props = {
+    title?: string;
+    subtitle?: string;
+  };
+
+  let { title = "", subtitle = "" }: Props = $props();
 </script>
 
 <header class="screen-head">
