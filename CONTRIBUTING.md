@@ -87,6 +87,10 @@ npm run test:e2e     # Playwright docs-demo smoke: webapp+админка, окн
   исключения фиксируем в контрактных тестах.
 - **Без глобального `checkJs`** на фронте — типизация opt-in пофайлово
   (`.ts` / `<script lang="ts">`).
+- **Не хардкодь пользовательский или админский текст.** Любая новая или изменённая видимая строка
+  (бот, Web App, админка, email/уведомления, aria/placeholder/title) должна идти через локализацию
+  и иметь минимум базовые варианты в `locales/ru.json` и `locales/en.json`. Fallback-строка в
+  компоненте или helper'е — только страховка для разработки, а не замена ключа в базовых локалях.
 - **Сначала декомпозиция, потом типизация** — см. раздел 5. Не типизируй god-файл «на месте».
 - **Отличай «совместимость с другими ботами» (фича — оставить) от «остатков рефакторинга»
   (убрать)** — см. раздел 6.
@@ -166,6 +170,10 @@ Svelte + Vite. API-клиент **типизирован из OpenAPI-спека
 - Новый код, трогающий API, пиши в `.ts`; типизируй сторы (`writable<State>`) и потребляющие
   `<script lang="ts">` компоненты, чтобы изменение контракта на бэке валило `check:svelte` ровно
   у потребителя. **Не** включай глобальный `checkJs`.
+- Для UI-текста используй `t(...)`/`at(...)` и добавляй реальные ключи в обе базовые локали:
+  `locales/ru.json` и `locales/en.json`. В админке `at("tariff_title", ...)` ищет
+  `admin_tariff_title`, поэтому проверяй итоговое имя ключа. Если добавляешь новую группу строк,
+  добавь узкий тест или существующий locale guard, чтобы ключи не остались только fallback'ами.
 - Frontend first-party Svelte code is Svelte 5 runes-only. Do not reintroduce `export let`,
   `$:`, `$$props`, `$$restProps`, `<slot>`, `<svelte:component>`, `createEventDispatcher`, or
   class API `$set`. `frontend/vite.config.mjs` and `frontend/vitest.config.mjs` enable
