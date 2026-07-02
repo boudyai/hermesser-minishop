@@ -224,6 +224,46 @@ def test_frontend_weak_typing_guard_enforces_baseline_counts(
     assert "allowed 1" in output
 
 
+def test_first_party_js_guard_rejects_new_js_files(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["first_party_js"] = {
+        "scopes": ["frontend/src"],
+        "allowlist": ["frontend/src/generated.js"],
+    }
+    _write(tmp_path, "frontend/src/generated.js", "export const generated = true;\n")
+    _write(tmp_path, "frontend/src/handwritten.js", "export const handwritten = true;\n")
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 1
+    assert "[first-party-js]" in output
+    assert "frontend/src/handwritten.js" in output
+    assert "frontend/src/generated.js" not in output
+
+
+def test_first_party_js_guard_rejects_stale_allowlist_entries(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["first_party_js"] = {
+        "scopes": ["frontend/src"],
+        "allowlist": ["frontend/src/removed.js"],
+    }
+    _write(tmp_path, "frontend/src/typed.ts", "export const typed = true;\n")
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 1
+    assert "[first-party-js]" in output
+    assert "allowlist entry is stale" in output
+
+
 def test_svelte_lang_ts_guard_rejects_new_untyped_svelte(
     tmp_path,
     monkeypatch,

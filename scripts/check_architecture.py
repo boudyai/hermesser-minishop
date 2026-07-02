@@ -415,6 +415,31 @@ def _check_frontend_weak_typing(cfg: dict, issues: list[str]) -> None:
             )
 
 
+def _check_first_party_js(cfg: dict, issues: list[str]) -> None:
+    checks = cfg.get("first_party_js")
+    if not checks:
+        return
+
+    allowlist = set(checks.get("allowlist", []))
+    actual_js: set[str] = set()
+
+    for scope in checks.get("scopes", []):
+        for file in _iter_text_files(scope, {".js"}):
+            rel = _to_posix(file)
+            actual_js.add(rel)
+            if rel not in allowlist:
+                issues.append(
+                    f"[first-party-js] {rel}: first-party JS is forbidden; write TypeScript "
+                    "(only generated artifacts may stay .js)"
+                )
+
+    issues.extend(
+        f"[first-party-js] {rel}: allowlist entry is stale"
+        for rel in sorted(allowlist)
+        if rel not in actual_js
+    )
+
+
 def _check_svelte_lang_ts(cfg: dict, issues: list[str]) -> None:
     checks = cfg.get("svelte_lang_ts")
     if not checks:
@@ -665,6 +690,7 @@ def main() -> int:
     _check_raw_json_response(config, issues)
     _check_loose_schemas(config, issues)
     _check_frontend_weak_typing(config, issues)
+    _check_first_party_js(config, issues)
     _check_svelte_lang_ts(config, issues)
     _check_frontend_api_calls(config, issues)
     _check_runtime_all_exports(config, issues)

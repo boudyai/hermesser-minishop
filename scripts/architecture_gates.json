@@ -63,6 +63,16 @@
     "allowlist": [],
     "allowed_counts": {}
   },
+  "first_party_js": {
+    "scopes": [
+      "frontend/src"
+    ],
+    "allowlist": [
+      "frontend/src/lib/webapp/demoDataset.js",
+      "frontend/src/lib/webapp/mockApi.js",
+      "frontend/src/lib/webapp/previewMock.js"
+    ]
+  },
   "svelte_lang_ts": {
     "scopes": [
       "frontend/src"
