@@ -11,6 +11,11 @@ scratch/
 node_modules/
 .git/
 
+# uv: проект использует pyproject.toml + requirements-dev.txt, не uv.
+# uv.lock появляется как ghost artifact при запуске 'uv <anything>' в
+# репозитории — никакого uv workflow в проекте нет, lockfile мусорный.
+uv.lock
+
 # Documentation site build artifacts
 docs-site/.astro/
 docs-site/dist/
