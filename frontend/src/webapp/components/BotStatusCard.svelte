@@ -116,13 +116,32 @@
     busyAction = "logs-refresh";
     error = null;
     try {
-      // ponytail: GET /tenant/logs returns the cached `last_logs` row from
-      // the core, which is only refreshed after a fetch_logs job runs. POST
-      // /tenant/logs/refresh enqueues that job; the cached value is updated
-      // on success, so the follow-up GET shows the latest output.
+      // ponytail: GET /tenant/logs returns the cached `last_logs`
+      // row from the core, which is only refreshed after a
+      // fetch_logs job runs. POST /tenant/logs/refresh enqueues
+      // that job; the cached value updates on success. The
+      // executor drains in <1s on the worker, but a race between
+      // the immediate follow-up GET and the worker write used to
+      // show the previous fetch. Poll a couple of times before
+      // giving up so we usually pick up the freshest tail.
       await callApi("/tenant/logs/refresh", "POST");
-      const data = (await callApi("/tenant/logs")) as { logs?: string };
-      logs = data.logs || "";
+      let latest = "";
+      for (let attempt = 0; attempt < 4; attempt++) {
+        if (attempt > 0) {
+          await new Promise((resolve) => window.setTimeout(resolve, 600));
+        }
+        const data = (await callApi("/tenant/logs")) as { logs?: string };
+        if (data.logs && data.logs.length > 0) {
+          latest = data.logs;
+          // First non-empty tail — keep polling once more so a
+          // slightly-newer write beats us, but stop if we already
+          // have a stable read.
+          if (attempt >= 1) break;
+        } else {
+          latest = "";
+        }
+      }
+      logs = latest;
       logsOpen = true;
     } catch (e) {
       error = e instanceof Error ? e.message : "Logs failed";
