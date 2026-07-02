@@ -27,7 +27,7 @@ function readReferralParamFromLocation(): string {
   return params.get("ref") || params.get("start") || params.get("start_param") || "";
 }
 
-export function readReferralParam(tg: unknown): string {
+export function readReferralParam(tg: unknown = null): string {
   const fromQuery = readReferralParamFromLocation();
   const fromTelegram = asTelegramWebApp(tg)?.initDataUnsafe?.start_param || "";
   const value = String(fromTelegram || fromQuery || "").trim();
