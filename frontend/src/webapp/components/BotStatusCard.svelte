@@ -127,10 +127,10 @@
     return null;
   });
 
-  function fmtUsd(v: number | null): string {
+  function fmtRub(v: number | null): string {
     if (v === null) return "—";
-    if (v >= 1) return `$${v.toFixed(2)}`;
-    return `$${v.toFixed(3)}`;
+    const rub = Math.round(v * 100);
+    return `${rub} ₽`;
   }
 </script>
 
@@ -168,12 +168,12 @@
         style="margin-top: 8px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 12px;"
       >
         <div>
-          <small style="color: var(--muted);">Бюджет</small>
-          <div><strong>{fmtUsd(quotaMax)}</strong></div>
+          <small style="color: var(--muted);">Баланс CornLLM</small>
+          <div><strong>{fmtRub(quotaMax)}</strong></div>
         </div>
         <div>
           <small style="color: var(--muted);">Потрачено</small>
-          <div><strong>{fmtUsd(quotaSpent)}</strong></div>
+          <div><strong>{fmtRub(quotaSpent)}</strong></div>
         </div>
         <div>
           <small style="color: var(--muted);">Осталось</small>
@@ -181,7 +181,7 @@
             <strong
               style={quotaRemaining !== null && quotaRemaining < 1 ? "color: var(--danger)" : ""}
             >
-              {fmtUsd(quotaRemaining)}
+              {fmtRub(quotaRemaining)}
             </strong>
           </div>
         </div>

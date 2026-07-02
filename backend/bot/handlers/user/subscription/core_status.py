@@ -713,11 +713,13 @@ def _format_hermes_container_status(active: dict[str, Any], get_text: Any) -> st
 
 
 def _format_hermes_llm_budget(active: dict[str, Any], get_text: Any) -> str:
-    """Render a one-line LLM budget summary, best-effort.
+    """Render a one-line CornLLM budget summary in rubles, best-effort.
 
     The data comes from QuotaResponse fields (max_budget / spent) and is
-    only present when get_tenant_quota was called. If absent, return the
-    i18n "unavailable" label.
+    only present when get_tenant_quota was called. LiteLLM stores the
+    budget in USD; the user-facing copy is rubles (1 USD = 100 RUB), so
+    multiply by 100 and round to the nearest ruble. If absent, return
+    the i18n "unavailable" label.
     """
     spent = active.get("llm_spent")
     max_budget = active.get("llm_max_budget")
@@ -727,11 +729,13 @@ def _format_hermes_llm_budget(active: dict[str, Any], get_text: Any) -> str:
         spent_f = float(spent) if spent is not None else 0.0
     except (TypeError, ValueError):
         spent_f = 0.0
+    spent_rub = int(round(spent_f * 100))
     if max_budget:
         try:
             max_f = float(max_budget)
             if max_f > 0:
-                return f"${spent_f:.2f} / ${max_f:.2f}"
+                max_rub = int(round(max_f * 100))
+                return f"{spent_rub} / {max_rub} ₽"
         except (TypeError, ValueError):
             pass
-    return get_text("my_hermes_llm_budget_used", spent=f"${spent_f:.2f}")
+    return get_text("my_hermes_llm_budget_used", spent=f"{spent_rub} ₽")
