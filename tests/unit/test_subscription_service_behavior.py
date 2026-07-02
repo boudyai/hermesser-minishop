@@ -1630,5 +1630,173 @@ class SubscriptionDalPayloadTests(unittest.TestCase):
         self.assertNotIn("traffic_limit_strategy", payload)
 
 
+class HermesBotUsernameInPayloadTests(unittest.IsolatedAsyncioTestCase):
+    """In hermes mode, ``get_active_subscription_details`` must surface
+    ``bot_username`` (resolved by the provisioning-core lookup) so the
+    Mini App's "Открыть бота" CTA can render the Telegram link. Without
+    this the frontend disables the button even on a healthy tenant.
+    """
+
+    async def test_hermes_mode_payload_includes_bot_username_from_lookup(self):
+        from bot.services.subscription_service_impl.lifecycle_details import (
+            SubscriptionLifecycleDetailsMixin,
+        )
+
+        def _mixin(service):
+            for cls in type(service).__mro__:
+                if SubscriptionLifecycleDetailsMixin in cls.__mro__:
+                    return cls
+            raise AssertionError("lifecycle mixin not on service MRO")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(), tmpdir, PANEL_WRITE_MODE="hermes")
+            service = _make_service(settings)
+            service.panel_service.get_user_by_uuid_lookup = AsyncMock(
+                return_value={
+                    "ok": True,
+                    "user": {
+                        "uuid": "panel-user",
+                        "status": "ACTIVE",
+                        "expireAt": "",
+                        "botUsername": "cornclawerbot",
+                    },
+                }
+            )
+            db_user = SimpleNamespace(
+                user_id=42,
+                panel_user_uuid="panel-user",
+                username="alice",
+                language_code="en",
+                lifetime_used_traffic_bytes=None,
+                pending_bot_username="fallback_bot",
+            )
+            local_sub = SimpleNamespace(
+                subscription_id=1,
+                user_id=42,
+                panel_user_uuid="panel-user",
+                panel_subscription_uuid="short-uuid",
+                end_date=datetime.now(timezone.utc) + timedelta(days=2),
+                is_active=True,
+                status_from_panel="ACTIVE",
+                traffic_limit_bytes=None,
+                traffic_used_bytes=0,
+                last_notification_sent=None,
+                provider="trial",
+                auto_renew_enabled=True,
+                tariff_key="standard",
+                tier_baseline_bytes=None,
+                topup_balance_bytes=0,
+                premium_baseline_bytes=0,
+                premium_topup_balance_bytes=0,
+                premium_topup_used_bytes=0,
+                premium_used_bytes=0,
+                premium_bonus_bytes=0,
+                premium_is_limited=False,
+                premium_period_start_at=None,
+                period_start_at=None,
+                is_throttled=False,
+                hwid_device_limit=None,
+                extra_hwid_devices=0,
+                extra_hwid_devices_valid_until=None,
+                extra_hwid_devices_next_valid_from=None,
+                suppress_early_expiry_notifications=False,
+                skip_notifications=False,
+                install_share_token=None,
+            )
+            session = AsyncMock()
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_details.user_dal.get_user_by_id",
+                    AsyncMock(return_value=db_user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_details.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=local_sub),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_details.tariff_dal.get_hwid_device_entitlement_summary",
+                    AsyncMock(return_value={}),
+                ),
+            ):
+                result = await service.get_active_subscription_details(session, user_id=42)
+
+        self.assertEqual(result["bot_username"], "cornclawerbot")
+
+    async def test_hermes_mode_falls_back_to_pending_bot_username(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(), tmpdir, PANEL_WRITE_MODE="hermes")
+            service = _make_service(settings)
+            service.panel_service.get_user_by_uuid_lookup = AsyncMock(
+                return_value={
+                    "ok": True,
+                    "user": {
+                        "uuid": "panel-user",
+                        "status": "ACTIVE",
+                        "expireAt": "",
+                        # botUsername missing → fall back to db_user.pending_bot_username
+                    },
+                }
+            )
+            db_user = SimpleNamespace(
+                user_id=42,
+                panel_user_uuid="panel-user",
+                username="alice",
+                language_code="en",
+                lifetime_used_traffic_bytes=None,
+                pending_bot_username="pending_user",
+            )
+            local_sub = SimpleNamespace(
+                subscription_id=1,
+                user_id=42,
+                panel_user_uuid="panel-user",
+                panel_subscription_uuid="short-uuid",
+                end_date=datetime.now(timezone.utc) + timedelta(days=2),
+                is_active=True,
+                status_from_panel="ACTIVE",
+                traffic_limit_bytes=None,
+                traffic_used_bytes=0,
+                last_notification_sent=None,
+                provider="trial",
+                auto_renew_enabled=True,
+                tariff_key="standard",
+                tier_baseline_bytes=None,
+                topup_balance_bytes=0,
+                premium_baseline_bytes=0,
+                premium_topup_balance_bytes=0,
+                premium_topup_used_bytes=0,
+                premium_used_bytes=0,
+                premium_bonus_bytes=0,
+                premium_is_limited=False,
+                premium_period_start_at=None,
+                period_start_at=None,
+                is_throttled=False,
+                hwid_device_limit=None,
+                extra_hwid_devices=0,
+                extra_hwid_devices_valid_until=None,
+                extra_hwid_devices_next_valid_from=None,
+                suppress_early_expiry_notifications=False,
+                skip_notifications=False,
+                install_share_token=None,
+            )
+            session = AsyncMock()
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_details.user_dal.get_user_by_id",
+                    AsyncMock(return_value=db_user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_details.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=local_sub),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_details.tariff_dal.get_hwid_device_entitlement_summary",
+                    AsyncMock(return_value={}),
+                ),
+            ):
+                result = await service.get_active_subscription_details(session, user_id=42)
+
+        self.assertEqual(result["bot_username"], "pending_user")
+
+
 if __name__ == "__main__":
     unittest.main()

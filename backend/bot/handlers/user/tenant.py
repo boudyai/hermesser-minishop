@@ -132,6 +132,83 @@ async def _render_status(
         )
         return
 
+    # ponytail: after the user deletes the bot in the Mini App, the local
+    # subscription can stay `is_active=true` for a few minutes (no
+    # synchronous panel callback), so the previous "always show active"
+    # render is wrong. Pull the core's runtime state and surface the real
+    # lifecycle (deleting / deleted / suspended / provisioning) instead.
+    tenant_state = await panel_service.get_tenant_state(tenant_id) or {}
+    tenant_status = str(tenant_state.get("status") or "active").lower()
+
+    if tenant_status in ("deleting", "deleted", "archived"):
+        text = "🗑 Бот удалён. Откройте Личный кабинет, чтобы создать нового."
+        await _reply_or_edit(
+            target_message,
+            text,
+            types.InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(
+                            text="🆕 Создать бота",
+                            callback_data="main_action:my_subscription",
+                        )
+                    ],
+                    [
+                        types.InlineKeyboardButton(
+                            text="⬅️ В меню", callback_data="main_action:back_to_main"
+                        )
+                    ],
+                ]
+            ),
+            edit=edit,
+        )
+        return
+
+    if tenant_status == "suspended":
+        text = "⏸ Бот приостановлен. Возобновите подписку, чтобы снова запустить."
+        await _reply_or_edit(
+            target_message,
+            text,
+            types.InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(
+                            text="💳 Продлить",
+                            callback_data="main_action:my_subscription",
+                        )
+                    ],
+                    [
+                        types.InlineKeyboardButton(
+                            text="⬅️ В меню", callback_data="main_action:back_to_main"
+                        )
+                    ],
+                ]
+            ),
+            edit=edit,
+        )
+        return
+
+    if tenant_status in ("provisioning_vm", "provisioning_litellm_key", "created", "error"):
+        text = (
+            "⏳ Бот запускается… Это занимает ~30 секунд.\n"
+            "Повторите /status через минуту."
+        )
+        await _reply_or_edit(
+            target_message,
+            text,
+            types.InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(
+                            text="⬅️ В меню", callback_data="main_action:back_to_main"
+                        )
+                    ]
+                ]
+            ),
+            edit=edit,
+        )
+        return
+
     quota = await panel_service.get_tenant_quota(tenant_id)
     quota_text = ""
     if quota:

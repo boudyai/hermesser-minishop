@@ -89,6 +89,11 @@
     busyAction = "logs-refresh";
     error = null;
     try {
+      // ponytail: GET /tenant/logs returns the cached `last_logs` row from
+      // the core, which is only refreshed after a fetch_logs job runs. POST
+      // /tenant/logs/refresh enqueues that job; the cached value is updated
+      // on success, so the follow-up GET shows the latest output.
+      await callApi("/tenant/logs/refresh", "POST");
       const data = (await callApi("/tenant/logs")) as { logs?: string };
       logs = data.logs || "";
       logsOpen = true;

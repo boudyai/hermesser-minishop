@@ -213,6 +213,10 @@ class HermesProvisioningService(PanelApiService):
                     "uuid": data.get("tenant_id", user_uuid),
                     "status": data.get("status", "unknown"),
                     "expireAt": data.get("last_state_change", ""),
+                    # ponytail: surface bot_username so the Mini App's
+                    # "Открыть бота" button gets the @handle even when the
+                    # cached active-subscription payload is stale.
+                    "botUsername": data.get("bot_username") or "",
                 }
             if resp.status == 404:
                 return None
@@ -243,6 +247,10 @@ class HermesProvisioningService(PanelApiService):
                         # pass through the tenant's last_state_change as
                         # a best-effort substitute.
                         "expireAt": str(data.get("last_state_change", "") or ""),
+                        # ponytail: bot_username drives the "Открыть бота"
+                        # button in the Mini App. Without it the frontend
+                        # disables the CTA even when the bot is healthy.
+                        "botUsername": str(data.get("bot_username") or ""),
                     },
                     "not_found": False,
                     "failure_reason": None,

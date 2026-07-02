@@ -267,6 +267,15 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             "panel_short_uuid": panel_user_data.get("shortUuid"),
             "end_date": panel_end_date,
             "status_from_panel": panel_user_data.get("status", "UNKNOWN").upper(),
+            # ponytail: in hermes mode, provisioning-core stores the bot's
+            # @handle on the tenant row; the lifecycle payload needs to carry
+            # it through so the Mini App's "Открыть бота" CTA can render the
+            # Telegram link instead of staying disabled.
+            "bot_username": (
+                str(panel_user_data.get("botUsername") or "").strip()
+                or (str(getattr(db_user, "pending_bot_username", "") or "").strip())
+                or None
+            ),
             "config_link": display_link,
             "connect_button_url": connect_button_url,
             "traffic_limit_bytes": panel_traffic_limit,

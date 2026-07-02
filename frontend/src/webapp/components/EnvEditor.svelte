@@ -32,10 +32,11 @@
         envContent = typeof data.env_content === "string" ? data.env_content : "";
         originalContent = envContent;
       } else {
-        error = "Failed to load configuration";
+        error =
+          t("wa_settings_env_load_failed", {}, "Failed to load configuration");
       }
     } catch {
-      error = "Failed to load configuration";
+      error = t("wa_settings_env_load_failed", {}, "Failed to load configuration");
     } finally {
       loading = false;
     }
@@ -55,10 +56,12 @@
         saved = true;
         setTimeout(() => (saved = false), 3000);
       } else {
-        error = "Failed to save";
+        error =
+          t("wa_settings_env_save_failed", {}, "Failed to save") +
+          (data.error ? `: ${String(data.error)}` : "");
       }
     } catch {
-      error = "Network error";
+      error = t("wa_settings_env_network_error", {}, "Network error");
     } finally {
       saving = false;
     }
