@@ -101,6 +101,20 @@ async def my_subscription_command_handler(
         session, _event_user_id(event)
     )
 
+    # ponytail: in hermes mode, also fetch the LLM budget for the card.
+    # The proxy subscription details have no concept of LLM budget.
+    hermes_mode_precheck = (
+        str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
+    )
+    if hermes_mode_precheck and active and active.get("user_id"):
+        try:
+            quota = await panel_service.get_tenant_quota(str(active["user_id"]))
+            if isinstance(quota, dict):
+                active["llm_spent"] = quota.get("spent")
+                active["llm_max_budget"] = quota.get("max_budget")
+        except Exception as exc:
+            logging.debug("get_tenant_quota failed for bot status card: %s", exc)
+
     if not active:
         text = get_text("subscription_not_active")
 
@@ -195,34 +209,56 @@ async def my_subscription_command_handler(
             config_link=config_link_value,
         )
     else:
-        tariff_prefix = ""
-        if _has_multiple_enabled_tariffs(settings) and active.get("tariff_name"):
-            tariff_prefix = f"🎟 {active.get('tariff_name')}\n"
-            if active.get("tariff_description"):
-                tariff_prefix += f"{active.get('tariff_description')}\n"
-        text = get_text(
-            "my_subscription_details",
-            end_date=end_date.strftime("%Y-%m-%d") if end_date else "N/A",
-            days_left=max(0, days_left),
-            status=active.get("status_from_panel", get_text("status_active")).capitalize(),
-            config_link=config_link_value,
-            traffic_limit=(
-                f"{active['traffic_limit_bytes'] / 2**30:.2f} GB"
-                if active.get("traffic_limit_bytes")
-                else get_text("traffic_unlimited")
-            ),
-            traffic_used=(
-                _format_used_with_period(
-                    f"{active['traffic_used_bytes'] / 2**30:.2f} GB"
-                    if active.get("traffic_used_bytes") is not None
-                    else get_text("traffic_na"),
-                    period_label,
-                )
-            ),
-            traffic_period=period_label,
+        # ponytail: hermes mode replaces the proxy card with a hosting-
+        # focused one — bot handle, LLM budget, container status — and
+        # skips config link / traffic fields entirely. The proxy card
+        # below stays the default for non-hermes shops.
+        hermes_mode = (
+            str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
         )
-        if tariff_prefix:
-            text = tariff_prefix + "\n" + text
+        if hermes_mode:
+            bot_username = str(active.get("bot_username") or "").strip()
+            bot_username_display = bot_username or get_text("my_hermes_bot_username_unknown")
+            llm_budget_display = _format_hermes_llm_budget(active, get_text)
+            container_status = _format_hermes_container_status(active, get_text)
+            text = get_text(
+                "my_hermes_subscription_details",
+                status=active.get("status_from_panel", get_text("status_active")).capitalize(),
+                end_date=end_date.strftime("%Y-%m-%d") if end_date else "N/A",
+                days_left=max(0, days_left),
+                bot_username=bot_username_display,
+                llm_budget=llm_budget_display,
+                container_status=container_status,
+            )
+        else:
+            tariff_prefix = ""
+            if _has_multiple_enabled_tariffs(settings) and active.get("tariff_name"):
+                tariff_prefix = f"🎟 {active.get('tariff_name')}\n"
+                if active.get("tariff_description"):
+                    tariff_prefix += f"{active.get('tariff_description')}\n"
+            text = get_text(
+                "my_subscription_details",
+                end_date=end_date.strftime("%Y-%m-%d") if end_date else "N/A",
+                days_left=max(0, days_left),
+                status=active.get("status_from_panel", get_text("status_active")).capitalize(),
+                config_link=config_link_value,
+                traffic_limit=(
+                    f"{active['traffic_limit_bytes'] / 2**30:.2f} GB"
+                    if active.get("traffic_limit_bytes")
+                    else get_text("traffic_unlimited")
+                ),
+                traffic_used=(
+                    _format_used_with_period(
+                        f"{active['traffic_used_bytes'] / 2**30:.2f} GB"
+                        if active.get("traffic_used_bytes") is not None
+                        else get_text("traffic_na"),
+                        period_label,
+                    )
+                ),
+                traffic_period=period_label,
+            )
+            if tariff_prefix:
+                text = tariff_prefix + "\n" + text
 
     if int(active.get("premium_limit_bytes") or 0) > 0:
         premium_limit = int(active.get("premium_limit_bytes") or 0)
@@ -636,3 +672,45 @@ async def my_devices_command_handler(
             await callback_message(event).answer(text, reply_markup=markup)
     else:
         await target.answer(text, reply_markup=markup)
+
+
+def _format_hermes_container_status(active: dict[str, Any], get_text: Any) -> str:
+    """Map a tenant_runtime_fields-derived status to a human label.
+
+    Falls back to "unknown" if the panel service never reported a state.
+    """
+    status = str(active.get("tenant_status") or "").strip().lower()
+    if status in ("active", "running"):
+        return get_text("my_hermes_container_status_active")
+    if status in ("provisioning_vm", "created", "provisioning_litellm"):
+        return get_text("my_hermes_container_status_provisioning")
+    if status in ("suspended", "payment_expiring"):
+        return get_text("my_hermes_container_status_suspended")
+    if status in ("error", "failed"):
+        return get_text("my_hermes_container_status_error")
+    return get_text("my_hermes_container_status_unknown")
+
+
+def _format_hermes_llm_budget(active: dict[str, Any], get_text: Any) -> str:
+    """Render a one-line LLM budget summary, best-effort.
+
+    The data comes from QuotaResponse fields (max_budget / spent) and is
+    only present when get_tenant_quota was called. If absent, return the
+    i18n "unavailable" label.
+    """
+    spent = active.get("llm_spent")
+    max_budget = active.get("llm_max_budget")
+    if spent is None and max_budget is None:
+        return get_text("my_hermes_llm_budget_unavailable")
+    try:
+        spent_f = float(spent) if spent is not None else 0.0
+    except (TypeError, ValueError):
+        spent_f = 0.0
+    if max_budget:
+        try:
+            max_f = float(max_budget)
+            if max_f > 0:
+                return f"${spent_f:.2f} / ${max_f:.2f}"
+        except (TypeError, ValueError):
+            pass
+    return get_text("my_hermes_llm_budget_used", spent=f"${spent_f:.2f}")
