@@ -44,7 +44,7 @@ type AccountStoreDeps = {
   currentLang: () => string;
   normalizeLangCode: (value: string) => string;
   updateLocalData: (updatedLanguage: string) => void;
-  activateTrial: () => Promise<unknown>;
+  activateTrial: (botToken?: string) => Promise<unknown>;
   claimReferralWelcomeBonus: () => Promise<unknown>;
 };
 export type AccountState = {

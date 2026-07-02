@@ -209,8 +209,6 @@ async def activate_trial_route(request: web.Request) -> web.Response:
     if not settings.TRIAL_ENABLED or settings.TRIAL_DURATION_DAYS <= 0:
         return _json_error(400, "trial_unavailable", "Trial is not available")
     hermes_mode = str(settings.panel_settings.write_mode or "").lower() == "hermes"
-    if hermes_mode and not trial_payload.bot_token:
-        return _json_error(400, "bot_token_required", "BotFather token is required")
 
     async_session_factory: sessionmaker = get_session_factory(request)
     subscription_service: SubscriptionService = get_subscription_service(request)
@@ -220,9 +218,14 @@ async def activate_trial_route(request: web.Request) -> web.Response:
             return _json_error(403, "access_denied", "Access denied")
 
         # In hermes mode, fall back to the stored pending token if body didn't carry one.
+        # ponytail: the body-only check used to short-circuit before this fallback, which
+        # made trial activation fail for users who already saved a token via /api/account/bot_token.
         effective_token = trial_payload.bot_token
         if not effective_token:
             effective_token = getattr(db_user, "pending_bot_token", None) or None
+        if hermes_mode and not effective_token:
+            return _json_error(400, "bot_token_required", "BotFather token is required")
+
         lang = _normalize_language(
             getattr(db_user, "language_code", None) or settings.DEFAULT_LANGUAGE
         )
@@ -258,6 +261,12 @@ async def activate_trial_route(request: web.Request) -> web.Response:
             settings,
             activation_result.get("subscription_url"),
         )
+
+        # ponytail: persist the token used for trial activation so future reloads
+        # of /api/me report has_bot_token=true and the same value reaches
+        # provisioning-core on subsequent operations.
+        if effective_token and getattr(db_user, "pending_bot_token", None) != effective_token:
+            db_user.pending_bot_token = effective_token
 
         try:
             await message_log_dal.create_message_log_no_commit(

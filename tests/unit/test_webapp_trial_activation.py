@@ -272,3 +272,209 @@ class WebAppTrialActivationTests(IsolatedAsyncioTestCase):
         )
         subscription_service.activate_trial_subscription.assert_awaited_once_with(session, 42)
         self.assertEqual(session.rollback_count, 1)
+
+    async def test_hermes_trial_uses_pending_bot_token_when_body_omits_it(self):
+        session = _Session()
+        end_date = datetime(2026, 1, 9, 3, 4, tzinfo=timezone.utc)
+        settings = settings_stub(
+            TRIAL_ENABLED=True,
+            TRIAL_DURATION_DAYS=7,
+            TRIAL_TRAFFIC_LIMIT_GB=10,
+            TRIAL_WITHOUT_TELEGRAM_ENABLED=True,
+            DISPOSABLE_EMAIL_DOMAINS="",
+            LOG_TRIAL_ACTIVATIONS=False,
+            PANEL_WRITE_MODE="hermes",
+        )
+        # No body token, but the user already saved one via PUT /api/account/bot_token.
+        request = SimpleNamespace(
+            can_read_body=True,
+            app={
+                "settings": settings,
+                "async_session_factory": _SessionFactory(session),
+                "subscription_service": SimpleNamespace(
+                    activate_trial_subscription=AsyncMock(
+                        return_value={
+                            "activated": True,
+                            "days": 7,
+                            "end_date": end_date,
+                            "traffic_gb": 10,
+                            "subscription_url": "https://panel.example/sub",
+                        }
+                    )
+                ),
+            },
+            json=AsyncMock(return_value={}),
+        )
+        db_user = SimpleNamespace(
+            user_id=42,
+            telegram_id=1234,
+            is_banned=False,
+            username="borisovab_w",
+            first_name="Test",
+            email="u@example.com",
+            language_code="ru",
+            pending_bot_token="1234567890:AAAA-stored-from-settings",
+        )
+
+        with (
+            patch.object(billing_subscription, "_require_user_id", return_value=42),
+            patch.object(
+                billing_subscription,
+                "_enforce_webapp_rate_limit",
+                AsyncMock(return_value=None),
+            ),
+            patch.object(
+                billing_module.user_dal,
+                "get_user_by_id",
+                AsyncMock(return_value=db_user),
+            ),
+            patch.object(
+                billing_subscription,
+                "prepare_config_links",
+                AsyncMock(return_value=("https://panel.example/sub", "https://connect.example")),
+            ),
+            patch.object(
+                billing_module.message_log_dal,
+                "create_message_log_no_commit",
+                AsyncMock(),
+            ),
+            patch("db.dal.ad_dal.mark_trial_activated", AsyncMock()),
+        ):
+            response = await billing_module.activate_trial_route(request)
+
+        payload = json.loads(response.text)
+        self.assertEqual(response.status, 200)
+        self.assertTrue(payload["activated"])
+        request.app["subscription_service"].activate_trial_subscription.assert_awaited_once_with(
+            session, 42, bot_token="1234567890:AAAA-stored-from-settings"
+        )
+        # Stored token was already correct, so no update needed.
+        self.assertEqual(db_user.pending_bot_token, "1234567890:AAAA-stored-from-settings")
+        self.assertGreaterEqual(session.commit_count, 1)
+        self.assertEqual(session.rollback_count, 0)
+
+    async def test_hermes_trial_persists_body_token_to_pending_field(self):
+        session = _Session()
+        end_date = datetime(2026, 1, 9, 3, 4, tzinfo=timezone.utc)
+        settings = settings_stub(
+            TRIAL_ENABLED=True,
+            TRIAL_DURATION_DAYS=7,
+            TRIAL_TRAFFIC_LIMIT_GB=10,
+            TRIAL_WITHOUT_TELEGRAM_ENABLED=True,
+            DISPOSABLE_EMAIL_DOMAINS="",
+            LOG_TRIAL_ACTIVATIONS=False,
+            PANEL_WRITE_MODE="hermes",
+        )
+        request = SimpleNamespace(
+            can_read_body=True,
+            app={
+                "settings": settings,
+                "async_session_factory": _SessionFactory(session),
+                "subscription_service": SimpleNamespace(
+                    activate_trial_subscription=AsyncMock(
+                        return_value={
+                            "activated": True,
+                            "days": 7,
+                            "end_date": end_date,
+                            "traffic_gb": 10,
+                            "subscription_url": "https://panel.example/sub",
+                        }
+                    )
+                ),
+            },
+            json=AsyncMock(return_value={"bot_token": "9876543210:BBBB-supplied-on-trial-form"}),
+        )
+        db_user = SimpleNamespace(
+            user_id=42,
+            telegram_id=1234,
+            is_banned=False,
+            username="borisovab_w",
+            first_name="Test",
+            email="u@example.com",
+            language_code="ru",
+            pending_bot_token=None,
+        )
+
+        with (
+            patch.object(billing_subscription, "_require_user_id", return_value=42),
+            patch.object(
+                billing_subscription,
+                "_enforce_webapp_rate_limit",
+                AsyncMock(return_value=None),
+            ),
+            patch.object(
+                billing_module.user_dal,
+                "get_user_by_id",
+                AsyncMock(return_value=db_user),
+            ),
+            patch.object(
+                billing_subscription,
+                "prepare_config_links",
+                AsyncMock(return_value=("https://panel.example/sub", "https://connect.example")),
+            ),
+            patch.object(
+                billing_module.message_log_dal,
+                "create_message_log_no_commit",
+                AsyncMock(),
+            ),
+            patch("db.dal.ad_dal.mark_trial_activated", AsyncMock()),
+        ):
+            response = await billing_module.activate_trial_route(request)
+
+        payload = json.loads(response.text)
+        self.assertEqual(response.status, 200)
+        self.assertTrue(payload["activated"])
+        request.app["subscription_service"].activate_trial_subscription.assert_awaited_once_with(
+            session, 42, bot_token="9876543210:BBBB-supplied-on-trial-form"
+        )
+        self.assertEqual(db_user.pending_bot_token, "9876543210:BBBB-supplied-on-trial-form")
+        self.assertGreaterEqual(session.commit_count, 1)
+
+    async def test_hermes_trial_without_token_still_returns_bot_token_required(self):
+        session = _Session()
+        settings = settings_stub(
+            TRIAL_ENABLED=True,
+            TRIAL_DURATION_DAYS=7,
+            TRIAL_TRAFFIC_LIMIT_GB=10,
+            TRIAL_WITHOUT_TELEGRAM_ENABLED=True,
+            DISPOSABLE_EMAIL_DOMAINS="",
+            LOG_TRIAL_ACTIVATIONS=False,
+            PANEL_WRITE_MODE="hermes",
+        )
+        request = SimpleNamespace(
+            can_read_body=True,
+            app={
+                "settings": settings,
+                "async_session_factory": _SessionFactory(session),
+                "subscription_service": SimpleNamespace(activate_trial_subscription=AsyncMock()),
+            },
+            json=AsyncMock(return_value={}),
+        )
+        db_user = SimpleNamespace(
+            user_id=42,
+            telegram_id=1234,
+            is_banned=False,
+            email="u@example.com",
+            language_code="ru",
+            pending_bot_token=None,
+        )
+
+        with (
+            patch.object(billing_subscription, "_require_user_id", return_value=42),
+            patch.object(
+                billing_subscription,
+                "_enforce_webapp_rate_limit",
+                AsyncMock(return_value=None),
+            ),
+            patch.object(
+                billing_module.user_dal,
+                "get_user_by_id",
+                AsyncMock(return_value=db_user),
+            ),
+        ):
+            response = await billing_module.activate_trial_route(request)
+
+        payload = json.loads(response.text)
+        self.assertEqual(response.status, 400)
+        self.assertEqual(payload["error"], "bot_token_required")
+        request.app["subscription_service"].activate_trial_subscription.assert_not_awaited()

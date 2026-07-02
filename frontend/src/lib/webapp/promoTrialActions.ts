@@ -1,5 +1,5 @@
 type PromoTrialStore = {
-  activateTrial: () => unknown;
+  activateTrial: (botToken?: string) => unknown;
   applyPromo: () => unknown;
   clearPromoFieldError: () => void;
   openPromoCheckout: () => void;
@@ -27,8 +27,8 @@ export function createPromoTrialActions({ actionsStore }: PromoTrialActionDeps) 
     actionsStore.openPromoCheckout();
   }
 
-  function activateTrial() {
-    return actionsStore.activateTrial();
+  function activateTrial(botToken?: string) {
+    return actionsStore.activateTrial(botToken);
   }
 
   return {

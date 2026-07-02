@@ -458,7 +458,7 @@
       if (!data?.user) return;
       shellState.data = { ...data, user: { ...data.user, language_code: updatedLanguage } };
     },
-    activateTrial: () => actionsStore.activateTrial(),
+    activateTrial: (botToken?: string) => actionsStore.activateTrial(botToken),
     claimReferralWelcomeBonus: () => actionsStore.claimReferralWelcomeBonus(),
   });
 
