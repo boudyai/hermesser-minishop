@@ -60,9 +60,12 @@ class _FakeResponse:
         return self._text_value
 
 
-def _session_with(responses) -> MagicMock:
-    """Build a mock aiohttp.ClientSession that returns the queued responses in order."""
+def _session_with(responses) -> tuple[MagicMock, list[str]]:
+    """Build a mock aiohttp.ClientSession that returns the queued responses in order.
 
+    Returns the session and a list that collects every URL the test hit, so
+    assertions can verify routing (and detect unexpected calls).
+    """
     session = MagicMock()
     session.closed = False
     calls: list[str] = []
