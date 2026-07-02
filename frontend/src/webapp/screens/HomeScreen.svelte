@@ -125,6 +125,55 @@
   );
   const hasBotToken = $derived(Boolean(appSettings?.has_bot_token));
   const hermesTokenRequired = $derived(Boolean(hermesMode && !hasBotToken));
+  // ponytail: in hermes mode the InstallGuideScreen has no proxy
+  // config links to show, so "Открыть бота" should open the bot's
+  // Telegram chat directly instead of rendering an empty page.
+  const hermesBotUsername = $derived(
+    String(subscription?.bot_username || appSettings?.bot_username || "").trim()
+  );
+  const hermesTMeUrl = $derived(hermesBotUsername ? `https://t.me/${hermesBotUsername}` : "");
+  // ponytail: track tenant lifecycle to show a "Bot deleted" card
+  // with a re-create action. tenant_status comes from
+  // _tenant_runtime_fields via the /api/me serializer.
+  const hermesTenantStatus = $derived(
+    String(subscription?.tenant_status || subscription?.status || "").toLowerCase()
+  );
+  const hermesBotDeleted = $derived(
+    hermesMode && ["deleting", "deleted", "archived"].includes(hermesTenantStatus)
+  );
+  let hermesCardBusy = $state(false);
+  let hermesCardError = $state<string | null>(null);
+  async function recreateHermesBot() {
+    if (hermesCardBusy) return;
+    hermesCardBusy = true;
+    hermesCardError = null;
+    try {
+      await activateTrial();
+    } catch (_e) {
+      hermesCardError = t(
+        "wa_hermes_bot_action_recreate_failed",
+        {},
+        "Failed to create. Try again or contact support."
+      );
+    } finally {
+      hermesCardBusy = false;
+    }
+  }
+  function openHermesBotChat() {
+    if (typeof window === "undefined") return;
+    if (hermesTMeUrl) window.open(hermesTMeUrl, "_blank", "noopener,noreferrer");
+  }
+  // ponytail: in hermes mode the InstallGuideScreen has no proxy
+  // config links to show, so the main CTA opens the bot's Telegram
+  // chat directly. Falls back to the proxy install-guide flow when
+  // the bot username is not yet known.
+  function onPrimaryOpenBot() {
+    if (hermesMode && hermesTMeUrl) {
+      openHermesBotChat();
+      return;
+    }
+    openConnectLink();
+  }
   function trafficPercent(sub: AnyRecord) {
     return trafficPercentFn(sub);
   }
@@ -391,6 +440,26 @@
       {/if}
     </Card>
 
+    {#if subscription.active && hermesMode && hermesBotDeleted}
+      <Card class="trial-card">
+        <h2 style="margin: 0 0 8px; font-size: 15px;">
+          {t(
+            "wa_hermes_bot_card_deleted",
+            {},
+            "🤖 Бот удалён\nЧтобы создать нового, нажмите кнопку ниже."
+          )}
+        </h2>
+        <Button class="wide" onclick={recreateHermesBot} disabled={hermesCardBusy}>
+          {t("wa_hermes_bot_action_create", {}, "🆕 Создать нового бота")}
+        </Button>
+        {#if hermesCardError}
+          <p style="margin: 8px 0 0; color: var(--danger); font-size: 12px;">
+            {hermesCardError}
+          </p>
+        {/if}
+      </Card>
+    {/if}
+
     {#if subscription.active && hermesMode}
       <BotStatusCard {subscription} {appSettings} {apiUnchecked} />
     {/if}
@@ -636,8 +705,12 @@
 
     <div class="action-stack">
       {#if subscription.active}
-        <Button class="wide" onclick={openConnectLink}>
-          <Download size={18} />
+        <Button class="wide" onclick={onPrimaryOpenBot} disabled={hermesMode && !hermesTMeUrl}>
+          {#if hermesMode}
+            <Send size={18} />
+          {:else}
+            <Download size={18} />
+          {/if}
           {installButtonTitle()}
         </Button>
       {/if}
