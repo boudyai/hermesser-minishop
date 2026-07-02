@@ -2,6 +2,10 @@
 
 ![Remnawave Minishop](docs/remnawave-minishop.webp)
 
+[English README](README.en.md) is available for contributors who need a compact setup and
+verification map. Русские `README.md` и [CONTRIBUTING.md](CONTRIBUTING.md) остаются
+каноническими.
+
 Remnawave Minishop - Telegram-бот и Web App (Mini App) для продажи и управления подписками панели [Remnawave](https://docs.rw/). Бот обрабатывает регистрацию, оплату, продление, пробный период, промокоды, рефералов и поддержку в чате. Web App показывает ссылку подключения, срок действия, трафик, оплату, устройства и вход по Telegram Mini Apps `initData`, Telegram OAuth / OpenID Connect и одноразовому email-коду.
 
 Проект является переработанным форком [kavore/remnawave-tg-shop](https://github.com/kavore/remnawave-tg-shop). Для переноса данных из прежнего стека и других ботов используйте [раздел миграций](docs/migrations/index.md).
