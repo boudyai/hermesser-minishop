@@ -1,6 +1,7 @@
 <script lang="ts">
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
+  import { deriveLifecycleView, formatElapsed } from "$lib/webapp/lifecycleState.js";
 
   type AnyRecord = Record<string, any>;
   let {
@@ -23,46 +24,22 @@
     String(subscription?.tenant_last_state_change || "").trim() || null
   );
 
-  // States where the tenant is still being built — show a "setting up" card.
-  const isProvisioning = $derived(
-    Boolean(
-      hermesMode &&
-      !active &&
-      hasBotToken &&
-      tenantStatus &&
-      [
-        "created",
-        "awaiting_payment",
-        "paid",
-        "provisioning_litellm_key",
-        "provisioning_vm",
-      ].includes(tenantStatus)
-    )
-  );
-
-  // Hard error from provisioning — user can't proceed without help.
-  const isError = $derived(
-    Boolean(hermesMode && !active && hasBotToken && tenantStatus === "error")
-  );
-
-  // Grace period: tenant still running, but payment is lapsing.
-  const isGracePeriod = $derived(
-    Boolean(hermesMode && !active && hasBotToken && tenantStatus === "payment_expiring")
-  );
-
-  // Suspended: container is stopped, user needs to renew to bring it back.
-  const isSuspended = $derived(
-    Boolean(hermesMode && !active && hasBotToken && tenantStatus === "suspended")
-  );
-
-  // Deleting: tenant is being torn down. Nothing for the user to do.
-  const isDeleting = $derived(
-    Boolean(hermesMode && !active && hasBotToken && tenantStatus === "deleting")
+  // All show* flags + LifecycleState enum are derived from a single helper
+  // call so the rules live in one place (tested in
+  // ``src/lib/webapp/lifecycleState.test.ts``).
+  const lifecycle = $derived(
+    deriveLifecycleView({
+      hermesMode,
+      hasBotToken,
+      active,
+      tenantStatus,
+    })
   );
 
   let step = $state(1);
   let expanded = $state(false);
   let refreshing = $state(false);
+  let nowMs = $state(Date.now());
 
   function reload() {
     refreshing = true;
@@ -76,23 +53,10 @@
 
   const stepStyle =
     "display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: white; font-size: 13px; font-weight: 700; margin-right: 8px;";
-
-  function fmtElapsed(iso: string): string {
-    const t = Date.parse(iso);
-    if (!Number.isFinite(t)) return "";
-    const seconds = Math.max(0, Math.floor((Date.now() - t) / 1000));
-    if (seconds < 60) return `${seconds} сек назад`;
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes} мин назад`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} ч назад`;
-    const days = Math.floor(hours / 24);
-    return `${days} дн назад`;
-  }
 </script>
 
-{#if hermesMode && !active}
-  {#if !hasBotToken}
+{#if lifecycle.showWizard}
+  {#if lifecycle.showNeedsToken}
     <Card>
       <h3 style="margin: 0 0 12px; font-size: 16px;">🚀 Запустите своего AI-агента</h3>
       <p style="margin: 0 0 14px; color: var(--muted); font-size: 13px;">
@@ -160,7 +124,7 @@
         </div>
       {/if}
     </Card>
-  {:else if isProvisioning}
+  {:else if lifecycle.showProvisioning}
     <Card>
       <h3 style="margin: 0 0 8px; font-size: 16px;">⚙️ Разворачиваем вашего бота…</h3>
       <p style="margin: 0 0 6px; color: var(--muted); font-size: 13px;">
@@ -172,14 +136,14 @@
           · фактически: <code>{tenantActualState}</code>
         {/if}
         {#if tenantLastChange}
-          · обновлено {fmtElapsed(tenantLastChange)}
+          · обновлено {formatElapsed(nowMs, tenantLastChange)}
         {/if}
       </p>
       <Button variant="secondary" onclick={reload} disabled={refreshing}>
         {refreshing ? "Обновляем…" : "Обновить статус"}
       </Button>
     </Card>
-  {:else if isError}
+  {:else if lifecycle.showError}
     <Card>
       <h3 style="margin: 0 0 8px; font-size: 16px; color: var(--danger);">
         ❌ Не удалось развернуть бот
@@ -197,7 +161,7 @@
         </Button>
       </div>
     </Card>
-  {:else if isGracePeriod}
+  {:else if lifecycle.showGracePeriod}
     <Card>
       <h3 style="margin: 0 0 8px; font-size: 16px;">⏳ Льготный период</h3>
       <p style="margin: 0 0 8px; color: var(--muted); font-size: 13px;">
@@ -210,7 +174,7 @@
       {/if}
       <Button onclick={() => (window.location.href = "/payment")}>Продлить подписку</Button>
     </Card>
-  {:else if isSuspended}
+  {:else if lifecycle.showSuspended}
     <Card>
       <h3 style="margin: 0 0 8px; font-size: 16px;">💤 Бот приостановлен</h3>
       <p style="margin: 0 0 12px; color: var(--muted); font-size: 13px;">
@@ -219,7 +183,7 @@
       </p>
       <Button onclick={() => (window.location.href = "/payment")}>Продлить</Button>
     </Card>
-  {:else if isDeleting}
+  {:else if lifecycle.showDeleting}
     <Card>
       <h3 style="margin: 0 0 8px; font-size: 16px; color: var(--muted);">🗑 Бот удаляется…</h3>
       <p style="margin: 0 0 12px; color: var(--muted); font-size: 13px;">
