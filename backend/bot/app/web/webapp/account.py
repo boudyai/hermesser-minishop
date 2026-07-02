@@ -520,6 +520,7 @@ async def account_bot_token_route(request: web.Request) -> web.Response:
             await session.rollback()
             return _json_error(403, "access_denied", "Access denied")
         db_user.pending_bot_token = token
+        db_user.pending_bot_username = bot_username or db_user.pending_bot_username
         await session.commit()
         # ponytail: if a tenant already exists, push the new token to
         # provisioning-core so the worker drains an update_secrets job
@@ -544,7 +545,7 @@ async def account_bot_token_route(request: web.Request) -> web.Response:
                 )
                 if isinstance(panel_service, HermesProvisioningService):
                     applied_to_tenant = await panel_service.update_tenant_bot_token(
-                        tenant_uuid, token
+                        tenant_uuid, token, bot_username=bot_username
                     )
             except Exception:
                 logger.exception(

@@ -1337,6 +1337,17 @@ def _migration_0042_add_pending_bot_token(connection: Connection) -> None:
         connection.execute(text("ALTER TABLE users ADD COLUMN pending_bot_token TEXT"))
 
 
+def _migration_0043_add_pending_bot_username(connection: Connection) -> None:
+    # ponytail: stores the @handle resolved via Telegram getMe at the
+    # token-save entry point so the shop can forward it to
+    # provisioning-core on the create + update paths without re-calling
+    # getMe or pulling it out of the encrypted secrets.
+    inspector = inspect(connection)
+    columns: Set[str] = {col["name"] for col in inspector.get_columns("users")}
+    if "pending_bot_username" not in columns:
+        connection.execute(text("ALTER TABLE users ADD COLUMN pending_bot_username TEXT"))
+
+
 MIGRATIONS: List[Migration] = [
     Migration(
         id="0001_add_channel_subscription_fields",
@@ -1547,6 +1558,11 @@ MIGRATIONS: List[Migration] = [
         id="0042_add_pending_bot_token",
         description="Add pending_bot_token column to users for Hermes tenant provisioning",
         upgrade=_migration_0042_add_pending_bot_token,
+    ),
+    Migration(
+        id="0043_add_pending_bot_username",
+        description="Add pending_bot_username column to users for Hermes tenant provisioning",
+        upgrade=_migration_0043_add_pending_bot_username,
     ),
 ]
 
