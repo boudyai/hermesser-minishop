@@ -295,6 +295,7 @@ WEBAPP_SUBSCRIPTION_SCHEMA: dict[str, Any] = {
         "config_link": NULLABLE_STRING_SCHEMA,
         "connect_url": NULLABLE_STRING_SCHEMA,
         "panel_short_uuid": NULLABLE_STRING_SCHEMA,
+        "tenant_id": NULLABLE_STRING_SCHEMA,
         "bot_username": NULLABLE_STRING_SCHEMA,
         "install_share_token": NULLABLE_STRING_SCHEMA,
         "install_share_url": NULLABLE_STRING_SCHEMA,

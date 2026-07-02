@@ -11249,6 +11249,12 @@
                             "null"
                           ]
                         },
+                        "tenant_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "tenant_last_state_change": {
                           "type": [
                             "string",

@@ -6636,6 +6636,7 @@ export interface operations {
               tariff_name?: string | null;
               tenant_actual_state?: string | null;
               tenant_desired_state?: string | null;
+              tenant_id?: string | null;
               tenant_last_state_change?: string | null;
               tenant_status?: string | null;
               tier_baseline_bytes?: number | null;
