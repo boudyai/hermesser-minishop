@@ -234,6 +234,15 @@ class HermesProvisioningService(PanelApiService):
                     "user": {
                         "uuid": str(data.get("tenant_id", user_uuid)),
                         "status": str(data.get("status", "unknown") or "unknown"),
+                        # ponytail: lifecycle_details.py reads expireAt at
+                        # lines 75/86/109/120 to compute
+                        # is_active_based_on_panel; without this the code
+                        # hits UnboundLocalError on panel_expire_dt and
+                        # /api/me returns 500. The shop API doesn't track
+                        # subscription expiry (the minishop does), so we
+                        # pass through the tenant's last_state_change as
+                        # a best-effort substitute.
+                        "expireAt": str(data.get("last_state_change", "") or ""),
                     },
                     "not_found": False,
                     "failure_reason": None,
