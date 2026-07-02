@@ -298,15 +298,23 @@ async def restart_confirm_callback(
         await callback.answer("Нет активного бота", show_alert=True)
         return
     ok = await panel_service.restart_tenant(tenant_id)
-    text = (
-        "🔄 Перезагрузка поставлена в очередь. Бот будет доступен через ~30 секунд."
-        if ok
-        else "❌ Не удалось поставить в очередь. Попробуйте позже."
-    )
+    if ok:
+        await safe_answer_callback(
+            callback,
+            "🔄 Перезагрузка поставлена в очередь. Бот вернётся через ~30 секунд.",
+            show_alert=True,
+        )
+    else:
+        await safe_answer_callback(
+            callback,
+            "❌ Не удалось поставить в очередь. Попробуйте позже.",
+            show_alert=True,
+        )
+        return
     if callback.message:
         try:
             await callback.message.edit_text(  # type: ignore[union-attr]
-                text,
+                "🔄 Перезагрузка поставлена в очередь. Бот вернётся через ~30 секунд.",
                 reply_markup=types.InlineKeyboardMarkup(
                     inline_keyboard=[
                         [
@@ -318,8 +326,12 @@ async def restart_confirm_callback(
                 ),
             )
         except Exception:
-            pass
-    await callback.answer()
+            try:
+                await callback.message.answer(  # type: ignore[union-attr]
+                    "🔄 Перезагрузка поставлена в очередь. Бот вернётся через ~30 секунд."
+                )
+            except Exception:
+                pass
 
 
 # ============================================

@@ -30,6 +30,7 @@
 
   let busy = $state(false);
   let busyAction = $state<"restart" | "logs-refresh" | "">("");
+  let confirmRestart = $state(false);
   let error = $state<string | null>(null);
   let info = $state<string | null>(null);
 
@@ -50,13 +51,22 @@
     return data;
   }
 
-  async function refreshStatus() {
+  function askRestart() {
+    confirmRestart = true;
+  }
+
+  function cancelRestart() {
+    confirmRestart = false;
+  }
+
+  async function confirmRestartAction() {
     busy = true;
     busyAction = "restart";
     error = null;
+    confirmRestart = false;
     try {
       await callApi("/tenant/restart", "POST");
-      info = "Restart queued — bot will be back in ~30s.";
+      info = "Перезагрузка поставлена в очередь. Бот вернётся через ~30 секунд.";
     } catch (e) {
       error = e instanceof Error ? e.message : "Restart failed";
     } finally {
@@ -143,7 +153,11 @@
           <FileText size={14} />
           Логи
         </Button>
-        <Button variant="secondary" onclick={refreshStatus} disabled={busy || !actionsEnabled}>
+        <Button
+          variant="secondary"
+          onclick={askRestart}
+          disabled={busy || !actionsEnabled}
+        >
           <RefreshCw size={14} class={busyAction === "restart" ? "spinning" : ""} />
           Перезагрузить
         </Button>
@@ -182,6 +196,22 @@
         <pre
           style="margin-top: 8px; padding: 8px; background: var(--surface-subtle); border: 1px solid var(--surface-subtle-border); border-radius: 8px; font-family: ui-monospace, monospace; font-size: 11px; max-height: 240px; overflow: auto; white-space: pre-wrap; word-break: break-all;">{logs ||
             "(empty)"}</pre>
+      </div>
+    {/if}
+    {#if confirmRestart}
+      <div
+        style="margin-top: 10px; padding: 10px; border: 1px solid var(--border, #ccc); border-radius: 6px; background: var(--surface-subtle, #f7f7f7);"
+      >
+        <p style="margin: 0 0 6px; font-size: 13px;">
+          🔄 Перезагрузить бота? Контейнер будет остановлен и запущен заново (~30 секунд).
+        </p>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <Button variant="primary" onclick={confirmRestartAction} disabled={busy}>
+            <RefreshCw size={14} class={busyAction === "restart" ? "spinning" : ""} />
+            Да, перезагрузить
+          </Button>
+          <Button variant="secondary" onclick={cancelRestart} disabled={busy}>Отмена</Button>
+        </div>
       </div>
     {/if}
     {#if error}
