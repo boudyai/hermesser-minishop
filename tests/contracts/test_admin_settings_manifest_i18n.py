@@ -460,9 +460,7 @@ def test_legacy_tariff_settings_are_separated_from_payment_settings():
 
 def test_platega_settings_share_one_admin_subsection():
     manifest = _manifest_by_key()
-    platega_keys = [
-        key for key in manifest if key.startswith("PLATEGA_") or key.startswith("PAYMENT_PLATEGA_")
-    ]
+    platega_keys = [key for key in manifest if key.startswith(("PLATEGA_", "PAYMENT_PLATEGA_"))]
 
     assert platega_keys
     assert {manifest[key]["subsection"] for key in platega_keys} == {"Platega"}
@@ -470,9 +468,7 @@ def test_platega_settings_share_one_admin_subsection():
 
 def test_wata_settings_share_one_admin_subsection():
     manifest = _manifest_by_key()
-    wata_keys = [
-        key for key in manifest if key.startswith("WATA_") or key.startswith("PAYMENT_WATA_")
-    ]
+    wata_keys = [key for key in manifest if key.startswith(("WATA_", "PAYMENT_WATA_"))]
 
     assert wata_keys
     assert {manifest[key]["subsection"] for key in wata_keys} == {"Wata"}

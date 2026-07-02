@@ -282,7 +282,7 @@ def get_or_create_subscription_guides_panel_config_cache(app: web.Application) -
         app,
         SUBSCRIPTION_GUIDES_PANEL_CONFIG_CACHE,
         "subscription_guides_panel_config_cache",
-        lambda: {},
+        dict,
     )
 
 
@@ -300,7 +300,7 @@ def get_or_create_subscription_guides_resolved_config_cache(app: web.Application
         app,
         SUBSCRIPTION_GUIDES_RESOLVED_CONFIG_CACHE,
         "subscription_guides_resolved_config_cache",
-        lambda: {},
+        dict,
     )
 
 
@@ -320,7 +320,7 @@ def get_or_create_subscription_guides_public_subscription_cache(
         app,
         SUBSCRIPTION_GUIDES_PUBLIC_SUBSCRIPTION_CACHE,
         "subscription_guides_public_subscription_cache",
-        lambda: {},
+        dict,
     )
 
 

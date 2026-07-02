@@ -21,6 +21,7 @@ select = [
     "DTZ", # flake8-datetimez
     "C4", # flake8-comprehensions
     "SIM", # flake8-simplify
+    "PIE", # flake8-pie
 ]
 ignore = [
     "E731", # lambda assignment (common in handlers)

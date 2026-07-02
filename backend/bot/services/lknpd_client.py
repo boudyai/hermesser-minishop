@@ -42,13 +42,9 @@ class LknpdApiError(Exception):
 class LknpdAuthError(LknpdApiError):
     """Authentication error (401)."""
 
-    pass
-
 
 class LknpdValidationError(LknpdApiError):
     """Validation error (400)."""
-
-    pass
 
 
 def _generate_device_id() -> str:
