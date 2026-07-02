@@ -117,6 +117,8 @@
   }: Props = $props();
 
   const showEmailAccount = $derived(emailAuthEnabled || Boolean(user?.email));
+  const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
+  const hasActiveTenant = $derived(hermesMode ? Boolean(subscription?.active) : true);
 </script>
 
 <main class="content with-nav">
@@ -141,7 +143,9 @@
       <small>{profileTelegramId}</small>
     </div>
   </Card>
-  <EnvEditor {apiUnchecked} {t} />
+  {#if hasActiveTenant}
+    <EnvEditor {apiUnchecked} {t} />
+  {/if}
   <BotTokenInput {appSettings} {apiUnchecked} />
   <TenantDangerZone {appSettings} {subscription} {apiUnchecked} />
   {#if telegramNotificationsNeedPrompt}

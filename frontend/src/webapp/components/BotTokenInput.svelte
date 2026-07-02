@@ -38,8 +38,9 @@
         return;
       }
       tokenDraft = "";
-      // Reload to pick up the updated /api/me (has_bot_token=true)
-      window.location.reload();
+      // Send the user to the home screen; the wizard/onboarding will pick up
+      // the freshly-saved has_bot_token and show the right CTA.
+      window.location.assign("/home");
     } catch (e) {
       error = e instanceof Error ? e.message : "Network error";
     } finally {

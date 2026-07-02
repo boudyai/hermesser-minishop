@@ -70,7 +70,9 @@
         .includes("TRIAL")
   );
   const hasActiveAccess = $derived(Boolean(subscription?.active || trialResult?.activated));
-  const hermesTokenRequired = $derived(Boolean(hermesMode && !hasActiveAccess));
+  const hermesTokenRequired = $derived(
+    Boolean(hermesMode && !hasActiveAccess && !appSettings?.has_bot_token)
+  );
   const canRequestTrial = $derived(
     Boolean(trialEnabled && trialAvailable && !subscription?.active)
   );
@@ -98,7 +100,11 @@
     if (requested || trialBusy || !canSubmit) return;
     requested = true;
     const token = hermesTokenRequired ? trimmedToken : "";
-    activateTrial(token || undefined);
+    activateTrial(token || undefined)
+      .catch(() => {})
+      .finally(() => {
+        requested = false;
+      });
   }
 </script>
 

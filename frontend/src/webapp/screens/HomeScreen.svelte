@@ -77,6 +77,7 @@
     openRegularTopupModal = () => {},
     openPremiumTopupModal = () => {},
     openTariffChangeModal = () => {},
+    goTrial = () => {},
     primaryPayActionLabel = () => "",
     t = (key) => key,
   }: {
@@ -112,6 +113,7 @@
     openRegularTopupModal?: () => void;
     openPremiumTopupModal?: () => void;
     openTariffChangeModal?: () => void;
+    goTrial?: () => void;
     primaryPayActionLabel?: () => string;
     t?: Translate;
   } = $props();
@@ -573,7 +575,17 @@
               </span>
             {/if}
           </div>
-          <Button class="wide trial-card-action" onclick={activateTrial} disabled={trialBusy}>
+          <Button
+            class="wide trial-card-action"
+            onclick={() => {
+              if (hermesMode && !hasBotToken) {
+                goTrial();
+              } else {
+                activateTrial();
+              }
+            }}
+            disabled={trialBusy}
+          >
             <Gift size={18} />
             {hermesMode
               ? t("wa_trial_activate_hosting", {}, "Запустить пробный хостинг")

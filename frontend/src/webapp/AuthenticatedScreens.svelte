@@ -52,6 +52,7 @@
     goInvite: Action;
     goSettings: Action;
     goSupport: Action;
+    goTrial: Action;
     hasActiveTariffSubscription?: boolean;
     hasMultipleTariffs?: boolean;
     hasUnlinkedIdentity?: boolean;
@@ -159,6 +160,7 @@
     goInvite,
     goSettings,
     goSupport,
+    goTrial,
     hasActiveTariffSubscription = false,
     hasMultipleTariffs = false,
     hasUnlinkedIdentity = false,
@@ -280,6 +282,7 @@
       {termUnitLabel}
       {trafficMode}
       {trialBusy}
+      {goTrial}
       {activateTrial}
       {toggleAutoRenew}
       {linkTelegramAndActivateTrial}

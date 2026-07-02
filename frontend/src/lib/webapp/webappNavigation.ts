@@ -50,6 +50,10 @@ export function createWebappNavigation({
     showSection("invite");
   }
 
+  function goTrial() {
+    showSection("trial");
+  }
+
   function goDevices() {
     if (!devicesEnabled()) return false;
     showSection("devices");
@@ -75,5 +79,6 @@ export function createWebappNavigation({
     goInvite,
     goSettings,
     goSupport,
+    goTrial,
   };
 }

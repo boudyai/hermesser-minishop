@@ -207,6 +207,12 @@ async def _load_subscription_guides_status(
     app: web.Application,
     settings: Settings,
 ) -> Dict[str, Any]:
+    # ponytail: in hermes mode the proxy-era Remnawave panel is not in
+    # use and PANEL_API_URL points at provisioning-core, which has no
+    # /subscription-page-configs endpoint. Skip the call before it can
+    # warm a cached "panel failed" entry on shared startup.
+    if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes":
+        return {"enabled": False, "config": None, "source": None, "error": None}
     if not bool(settings.SUBSCRIPTION_GUIDES_ENABLED):
         return {"enabled": False, "config": None, "source": None, "error": None}
 

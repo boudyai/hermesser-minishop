@@ -504,6 +504,7 @@
   const goInvite = $derived(appActions ? appActions.goInvite : goInviteProp);
   const goSettings = $derived(appActions ? appActions.goSettings : goSettingsProp);
   const goSupport = $derived(appActions ? appActions.goSupport : goSupportProp);
+  const goTrial = $derived(appActions ? appActions.goTrial : () => {});
   const linkTelegramAndActivateTrial = $derived(
     appActions ? appActions.linkTelegramAndActivateTrial : linkTelegramAndActivateTrialProp
   );
@@ -756,6 +757,7 @@
       {termUnitLabel}
       {toggleAutoRenew}
       {trafficMode}
+      {goTrial}
       {trialActivationError}
       {trialActivationResult}
       {trialBusy}
