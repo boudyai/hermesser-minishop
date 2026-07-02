@@ -83,6 +83,12 @@ def _make_settings(tmpdir: str, payload: Optional[dict] = None, **overrides: Any
         config_path = Path(tmpdir) / "tariffs.json"
         config_path.write_text(json.dumps(payload), encoding="utf-8")
         values["TARIFFS_CONFIG_PATH"] = str(config_path)
+    else:
+        # Side door: when the test wants "no catalog" semantics, also point
+        # ``TARIFFS_CONFIG_PATH`` away from the real ``data/tariffs.json`` so
+        # the default isn't loaded. The on-disk file in the repo is a
+        # deployment artefact; legacy-mode tests must not depend on it.
+        values["TARIFFS_CONFIG_PATH"] = str(Path(tmpdir) / "_no_catalog.json")
     values.update(overrides)
     return Settings(**values)
 
