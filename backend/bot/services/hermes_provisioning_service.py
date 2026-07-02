@@ -209,6 +209,40 @@ class HermesProvisioningService(PanelApiService):
             log.error("GET /shop/tenants/%s failed: %s", user_uuid, resp.status)
             return None
 
+    async def get_user_by_uuid_lookup(
+        self, user_uuid: str, log_response: bool = False
+    ) -> Dict[str, Any]:
+        # ponytail: the base class hits /users/{uuid} which requires mTLS; here
+        # we have only the shop API key, so route to /shop/tenants/{uuid}
+        # instead. The result shape mirrors PanelApiUsersMixin.
+        session = await self._core_get_session()
+        async with session.get(f"{self._core_base_url}/shop/tenants/{user_uuid}") as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                return {
+                    "ok": True,
+                    "user": {
+                        "uuid": str(data.get("tenant_id", user_uuid)),
+                        "status": str(data.get("status", "unknown") or "unknown"),
+                    },
+                    "not_found": False,
+                    "failure_reason": None,
+                }
+            if resp.status == 404:
+                return {
+                    "ok": False,
+                    "user": None,
+                    "not_found": True,
+                    "failure_reason": "classification=panel_lookup_not_found",
+                }
+            log.error("GET /shop/tenants/%s failed: %s", user_uuid, resp.status)
+            return {
+                "ok": False,
+                "user": None,
+                "not_found": False,
+                "failure_reason": f"classification=panel_lookup_failed status={resp.status}",
+            }
+
     async def get_users_by_filter(
         self,
         telegram_id: Optional[int] = None,
