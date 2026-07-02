@@ -3,10 +3,16 @@
   import Card from "$components/ui/card.svelte";
 
   type AnyRecord = Record<string, any>;
+  type ApiUnchecked = (
+    path: string,
+    options?: Parameters<typeof fetch>[1]
+  ) => Promise<Record<string, unknown>>;
+  const missingApi: ApiUnchecked = async () => ({ ok: false, error: "api_unavailable" });
   let {
     appSettings = {},
     subscription = {},
-  }: { appSettings?: AnyRecord; subscription?: AnyRecord } = $props();
+    apiUnchecked = missingApi,
+  }: { appSettings?: AnyRecord; subscription?: AnyRecord; apiUnchecked?: ApiUnchecked } = $props();
 
   const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
   const active = $derived(Boolean(subscription?.active));
@@ -17,13 +23,11 @@
   let info = $state<string | null>(null);
 
   async function callApi(path: string, method: string): Promise<unknown> {
-    const resp = await fetch(path, {
+    const data = await apiUnchecked(path, {
       method,
-      credentials: "include",
     });
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok) {
-      const code = (data as { error?: string })?.error || `http_${resp.status}`;
+    if (data.ok === false) {
+      const code = String(data.error || "api_failed");
       throw new Error(code);
     }
     return data;
@@ -34,7 +38,7 @@
     busy = "suspend";
     error = null;
     try {
-      await callApi("/api/tenant/suspend", "POST");
+      await callApi("/tenant/suspend", "POST");
       info = "Бот приостановлен.";
       setTimeout(() => window.location.reload(), 1000);
     } catch (e) {
@@ -53,7 +57,7 @@
     busy = "delete";
     error = null;
     try {
-      await callApi("/api/tenant", "DELETE");
+      await callApi("/tenant", "DELETE");
       info = "Бот удалён.";
       setTimeout(() => window.location.reload(), 1000);
     } catch (e) {

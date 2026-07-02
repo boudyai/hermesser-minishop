@@ -5,12 +5,18 @@
   import { FileText, Save } from "$components/ui/icons.js";
 
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type ApiUnchecked = (
+    path: string,
+    options?: Parameters<typeof fetch>[1]
+  ) => Promise<Record<string, unknown>>;
+  const missingApi: ApiUnchecked = async () => ({ ok: false, error: "api_unavailable" });
 
   type Props = {
+    apiUnchecked?: ApiUnchecked;
     t?: Translate;
   };
 
-  let { t = (key) => key }: Props = $props();
+  let { apiUnchecked = missingApi, t = (key) => key }: Props = $props();
 
   let envContent = $state("");
   let originalContent = $state("");
@@ -21,11 +27,12 @@
 
   onMount(async () => {
     try {
-      const resp = await fetch("/api/env");
-      if (resp.ok) {
-        const data = await resp.json();
-        envContent = data.env_content || "";
+      const data = await apiUnchecked("/env");
+      if (data.ok !== false) {
+        envContent = typeof data.env_content === "string" ? data.env_content : "";
         originalContent = envContent;
+      } else {
+        error = "Failed to load configuration";
       }
     } catch {
       error = "Failed to load configuration";
@@ -39,12 +46,11 @@
     error = "";
     saved = false;
     try {
-      const resp = await fetch("/api/env", {
+      const data = await apiUnchecked("/env", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ env_content: envContent }),
       });
-      if (resp.ok) {
+      if (data.ok !== false) {
         originalContent = envContent;
         saved = true;
         setTimeout(() => (saved = false), 3000);

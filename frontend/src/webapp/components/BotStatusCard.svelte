@@ -4,10 +4,16 @@
   import { RefreshCw, Activity, FileText, ExternalLink } from "$components/ui/icons.js";
 
   type AnyRecord = Record<string, any>;
+  type ApiUnchecked = (
+    path: string,
+    options?: Parameters<typeof fetch>[1]
+  ) => Promise<Record<string, unknown>>;
+  const missingApi: ApiUnchecked = async () => ({ ok: false, error: "api_unavailable" });
   let {
     subscription = {},
     appSettings = {},
-  }: { subscription?: AnyRecord; appSettings?: AnyRecord } = $props();
+    apiUnchecked = missingApi,
+  }: { subscription?: AnyRecord; appSettings?: AnyRecord; apiUnchecked?: ApiUnchecked } = $props();
 
   const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
   const active = $derived(Boolean(subscription?.active));
@@ -28,14 +34,11 @@
   let logsOpen = $state(false);
 
   async function callApi(path: string, method: "GET" | "POST" = "GET"): Promise<unknown> {
-    const resp = await fetch(path, {
+    const data = await apiUnchecked(path, {
       method,
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
     });
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok) {
-      const code = (data as { error?: string })?.error || `http_${resp.status}`;
+    if (data.ok === false) {
+      const code = String(data.error || "api_failed");
       throw new Error(code);
     }
     return data;
@@ -46,7 +49,7 @@
     busyAction = "restart";
     error = null;
     try {
-      await callApi("/api/tenant/restart", "POST");
+      await callApi("/tenant/restart", "POST");
       info = "Restart queued — bot will be back in ~30s.";
     } catch (e) {
       error = e instanceof Error ? e.message : "Restart failed";
@@ -58,7 +61,7 @@
 
   async function refreshQuota() {
     try {
-      const data = (await callApi("/api/tenant/quota")) as {
+      const data = (await callApi("/tenant/quota")) as {
         max_budget?: number;
         spent?: number;
         remaining?: number;
@@ -76,7 +79,7 @@
     busyAction = "logs-refresh";
     error = null;
     try {
-      const data = (await callApi("/api/tenant/logs")) as { logs?: string };
+      const data = (await callApi("/tenant/logs")) as { logs?: string };
       logs = data.logs || "";
       logsOpen = true;
     } catch (e) {

@@ -15,12 +15,17 @@
 
   type AnyRecord = Record<string, any>;
   type Action = (...args: any[]) => any;
+  type ApiUnchecked = (
+    path: string,
+    options?: Parameters<typeof fetch>[1]
+  ) => Promise<Record<string, unknown>>;
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
   type Props = {
     accountStore: AnyRecord;
     activateTrial: Action;
     activeTab?: string;
+    apiUnchecked?: ApiUnchecked;
     appSettings?: AnyRecord;
     applyPromo: Action;
     autoRenewBusy?: boolean;
@@ -127,6 +132,7 @@
     accountStore,
     activateTrial,
     activeTab = "home",
+    apiUnchecked,
     appSettings = {},
     applyPromo,
     autoRenewBusy = false,
@@ -253,6 +259,7 @@
   {#if screen === "home"}
     <HomeScreen
       {appSettings}
+      {apiUnchecked}
       {brand}
       {brandTitle}
       {canChangeTariff}
@@ -367,6 +374,7 @@
   {:else if screen === "settings"}
     <SettingsScreen
       {appSettings}
+      {apiUnchecked}
       {subscription}
       {currentLang}
       {currentLanguageOption}

@@ -17,6 +17,10 @@
 
   type AnyRecord = Record<string, any>;
   type Action = (...args: any[]) => any;
+  type ApiUnchecked = (
+    path: string,
+    options?: Parameters<typeof fetch>[1]
+  ) => Promise<Record<string, unknown>>;
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   const noopAction: Action = () => {};
   const noopPrimaryPayActionLabel = () => "";
@@ -33,6 +37,7 @@
     adminBundleApi?: AnyRecord | null;
     adminBundleError?: string;
     adminMountTarget?: HTMLElement | null;
+    apiUnchecked?: ApiUnchecked;
     appLaunchTarget?: string;
     appSettings?: AnyRecord;
     applyPromo?: Action;
@@ -191,6 +196,7 @@
     adminBundleApi = null,
     adminBundleError = "",
     adminMountTarget = $bindable(null),
+    apiUnchecked,
     appLaunchTarget = "",
     appSettings: appSettingsProp = {},
     applyPromo: applyPromoProp = noopAction,
@@ -655,6 +661,7 @@
       {accountStore}
       {activateTrial}
       {activeTab}
+      {apiUnchecked}
       {appSettings}
       {applyPromo}
       {autoRenewBusy}

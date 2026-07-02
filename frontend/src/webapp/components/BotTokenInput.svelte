@@ -2,6 +2,12 @@
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
 
+  type ApiUnchecked = (
+    path: string,
+    options?: Parameters<typeof fetch>[1]
+  ) => Promise<Record<string, unknown>>;
+  const missingApi: ApiUnchecked = async () => ({ ok: false, error: "api_unavailable" });
+
   let tokenDraft = $state("");
   let busy = $state(false);
   let error = $state<string | null>(null);
@@ -15,18 +21,16 @@
     busy = true;
     error = null;
     try {
-      const resp = await fetch("/api/account/bot_token", {
+      const data = await apiUnchecked("/account/bot_token", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bot_token: token }),
-        credentials: "include",
       });
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => ({}));
-        const code = data?.error || "update_failed";
+      if (data.ok === false) {
+        const code = String(data.error || "update_failed");
         const messages: Record<string, string> = {
           invalid_bot_token: "Telegram rejected this token. Check @BotFather.",
           telegram_check_failed: "Could not reach Telegram. Try again.",
+          api_unavailable: "API client is not ready. Reload the app.",
           access_denied: "Session expired. Reload the app.",
           unauthorized: "Session expired. Reload the app.",
         };
@@ -44,7 +48,10 @@
   }
 
   type AnyRecord = Record<string, any>;
-  let { appSettings = {} }: { appSettings?: AnyRecord } = $props();
+  let {
+    appSettings = {},
+    apiUnchecked = missingApi,
+  }: { appSettings?: AnyRecord; apiUnchecked?: ApiUnchecked } = $props();
   const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
 </script>
 

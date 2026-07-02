@@ -278,6 +278,7 @@
     getMockContext: () => ({ currentLang, normalizeLangCode, clone: structuredCloneSafe }),
   });
   const api = dataClient.api;
+  const apiUnchecked = dataClient.apiClient.apiUnchecked;
   const publicApi = dataClient.publicApi;
   const billing = createBillingActions({
     api,
@@ -879,6 +880,7 @@
         {activeTab}
         {adminBundleApi}
         {adminBundleError}
+        {apiUnchecked}
         bind:adminMountTarget={shellState.adminMountTarget}
         {appLaunchTarget}
         {actionsStore}

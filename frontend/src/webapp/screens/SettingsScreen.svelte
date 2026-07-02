@@ -20,6 +20,10 @@
   import TenantDangerZone from "../components/TenantDangerZone.svelte";
 
   type AnyRecord = Record<string, any>;
+  type ApiUnchecked = (
+    path: string,
+    options?: Parameters<typeof fetch>[1]
+  ) => Promise<Record<string, unknown>>;
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type VoidAction = () => void;
   type LanguageOption = {
@@ -30,6 +34,7 @@
 
   type Props = {
     appSettings?: AnyRecord;
+    apiUnchecked?: ApiUnchecked;
     subscription?: AnyRecord;
     currentLang?: string;
     currentLanguageOption?: LanguageOption | null;
@@ -71,6 +76,7 @@
 
   let {
     appSettings = {},
+    apiUnchecked,
     subscription = {},
     currentLang = "ru",
     currentLanguageOption = null,
@@ -135,9 +141,9 @@
       <small>{profileTelegramId}</small>
     </div>
   </Card>
-  <EnvEditor {t} />
-  <BotTokenInput {appSettings} />
-  <TenantDangerZone {appSettings} {subscription} />
+  <EnvEditor {apiUnchecked} {t} />
+  <BotTokenInput {appSettings} {apiUnchecked} />
+  <TenantDangerZone {appSettings} {subscription} {apiUnchecked} />
   {#if telegramNotificationsNeedPrompt}
     <TelegramNotificationsBanner
       startLink={telegramNotificationsStartLink}

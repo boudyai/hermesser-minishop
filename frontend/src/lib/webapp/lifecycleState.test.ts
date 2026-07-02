@@ -118,22 +118,22 @@ describe("deriveLifecycleView", () => {
   });
 
   describe("unknown / missing status", () => {
-    it("falls back to needs_token when status is null", () => {
+    it("hides the wizard when token is already saved and status is null", () => {
       const view = deriveLifecycleView({ ...base, tenantStatus: null });
-      expect(view.state).toBe("needs_token");
-      expect(view.showWizard).toBe(true);
-      expect(view.showNeedsToken).toBe(true);
+      expect(view.state).toBe("hidden");
+      expect(view.showWizard).toBe(false);
+      expect(view.showNeedsToken).toBe(false);
     });
 
-    it("falls back to needs_token when status is empty string", () => {
+    it("hides the wizard when token is already saved and status is empty string", () => {
       const view = deriveLifecycleView({ ...base, tenantStatus: "" });
-      expect(view.state).toBe("needs_token");
+      expect(view.state).toBe("hidden");
     });
 
-    it("falls back to needs_token for unrecognised status values", () => {
+    it("hides the wizard for unrecognised status values when token is already saved", () => {
       // "weird-state" isn't a TenantStatus enum value; treat as unknown.
       const view = deriveLifecycleView({ ...base, tenantStatus: "weird-state" });
-      expect(view.state).toBe("needs_token");
+      expect(view.state).toBe("hidden");
     });
   });
 

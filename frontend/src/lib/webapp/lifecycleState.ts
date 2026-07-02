@@ -76,10 +76,10 @@ export function deriveLifecycleView(input: LifecycleInput): LifecycleView {
     return { ...emptyView("deleting"), showWizard: true, showDeleting: true };
   }
 
-  // Default: token is set, status is unknown / missing (e.g. core is
-  // unreachable and no cache). Fall back to the "needs token" copy —
-  // it's the safest UX until the user gives us a real status.
-  return { ...emptyView("needs_token"), showWizard: true, showNeedsToken: true };
+  // Token is already saved, but there is no reliable tenant status yet
+  // (e.g. trial not activated, core unreachable, or an archived/deleted tenant).
+  // Hide this card rather than asking the user to paste the same token again.
+  return emptyView("hidden");
 }
 
 function emptyView(state: LifecycleState): LifecycleView {

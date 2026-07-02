@@ -38,10 +38,15 @@
   const SUBSCRIPTION_EXPIRING_SOON_MS = 24 * 60 * 60 * 1000;
 
   type AnyRecord = Record<string, any>;
+  type ApiUnchecked = (
+    path: string,
+    options?: Parameters<typeof fetch>[1]
+  ) => Promise<Record<string, unknown>>;
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
   let {
     appSettings = {},
+    apiUnchecked,
     brand = {},
     brandTitle = "",
     canChangeTariff = false,
@@ -76,6 +81,7 @@
     t = (key) => key,
   }: {
     appSettings?: AnyRecord;
+    apiUnchecked?: ApiUnchecked;
     brand?: AnyRecord;
     brandTitle?: string;
     canChangeTariff?: boolean;
@@ -384,7 +390,7 @@
     </Card>
 
     {#if subscription.active && hermesMode}
-      <BotStatusCard {subscription} {appSettings} />
+      <BotStatusCard {subscription} {appSettings} {apiUnchecked} />
     {/if}
 
     {#if !subscription.active}
