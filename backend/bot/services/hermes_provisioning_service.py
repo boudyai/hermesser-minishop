@@ -134,7 +134,21 @@ class HermesProvisioningService(PanelApiService):
                                 act_body[:200],
                             )
 
-                return {"response": {"uuid": tenant_id, "username": username_on_panel}}
+                # ponytail: minishop's _get_or_create_panel_user_link_details
+                # requires a non-empty subscriptionUuid/shortUuid on the
+                # returned panel user, otherwise the trial rolls back with
+                # `trial_activation_failed_panel_link` (502) and retries loop
+                # forever. Hermes has no proxy subscription link, so we
+                # synthesize one from the tenant id; both are opaque UUIDs
+                # from minishop's perspective.
+                return {
+                    "response": {
+                        "uuid": tenant_id,
+                        "username": username_on_panel,
+                        "subscriptionUuid": tenant_id,
+                        "shortUuid": tenant_id[:8],
+                    }
+                }
             body = await resp.text()
             log.error("provisioning-core POST /shop/tenants failed: %s %s", resp.status, body[:200])
             return {"error": True, "status_code": resp.status, "message": body[:500]}
