@@ -5,7 +5,7 @@ APPEARANCE_SECTION = REPO_ROOT / "frontend/src/admin/sections/AppearanceSection.
 APPEARANCE_BRAND_CARD = (
     REPO_ROOT / "frontend/src/admin/sections/appearance/AppearanceBrandCard.svelte"
 )
-MOCK_API = REPO_ROOT / "frontend/src/lib/webapp/mockApi.js"
+MOCK_ADMIN_FALLBACK = REPO_ROOT / "frontend/src/lib/webapp/mockApi/adminFallback.ts"
 
 
 def test_appearance_upload_marks_unpersisted_assets_dirty():
@@ -24,7 +24,7 @@ def test_appearance_upload_marks_unpersisted_assets_dirty():
 
 
 def test_mock_favicon_upload_persists_custom_favicon_state():
-    source = MOCK_API.read_text(encoding="utf-8")
+    source = MOCK_ADMIN_FALLBACK.read_text(encoding="utf-8")
     route_start = source.index('if (path === "/admin/appearance/favicon")')
     route_block = source[route_start : source.index('if (path === "/admin/backups")', route_start)]
 

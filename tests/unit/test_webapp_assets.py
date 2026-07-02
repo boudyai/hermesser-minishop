@@ -362,9 +362,10 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("cfg.serverStatusUrl", account_view_source)
         self.assertIn("appSettings?.server_status_url", account_view_source)
         self.assertIn("{shellView}", app_source)
-        self.assertIn("const accountView = $derived(shellView?.accountView)", app_mode_source)
-        self.assertIn("const serverStatusUrl = $derived(", app_mode_source)
-        self.assertIn("accountView?.serverStatusUrl : serverStatusUrlProp", app_mode_source)
+        self.assertIn("const accountView = $derived(shellView.accountView)", app_mode_source)
+        self.assertIn(
+            "const serverStatusUrl = $derived(accountView.serverStatusUrl)", app_mode_source
+        )
         self.assertIn("{serverStatusUrl}", app_mode_source)
         self.assertIn('t("menu_server_status_button")', settings_source)
 

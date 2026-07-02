@@ -1,10 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { Toaster, toast as sonnerToast } from "svelte-sonner";
-  import { createAuthStore } from "./lib/webapp/stores/authStore";
-  import { createBillingStore } from "./lib/webapp/stores/billingStore";
-  import { createAccountStore } from "./lib/webapp/stores/accountStore";
-  import { createActionsStore } from "./lib/webapp/stores/actionsStore";
   import { Tooltip } from "$components/ui/primitives.js";
 
   import AppModeContent from "./webapp/AppModeContent.svelte";
@@ -24,13 +20,8 @@
     structuredCloneSafe,
   } from "./lib/webapp/browser.js";
   import { isExternalAppLaunchPath, readExternalAppLaunchTarget } from "./lib/webapp/appLinks.js";
-  import { createWebappDataClient } from "./lib/webapp/dataClient";
   import { canUseSubscriptionInstallGuides } from "./lib/webapp/connectLinks.js";
   import { createI18n } from "./lib/webapp/i18n.js";
-  import { createWebappActivationContext } from "./lib/webapp/webappActivationContext";
-  import { createAuthRuntime } from "./lib/webapp/authRuntime.js";
-  import { createResumeLifecycle } from "./lib/webapp/resumeLifecycle.js";
-  import { createAppBootRuntime } from "./lib/webapp/appBootRuntime.js";
   import {
     currentSearchParams,
     hasEmailCodeLoginDeeplink,
@@ -40,30 +31,18 @@
     stripRenewalLoginQueryFromUrl,
     stripTopupQueryFromUrl,
   } from "./lib/webapp/deeplinks";
-  import { createDemoAuth } from "./lib/webapp/demoAuth";
   import { createDocsDemoRouter } from "./lib/webapp/docsDemoRoutes.js";
-  import { createUiChrome } from "./lib/webapp/uiChrome";
-  import { createEmailAvatarSync } from "./lib/webapp/emailAvatarSync.js";
-  import {
-    setAccountStore,
-    setActionsStore,
-    setAuthStore,
-    setBillingStore,
-    setDevicesStore,
-    setInstallGuidesStore,
-    setSupportStore,
-  } from "./lib/webapp/context";
-  import { createBillingDeeplinkEffects } from "./lib/webapp/billingDeeplinkEffects.js";
-  import { createWebappSectionContext } from "./lib/webapp/webappSectionContext";
   import { readThemePreviewDraft, syncThemeGoogleFonts } from "./lib/webapp/themeStyle";
   import { computeAppShellView, type AppShellView } from "./lib/webapp/appShellView.js";
-  import { createAppActionRuntime, type AppActionRuntime } from "./lib/webapp/appActionRuntime.js";
-  import { createWebappSessionActions } from "./lib/webapp/webappSessionActions.js";
-  import { buildAdminPanelProps } from "./lib/webapp/adminPanelProps.js";
-  import { createAdminRuntime } from "./lib/webapp/adminRuntime.js";
+  import type { AppActionRuntime } from "./lib/webapp/appActionRuntime.js";
   import { createExternalLinkRuntime } from "./lib/webapp/externalLinkRuntime.js";
   import { createAppLoadExecutor, type AppLoadDataOptions } from "./lib/webapp/appLoadExecutor.js";
   import { createPopstateLifecycle } from "./lib/webapp/popstateLifecycle.js";
+  import {
+    buildAppAdminPanelProps,
+    createAppFactories,
+    createShellAppActions,
+  } from "./lib/webapp/appFactories";
   import {
     applyThemeDocumentEffects,
     closeDisabledEmailAuthDialogs,
@@ -74,8 +53,6 @@
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
   const TELEGRAM_NOTIFICATIONS_RESUME_REFRESH_COOLDOWN_MS = 1500;
-  import { createBillingActions } from "./lib/webapp/billingActions";
-  import { invalidateWebappTariffOptionCaches } from "./lib/webapp/billingOptionCache.js";
   import { CSRF_COOKIE_NAME, readCookie } from "./lib/webapp/session.js";
   import { createTelegramRuntime, type TelegramWebApp } from "./lib/webapp/telegramRuntime.js";
   import { resetShellState, shellState } from "./lib/webapp/shellState.svelte";
@@ -169,23 +146,15 @@
   const telegramMiniAppInitData = $derived(shellState.telegramMiniAppInitData);
   const telegramHasLaunchParams = $derived(shellState.telegramHasLaunchParams);
   const mode = $derived(shellState.mode);
-  const activeTab = $derived(shellState.activeTab);
   const screen = $derived(shellState.screen);
   const data: WebappData | null = $derived(
     asWebappRecordOrNull(shellState.data) as WebappData | null
   );
   const user: UserProfile = $derived(asWebappRecord(data?.user) as UserProfile);
   const isAdmin = $derived(Boolean(user?.is_admin));
-  const appLaunchTarget = $derived(shellState.appLaunchTarget);
   const publicInstallSubscription: SubscriptionView | null = $derived(
     asWebappRecordOrNull(shellState.publicInstallSubscription) as SubscriptionView | null
   );
-  const publicInstallToken = $derived(shellState.publicInstallToken);
-  const autoRenewBusy = $derived(shellState.autoRenewBusy);
-  const activationSuccessDialogOpen = $derived(shellState.activationSuccessDialogOpen);
-  const activationSuccessUseInstallGuides = $derived(shellState.activationSuccessUseInstallGuides);
-  const languageClickGuard = $derived(shellState.languageClickGuard);
-  const languageClickGuardArmed = $derived(shellState.languageClickGuardArmed);
   const guestLanguage = $derived(shellState.guestLanguage);
   const emailAvatarUrl = $derived(shellState.emailAvatarUrl);
   const adminBundleApi: WebappRecord | null = $derived(
@@ -231,258 +200,92 @@
   $effect(() => {
     shellState.telegramHasLaunchParams = hasTelegramLaunchParams();
   });
-  const adminRuntime = createAdminRuntime({
-    fetchI18nScope: async (scope) => {
-      const apiBase = String(CFG.apiBase || "/api").replace(/\/+$/, "");
-      const response = await fetch(`${apiBase}/i18n?scope=${encodeURIComponent(scope)}`, {
-        credentials: "same-origin",
-        headers: { Accept: "application/json" },
-      });
-      return response.ok ? response.json() : null;
-    },
-    getAdminAssets: () => ({
-      adminCssAsset: CFG.adminCssAsset,
-      adminJsAsset: CFG.adminJsAsset,
-    }),
-    getIsMock: () => Boolean(MOCK),
-    getShouldPrefetch: () => isAdmin && screen !== "admin",
-    invalidateTariffOptionCaches: () => {
-      invalidateWebappTariffOptionCaches(billingStore);
-    },
-    loadData: (options) => loadData(options as AppLoadDataOptions),
-    mergeMessages: (messages) => {
-      i18n.mergeMessages(asWebappRecord(messages));
-    },
-    reloadWindow: () => {
-      if (typeof window !== "undefined") window.location.reload();
-    },
-    resetInstallGuides: () => {
-      installGuidesStore.reset();
-    },
-    setBundleState: (api, error) => {
-      const nextApi = asWebappRecordOrNull(api);
-      if (adminBundleApi !== nextApi) shellState.adminBundleApi = nextApi;
-      if (adminBundleError !== error) shellState.adminBundleError = error;
-    },
-  });
-  shellState.guestLanguage = normalizeLangCode(CFG.language || "ru");
-  const { clearLanguageClickGuard, setLanguageMenuOpen, syncBodyScrollLock, updateGuestLanguage } =
-    createUiChrome({
-      normalizeLangCode,
-      getCurrentLang: () => currentLang,
-    });
-  const { clearManualLogoutFlag, clearToken, isManuallyLoggedOut, markManualLogout, setToken } =
-    createWebappSessionActions({
-      csrfCookieName: CSRF_COOKIE_NAME,
-      isMock: () => Boolean(MOCK),
-      manualLogoutFlagKey: MANUAL_LOGOUT_FLAG_KEY,
-    });
-  const dataClient = createWebappDataClient({
-    apiBase: CFG.apiBase,
-    csrfCookieName: CSRF_COOKIE_NAME,
-    getAuthToken: () => shellState.token,
-    getCsrfToken: () => shellState.csrfToken,
-    onUnauthorized: () => {
-      clearToken();
-      showLogin();
-    },
-    mockApi:
-      MOCK && runtimeMockApi
-        ? (path, options, context) => runtimeMockApi(path, options, context)
-        : null,
-    getMockContext: () => ({ currentLang, normalizeLangCode, clone: structuredCloneSafe }),
-  });
-  const api = dataClient.api;
-  const publicApi = dataClient.publicApi;
-  const billing = createBillingActions({
-    api,
-  });
-  const emailAvatarSync = createEmailAvatarSync();
-  const {
-    closeActivationSuccessDialog,
-    handleSubscriptionActivated,
-    hasPendingActivationHandoff,
-    maybeShowActivationSuccessDialog,
-    refreshPendingActivationOnResume,
-    rememberActivationPending,
-    startPendingActivationWatch,
-    stopPendingActivationWatch,
-  } = createWebappActivationContext({
-    billing,
-    loadData,
-    getPaymentModalOpen: () => paymentModalOpen,
-    getTopupModalOpen: () => topupModalOpen,
-    getDeviceTopupModalOpen: () => deviceTopupModalOpen,
-    getChangeModalOpen: () => changeModalOpen,
-    getChangeConfirmOpen: () => changeConfirmOpen,
+  const appFactories = createAppFactories({
+    CFG,
+    MOCK,
+    MOCK_SOURCE,
+    adminBundleApi: () => adminBundleApi,
+    adminBundleError: () => adminBundleError,
     canUseInstallGuides,
-    closePaymentModal: () => billingStore.closePaymentModal(),
-    loadInstallGuides: (force) => installGuidesStore.load(force),
-    openActivationConnectLink: () => appActions.openActivationConnectLink(),
-    syncAppSectionPath,
-  });
-  const authStore = createAuthStore({
-    publicApi,
-    setToken,
-    loadData,
-    telegramSdk,
+    cleanDocsDemoRouteQuery,
+    currentSearchParams,
+    csrfCookieName: CSRF_COOKIE_NAME,
+    docsDemoParentSearchParams,
+    getAppActions: () => appActions,
+    getChangeConfirmOpen: () => changeConfirmOpen,
+    getChangeModalOpen: () => changeModalOpen,
+    getCurrentLang: () => currentLang,
+    getData: () => data,
+    getDemoAuthLogin: () => Boolean(demoAuthLogin),
+    getDeviceTopupModalOpen: () => deviceTopupModalOpen,
+    getIsAdmin: () => isAdmin,
+    getMethods: () => methods,
+    getPaymentModalOpen: () => paymentModalOpen,
+    getPlans: () => plans,
+    getRuntimeMockApi: () => runtimeMockApi,
+    getScreen: () => screen,
+    getSingleTariffMode: () => singleTariffMode,
+    getSubscription: () => subscription,
+    getTariffCatalog: () => tariffCatalog,
+    getTariffMode: () => tariffMode,
+    getTelegramMiniAppInitData: () => telegramMiniAppInitData,
+    getTelegramNotificationsNeedPrompt: () => telegramNotificationsNeedPrompt,
+    getTelegramOAuthClientId: () => telegramOAuthClientId,
     getTg: () => tg,
-    t,
-    currentLang: () => currentLang,
-  });
-  const demoAuth = createDemoAuth({
-    authStore,
-    getCurrentSearchParams: currentSearchParams,
-    getMockSource: () => MOCK_SOURCE,
-    getParentSearchParams: docsDemoParentSearchParams,
-    isMockEnabled: () => Boolean(MOCK),
-  });
-  const billingStore = createBillingStore({
-    billing,
+    getTopupModalOpen: () => topupModalOpen,
+    getUser: () => user,
+    hasEmailCodeLoginDeeplink,
+    hasTelegramLaunchParams,
+    initialTg,
+    isDocsDemo,
     loadData,
-    t,
-    showToast,
+    loadTelegramSdk,
+    manualLogoutFlagKey: MANUAL_LOGOUT_FLAG_KEY,
+    normalizeLangCode,
     openExternalLink,
-    onSubscriptionActivationPending: rememberActivationPending,
-    onSubscriptionActivated: handleSubscriptionActivated,
-    tg: initialTg,
-    getTg: () => tg || telegramSdk.refresh(),
-    telegramSdk,
-  });
-  const { applyPostLoadBillingDeeplinks } = createBillingDeeplinkEffects({
-    billingStore,
     readCheckoutPromoDeeplink,
     readRenewalDeeplink,
-    setHomeRoute: () => {
-      shellState.activeTab = "home";
-      shellState.screen = "home";
-      syncAppSectionPath("home", true);
-    },
+    readTelegramMiniAppInitDataFromLocation,
+    routePathnameFromLocation,
+    routePrefix,
+    showToast,
     stripCheckoutPromoQueryFromUrl,
     stripRenewalLoginQueryFromUrl,
     stripTopupQueryFromUrl,
+    syncAppSectionPath,
+    t,
+    telegramNotificationsResumeCooldownMs: TELEGRAM_NOTIFICATIONS_RESUME_REFRESH_COOLDOWN_MS,
+    telegramSdk,
+    tick,
+    updateI18nMessages: (messages) => {
+      i18n.mergeMessages(messages);
+    },
   });
   const {
+    accountStore,
+    actionsStore,
+    adminRuntime,
+    api,
+    applyPostLoadBillingDeeplinks,
+    authStore,
+    billing,
+    billingStore,
+    bootRuntime,
+    clearLanguageClickGuard,
+    dataClient,
+    demoAuth,
     devicesStore,
-    supportStore,
+    emailAvatarSync,
+    hydrateSupportUnread,
     installGuidesStore,
     loadSectionData,
-    hydrateSupportUnread,
+    resumeLifecycle,
+    setPasswordLoginMode,
+    stopPendingActivationWatch,
+    supportStore,
+    syncBodyScrollLock,
     syncLoadedRoute,
-  } = createWebappSectionContext({
-    api,
-    t,
-    showToast,
-    routePrefix,
-    cleanDocsDemoRouteQuery,
-    syncAppSectionPath,
-  });
-  const actionsStore = createActionsStore({
-    api,
-    t,
-    showToast,
-    loadData,
-    maybeShowActivationSuccessDialog,
-    startCheckoutPromo: (code) => {
-      shellState.activeTab = "home";
-      shellState.screen = "home";
-      syncAppSectionPath("home", true);
-      billingStore.setCheckoutPromoInput(code);
-      billingStore.openPaymentModal(
-        tariffMode,
-        singleTariffMode,
-        tariffCatalog,
-        subscription,
-        plans,
-        String(methods?.[0]?.id || ""),
-        {
-          preferCheckout: true,
-          selectDefaultTariff: true,
-        }
-      );
-      void billingStore.applyCheckoutPromo();
-    },
-  });
-  const authRuntime = createAuthRuntime({
-    authStore,
-    cleanDocsDemoRouteQuery,
-    isDocsDemo,
-    routePathnameFromLocation,
-    routePrefix,
-    tick,
-  });
-  const { setPasswordLoginMode, showLogin, submitEmailOnEnter } = authRuntime;
-  const bootRuntime = createAppBootRuntime({
-    loadPublicInstall: (shareToken) => appActions.loadPublicInstall(shareToken),
-    isDemoAuthMock: () => Boolean(MOCK) && demoAuth.isDemoAuthMock(),
-    prepareDemoAuthState: () => demoAuth.prepareAuthState(),
-    mock: MOCK,
-    hasTelegramLaunchParams,
-    loadTelegramSdk,
-    loadData,
-    showLogin,
-    clearToken,
-    clearManualLogoutFlag,
-    isManuallyLoggedOut,
-    hasEmailCodeLoginDeeplink,
-    finalizeMagicLogin: (loginToken) => authStore.finalizeMagicLogin(loginToken),
-    finalizeTelegramAuth: (authData, source) => authStore.finalizeTelegramAuth(authData, source),
-    setAuthStatus: (message, isError = false) => authStore.setAuthStatus(message, isError),
-    t,
-    readTelegramMiniAppInitDataFromLocation,
-    continueTelegramLinkPendingAction: () => appActions.continueTelegramLinkPendingAction(),
-    hasPendingActivationHandoff,
-    maybeShowActivationSuccessDialog,
-    startPendingActivationWatch,
-    telegramNotificationsResumeCooldownMs: TELEGRAM_NOTIFICATIONS_RESUME_REFRESH_COOLDOWN_MS,
-    getTelegramNotificationsNeedPrompt: () => telegramNotificationsNeedPrompt,
-  });
-  const resumeLifecycle = createResumeLifecycle({
-    clearLoginTooltip: () => {
-      authStore.update((state) => ({ ...state, loginEmailTooltipOpen: false }));
-    },
-    refreshPendingActivationOnResume: () => {
-      void refreshPendingActivationOnResume();
-    },
-    refreshTelegramNotificationsOnResume: () => {
-      void bootRuntime.refreshTelegramNotificationsOnResume();
-    },
-  });
-  const accountStore = createAccountStore({
-    api,
-    publicApi,
-    setToken,
-    loadData,
-    t,
-    showToast,
-    clearToken,
-    markManualLogout,
-    showLogin,
-    telegramSdk,
-    getTg: () => tg,
-    getCurrentUser: () => data?.user || user || {},
-    getTelegramMiniAppInitData: () =>
-      telegramMiniAppInitData || tg?.initData || readTelegramMiniAppInitDataFromLocation(),
-    isDemoAuthLogin: () => Boolean(demoAuthLogin),
-    getDemoTelegramAuthPayload: () => demoAuth.telegramAuthPayload(),
-    telegramOAuthClientId: () => telegramOAuthClientId,
-    currentLang: () => currentLang,
-    normalizeLangCode,
-    updateLocalData: (updatedLanguage) => {
-      if (!data?.user) return;
-      shellState.data = { ...data, user: { ...data.user, language_code: updatedLanguage } };
-    },
-    activateTrial: () => actionsStore.activateTrial(),
-    claimReferralWelcomeBonus: () => actionsStore.claimReferralWelcomeBonus(),
-  });
-
-  setAuthStore(authStore);
-  setBillingStore(billingStore);
-  setDevicesStore(devicesStore);
-  setSupportStore(supportStore);
-  setInstallGuidesStore(installGuidesStore);
-  setActionsStore(actionsStore);
-  setAccountStore(accountStore);
+  } = appFactories;
 
   const authState = $derived(authStore);
   const authStatus = $derived(authState.authStatus);
@@ -534,11 +337,6 @@
   const telegramNotificationsNeedPrompt = $derived(
     shellView.accountView.telegramNotificationsNeedPrompt
   );
-  const telegramNotificationsStartLink = $derived(
-    shellView.accountView.telegramNotificationsStartLink
-  );
-  const appSettings = $derived(shellView.appDataView.appSettings);
-  const brand = $derived(shellView.appDataView.brand);
   const brandTitle = $derived(shellView.appDataView.brandTitle);
   const devicesEnabled = $derived(shellView.appDataView.devicesEnabled);
   const emailAuthEnabled = $derived(shellView.appDataView.emailAuthEnabled);
@@ -552,49 +350,20 @@
   const singleTariffMode = $derived(shellView.billingView.singleTariffMode);
   const tariffCatalog = $derived(shellView.billingView.tariffCatalog);
   const tariffMode = $derived(shellView.billingView.tariffMode);
-  const trafficMode = $derived(shellView.billingView.trafficMode);
   const currentLang = $derived(shellView.currentLang);
-  const languageOptions = $derived(shellView.languageView.languageOptions);
   const telegramOAuthClientId = $derived(shellView.telegramOAuthClientId);
   const effectiveThemeEntry = $derived(shellView.themeView.effectiveThemeEntry);
   const resolvedThemeKey = $derived(shellView.themeView.resolvedThemeKey);
   const shellStyle = $derived(shellView.themeView.shellStyle);
   const shellThemeCssHref = $derived(shellView.themeView.shellThemeCssHref);
   const toastTheme = $derived(shellView.themeView.toastTheme);
-  const appModeStores = {
-    accountStore,
-    actionsStore,
-    authStore,
-    billingStore,
-    devicesStore,
-    supportStore,
-  };
   const appModeViewState = $derived({
-    activationSuccessDialogOpen,
-    activationSuccessUseInstallGuides,
-    activeTab,
-    adminBundleApi,
-    adminBundleError,
-    appLaunchTarget,
-    autoRenewBusy,
+    ...shellState,
     cfg: CFG,
     languageBusy,
-    languageClickGuard,
-    languageClickGuardArmed,
-    mode,
     publicInstallSubscription,
-    publicInstallToken,
     telegramPlatform: tg?.platform || "",
   });
-  const appModeControls = {
-    closeActivationSuccessDialog,
-    setLanguageMenuOpen,
-    setPasswordLoginMode,
-    submitEmailOnEnter,
-    t,
-    termUnitLabel,
-    updateGuestLanguage,
-  };
 
   $effect(() => {
     shellState.demoAuthLogin = shellView.demoAuthLogin;
@@ -775,7 +544,7 @@
     };
   });
 
-  shellState.appActions = createAppActionRuntime({
+  shellState.appActions = createShellAppActions({
     accountStore,
     actionsStore,
     adminRuntime,
@@ -784,7 +553,7 @@
     billingStore,
     canUseInstallGuides,
     clearLanguageClickGuard,
-    demoEmail: () => demoAuth.demoEmail(),
+    demoAuth,
     devicesStore,
     externalLinkActions: {
       openAppLaunchTarget,
@@ -792,27 +561,9 @@
       openExternalLink,
       refreshAppLaunchTarget,
     },
-    getAppSettings: () => appSettings,
-    getDevicesEnabled: () => devicesEnabled,
-    getDemoTelegramAuthPayload: () => demoAuth.telegramAuthPayload(),
-    getEmailAuthEnabled: () => emailAuthEnabled,
-    getIsAdmin: () => isAdmin,
-    getIsFileProtocol: () => window.location.protocol === "file:",
-    getMethods: () => methods,
-    getOrigin: () => (typeof window !== "undefined" ? window.location.origin : ""),
-    getPlans: () => plans,
-    getPreloadHost: () => (typeof window !== "undefined" ? asWebappRecord(window) : null),
     getRoutePathname: routePathnameFromLocation,
     getSelectedPlan: () => selectedPlan,
-    getSelectedTariffPlans: () => selectedTariffPlans,
-    getSingleTariffMode: () => singleTariffMode,
-    getSubscription: () => subscription,
-    getSupportEnabled: () => supportEnabled,
-    getTariffCatalog: () => tariffCatalog,
-    getTariffMode: () => tariffMode,
-    getTelegramNotificationsStartLink: () => telegramNotificationsStartLink,
-    getTelegramOAuthClientId: () => telegramOAuthClientId,
-    getTrafficMode: () => trafficMode,
+    getShellView: () => shellView,
     getTrialActivationResult: () => trialActivationResult,
     installGuidesStore,
     loadData,
@@ -825,30 +576,20 @@
   });
 
   const adminPanelProps: AdminPanelProps = $derived(
-    buildAdminPanelProps({
+    buildAppAdminPanelProps({
       adminActiveSection,
+      adminRuntime,
       api,
-      appFaviconUrl: CFG.faviconUrl,
-      appFaviconUseCustom: CFG.faviconUseCustom,
-      appRepositoryUrl: CFG.appRepositoryUrl,
-      appVersion: CFG.appVersion,
-      brand,
-      brandTitle,
-      currentLang,
-      fallbackAdminSection: initialAdminSectionFromLocation(),
+      appActions,
+      cfg: CFG,
+      getShellView: () => shellView,
+      initialAdminSectionFromLocation,
       languageBusy,
-      languageOptions,
-      onClose: appActions.closeAdminPanel,
       onLanguageChange: accountStore.updateAccountLanguage,
-      onSectionChange: appActions.handleAdminSectionChange,
-      onSettingsSaved: adminRuntime.handleAdminPersistedSaved,
-      onTariffsSaved: adminRuntime.handleAdminPersistedSaved,
-      onThemesSaved: adminRuntime.handleAdminPersistedSaved,
-      onToast: showToast,
-      onTranslationsSaved: adminRuntime.handleAdminTranslationsSaved,
-      pathname: routePathnameFromLocation(),
+      routePathnameFromLocation,
       routePrefix,
       screen,
+      showToast,
       t,
     })
   );
@@ -920,11 +661,11 @@
       <PreviewBoardComponent config={CFG} mockData={MOCK_DATA} />
     {:else}
       <AppModeContent
-        stores={appModeStores}
+        stores={appFactories}
         {shellView}
         {appActions}
         viewState={appModeViewState}
-        controls={appModeControls}
+        controls={{ ...appFactories, t, termUnitLabel }}
         bind:adminMountTarget={shellState.adminMountTarget}
         bind:languageMenuOpen={shellState.languageMenuOpen}
         bind:screen={shellState.screen}
