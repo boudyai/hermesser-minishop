@@ -16,6 +16,7 @@ from aiogram.fsm.state import State, StatesGroup
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.utils.callback_answer import safe_answer_callback
 from config.settings import Settings
 
 logger = logging.getLogger(__name__)
