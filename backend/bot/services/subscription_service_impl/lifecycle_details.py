@@ -84,7 +84,13 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                 "subscriptionUuid"
             ) or panel_user_data.get("shortUuid")
 
-            if local_active_sub.status_from_panel != panel_status:
+            if not hermes_mode and local_active_sub.status_from_panel != panel_status:
+                # ponytail: in hermes mode the core's status is the
+                # tenant lifecycle state (created / provisioning_vm /
+                # deleting / …) which is not a subscription status.
+                # Tenant runtime is surfaced through tenant_status in
+                # the Mini App payload instead of overwriting the
+                # local subscription row.
                 update_payload_local["status_from_panel"] = panel_status
             if panel_expire_at_str:
                 panel_expire_dt = datetime.fromisoformat(panel_expire_at_str.replace("Z", "+00:00"))
