@@ -71,6 +71,10 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
 
         if local_active_sub:
             update_payload_local = {}
+            hermes_mode = (
+                str(getattr(self.settings.panel_settings, "write_mode", "") or "").lower()
+                == "hermes"
+            )
             panel_status = panel_user_data.get("status", "UNKNOWN").upper()
             panel_expire_at_str = panel_user_data.get("expireAt")
             panel_traffic_used, panel_traffic_limit, _ = self._extract_panel_traffic_details(
@@ -84,9 +88,14 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                 update_payload_local["status_from_panel"] = panel_status
             if panel_expire_at_str:
                 panel_expire_dt = datetime.fromisoformat(panel_expire_at_str.replace("Z", "+00:00"))
-                if local_active_sub.end_date.replace(microsecond=0) != panel_expire_dt.replace(
+                if not hermes_mode and local_active_sub.end_date.replace(
                     microsecond=0
-                ):
+                ) != panel_expire_dt.replace(microsecond=0):
+                    # ponytail: in hermes mode the core's expireAt is a
+                    # tenant lifecycle timestamp, not a subscription
+                    # expiry. The local Subscription.end_date is the
+                    # source of truth; never overwrite it from the
+                    # core's lifecycle field.
                     update_payload_local["end_date"] = panel_expire_dt
                     update_payload_local["last_notification_sent"] = None
             if (
@@ -105,9 +114,17 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             ):
                 update_payload_local["panel_subscription_uuid"] = panel_sub_uuid_from_panel
 
-            is_active_based_on_panel = panel_status == "ACTIVE" and (
-                panel_expire_dt > datetime.now(timezone.utc) if panel_expire_dt else False
-            )
+            if hermes_mode:
+                # In hermes mode, the local Subscription.end_date governs
+                # active state. The core only knows about tenant
+                # lifecycle, not subscription expiry, so the panel-driven
+                # comparison would mark every tenant inactive as soon as
+                # the last_state_change timestamp falls in the past.
+                is_active_based_on_panel = bool(local_active_sub.is_active)
+            else:
+                is_active_based_on_panel = panel_status == "ACTIVE" and (
+                    panel_expire_dt > datetime.now(timezone.utc) if panel_expire_dt else False
+                )
             if local_active_sub.is_active != is_active_based_on_panel:
                 update_payload_local["is_active"] = is_active_based_on_panel
 
@@ -116,11 +133,18 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                     session, local_active_sub.subscription_id, update_payload_local
                 )
 
-        panel_end_date = (
-            datetime.fromisoformat(panel_user_data["expireAt"].replace("Z", "+00:00"))
-            if panel_user_data.get("expireAt")
-            else None
-        )
+        # ponytail: in hermes mode the core's expireAt is a tenant
+        # lifecycle timestamp (last_state_change), not a subscription
+        # expiry. Use the local Subscription.end_date as the truth.
+        panel_expire_at_str = panel_user_data.get("expireAt")
+        if hermes_mode and local_active_sub and local_active_sub.end_date:
+            panel_end_date = local_active_sub.end_date
+        else:
+            panel_end_date = (
+                datetime.fromisoformat(panel_expire_at_str.replace("Z", "+00:00"))
+                if panel_expire_at_str
+                else None
+            )
         panel_traffic_used, panel_traffic_limit, panel_traffic_strategy = (
             self._extract_panel_traffic_details(panel_user_data)
         )

@@ -513,6 +513,65 @@ def _serialize_subscription(
         except Exception:
             auto_renew_supported = False
             auto_renew_service_active = False
+    # ponytail: the old code hardcoded config_link/traffic_*/premium_*/max_devices
+    # to None/0/False for every active subscription. The comment said
+    # "hermes mode" but the zeroing was unconditional, which silently
+    # stripped real proxy data from non-hermes responses too. Now we
+    # read from `active` (already None for hermes at layer 1) and only
+    # override when in hermes mode to enforce the no-proxy-fields contract
+    # on the wire.
+    hermes_mode = str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
+    config_link = active.get("config_link")
+    connect_url = active.get("connect_button_url")
+    traffic_limit_bytes = active.get("traffic_limit_bytes")
+    traffic_used_bytes = active.get("traffic_used_bytes")
+    traffic_limit_strategy = active.get("traffic_limit_strategy") or ""
+    premium_title = active.get("premium_title")
+    tier_baseline_bytes = active.get("tier_baseline_bytes")
+    topup_balance_bytes = active.get("topup_balance_bytes")
+    premium_limit_bytes = active.get("premium_limit_bytes")
+    premium_used_bytes = active.get("premium_used_bytes")
+    premium_baseline_bytes = active.get("premium_baseline_bytes")
+    premium_topup_balance_bytes = active.get("premium_topup_balance_bytes")
+    premium_topup_used_bytes = active.get("premium_topup_used_bytes")
+    premium_bonus_bytes = active.get("premium_bonus_bytes")
+    regular_bonus_bytes = active.get("regular_bonus_bytes")
+    regular_unlimited_override = bool(active.get("regular_unlimited_override"))
+    premium_unlimited_override = bool(active.get("premium_unlimited_override"))
+    premium_is_limited = bool(active.get("premium_is_limited"))
+    premium_squad_labels = active.get("premium_squad_labels") or []
+    premium_node_labels = active.get("premium_node_labels") or []
+    period_start_at = active.get("period_start_at")
+    is_throttled = bool(active.get("is_throttled"))
+    max_devices = active.get("max_devices")
+
+    if hermes_mode:
+        # No proxy data on the wire in hermes mode — explicit overrides
+        # keep the contract stable even if `active` ever leaks values.
+        config_link = None
+        connect_url = None
+        traffic_limit_bytes = 0
+        traffic_used_bytes = 0
+        traffic_limit_strategy = ""
+        premium_title = None
+        tier_baseline_bytes = 0
+        topup_balance_bytes = 0
+        premium_limit_bytes = 0
+        premium_used_bytes = 0
+        premium_baseline_bytes = 0
+        premium_topup_balance_bytes = 0
+        premium_topup_used_bytes = 0
+        premium_bonus_bytes = 0
+        regular_bonus_bytes = 0
+        regular_unlimited_override = False
+        premium_unlimited_override = False
+        premium_is_limited = False
+        premium_squad_labels = []
+        premium_node_labels = []
+        period_start_at = None
+        is_throttled = False
+        max_devices = 0
+
     return {
         "active": seconds_left > 0,
         "status": active.get("status_from_panel") or "UNKNOWN",
@@ -527,40 +586,39 @@ def _serialize_subscription(
         "tariff_name": active.get("tariff_name"),
         "tariff_description": active.get("tariff_description"),
         "billing_model": active.get("billing_model"),
-        # Proxy-specific fields zeroed — no traffic quotas in hermes mode.
-        "config_link": None,
-        "connect_url": None,
+        "config_link": config_link,
+        "connect_url": connect_url,
         "panel_short_uuid": panel_short_uuid or None,
         "bot_username": bot_username or None,
-        "traffic_limit": None,
-        "traffic_used": None,
-        "traffic_limit_bytes": 0,
-        "traffic_used_bytes": 0,
-        "premium_title": None,
-        "traffic_limit_strategy": "",
-        "tier_baseline_bytes": 0,
-        "topup_balance_bytes": 0,
-        "premium_limit": None,
-        "premium_used": None,
-        "premium_limit_bytes": 0,
-        "premium_used_bytes": 0,
-        "premium_baseline_bytes": 0,
-        "premium_topup_balance_bytes": 0,
-        "premium_topup_used_bytes": 0,
-        "premium_bonus_bytes": 0,
-        "regular_bonus_bytes": 0,
-        "regular_unlimited_override": False,
-        "premium_unlimited_override": False,
-        "premium_is_limited": False,
-        "premium_squad_labels": [],
-        "premium_node_labels": [],
+        "traffic_limit": traffic_limit_bytes,
+        "traffic_used": traffic_used_bytes,
+        "traffic_limit_bytes": traffic_limit_bytes,
+        "traffic_used_bytes": traffic_used_bytes,
+        "premium_title": premium_title,
+        "traffic_limit_strategy": traffic_limit_strategy,
+        "tier_baseline_bytes": tier_baseline_bytes,
+        "topup_balance_bytes": topup_balance_bytes,
+        "premium_limit": premium_limit_bytes,
+        "premium_used": premium_used_bytes,
+        "premium_limit_bytes": premium_limit_bytes,
+        "premium_used_bytes": premium_used_bytes,
+        "premium_baseline_bytes": premium_baseline_bytes,
+        "premium_topup_balance_bytes": premium_topup_balance_bytes,
+        "premium_topup_used_bytes": premium_topup_used_bytes,
+        "premium_bonus_bytes": premium_bonus_bytes,
+        "regular_bonus_bytes": regular_bonus_bytes,
+        "regular_unlimited_override": regular_unlimited_override,
+        "premium_unlimited_override": premium_unlimited_override,
+        "premium_is_limited": premium_is_limited,
+        "premium_squad_labels": premium_squad_labels,
+        "premium_node_labels": premium_node_labels,
         "can_topup_traffic": can_topup_traffic,
         "can_topup_regular_traffic": can_topup_regular_traffic,
         "can_topup_premium_traffic": can_topup_premium_traffic,
         "can_topup_devices": can_topup_devices,
-        "period_start_at": None,
-        "is_throttled": False,
-        "max_devices": 0,
+        "period_start_at": period_start_at,
+        "is_throttled": is_throttled,
+        "max_devices": max_devices,
         "base_hwid_device_limit": _coerce_int_or_none(active.get("base_hwid_device_limit")),
         "extra_hwid_devices": extra_hwid_count,
         "extra_hwid_devices_valid_until": extra_hwid_valid_until.isoformat()
