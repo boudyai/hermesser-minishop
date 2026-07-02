@@ -299,6 +299,7 @@ async def token_input(
     message: types.Message,
     state: FSMContext,
     async_session_factory,
+    subscription_service: "SubscriptionService | None" = None,
 ) -> None:
     user_id = message.from_user.id if message.from_user else 0
     token = (message.text or "").strip()
@@ -325,6 +326,8 @@ async def token_input(
 
     from db.dal import user_dal
 
+    applied_to_tenant = True
+    tenant_uuid = ""
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
@@ -333,10 +336,44 @@ async def token_input(
             return
         db_user.pending_bot_token = token
         await session.commit()
+        # ponytail: if a tenant already exists, push the new token to
+        # provisioning-core so the worker drains update_secrets right
+        # now. Without this, the token is just stored locally and the
+        # running bot keeps using the old one until the next trial /
+        # paid activation. Best-effort: failure surfaces in the reply.
+        tenant_uuid = str(db_user.panel_user_uuid or "").strip()
+        if tenant_uuid and subscription_service is not None:
+            from bot.services.hermes_provisioning_service import (
+                HermesProvisioningService,
+            )
+
+            panel_service = getattr(subscription_service, "panel_service", None)
+            if isinstance(panel_service, HermesProvisioningService):
+                try:
+                    applied_to_tenant = await panel_service.update_tenant_bot_token(
+                        tenant_uuid, token
+                    )
+                except Exception:
+                    logger.exception(
+                        "update_tenant_bot_token failed for user %s tenant %s",
+                        user_id,
+                        tenant_uuid,
+                    )
+                    applied_to_tenant = False
 
     await state.clear()
     await _safe_delete_message(message)
-    text = f"✅ Токен сохранён! Ваш бот @{bot_username} готов."
+    if applied_to_tenant:
+        text = (
+            f"✅ Токен сохранён! Ваш бот @{bot_username} обновлён и перезапускается (~30 секунд)."
+        )
+    elif tenant_uuid:
+        text = (
+            f"⚠️ Токен сохранён локально, но не применён к работающему боту. "
+            f"Бот @{bot_username} продолжит работать со старым токеном до следующей активации."
+        )
+    else:
+        text = f"✅ Токен сохранён! Ваш бот @{bot_username} будет запущен при активации."
     markup = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [types.InlineKeyboardButton(text="📊 Статус", callback_data="tenant:status")],

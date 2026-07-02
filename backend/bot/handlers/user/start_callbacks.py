@@ -263,10 +263,13 @@ async def main_action_callback_handler(
         return
 
     is_hermes = str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
-    # ponytail: in hermes mode the proxy-era menu actions below are
-    # invalid surfaces (proxy / subscribe / promo / referral / trial /
-    # generic info). Cached keyboards may still fire them from old
-    # messages — clear state and route to the Hermes main menu instead.
+    # ponytail: in hermes mode the proxy-era surfaces below are invalid —
+    # they assume squad/device/referral concepts that don't exist. Cached
+    # keyboards may still fire them from old messages; route them to the
+    # Hermes main menu instead. Subscribe / my_subscription / request_trial
+    # are NOT blocked: they route through panel_service which is
+    # HermesProvisioningService in this mode and handles a single-tariff
+    # Standard + Platega.
     hermes_blocked_actions = {
         "bot_interface",
         "bot_subscribe",
@@ -275,13 +278,9 @@ async def main_action_callback_handler(
         "bot_apply_promo",
         "bot_language",
         "bot_info",
-        "subscribe",
-        "my_subscription",
         "my_devices",
         "referral",
         "apply_promo",
-        "request_trial",
-        "info",
     }
     if is_hermes and action in hermes_blocked_actions:
         await send_main_menu(

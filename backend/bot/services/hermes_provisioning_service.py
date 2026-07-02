@@ -285,6 +285,37 @@ class HermesProvisioningService(PanelApiService):
             log.error("PUT /shop/tenants/%s/env failed: %s %s", tenant_id, resp.status, body[:200])
             return False
 
+    async def update_tenant_bot_token(self, tenant_id: str, bot_token: str) -> bool:
+        """Apply a freshly-saved bot token to a running tenant.
+
+        Returns True on 202; False on 4xx/5xx. The bot token was already
+        validated against Telegram getMe at the entry point (Mini App or
+        bot FSM) so we don't repeat that check here. The core enqueues
+        an update_secrets job that the worker drains — by the time the
+        user reloads the status screen, the container is rewriting
+        secrets.env and restarting with the new token.
+        """
+        session = await self._core_get_session()
+        try:
+            async with session.put(
+                f"{self._core_base_url}/shop/tenants/{tenant_id}/bot_token",
+                json={"bot_token": bot_token},
+            ) as resp:
+                if resp.status == 202:
+                    log.info("Bot token update queued for tenant %s", tenant_id)
+                    return True
+                body = await resp.text()
+                log.error(
+                    "PUT /shop/tenants/%s/bot_token failed: %s %s",
+                    tenant_id,
+                    resp.status,
+                    body[:200],
+                )
+                return False
+        except aiohttp.ClientError as exc:
+            log.error("Bot token update network error for %s: %s", tenant_id, exc)
+            return False
+
     # ============================================
     # Tenant management (restart, quota, logs)
     # ============================================

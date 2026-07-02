@@ -521,9 +521,49 @@ async def account_bot_token_route(request: web.Request) -> web.Response:
             return _json_error(403, "access_denied", "Access denied")
         db_user.pending_bot_token = token
         await session.commit()
+        # ponytail: if a tenant already exists, push the new token to
+        # provisioning-core so the worker drains an update_secrets job
+        # right now. Without this, the token is just stored locally and
+        # the running bot keeps using the old one until the next trial
+        # / paid activation. The update is best-effort — failure is
+        # surfaced in the response so the user knows to retry.
+        applied_to_tenant = False
+        tenant_uuid = str(db_user.panel_user_uuid or "").strip()
+        if tenant_uuid:
+            try:
+                from bot.app.web.context import get_optional_subscription_service
+                from bot.services.hermes_provisioning_service import (
+                    HermesProvisioningService,
+                )
+
+                subscription_service = get_optional_subscription_service(request)
+                panel_service = (
+                    getattr(subscription_service, "panel_service", None)
+                    if subscription_service is not None
+                    else None
+                )
+                if isinstance(panel_service, HermesProvisioningService):
+                    applied_to_tenant = await panel_service.update_tenant_bot_token(
+                        tenant_uuid, token
+                    )
+            except Exception:
+                logger.exception(
+                    "update_tenant_bot_token failed for user %s tenant %s",
+                    user_id,
+                    tenant_uuid,
+                )
 
     await _invalidate_webapp_user_caches(settings, user_id)
-    return json_response({"ok": True, "bot_username": bot_username})
+    payload: Dict[str, Any] = {"ok": True, "bot_username": bot_username}
+    if tenant_uuid:
+        payload["tenant_id"] = tenant_uuid
+        payload["applied_to_tenant"] = applied_to_tenant
+        if not applied_to_tenant:
+            # ponytail: the token is saved locally and will apply at the
+            # next trial/paid activation, but the running bot still uses
+            # the old token. Surface this so the UI can warn the user.
+            payload["warning"] = "token_saved_but_not_applied"
+    return json_response(payload)
 
 
 def _telegram_photo_url_value(telegram_user: Dict[str, Any]) -> Optional[str]:

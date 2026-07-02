@@ -43,6 +43,23 @@ def get_main_menu_inline_keyboard(
     if show_trial_button and settings.TRIAL_ENABLED and not is_hermes:
         builder.row(_trial_activation_button(lang, i18n_instance, settings))
 
+    if is_hermes:
+        # ponytail: in hermes mode subscription management is the
+        # primary surface, not the Mini App personal-account. Users
+        # expect to buy/renew and see their subscription status right
+        # from the bot. The Mini App "Личный кабинет" is still offered
+        # below for quota/tenant management.
+        builder.row(
+            InlineKeyboardButton(
+                text=_(key="menu_subscribe_inline"),
+                callback_data="main_action:subscribe",
+            ),
+            InlineKeyboardButton(
+                text=_(key="menu_my_subscription_inline"),
+                callback_data="main_action:my_subscription",
+            ),
+        )
+
     if settings.SUBSCRIPTION_MINI_APP_URL:
         builder.row(
             InlineKeyboardButton(
