@@ -168,6 +168,47 @@ class SubscriptionNotificationWorker:
                         end_date=self._as_utc(getattr(sub, "end_date", None)),
                     )
                 )
+                # ponytail: in hermes mode the container has to stop when
+                # the subscription expires — otherwise the bot keeps
+                # running on a tenant the user no longer pays for.
+                # The core's suspend endpoint pauses the podman
+                # container; the tenant row stays in the core so the
+                # user can resume by paying again. Renewal flow
+                # (create_panel_user → reactivation block) reuses the
+                # same row.
+                if (
+                    str(getattr(self.settings.panel_settings, "write_mode", "") or "").lower()
+                    == "hermes"
+                ):
+                    try:
+                        await self._suspend_hermes_tenant(sub)
+                    except Exception:
+                        logging.exception(
+                            "Failed to suspend hermes tenant for subscription %s",
+                            getattr(sub, "subscription_id", None),
+                        )
+
+    async def _suspend_hermes_tenant(self, sub: Subscription) -> None:
+        """Stop the running podman container for a Hermes tenant whose
+        subscription just expired.
+
+        Resolves panel_user_uuid from the local user row, then calls
+        panel_service.update_user_status_on_panel(enable=False) which
+        routes to POST /shop/tenants/{id}/suspend on provisioning-core.
+        Idempotent — core returns 202 for an already-suspended tenant.
+        """
+        panel_service = getattr(self, "panel_service", None)
+        if panel_service is None:
+            return
+        from bot.services.hermes_provisioning_service import HermesProvisioningService
+
+        if not isinstance(panel_service, HermesProvisioningService):
+            return
+        db_user = getattr(sub, "user", None)
+        panel_user_uuid = getattr(db_user, "panel_user_uuid", None) if db_user else None
+        if not panel_user_uuid:
+            return
+        await panel_service.update_user_status_on_panel(str(panel_user_uuid), enable=False)
 
     def _superseded_by_active_subscription(
         self,
