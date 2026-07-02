@@ -16,11 +16,31 @@
 
   const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
   const active = $derived(Boolean(subscription?.active));
+  // ponytail: the previous two-click confirmation (tap "Удалить" then
+  // "Нажмите ещё раз") was too easy to trigger by accident — the
+  // buttons sat side by side and a quick double-tap wiped the
+  // tenant. Now the user must type the word "УДАЛИТЬ" before the
+  // final Delete button enables, mirroring the Telegram bot's
+  // "/delete" handler.
+  const CONFIRMATION_PHRASE = "УДАЛИТЬ";
+  // ponytail: the core rejects suspend/delete on tenants in
+  // non-actionable states (deleting / deleted / archived) with a
+  // 409. Gate the buttons here so the user doesn't see those
+  // failures.
+  const tenantStatus = $derived(
+    String(subscription?.tenant_status || subscription?.status || "").toLowerCase()
+  );
+  const actionsEnabled = $derived(
+    active && !["deleting", "deleted", "archived"].includes(tenantStatus)
+  );
 
   let busy = $state<"suspend" | "delete" | "">("");
-  let confirmDelete = $state(false);
+  let showDelete = $state(false);
+  let deletePhrase = $state("");
   let error = $state<string | null>(null);
   let info = $state<string | null>(null);
+
+  const deleteEnabled = $derived(deletePhrase.trim() === CONFIRMATION_PHRASE);
 
   async function callApi(path: string, method: string): Promise<unknown> {
     const data = await apiUnchecked(path, {
@@ -48,12 +68,19 @@
     }
   }
 
-  async function deleteAgent() {
-    if (!confirmDelete) {
-      confirmDelete = true;
-      setTimeout(() => (confirmDelete = false), 10000);
-      return;
-    }
+  function requestDelete() {
+    showDelete = true;
+    deletePhrase = "";
+    error = null;
+  }
+
+  function cancelDelete() {
+    showDelete = false;
+    deletePhrase = "";
+  }
+
+  async function confirmAndDelete() {
+    if (!deleteEnabled) return;
     busy = "delete";
     error = null;
     try {
@@ -72,20 +99,43 @@
   <Card>
     <h3 style="margin: 0 0 8px; font-size: 15px; color: var(--danger);">⚠️ Опасная зона</h3>
     <p style="margin: 0 0 10px; color: var(--muted); font-size: 12px;">
-      Приостановка блокирует контейнер и LiteLLM-ключ. Удаление остановит контейнер и очистит его
-      через 30 дней.
+      Приостановка блокирует контейнер и LiteLLM-ключ. Удаление останавливает контейнер; данные
+      хранилища сохраняются 30 дней.
     </p>
-    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-      <Button variant="secondary" onclick={suspend} disabled={busy !== ""}>⏸ Приостановить</Button>
-      <Button
-        variant="danger"
-        onclick={deleteAgent}
-        disabled={busy !== ""}
-        style={confirmDelete ? "background: #b91c1c; color: white;" : ""}
+    {#if !showDelete}
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <Button variant="secondary" onclick={suspend} disabled={busy !== "" || !actionsEnabled}
+          >⏸ Приостановить</Button
+        >
+        <Button variant="danger" onclick={requestDelete} disabled={busy !== "" || !actionsEnabled}
+          >🗑 Удалить бота</Button
+        >
+      </div>
+    {:else}
+      <div
+        style="margin: 8px 0 0; padding: 10px; border: 1px solid var(--danger, #e74c3c); border-radius: 6px;"
       >
-        {confirmDelete ? "⚠️ Нажмите ещё раз для подтверждения" : "🗑 Удалить бота"}
-      </Button>
-    </div>
+        <p style="margin: 0 0 6px; font-size: 12px; color: var(--muted);">
+          Это действие нельзя отменить. Введите <b>{CONFIRMATION_PHRASE}</b> ниже, чтобы подтвердить.
+        </p>
+        <input
+          type="text"
+          bind:value={deletePhrase}
+          placeholder={CONFIRMATION_PHRASE}
+          autocomplete="off"
+          spellcheck={false}
+          style="width: 100%; padding: 6px 8px; box-sizing: border-box; border: 1px solid var(--border, #ccc); border-radius: 4px; font-family: monospace;"
+        />
+        <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
+          <Button
+            variant="danger"
+            onclick={confirmAndDelete}
+            disabled={!deleteEnabled || busy !== ""}>⛔ Подтвердить удаление</Button
+          >
+          <Button variant="secondary" onclick={cancelDelete} disabled={busy !== ""}>Отмена</Button>
+        </div>
+      </div>
+    {/if}
     {#if error}
       <p style="margin: 8px 0 0; color: var(--danger); font-size: 12px;">{error}</p>
     {/if}

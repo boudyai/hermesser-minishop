@@ -21,6 +21,16 @@
     String(subscription?.bot_username || appSettings?.bot_username || "").trim()
   );
   const tMeUrl = $derived(botUsername ? `https://t.me/${botUsername}` : "");
+  // ponytail: the core rejects restart/logs actions on tenants in
+  // non-actionable states (deleting, deleted, archived) with a 409.
+  // Disable the buttons here so the user doesn't keep seeing failures
+  // while the tenant is being torn down.
+  const tenantStatus = $derived(
+    String(subscription?.tenant_status || subscription?.status || "").toLowerCase()
+  );
+  const actionsEnabled = $derived(
+    active && !["deleting", "deleted", "archived", "suspended"].includes(tenantStatus)
+  );
 
   let busy = $state(false);
   let busyAction = $state<"restart" | "logs-refresh" | "">("");
@@ -96,6 +106,16 @@
     }
   });
 
+  // ponytail: tell the user why the action buttons are disabled
+  // instead of letting them click and see 409 errors.
+  const stateNotice = $derived.by(() => {
+    if (tenantStatus === "deleting") return "Удаляется… действия недоступны";
+    if (tenantStatus === "suspended") return "Приостановлен. Возобновите через подписку";
+    if (tenantStatus === "deleted" || tenantStatus === "archived")
+      return "Удалён. Создайте нового бота";
+    return null;
+  });
+
   function fmtUsd(v: number | null): string {
     if (v === null) return "—";
     if (v >= 1) return `$${v.toFixed(2)}`;
@@ -105,6 +125,9 @@
 
 {#if hermesMode && active}
   <Card compact>
+    {#if stateNotice}
+      <p style="margin: 0 0 8px; color: var(--muted); font-size: 12px;">{stateNotice}</p>
+    {/if}
     <div
       style="display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap;"
     >
@@ -123,11 +146,11 @@
             </Button>
           </a>
         {/if}
-        <Button variant="secondary" onclick={loadLogs} disabled={busy}>
+        <Button variant="secondary" onclick={loadLogs} disabled={busy || !actionsEnabled}>
           <FileText size={14} />
           Логи
         </Button>
-        <Button variant="secondary" onclick={refreshStatus} disabled={busy}>
+        <Button variant="secondary" onclick={refreshStatus} disabled={busy || !actionsEnabled}>
           <RefreshCw size={14} class={busyAction === "restart" ? "spinning" : ""} />
           Перезагрузить
         </Button>
