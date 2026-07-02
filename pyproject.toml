@@ -19,6 +19,7 @@ select = [
     "B", # flake8-bugbear
     "ASYNC", # flake8-async
     "DTZ", # flake8-datetimez
+    "C4", # flake8-comprehensions
 ]
 ignore = [
     "E731", # lambda assignment (common in handlers)

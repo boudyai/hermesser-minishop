@@ -893,7 +893,7 @@ def remnashop_build_tariff_catalog(
         default_currency_key = "rub"
 
     sorted_plans = sorted(
-        list(plans),
+        plans,
         key=lambda item: (_to_int(item.get("order_index")) or 0, _to_int(item.get("id")) or 0),
     )
     for plan in sorted_plans:

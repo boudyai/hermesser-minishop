@@ -51,7 +51,7 @@ def test_build_email_message_attaches_inline_images_to_html_part():
     assert related_part is not None
     html_part = related_part.get_body(("html",))
     assert html_part is not None
-    related_images = [part for part in related_part.iter_attachments()]
+    related_images = list(related_part.iter_attachments())
 
     assert len(related_images) == 1
     assert related_images[0].get_content_type() == "image/png"

@@ -27,26 +27,26 @@ from config.tariffs_config import TariffsConfig
 
 
 def _make_settings(**overrides: Any) -> SimpleNamespace:
-    base = dict(
-        DEFAULT_LANGUAGE="en",
-        REFERRAL_ONE_BONUS_PER_REFEREE=True,
-        user_traffic_limit_bytes=0,
-        referral_bonus_inviter={1: 7, 3: 21, 6: 45, 12: 90},
-        referral_bonus_referee={1: 3, 3: 10, 6: 21, 12: 45},
-    )
+    base = {
+        "DEFAULT_LANGUAGE": "en",
+        "REFERRAL_ONE_BONUS_PER_REFEREE": True,
+        "user_traffic_limit_bytes": 0,
+        "referral_bonus_inviter": {1: 7, 3: 21, 6: 45, 12: 90},
+        "referral_bonus_referee": {1: 3, 3: 10, 6: 21, 12: 45},
+    }
     base.update(overrides)
     return SimpleNamespace(**base)
 
 
 def _make_user(user_id: int, *, referred_by_id: int | None = None, **fields):
-    base = dict(
-        user_id=user_id,
-        first_name=f"User{user_id}",
-        language_code="en",
-        referred_by_id=referred_by_id,
-        email=None,
-        panel_user_uuid=f"panel-{user_id}",
-    )
+    base = {
+        "user_id": user_id,
+        "first_name": f"User{user_id}",
+        "language_code": "en",
+        "referred_by_id": referred_by_id,
+        "email": None,
+        "panel_user_uuid": f"panel-{user_id}",
+    }
     base.update(fields)
     return SimpleNamespace(**base)
 

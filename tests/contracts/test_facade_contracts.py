@@ -128,7 +128,7 @@ def test_facade_imports_growth_is_forbidden() -> None:
     }
 
     for facade_name, expected in expected_importers.items():
-        expected_importers_set = set(Path(p).as_posix() for p in expected)
+        expected_importers_set = {Path(p).as_posix() for p in expected}
         allowed_importers = expected_importers_set | legacy_importers[facade_name]
         assert actual_importers[facade_name].issubset(allowed_importers), (
             f"compatibility facade imports grew for {facade_name}: "

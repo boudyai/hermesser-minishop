@@ -299,18 +299,18 @@ def _webhook_service(session, payment, monkeypatch, **overrides):
 
 
 def _payment(**overrides):
-    base = dict(
-        payment_id=88,
-        user_id=42,
-        status="pending_cloudpayments",
-        sale_mode="subscription",
-        purchased_hwid_devices=None,
-        purchased_gb=None,
-        subscription_duration_months=1,
-        amount=150.0,
-        currency="RUB",
-        user=None,
-    )
+    base = {
+        "payment_id": 88,
+        "user_id": 42,
+        "status": "pending_cloudpayments",
+        "sale_mode": "subscription",
+        "purchased_hwid_devices": None,
+        "purchased_gb": None,
+        "subscription_duration_months": 1,
+        "amount": 150.0,
+        "currency": "RUB",
+        "user": None,
+    }
     base.update(overrides)
     return SimpleNamespace(**base)
 

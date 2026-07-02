@@ -34,22 +34,22 @@ class _FakeService:
 
 
 def _descriptor(**overrides):
-    base = dict(
-        spec=SimpleNamespace(
+    base = {
+        "spec": SimpleNamespace(
             is_available_to_user=lambda *a, **k: True,
             callback_prefix="pay_fake",
         ),
-        provider_key="fake",
-        pending_status="pending_fake",
-        display_name="Fake",
-        log_prefix="fake",
-        service_app_key="fake_service",
-        service_type=_FakeService,
-        create=AsyncMock(return_value=(True, {"url": "https://pay/x", "id": "pid-1"})),
-        reuse=AsyncMock(return_value=None),
-        extract_url=lambda r: r.get("url"),
-        extract_provider_id=lambda r: r.get("id"),
-    )
+        "provider_key": "fake",
+        "pending_status": "pending_fake",
+        "display_name": "Fake",
+        "log_prefix": "fake",
+        "service_app_key": "fake_service",
+        "service_type": _FakeService,
+        "create": AsyncMock(return_value=(True, {"url": "https://pay/x", "id": "pid-1"})),
+        "reuse": AsyncMock(return_value=None),
+        "extract_url": lambda r: r.get("url"),
+        "extract_provider_id": lambda r: r.get("id"),
+    }
     base.update(overrides)
     return LinkPaymentDescriptor(**base)
 
