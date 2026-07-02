@@ -14,11 +14,13 @@ from bot.app.web.route_contracts import (
 from .contract_schemas import (
     AUTH_RESPONSE_SCHEMA,
     EMAIL_REQUEST_RESPONSE_SCHEMA,
+    PAYMENT_RESPONSE_SCHEMA,
     public_contract,
     user_contract,
 )
 from .payloads import (
     WebAppBotTokenPayload,
+    WebAppCornllmTopupPayload,
     WebAppEmailCodeAuthPayload,
     WebAppEmailMagicAuthPayload,
     WebAppEmailPasswordPayload,
@@ -139,5 +141,12 @@ AUTH_ROUTE_CONTRACTS: dict[str, RouteContract] = {
     ),
     "tenant_delete_route": user_contract(
         response_schema=ok_envelope_with(),
+    ),
+    "tenant_recreate_route": user_contract(
+        response_schema=ok_envelope_with(),
+    ),
+    "cornllm_topup_route": user_contract(
+        request_model=WebAppCornllmTopupPayload,
+        response_schema=PAYMENT_RESPONSE_SCHEMA,
     ),
 }

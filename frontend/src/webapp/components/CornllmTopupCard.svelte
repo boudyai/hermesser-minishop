@@ -2,6 +2,7 @@
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import Dialog from "$components/ui/dialog.svelte";
+  import PaymentMethodGrid from "$lib/components/patterns/webapp/PaymentMethodGrid.svelte";
   import { Plus } from "$components/ui/icons.js";
 
   type AnyRecord = Record<string, any>;
@@ -40,36 +41,84 @@
   let open = $state(false);
   let amountRub = $state<number>(300);
   let customAmount = $state<string>("");
+  let localMethod = $state<string>(selectedMethod);
   let busy = $state(false);
   let error = $state<string | null>(null);
+
+  const enabledMethods = $derived(
+    (paymentMethods || []).filter(
+      (m) => m && !m.disabled && typeof m.id === "string" && m.id
+    )
+  );
+
+  // ponytail: when the card opens or the parent flips selectedMethod,
+  // mirror it into local state so PaymentMethodGrid stays in sync.
+  // The first enabled method is a safe default if the parent passed
+  // an empty string — this keeps the dialog submittable even when
+  // the user lands here without a payment-method selection upstream.
+  $effect(() => {
+    if (open) {
+      if (selectedMethod) {
+        localMethod = selectedMethod;
+      } else if (!localMethod && enabledMethods.length > 0) {
+        localMethod = enabledMethods[0].id;
+      }
+    }
+  });
 
   function pickQuick(rub: number) {
     customAmount = "";
     amountRub = rub;
   }
 
+  function parseCustomAmount(): number | null {
+    // ponytail: parse on every relevant event (blur AND submit) so the
+    // typed value actually reaches the API. Previously the input only
+    // committed on blur, so a user who typed and immediately tapped
+    // "Пополнить" sent the stale `amountRub`.
+    const raw = customAmount.replace(",", ".").trim();
+    if (!raw) return amountRub;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return null;
+    return Math.round(parsed);
+  }
+
   function commitCustom() {
-    const parsed = Number(customAmount.replace(",", "."));
-    if (Number.isFinite(parsed) && parsed >= MIN_RUB) amountRub = Math.round(parsed);
+    const parsed = parseCustomAmount();
+    if (parsed !== null && parsed >= MIN_RUB) {
+      amountRub = parsed;
+    }
   }
 
   async function submit() {
-    if (!selectedMethod) {
+    if (!localMethod) {
       error = "Выберите способ оплаты";
       return;
     }
-    if (!Number.isFinite(amountRub) || amountRub < MIN_RUB) {
+    // ponytail: always re-parse on submit so the typed-but-unblurred
+    // value reaches the API instead of the previously-picked quick amount.
+    const submitted = parseCustomAmount();
+    if (submitted === null) {
+      error = "Введите корректную сумму";
+      return;
+    }
+    if (submitted < MIN_RUB) {
       error = `Минимум ${MIN_RUB} ₽`;
       return;
     }
+    amountRub = submitted;
     busy = true;
     error = null;
     try {
-      const data = (await apiUnchecked("/api/cornllm/topup", {
+      // ponytail: apiBase is already "/api" so the client prefixes
+      // every call. The previous hardcoded "/api/cornllm/topup"
+      // collapsed to "/api/api/cornllm/topup" → 404. Pass the bare
+      // path; the typed ApiClient adds the prefix.
+      const data = (await apiUnchecked("/cornllm/topup", {
         method: "POST",
         body: JSON.stringify({
           amount_rub: amountRub,
-          method: selectedMethod,
+          method: localMethod,
         }),
       })) as Record<string, unknown>;
       if (data?.ok === false) {
@@ -85,19 +134,8 @@
         window.location.href = paymentUrl;
         return;
       }
-      const action = String((data as { action?: string }).action || "");
-      const paymentId = (data as { payment_id?: string | number }).payment_id;
-      // No direct URL — the provider will send an invoice (Telegram
-      // Stars / WATA). We don't know how to open it from this card
-      // without a router to AppModeContent's handler; the user
-      // will see the new pending payment in the next render of the
-      // Home screen's status block.
       error = null;
       open = false;
-      if (action === "open_invoice" && paymentId) {
-        // The user will see "Telegram invoice sent" via the status card.
-        // Nothing else to do here; the poll picks it up.
-      }
     } catch (e) {
       error = e instanceof Error ? e.message : "topup_create_failed";
     } finally {
@@ -152,14 +190,18 @@
           min={MIN_RUB}
           step={1}
           bind:value={customAmount}
+          oninput={() => commitCustom()}
           onblur={commitCustom}
           placeholder="например, 250"
           style="padding: 8px; border: 1px solid var(--border, #ccc); border-radius: 4px; font-size: 14px;"
         />
       </label>
-      <p style="margin: 0; font-size: 12px; color: var(--muted);">
-        Способ оплаты: <strong>{selectedMethod || "не выбран"}</strong>
-      </p>
+      <p style="margin: 0; font-size: 12px; color: var(--muted);">Способ оплаты</p>
+      <PaymentMethodGrid
+        methods={enabledMethods}
+        selectedMethod={localMethod}
+        onSelect={(id) => (localMethod = id)}
+      />
       {#if error}
         <p style="margin: 0; color: var(--danger); font-size: 12px;">{error}</p>
       {/if}

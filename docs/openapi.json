@@ -4646,6 +4646,25 @@
         "title": "WebAppBotTokenPayload",
         "type": "object"
       },
+      "WebAppCornllmTopupPayload": {
+        "description": "Payload for a paid CornLLM (LiteLLM) budget topup.\n\nThe amount is in rubles; the shop converts to USD (1 USD = 100 RUB)\nand provisioning-core adds the delta to the tenant's active\nLitellmKey max_budget. Minimum is 100 RUB to keep payment / quota\nmeaningful.",
+        "properties": {
+          "amount_rub": {
+            "title": "Amount Rub",
+            "type": "number"
+          },
+          "method": {
+            "default": "",
+            "title": "Method",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount_rub"
+        ],
+        "title": "WebAppCornllmTopupPayload",
+        "type": "object"
+      },
       "WebAppDeviceDisconnectPayload": {
         "properties": {
           "token": {
@@ -9995,6 +10014,81 @@
         ]
       }
     },
+    "/api/cornllm/topup": {
+      "post": {
+        "operationId": "post_cornllm_topup_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppCornllmTopupPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "confirmation_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "paid": {
+                      "type": "boolean"
+                    },
+                    "payment": {
+                      "additionalProperties": true,
+                      "description": "Provider-specific payment payload returned by the selected integration.",
+                      "type": "object"
+                    },
+                    "payment_id": {
+                      "type": "integer"
+                    },
+                    "payment_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Cornllm Topup",
+        "tags": [
+          "cornllm"
+        ]
+      }
+    },
     "/api/devices": {
       "get": {
         "operationId": "get_devices_route",
@@ -13140,6 +13234,45 @@
           }
         ],
         "summary": "Tenant Quota",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/tenant/recreate": {
+      "post": {
+        "operationId": "post_tenant_recreate_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Tenant Recreate",
         "tags": [
           "tenant"
         ]

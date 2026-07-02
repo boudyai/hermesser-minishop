@@ -1101,6 +1101,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/cornllm/topup": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Cornllm Topup */
+    post: operations["post_cornllm_topup_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/devices": {
     parameters: {
       query?: never;
@@ -1556,6 +1573,23 @@ export interface paths {
     get: operations["get_tenant_quota_route"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/tenant/recreate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Tenant Recreate */
+    post: operations["post_tenant_recreate_route"];
     delete?: never;
     options?: never;
     head?: never;
@@ -3677,6 +3711,24 @@ export interface components {
     WebAppBotTokenPayload: {
       /** Bot Token */
       bot_token: string;
+    };
+    /**
+     * WebAppCornllmTopupPayload
+     * @description Payload for a paid CornLLM (LiteLLM) budget topup.
+     *
+     *     The amount is in rubles; the shop converts to USD (1 USD = 100 RUB)
+     *     and provisioning-core adds the delta to the tenant's active
+     *     LitellmKey max_budget. Minimum is 100 RUB to keep payment / quota
+     *     meaningful.
+     */
+    WebAppCornllmTopupPayload: {
+      /** Amount Rub */
+      amount_rub: number;
+      /**
+       * Method
+       * @default
+       */
+      method: string;
     };
     /** WebAppDeviceDisconnectPayload */
     WebAppDeviceDisconnectPayload: {
@@ -6218,6 +6270,42 @@ export interface operations {
       };
     };
   };
+  post_cornllm_topup_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppCornllmTopupPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            confirmation_url?: string | null;
+            /** @constant */
+            ok: true;
+            paid?: boolean;
+            /** @description Provider-specific payment payload returned by the selected integration. */
+            payment?: {
+              [key: string]: unknown;
+            };
+            payment_id?: number;
+            payment_url?: string | null;
+            status?: string;
+          };
+        };
+      };
+    };
+  };
   get_devices_route: {
     parameters: {
       query?: never;
@@ -7424,6 +7512,29 @@ export interface operations {
             remaining?: number | null;
             spent?: number | null;
             tenant_id?: string;
+          };
+        };
+      };
+    };
+  };
+  post_tenant_recreate_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
           };
         };
       };

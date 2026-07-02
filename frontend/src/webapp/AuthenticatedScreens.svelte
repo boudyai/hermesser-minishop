@@ -68,6 +68,7 @@
     linkTelegramAndClaimReferralWelcome: Action;
     linkTelegramBusy?: boolean;
     loadDevices: Action;
+    methods?: AnyRecord[];
     openAdminPanel: Action;
     openAppLink: Action;
     openConnectLink: Action;
@@ -176,6 +177,7 @@
     linkTelegramAndClaimReferralWelcome,
     linkTelegramBusy = false,
     loadDevices,
+    methods = [],
     openAdminPanel,
     openAppLink,
     openConnectLink,
@@ -268,6 +270,7 @@
       {currentTariffName}
       {hasActiveTariffSubscription}
       {hasMultipleTariffs}
+      {methods}
       {premiumTrafficTopupBarClickable}
       {premiumTrafficTopupUnlocked}
       {regularTrafficTopupBarClickable}

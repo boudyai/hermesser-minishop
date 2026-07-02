@@ -59,6 +59,7 @@
     currentTariffName = "",
     hasActiveTariffSubscription = false,
     hasMultipleTariffs = false,
+    methods = [],
     subscription = {},
     autoRenewBusy = false,
     linkTelegramBusy = false,
@@ -95,6 +96,7 @@
     currentTariffName?: string;
     hasActiveTariffSubscription?: boolean;
     hasMultipleTariffs?: boolean;
+    methods?: AnyRecord[];
     subscription?: AnyRecord;
     autoRenewBusy?: boolean;
     linkTelegramBusy?: boolean;
@@ -482,7 +484,7 @@
 
     {#if subscription.active && hermesMode}
       <BotStatusCard {subscription} {appSettings} {apiUnchecked} />
-      <CornllmTopupCard {subscription} {appSettings} {apiUnchecked} />
+      <CornllmTopupCard {subscription} {appSettings} {apiUnchecked} {methods} />
     {/if}
 
     {#if !subscription.active}
