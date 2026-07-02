@@ -17,8 +17,7 @@
       "backend/bot/app/web/templates/*.js",
       "backend/db/migrator.py",
       "frontend/src/lib/api/openapi.generated.ts",
-      "frontend/src/lib/webapp/demoDataset.js",
-      "frontend/src/lib/webapp/mockApi.js"
+      "frontend/src/lib/webapp/demoDataset.js"
     ]
   },
   "type_ignore": {
@@ -67,8 +66,7 @@
       "frontend/src"
     ],
     "allowlist": [
-      "frontend/src/lib/webapp/demoDataset.js",
-      "frontend/src/lib/webapp/mockApi.js"
+      "frontend/src/lib/webapp/demoDataset.js"
     ]
   },
   "svelte_lang_ts": {
