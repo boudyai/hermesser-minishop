@@ -316,6 +316,90 @@ class TopupMixin(SubscriptionServiceMixinContract):
             "tariff_key": tariff.key,
         }
 
+    async def activate_cornllm_topup(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        payment_db_id: int,
+        payment_amount: float,
+        provider: str = "yookassa",
+    ) -> Optional[Dict[str, Any]]:
+        """Credit a paid CornLLM (LiteLLM) topup to the user's tenant.
+
+        sale_mode == "cornllm_topup" only fires in Hermes mode. The
+        Mini App / Telegram webhook path lands here after a
+        successful YooKassa / Telegram Stars / Platega payment. The
+        amount is in rubles; we convert to USD (1 USD = 100 RUB) and
+        call provisioning-core, which rows-locks `litellm_keys` and
+        enqueues an `update_litellm_key` job for the worker.
+
+        Returns the core response (delta_usd, new_max_budget_usd) on
+        success, None otherwise. The payment row is left as-is — the
+        shop DB has no CornLLM ledger in MVP; the provisioning-core
+        max_budget is the source of truth.
+        """
+        from bot.services.hermes_provisioning_service import HermesProvisioningService
+
+        if payment_amount is None or float(payment_amount) <= 0:
+            logging.error(
+                "CornLLM topup for user %s requires positive payment_amount, got %r",
+                user_id,
+                payment_amount,
+            )
+            return None
+        amount_usd = round(float(payment_amount) / 100.0, 2)
+        if amount_usd <= 0:
+            logging.error(
+                "CornLLM topup amount rounds to zero: payment_amount=%r",
+                payment_amount,
+            )
+            return None
+
+        db_user = await user_dal.get_user_by_id(session, user_id)
+        if not db_user or not db_user.panel_user_uuid:
+            logging.error(
+                "CornLLM topup requires a saved panel_user_uuid for user %s",
+                user_id,
+            )
+            return None
+        tenant_id = str(db_user.panel_user_uuid)
+
+        panel_service = getattr(self, "panel_service", None)
+        if not isinstance(panel_service, HermesProvisioningService):
+            logging.error(
+                "CornLLM topup is only available in Hermes mode (user %s)", user_id
+            )
+            return None
+
+        await self._record_payment_context(
+            session,
+            payment_db_id,
+            sale_mode="cornllm_topup",
+            tariff_key=None,
+            purchased_gb=None,
+        )
+
+        result = await panel_service.topup_tenant_quota(tenant_id, amount_usd)
+        if not result:
+            return None
+
+        await self._send_payment_success_email(
+            db_user=db_user,
+            sale_mode="cornllm_topup",
+            months=0,
+            traffic_gb=None,
+            payment_amount=payment_amount,
+            end_date=None,
+            provider=provider,
+        )
+        return {
+            "subscription_id": None,
+            "tenant_id": tenant_id,
+            "delta_usd": float(result.get("delta_usd") or amount_usd),
+            "new_max_budget_usd": result.get("new_max_budget_usd"),
+            "payment_amount": float(payment_amount),
+        }
+
     async def admin_grant_topup(
         self,
         session: AsyncSession,

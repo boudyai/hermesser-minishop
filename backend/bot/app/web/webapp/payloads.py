@@ -109,6 +109,30 @@ class WebAppEnvUpdatePayload(BaseModel):
     env_content: str = ""
 
 
+class WebAppCornllmTopupPayload(BaseModel):
+    """Payload for a paid CornLLM (LiteLLM) budget topup.
+
+    The amount is in rubles; the shop converts to USD (1 USD = 100 RUB)
+    and provisioning-core adds the delta to the tenant's active
+    LitellmKey max_budget. Minimum is 100 RUB to keep payment / quota
+    meaningful.
+    """
+
+    amount_rub: float
+    method: str = ""
+
+    @field_validator("amount_rub")
+    @classmethod
+    def _validate_amount(cls, value: float) -> float:
+        try:
+            amount = float(value)
+        except (TypeError, ValueError):
+            raise ValueError("invalid_amount")
+        if amount < 100:
+            raise ValueError("amount_below_minimum")
+        return round(amount, 2)
+
+
 class WebAppBotTokenPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 

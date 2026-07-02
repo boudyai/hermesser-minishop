@@ -474,6 +474,30 @@ class HermesProvisioningService(PanelApiService):
         ) as resp:
             return resp.status == 202
 
+    async def topup_tenant_quota(self, tenant_id: str, amount_usd: float) -> Optional[Dict[str, Any]]:
+        """Bump the tenant's active LiteLLM key max_budget by `amount_usd`.
+
+        Called from the CornLLM topup success path. The core
+        enqueues an `update_litellm_key` job that the worker drains
+        from dacha. Returns the response body (delta_usd,
+        new_max_budget_usd) on success, None on 5xx.
+        """
+        session = await self._core_get_session()
+        async with session.post(
+            f"{self._core_base_url}/shop/tenants/{tenant_id}/quota/topup",
+            json={"amount_usd": float(amount_usd)},
+        ) as resp:
+            if resp.status in (200, 202):
+                return await resp.json()
+            body = await resp.text()
+            log.error(
+                "Quota topup failed for %s: %s %s",
+                tenant_id,
+                resp.status,
+                body[:200],
+            )
+            return None
+
     async def get_tenant_state(self, tenant_id: str) -> Optional[Dict[str, Any]]:
         """Fetch tenant runtime state from provisioning-core with short TTL cache.
 

@@ -67,6 +67,7 @@ from .billing import (
     tariff_topup_options_route,
 )
 from .contracts import register_webapp_route_contracts
+from .cornllm_topup import cornllm_topup_route
 from .devices import (
     devices_route,
     disconnect_device_route,
@@ -224,5 +225,6 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/tariffs/change", tariff_change_route)
     app.router.add_post("/api/tariffs/change-payment", tariff_change_payment_route)
     app.router.add_post("/api/payments", create_payment_route)
+    app.router.add_post("/api/cornllm/topup", cornllm_topup_route)
     app.router.add_get("/api/payments/{payment_id}", payment_status_route)
     setup_admin_routes(app)

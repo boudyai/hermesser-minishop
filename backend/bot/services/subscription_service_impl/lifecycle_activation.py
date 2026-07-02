@@ -118,6 +118,19 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 renewal=sale_mode_base == "hwid_devices_renewal",
             )
             return result if isinstance(result, dict) else None
+        if sale_mode_base == "cornllm_topup":
+            # ponytail: 1 USD = 100 RUB, so the amount paid in rubles
+            # divided by 100 is the USD delta added to the tenant's
+            # active LiteLLM key max_budget. We dispatch via the
+            # HermesProvisioningService — the only thing that can
+            # talk to provisioning-core in this mode.
+            return await self.activate_cornllm_topup(
+                session=session,
+                user_id=user_id,
+                payment_db_id=payment_db_id,
+                payment_amount=payment_amount,
+                provider=provider,
+            )
         if sale_mode_base == "tariff_upgrade":
             if not tariff_key:
                 logging.error("Tariff upgrade activation requires tariff_key for user %s", user_id)
