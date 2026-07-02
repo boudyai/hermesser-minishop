@@ -366,9 +366,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
 
         panel_service = getattr(self, "panel_service", None)
         if not isinstance(panel_service, HermesProvisioningService):
-            logging.error(
-                "CornLLM topup is only available in Hermes mode (user %s)", user_id
-            )
+            logging.error("CornLLM topup is only available in Hermes mode (user %s)", user_id)
             return None
 
         await self._record_payment_context(

@@ -474,7 +474,9 @@ class HermesProvisioningService(PanelApiService):
         ) as resp:
             return resp.status == 202
 
-    async def topup_tenant_quota(self, tenant_id: str, amount_usd: float) -> Optional[Dict[str, Any]]:
+    async def topup_tenant_quota(
+        self, tenant_id: str, amount_usd: float
+    ) -> Optional[Dict[str, Any]]:
         """Bump the tenant's active LiteLLM key max_budget by `amount_usd`.
 
         Called from the CornLLM topup success path. The core

@@ -220,7 +220,10 @@ async def _render_status(
         # the same units everywhere; `format_rub_pair` keeps kopecks
         # when the value is fractional (e.g. "9.49 / 1500 ₽").
         if max_b is not None and remaining is not None:
-            quota_text = f"\n💰 Бюджет: {format_rub_pair(0, max_b, default='—')} (осталось {format_rub(remaining, default='—')})"
+            quota_text = (
+                f"\n💰 Бюджет: {format_rub_pair(0, max_b, default='—')} "
+                f"(осталось {format_rub(remaining, default='—')})"
+            )
 
     text = f"🤖 Бот активен{quota_text}\nИспользуйте кнопки ниже для управления:"
     markup = types.InlineKeyboardMarkup(

@@ -12,7 +12,6 @@ tenant's ``litellm_keys.max_budget`` via provisioning-core.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
@@ -20,18 +19,14 @@ from sqlalchemy.orm import sessionmaker
 from bot.app.web.context import (
     get_session_factory,
     get_settings,
-    get_subscription_service,
 )
 from bot.app.web.webapp.auth import _require_user_id
 from bot.app.web.webapp.common import _json_error, _parse_model_payload
 from bot.app.web.webapp.payloads import WebAppCornllmTopupPayload
 from bot.payment_providers import WebAppPaymentContext, get_provider_spec
-from bot.services.subscription_service_impl.core import SubscriptionService
 from config.settings import Settings
 from config.tariffs_config import default_payment_currency_code_for_settings
 from db.dal import user_dal
-
-from .response_helpers import json_response
 
 logger = logging.getLogger(__name__)
 
@@ -50,14 +45,13 @@ async def cornllm_topup_route(request: web.Request) -> web.Response:
         return _json_error(400, "invalid_method", "Payment method is required")
 
     settings: Settings = get_settings(request)
-    is_hermes = (
-        str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
-    )
+    is_hermes = str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
     if not is_hermes:
-        return _json_error(503, "hermes_disabled", "CornLLM top-up is only available in Hermes mode")
+        return _json_error(
+            503, "hermes_disabled", "CornLLM top-up is only available in Hermes mode"
+        )
 
     session_factory: sessionmaker = get_session_factory(request)
-    subscription_service: SubscriptionService = get_subscription_service(request)
     async with session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
