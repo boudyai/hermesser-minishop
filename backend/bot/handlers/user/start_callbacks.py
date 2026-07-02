@@ -6,6 +6,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.text_decorations import html_decoration as hd
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import sessionmaker
 
 from bot.keyboards.inline.user_keyboards import (
     get_information_links_keyboard,
@@ -243,6 +244,7 @@ async def main_action_callback_handler(
     panel_service: PanelApiService,
     promo_code_service: PromoCodeService,
     session: AsyncSession,
+    async_session_factory: sessionmaker,
 ) -> None:
     action = callback_data(callback).split(":")[1]
 
@@ -324,9 +326,12 @@ async def main_action_callback_handler(
         from . import tenant as user_tenant_handlers
 
         await user_tenant_handlers.ensure_bot_creation_entrypoint(
-            callback, state, settings, subscription_service, session
+            callback,
+            state,
+            settings,
+            subscription_service,
+            async_session_factory,
         )
-        await callback.answer()
         return
     if action == "subscribe":
         await user_subscription_handlers.display_subscription_options(
