@@ -22,25 +22,12 @@ type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type TariffsSavePayload = components["schemas"]["TariffsSaveBody"];
 export type Tariff = components["schemas"]["Tariff"];
-export type TariffsCatalog = components["schemas"]["TariffsConfig"];
+export type TariffsCatalog = components["schemas"]["AdminTariffsCatalogOut"];
 export type PanelSquad = {
   uuid: string;
   name: string;
 };
-export type ProviderCurrencySupport = {
-  id?: string;
-  key?: string;
-  provider_key?: string;
-  provider_label?: string;
-  provider_name?: string;
-  label?: string;
-  enabled?: boolean;
-  configured?: boolean;
-  supports_default_currency?: boolean;
-  accepts_any_currency?: boolean;
-  currencies?: string[];
-  settings_path?: string[];
-};
+export type ProviderCurrencySupport = components["schemas"]["ProviderCurrencySupportOut"];
 type TariffDraftRow = Record<string, unknown>;
 export type TariffDraft = ReturnType<typeof emptyTariffDraft> & Record<string, unknown>;
 export type DraftSquadField = "squadUuids" | "premiumSquadUuids";

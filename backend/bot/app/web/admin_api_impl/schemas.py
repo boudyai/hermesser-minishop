@@ -25,7 +25,10 @@ from typing import Any, cast
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from bot.app.web.http_contracts import HttpBodyModel, HttpResponseModel
+from bot.payment_providers.base import PaymentProviderPresentation, PaymentProviderSpec
 from bot.services.promo_effects import PromoEffects, summarize_effects, validate_effects
+from config.settings import Settings
+from config.tariffs_config import PackageSet, Tariff, TariffsConfig
 
 
 class PromoCreateBody(HttpBodyModel):
@@ -118,6 +121,116 @@ class TariffsSaveBody(HttpBodyModel):
         if "catalog" in self.model_fields_set:
             return self.catalog
         return self.model_extra or {}
+
+
+class AdminTariffsCatalogOut(HttpResponseModel):
+    default_tariff: str
+    default_currency: str = "rub"
+    topup_packages_default: PackageSet | None = None
+    tariffs: list[Tariff]
+
+    @classmethod
+    def empty(cls) -> AdminTariffsCatalogOut:
+        return cls(
+            default_tariff="",
+            default_currency="rub",
+            topup_packages_default=PackageSet.model_validate({"rub": [], "stars": []}),
+            tariffs=[],
+        )
+
+    @classmethod
+    def from_config(cls, config: TariffsConfig) -> AdminTariffsCatalogOut:
+        return cls.model_validate(config.model_dump(mode="python", exclude_none=True))
+
+    def to_legacy_payload(self) -> dict[str, Any]:
+        return cast(dict[str, Any], self.model_dump(mode="json", exclude_none=True))
+
+
+class ProviderCurrencySupportOut(HttpResponseModel):
+    id: str
+    provider_key: str
+    provider_label: str
+    settings_path: list[str]
+    label: str
+    telegram_label: str
+    icon: str | None = None
+    enabled: bool
+    configured: bool
+    admin_only: bool
+    price_source: str
+    currencies: list[str] | None = None
+    accepts_any_currency: bool
+    supports_default_currency: bool
+    directly_supports_default_currency: bool
+    default_currency: str
+    note: str
+    docs_url: str | None = None
+
+    @classmethod
+    def from_provider_spec(
+        cls,
+        spec: PaymentProviderSpec,
+        presentation: PaymentProviderPresentation,
+        *,
+        settings: Settings,
+        app: object,
+        default_currency: str,
+    ) -> ProviderCurrencySupportOut:
+        supported = spec.supported_currency_codes(settings)
+        return cls(
+            id=spec.id,
+            provider_key=spec.provider_key,
+            provider_label=cls._provider_label(spec),
+            settings_path=cls._settings_path(spec),
+            label=presentation.webapp_label or spec.label,
+            telegram_label=presentation.telegram_label,
+            icon=presentation.webapp_icon,
+            enabled=spec.is_effectively_enabled(settings),
+            configured=spec.is_service_configured(app),
+            admin_only=spec.is_admin_only_enabled(settings),
+            price_source=spec.price_source,
+            currencies=list(supported) if supported is not None else None,
+            accepts_any_currency=supported is None,
+            supports_default_currency=spec.is_usable_for_payment_currency(
+                settings,
+                default_currency,
+            ),
+            directly_supports_default_currency=spec.supports_currency(
+                settings,
+                default_currency,
+            ),
+            default_currency=default_currency,
+            note=spec.currency_support_note,
+            docs_url=spec.currency_support_url,
+        )
+
+    @staticmethod
+    def _provider_label(spec: PaymentProviderSpec) -> str:
+        if spec.id == "platega_sbp":
+            return "Platega SBP/card"
+        if spec.id == "platega_crypto":
+            return "Platega Crypto"
+        return str(spec.label or spec.id)
+
+    @staticmethod
+    def _settings_path(spec: PaymentProviderSpec) -> list[str]:
+        if spec.id == "platega_sbp":
+            return ["payments", "platega", "sbp"]
+        if spec.id == "platega_crypto":
+            return ["payments", "platega", "crypto"]
+        return ["payments", str(spec.provider_key or spec.id).replace("_", "-")]
+
+
+class AdminTariffsOut(HttpResponseModel):
+    exists: bool
+    path: str
+    catalog: AdminTariffsCatalogOut
+    provider_currency_support: list[ProviderCurrencySupportOut]
+
+    def to_legacy_payload(self) -> dict[str, Any]:
+        payload = cast(dict[str, Any], self.model_dump(mode="json"))
+        payload["catalog"] = self.catalog.to_legacy_payload()
+        return payload
 
 
 class ThemesSaveBody(HttpBodyModel):

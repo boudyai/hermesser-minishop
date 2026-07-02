@@ -11,7 +11,17 @@ from aiohttp import web
 import bot.app.web.admin_api  # noqa: F401 - populates admin_api_impl module namespaces
 from bot.app.web.admin_api_impl import ads as ads_module
 from bot.app.web.admin_api_impl import common as common_module
-from bot.app.web.admin_api_impl.schemas import AdOut, LogOut, PaymentDetailOut, PaymentOut
+from bot.app.web.admin_api_impl.schemas import (
+    AdminTariffsCatalogOut,
+    AdminTariffsOut,
+    AdOut,
+    LogOut,
+    PaymentDetailOut,
+    PaymentOut,
+    ProviderCurrencySupportOut,
+)
+from bot.payment_providers.base import PaymentProviderPresentation, PaymentProviderSpec
+from config.tariffs_config import TariffsConfig
 
 
 class _FakeRequest:
@@ -138,6 +148,104 @@ def test_log_response_model_avoids_lazy_relationship_loads():
         "target_user_id": 43,
         "target_user_label": "43",
         "timestamp": "2026-01-03T05:06:00+00:00",
+    }
+
+
+def test_tariffs_response_models_match_legacy_catalog_payload():
+    config = TariffsConfig.model_validate(
+        {
+            "default_tariff": "standard",
+            "default_currency": "rub",
+            "tariffs": [
+                {
+                    "key": "standard",
+                    "billing_model": "period",
+                    "monthly_gb": 100,
+                    "prices_rub": {"1": 199},
+                    "enabled_periods": [1],
+                }
+            ],
+        }
+    )
+
+    assert AdminTariffsCatalogOut.from_config(config).to_legacy_payload() == config.model_dump(
+        mode="json",
+        exclude_none=True,
+    )
+    assert AdminTariffsCatalogOut.empty().to_legacy_payload() == {
+        "default_tariff": "",
+        "default_currency": "rub",
+        "topup_packages_default": {"rub": [], "stars": []},
+        "tariffs": [],
+    }
+
+
+def test_provider_currency_support_model_matches_legacy_provider_payload():
+    spec = PaymentProviderSpec(
+        id="platega_sbp",
+        provider_key="platega",
+        label="Platega",
+        pending_status="pending",
+        enabled=lambda _settings: True,
+        requires_configured_service=False,
+        supported_currencies=("RUB", "USD"),
+    )
+    presentation = PaymentProviderPresentation(
+        webapp_label="Platega card",
+        webapp_icon="CreditCard",
+        telegram_label="Platega TG",
+        telegram_emoji="",
+        telegram_customized=False,
+    )
+
+    provider = ProviderCurrencySupportOut.from_provider_spec(
+        spec,
+        presentation,
+        settings=SimpleNamespace(),
+        app={},
+        default_currency="RUB",
+    )
+
+    assert provider.model_dump(mode="json") == {
+        "id": "platega_sbp",
+        "provider_key": "platega",
+        "provider_label": "Platega SBP/card",
+        "settings_path": ["payments", "platega", "sbp"],
+        "label": "Platega card",
+        "telegram_label": "Platega TG",
+        "icon": "CreditCard",
+        "enabled": True,
+        "configured": True,
+        "admin_only": False,
+        "price_source": "rub",
+        "currencies": ["RUB", "USD"],
+        "accepts_any_currency": False,
+        "supports_default_currency": True,
+        "directly_supports_default_currency": True,
+        "default_currency": "RUB",
+        "note": "",
+        "docs_url": None,
+    }
+
+
+def test_admin_tariffs_response_model_preserves_nested_legacy_payload_shape():
+    payload = AdminTariffsOut(
+        exists=False,
+        path="data/tariffs.json",
+        catalog=AdminTariffsCatalogOut.empty(),
+        provider_currency_support=[],
+    ).to_legacy_payload()
+
+    assert payload == {
+        "exists": False,
+        "path": "data/tariffs.json",
+        "catalog": {
+            "default_tariff": "",
+            "default_currency": "rub",
+            "topup_packages_default": {"rub": [], "stars": []},
+            "tariffs": [],
+        },
+        "provider_currency_support": [],
     }
 
 

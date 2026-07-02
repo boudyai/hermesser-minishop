@@ -2035,6 +2035,30 @@ export interface components {
        */
       username: string | null;
     };
+    /** AdminTariffsCatalogOut */
+    AdminTariffsCatalogOut: {
+      /**
+       * Default Currency
+       * @default rub
+       */
+      default_currency: string;
+      /** Default Tariff */
+      default_tariff: string;
+      /** Tariffs */
+      tariffs: components["schemas"]["Tariff"][];
+      /** @default null */
+      topup_packages_default: components["schemas"]["PackageSet"] | null;
+    };
+    /** AdminTariffsOut */
+    AdminTariffsOut: {
+      catalog: components["schemas"]["AdminTariffsCatalogOut"];
+      /** Exists */
+      exists: boolean;
+      /** Path */
+      path: string;
+      /** Provider Currency Support */
+      provider_currency_support: components["schemas"]["ProviderCurrencySupportOut"][];
+    };
     /** AdminTicketPatchPayload */
     AdminTicketPatchPayload: {
       /**
@@ -2966,6 +2990,54 @@ export interface components {
        */
       valid_until: string | null;
     };
+    /** ProviderCurrencySupportOut */
+    ProviderCurrencySupportOut: {
+      /** Accepts Any Currency */
+      accepts_any_currency: boolean;
+      /** Admin Only */
+      admin_only: boolean;
+      /** Configured */
+      configured: boolean;
+      /**
+       * Currencies
+       * @default null
+       */
+      currencies: string[] | null;
+      /** Default Currency */
+      default_currency: string;
+      /** Directly Supports Default Currency */
+      directly_supports_default_currency: boolean;
+      /**
+       * Docs Url
+       * @default null
+       */
+      docs_url: string | null;
+      /** Enabled */
+      enabled: boolean;
+      /**
+       * Icon
+       * @default null
+       */
+      icon: string | null;
+      /** Id */
+      id: string;
+      /** Label */
+      label: string;
+      /** Note */
+      note: string;
+      /** Price Source */
+      price_source: string;
+      /** Provider Key */
+      provider_key: string;
+      /** Provider Label */
+      provider_label: string;
+      /** Settings Path */
+      settings_path: string[];
+      /** Supports Default Currency */
+      supports_default_currency: boolean;
+      /** Telegram Label */
+      telegram_label: string;
+    };
     /**
      * SupportCountsOut
      * @description Ticket counters keyed by known statuses, with room for future status keys.
@@ -3172,20 +3244,6 @@ export interface components {
       topup_packages: components["schemas"]["PackageSet"] | null;
       /** @default null */
       traffic_packages: components["schemas"]["PackageSet"] | null;
-    };
-    /** TariffsConfig */
-    TariffsConfig: {
-      /**
-       * Default Currency
-       * @default rub
-       */
-      default_currency: string;
-      /** Default Tariff */
-      default_tariff: string;
-      /** Tariffs */
-      tariffs: components["schemas"]["Tariff"][];
-      /** @default null */
-      topup_packages_default: components["schemas"]["PackageSet"] | null;
     };
     /** TariffsSaveBody */
     TariffsSaveBody: {
@@ -5105,17 +5163,9 @@ export interface operations {
         };
         content: {
           "application/json": {
-            catalog: {
-              [key: string]: unknown;
-            };
-            exists: boolean;
             /** @constant */
             ok: true;
-            path: string;
-            provider_currency_support: {
-              [key: string]: unknown;
-            }[];
-          };
+          } & components["schemas"]["AdminTariffsOut"];
         };
       };
     };
@@ -5140,17 +5190,9 @@ export interface operations {
         };
         content: {
           "application/json": {
-            catalog: {
-              [key: string]: unknown;
-            };
-            exists: boolean;
             /** @constant */
             ok: true;
-            path: string;
-            provider_currency_support: {
-              [key: string]: unknown;
-            }[];
-          };
+          } & components["schemas"]["AdminTariffsOut"];
         };
       };
     };

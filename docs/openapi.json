@@ -1287,6 +1287,73 @@
         "title": "AdminSupportUserSnapshotOut",
         "type": "object"
       },
+      "AdminTariffsCatalogOut": {
+        "properties": {
+          "default_currency": {
+            "default": "rub",
+            "title": "Default Currency",
+            "type": "string"
+          },
+          "default_tariff": {
+            "title": "Default Tariff",
+            "type": "string"
+          },
+          "tariffs": {
+            "items": {
+              "$ref": "#/components/schemas/Tariff"
+            },
+            "title": "Tariffs",
+            "type": "array"
+          },
+          "topup_packages_default": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PackageSet"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "default_tariff",
+          "tariffs"
+        ],
+        "title": "AdminTariffsCatalogOut",
+        "type": "object"
+      },
+      "AdminTariffsOut": {
+        "properties": {
+          "catalog": {
+            "$ref": "#/components/schemas/AdminTariffsCatalogOut"
+          },
+          "exists": {
+            "title": "Exists",
+            "type": "boolean"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "provider_currency_support": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderCurrencySupportOut"
+            },
+            "title": "Provider Currency Support",
+            "type": "array"
+          }
+        },
+        "required": [
+          "exists",
+          "path",
+          "catalog",
+          "provider_currency_support"
+        ],
+        "title": "AdminTariffsOut",
+        "type": "object"
+      },
       "AdminTicketPatchPayload": {
         "properties": {
           "assigned_admin_id": {
@@ -3320,6 +3387,131 @@
         "title": "PromoUpdateBody",
         "type": "object"
       },
+      "ProviderCurrencySupportOut": {
+        "properties": {
+          "accepts_any_currency": {
+            "title": "Accepts Any Currency",
+            "type": "boolean"
+          },
+          "admin_only": {
+            "title": "Admin Only",
+            "type": "boolean"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "currencies": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Currencies"
+          },
+          "default_currency": {
+            "title": "Default Currency",
+            "type": "string"
+          },
+          "directly_supports_default_currency": {
+            "title": "Directly Supports Default Currency",
+            "type": "boolean"
+          },
+          "docs_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Docs Url"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Icon"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "price_source": {
+            "title": "Price Source",
+            "type": "string"
+          },
+          "provider_key": {
+            "title": "Provider Key",
+            "type": "string"
+          },
+          "provider_label": {
+            "title": "Provider Label",
+            "type": "string"
+          },
+          "settings_path": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Settings Path",
+            "type": "array"
+          },
+          "supports_default_currency": {
+            "title": "Supports Default Currency",
+            "type": "boolean"
+          },
+          "telegram_label": {
+            "title": "Telegram Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "provider_key",
+          "provider_label",
+          "settings_path",
+          "label",
+          "telegram_label",
+          "enabled",
+          "configured",
+          "admin_only",
+          "price_source",
+          "accepts_any_currency",
+          "supports_default_currency",
+          "directly_supports_default_currency",
+          "default_currency",
+          "note"
+        ],
+        "title": "ProviderCurrencySupportOut",
+        "type": "object"
+      },
       "SupportCountsOut": {
         "additionalProperties": true,
         "description": "Ticket counters keyed by known statuses, with room for future status keys.",
@@ -3788,43 +3980,6 @@
           "billing_model"
         ],
         "title": "Tariff",
-        "type": "object"
-      },
-      "TariffsConfig": {
-        "properties": {
-          "default_currency": {
-            "default": "rub",
-            "title": "Default Currency",
-            "type": "string"
-          },
-          "default_tariff": {
-            "title": "Default Tariff",
-            "type": "string"
-          },
-          "tariffs": {
-            "items": {
-              "$ref": "#/components/schemas/Tariff"
-            },
-            "title": "Tariffs",
-            "type": "array"
-          },
-          "topup_packages_default": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PackageSet"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          }
-        },
-        "required": [
-          "default_tariff",
-          "tariffs"
-        ],
-        "title": "TariffsConfig",
         "type": "object"
       },
       "TariffsSaveBody": {
@@ -7801,38 +7956,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "catalog": {
-                      "additionalProperties": true,
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
                       "type": "object"
                     },
-                    "exists": {
-                      "type": "boolean"
-                    },
-                    "ok": {
-                      "const": true,
-                      "type": "boolean"
-                    },
-                    "path": {
-                      "type": "string"
-                    },
-                    "provider_currency_support": {
-                      "items": {
-                        "additionalProperties": true,
-                        "type": "object"
-                      },
-                      "type": "array"
+                    {
+                      "$ref": "#/components/schemas/AdminTariffsOut"
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "exists",
-                    "path",
-                    "catalog",
-                    "provider_currency_support"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },
@@ -7869,38 +8010,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "catalog": {
-                      "additionalProperties": true,
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
                       "type": "object"
                     },
-                    "exists": {
-                      "type": "boolean"
-                    },
-                    "ok": {
-                      "const": true,
-                      "type": "boolean"
-                    },
-                    "path": {
-                      "type": "string"
-                    },
-                    "provider_currency_support": {
-                      "items": {
-                        "additionalProperties": true,
-                        "type": "object"
-                      },
-                      "type": "array"
+                    {
+                      "$ref": "#/components/schemas/AdminTariffsOut"
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "exists",
-                    "path",
-                    "catalog",
-                    "provider_currency_support"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },

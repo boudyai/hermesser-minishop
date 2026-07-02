@@ -81,14 +81,6 @@
           "Sync queue result is a small runtime status payload."
         ]
       },
-      "backend/bot/app/web/admin_api_impl/tariffs.py": {
-        "loose_object_schema": [
-          "Tariff catalog is admin-authored config JSON."
-        ],
-        "loose_array_schema": [
-          "Provider currency support comes from payment provider registry."
-        ]
-      },
       "backend/bot/app/web/admin_api_impl/themes.py": {
         "loose_object_schema": [
           "Theme catalog is admin-authored config JSON."
