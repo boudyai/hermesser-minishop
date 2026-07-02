@@ -366,14 +366,13 @@ async def start_command_handler(
 
     open_referral_page_for_existing_user = should_open_referral_from_start and is_existing_user
 
-    # Send welcome message if not disabled
-    if (
-        not settings.DISABLE_WELCOME_MESSAGE
-        and not open_referral_page_for_existing_user
-        and not notifications_start_requested
-    ):
-        await message.answer(_(key="welcome", user_name=hd.quote(user.full_name)))
-
+    # ponytail: the welcome i18n key used to be sent as a separate
+    # message here, then the main menu (with the same greeting text)
+    # was sent immediately after by `send_main_menu` below. The user
+    # got two messages for one /start. The main menu already greets
+    # the user in both proxy and Hermes modes, so skip the standalone
+    # welcome here. The `welcome` key remains in locales for plugin
+    # / future use.
     if notifications_start_requested:
         await message.answer(_("telegram_notifications_started"), parse_mode="HTML")
 
