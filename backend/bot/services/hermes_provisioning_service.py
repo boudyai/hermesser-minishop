@@ -248,6 +248,27 @@ class HermesProvisioningService(PanelApiService):
     async def get_bandwidth_stats(self) -> Optional[Dict[str, Any]]:
         return None
 
+    # ============================================
+    # Subscription page config (proxy-era, not in hermes)
+    # ============================================
+
+    async def get_subscription_page_config_list(self) -> Optional[Dict[str, Any]]:
+        # ponytail: the proxy-era Remnawave panel has no hermes equivalent.
+        # Returning None here matches the "panel unreachable" contract so
+        # the webapp falls back to its built-in guide instead of logging
+        # a 401 from the core.
+        return None
+
+    async def get_subscription_page_config_by_short_uuid(
+        self, short_uuid: str
+    ) -> Optional[Dict[str, Any]]:
+        return None
+
+    async def get_subscription_page_config_by_uuid(
+        self, config_uuid: str
+    ) -> Optional[Dict[str, Any]]:
+        return None
+
     async def get_user_bandwidth_stats(self, user_uuid: str) -> Optional[Dict[str, Any]]:
         return None
 
