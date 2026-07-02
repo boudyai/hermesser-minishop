@@ -52,7 +52,13 @@ async def tg_interface_command_handler(
     ):
         return
 
-    if not telegram_bot_menu_enabled_for_user(settings, user_id=message_from_user(message).id):
+    is_hermes = str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
+    if is_hermes or not telegram_bot_menu_enabled_for_user(
+        settings, user_id=message_from_user(message).id
+    ):
+        # ponytail: in hermes mode the proxy-era "bot interface" (subscribe /
+        # promo / referral / trial) is the wrong surface — redirect /tg to the
+        # Hermes main menu so users see the tenant-management buttons instead.
         await send_main_menu(
             message, settings, i18n_data, subscription_service, session, is_edit=False
         )
@@ -256,6 +262,33 @@ async def main_action_callback_handler(
         )
         return
 
+    is_hermes = str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
+    # ponytail: in hermes mode the proxy-era menu actions below are
+    # invalid surfaces (proxy / subscribe / promo / referral / trial /
+    # generic info). Cached keyboards may still fire them from old
+    # messages — clear state and route to the Hermes main menu instead.
+    hermes_blocked_actions = {
+        "bot_interface",
+        "bot_subscribe",
+        "bot_my_subscription",
+        "bot_referral",
+        "bot_apply_promo",
+        "bot_language",
+        "bot_info",
+        "subscribe",
+        "my_subscription",
+        "my_devices",
+        "referral",
+        "apply_promo",
+        "request_trial",
+        "info",
+    }
+    if is_hermes and action in hermes_blocked_actions:
+        await send_main_menu(
+            callback, settings, i18n_data, subscription_service, session, is_edit=True
+        )
+        return
+
     bot_interface_actions = {
         "bot_interface",
         "bot_subscribe",
@@ -273,6 +306,15 @@ async def main_action_callback_handler(
         )
         return
 
+    if action == "set_token":
+        # ponytail: this Hermes-only branch must come before the legacy
+        # proxy-era branches below. tenant.py also registers
+        # `main_action:set_token`; routing it here is the simpler
+        # path because this handler is already on the route.
+        from . import tenant as user_tenant_handlers
+
+        await user_tenant_handlers.set_token_callback(callback, state, settings)
+        return
     if action == "subscribe":
         await user_subscription_handlers.display_subscription_options(
             callback, i18n_data, settings, session

@@ -154,10 +154,12 @@
               <dd>{t("wa_trial_days_left", { days: daysLeft }, "{days} days")}</dd>
             </div>
           {/if}
-          <div>
-            <dt>{t("wa_trial_traffic_label", {}, "Traffic")}</dt>
-            <dd>{trafficLabel}</dd>
-          </div>
+          {#if !hermesMode}
+            <div>
+              <dt>{t("wa_trial_traffic_label", {}, "Traffic")}</dt>
+              <dd>{trafficLabel}</dd>
+            </div>
+          {/if}
         </dl>
       {:else if trialRequiresTelegram}
         <h2>{t("wa_trial_telegram_required_title", {}, "Привяжите Telegram для триала")}</h2>
@@ -179,10 +181,12 @@
               <dd>{t("wa_trial_days_left", { days: daysLeft }, "{days} days")}</dd>
             </div>
           {/if}
-          <div>
-            <dt>{t("wa_trial_traffic_label", {}, "Traffic")}</dt>
-            <dd>{trafficLabel}</dd>
-          </div>
+          {#if !hermesMode}
+            <div>
+              <dt>{t("wa_trial_traffic_label", {}, "Traffic")}</dt>
+              <dd>{trafficLabel}</dd>
+            </div>
+          {/if}
         </dl>
       {:else if trialError}
         <h2>{t("wa_trial_activation_failed")}</h2>
@@ -257,7 +261,9 @@
           ? t("wa_trial_retry", {}, "Try again")
           : hermesTokenRequired
             ? t("wa_trial_activate_with_token", {}, "Активировать")
-            : t("wa_trial_try_free", {}, "Попробовать бесплатно")}
+            : hermesMode
+              ? t("wa_trial_activate_hosting", {}, "Запустить пробный хостинг")
+              : t("wa_trial_try_free", {}, "Попробовать бесплатно")}
       </Button>
     {/if}
     <Button class="wide" variant="secondary" onclick={goHome}>

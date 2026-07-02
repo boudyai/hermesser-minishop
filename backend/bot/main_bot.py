@@ -217,7 +217,14 @@ async def on_startup_configured(dispatcher: Dispatcher):
             BotCommand(command="start", description=start_description),
             BotCommand(command="tg", description="Интерфейс в боте"),
         ]
-        bot_menu_disabled = bool(settings.TELEGRAM_BOT_MENU_DISABLED)
+        # ponytail: in hermes mode the proxy-era /tg command has no
+        # useful surface — the main menu is the only entry point. Drop
+        # /tg from the registered commands and clear it from clients so
+        # cached Telegram menus don't keep showing it.
+        is_hermes = (
+            str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
+        )
+        bot_menu_disabled = bool(settings.TELEGRAM_BOT_MENU_DISABLED) or is_hermes
         public_bot_commands = [bot_commands[0]] if bot_menu_disabled else bot_commands
         command_scopes_to_clear: list[BotCommandScopeUnion] = [
             BotCommandScopeDefault(),

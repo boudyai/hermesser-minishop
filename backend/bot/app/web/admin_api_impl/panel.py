@@ -4,6 +4,7 @@ from aiohttp import web
 
 from bot.app.web.context import (
     get_panel_service,
+    get_settings,
 )
 from bot.app.web.route_contracts import (
     RouteContract,
@@ -11,6 +12,7 @@ from bot.app.web.route_contracts import (
     ok_envelope_with,
     register_contract,
 )
+from config.settings import Settings
 
 from .auth import (
     _require_admin_user_id,
@@ -30,6 +32,13 @@ register_contract(
 
 async def admin_panel_internal_squads_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
+    settings: Settings = get_settings(request)
+    # ponytail: in hermes mode the proxy-era Remnawave panel is not in
+    # use and PANEL_API_URL points at provisioning-core, which has no
+    # /internal-squads endpoint. Short-circuit with an empty list so
+    # admin tariffs UI doesn't show "panel unavailable".
+    if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes":
+        return _ok({"squads": []})
     panel_service = get_panel_service(request)
     if panel_service is None:
         return _error(503, "panel_unavailable", "Panel service unavailable")

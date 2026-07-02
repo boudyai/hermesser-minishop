@@ -813,6 +813,11 @@ def _subscription_guides_admin_json_override_enabled(settings: Settings) -> bool
 
 
 def _subscription_guides_should_try_resolved_panel_config(settings: Settings) -> bool:
+    # ponytail: in hermes mode the proxy-era Remnawave panel is not in
+    # use and PANEL_API_URL points at provisioning-core, which has no
+    # /subscription-page-configs endpoint. Skip the call.
+    if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes":
+        return False
     return bool(
         settings.SUBSCRIPTION_GUIDES_ENABLED
         and settings.SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED

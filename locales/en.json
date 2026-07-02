@@ -890,6 +890,7 @@
   "wa_trial_duration_label": "Duration",
   "wa_trial_download_traffic_label": "Available to download",
   "wa_trial_try_free": "Try for free",
+  "wa_trial_activate_hosting": "Start trial hosting",
   "wa_trial_activated": "Trial activated",
   "wa_trial_telegram_required_title": "Link Telegram to start trial",
   "wa_trial_telegram_required_description": "To activate a {duration} trial with {traffic}, link Telegram first.",

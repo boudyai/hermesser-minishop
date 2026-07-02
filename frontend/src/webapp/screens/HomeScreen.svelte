@@ -566,14 +566,18 @@
               <small>{t("wa_trial_duration_label", {}, "Срок")}</small>
               <strong>{trialDurationLabel()}</strong>
             </span>
-            <span>
-              <small>{t("wa_trial_download_traffic_label", {}, "Доступно для скачивания")}</small>
-              <strong>{trialTrafficLabel()}</strong>
-            </span>
+            {#if !hermesMode}
+              <span>
+                <small>{t("wa_trial_download_traffic_label", {}, "Доступно для скачивания")}</small>
+                <strong>{trialTrafficLabel()}</strong>
+              </span>
+            {/if}
           </div>
           <Button class="wide trial-card-action" onclick={activateTrial} disabled={trialBusy}>
             <Gift size={18} />
-            {t("wa_trial_try_free", {}, "Попробовать бесплатно")}
+            {hermesMode
+              ? t("wa_trial_activate_hosting", {}, "Запустить пробный хостинг")
+              : t("wa_trial_try_free", {}, "Попробовать бесплатно")}
           </Button>
         </Card>
       {:else if trialRequiresTelegram}

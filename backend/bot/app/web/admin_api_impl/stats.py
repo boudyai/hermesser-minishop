@@ -67,7 +67,12 @@ async def admin_stats_route(request: web.Request) -> web.Response:
     payload = dict(await _load_admin_db_stats(settings, async_session_factory))
 
     panel_service = get_panel_service(request)
-    if panel_service is not None:
+    # ponytail: in hermes mode the proxy-era Remnawave panel endpoints
+    # are not in use, and PANEL_API_URL points at provisioning-core which
+    # only speaks /shop/*. Calling panel stats would just spam logs with
+    # 401 client-cert errors. Skip the call.
+    is_hermes = str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
+    if panel_service is not None and not is_hermes:
         payload["panel"] = await _load_admin_panel_stats(request, settings, panel_service)
 
     queue_manager = get_queue_manager()

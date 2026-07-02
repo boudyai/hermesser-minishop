@@ -890,6 +890,7 @@
   "wa_trial_duration_label": "Срок",
   "wa_trial_download_traffic_label": "Доступно для скачивания",
   "wa_trial_try_free": "Попробовать бесплатно",
+  "wa_trial_activate_hosting": "Запустить пробный хостинг",
   "wa_trial_activated": "Пробный период активирован",
   "wa_trial_telegram_required_title": "Привяжите Telegram для триала",
   "wa_trial_telegram_required_description": "Чтобы активировать триал на {duration} с лимитом {traffic}, сначала привяжите Telegram.",
