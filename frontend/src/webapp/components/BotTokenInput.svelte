@@ -52,17 +52,26 @@
   let {
     appSettings = {},
     apiUnchecked = missingApi,
-  }: { appSettings?: AnyRecord; apiUnchecked?: ApiUnchecked } = $props();
+    t = (key: string, _params?: AnyRecord, fallback?: string) => fallback || key,
+  }: {
+    appSettings?: AnyRecord;
+    apiUnchecked?: ApiUnchecked;
+    t?: (key: string, params?: AnyRecord, fallback?: string) => string;
+  } = $props();
   const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
 </script>
 
 {#if hermesMode}
   <Card>
-    <h3 style="margin: 0 0 8px; font-size: 15px;">🤖 Bot token</h3>
+    <h3 style="margin: 0 0 8px; font-size: 15px;">
+      {t("wa_settings_bot_token_title", {}, "🤖 Bot token")}
+    </h3>
     <p style="margin: 0 0 10px; color: var(--muted); font-size: 12px;">
-      Создайте бота через <a href="https://t.me/BotFather" target="_blank" rel="noopener"
-        >@BotFather</a
-      > и вставьте токен сюда. Бот будет принимать сообщения от ваших клиентов.
+      {t(
+        "wa_settings_bot_token_help",
+        {},
+        "Create a bot via @BotFather and paste its token here. The bot will receive messages from your customers."
+      )}
     </p>
     <details style="margin-bottom: 10px;">
       <summary style="cursor: pointer; color: var(--muted); font-size: 12px;"
@@ -85,7 +94,9 @@
         style="flex: 1; padding: 8px 10px; border: 1px solid var(--surface-subtle-border); border-radius: 8px; background: var(--surface-subtle); color: var(--text); font-family: ui-monospace, monospace; font-size: 12px;"
       />
       <Button onclick={submitToken} disabled={busy}>
-        {busy ? "Сохранение..." : "Сохранить"}
+        {busy
+          ? t("wa_settings_bot_token_saving", {}, "Saving…")
+          : t("wa_settings_bot_token_save", {}, "Save")}
       </Button>
     </div>
     {#if error}

@@ -12,17 +12,23 @@
     appSettings = {},
     subscription = {},
     apiUnchecked = missingApi,
-  }: { appSettings?: AnyRecord; subscription?: AnyRecord; apiUnchecked?: ApiUnchecked } = $props();
+    t = (key: string, _params?: AnyRecord, fallback?: string) => fallback || key,
+  }: {
+    appSettings?: AnyRecord;
+    subscription?: AnyRecord;
+    apiUnchecked?: ApiUnchecked;
+    t?: (key: string, params?: AnyRecord, fallback?: string) => string;
+  } = $props();
 
   const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
   const active = $derived(Boolean(subscription?.active));
   // ponytail: the previous two-click confirmation (tap "Удалить" then
   // "Нажмите ещё раз") was too easy to trigger by accident — the
   // buttons sat side by side and a quick double-tap wiped the
-  // tenant. Now the user must type the word "УДАЛИТЬ" before the
+  // tenant. Now the user must type the word "DELETE" before the
   // final Delete button enables, mirroring the Telegram bot's
   // "/delete" handler.
-  const CONFIRMATION_PHRASE = "УДАЛИТЬ";
+  const CONFIRMATION_PHRASE = "DELETE";
   // ponytail: the core rejects suspend/delete on tenants in
   // non-actionable states (deleting / deleted / archived) with a
   // 409. Gate the buttons here so the user doesn't see those
@@ -54,12 +60,21 @@
   }
 
   async function suspend() {
-    if (!confirm("Приостановить бота? Ключ CornLLM будет заблокирован.")) return;
+    if (
+      !confirm(
+        t(
+          "wa_danger_suspend_confirm",
+          {},
+          "Suspend the bot? The CornLLM key will be blocked."
+        )
+      )
+    )
+      return;
     busy = "suspend";
     error = null;
     try {
       await callApi("/tenant/suspend", "POST");
-      info = "Бот приостановлен.";
+      info = t("wa_danger_suspended", {}, "Bot suspended.");
       setTimeout(() => window.location.reload(), 1000);
     } catch (e) {
       error = e instanceof Error ? e.message : "Failed";
@@ -85,7 +100,7 @@
     error = null;
     try {
       await callApi("/tenant", "DELETE");
-      info = "Бот удалён.";
+      info = t("wa_danger_deleted", {}, "Bot deleted.");
       setTimeout(() => window.location.reload(), 1000);
     } catch (e) {
       error = e instanceof Error ? e.message : "Failed";
@@ -97,18 +112,23 @@
 
 {#if hermesMode && active}
   <Card>
-    <h3 style="margin: 0 0 8px; font-size: 15px; color: var(--danger);">⚠️ Опасная зона</h3>
+    <h3 style="margin: 0 0 8px; font-size: 15px; color: var(--danger);">
+      {t("wa_danger_title", {}, "⚠️ Danger zone")}
+    </h3>
     <p style="margin: 0 0 10px; color: var(--muted); font-size: 12px;">
-      Приостановка блокирует контейнер и ключ CornLLM. Удаление останавливает контейнер; данные
-      хранилища сохраняются 30 дней.
+      {t(
+        "wa_danger_help",
+        {},
+        "Suspend blocks the container and the CornLLM key. Delete stops the container; volume data is kept for 30 days."
+      )}
     </p>
     {#if !showDelete}
       <div style="display: flex; gap: 8px; flex-wrap: wrap;">
         <Button variant="secondary" onclick={suspend} disabled={busy !== "" || !actionsEnabled}
-          >⏸ Приостановить</Button
+          >{t("wa_danger_suspend", {}, "⏸ Suspend")}</Button
         >
         <Button variant="danger" onclick={requestDelete} disabled={busy !== "" || !actionsEnabled}
-          >🗑 Удалить бота</Button
+          >{t("wa_danger_delete", {}, "🗑 Delete bot")}</Button
         >
       </div>
     {:else}
@@ -116,7 +136,11 @@
         style="margin: 8px 0 0; padding: 10px; border: 1px solid var(--danger, #e74c3c); border-radius: 6px;"
       >
         <p style="margin: 0 0 6px; font-size: 12px; color: var(--muted);">
-          Это действие нельзя отменить. Введите <b>{CONFIRMATION_PHRASE}</b> ниже, чтобы подтвердить.
+          {t(
+            "wa_danger_confirm_help",
+            { phrase: CONFIRMATION_PHRASE },
+            `This cannot be undone. Type ${CONFIRMATION_PHRASE} below to confirm.`
+          )}
         </p>
         <input
           type="text"
@@ -130,9 +154,12 @@
           <Button
             variant="danger"
             onclick={confirmAndDelete}
-            disabled={!deleteEnabled || busy !== ""}>⛔ Подтвердить удаление</Button
+            disabled={!deleteEnabled || busy !== ""}
+            >{t("wa_danger_confirm", {}, "⛔ Confirm deletion")}</Button
           >
-          <Button variant="secondary" onclick={cancelDelete} disabled={busy !== ""}>Отмена</Button>
+          <Button variant="secondary" onclick={cancelDelete} disabled={busy !== ""}
+            >{t("wa_danger_cancel", {}, "Cancel")}</Button
+          >
         </div>
       </div>
     {/if}

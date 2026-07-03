@@ -56,7 +56,17 @@ register_contract(
 async def admin_me_route(request: web.Request) -> web.Response:
     user_id = _require_admin_user_id(request)
     settings: Settings = get_settings(request)
-    return _ok(AdminMeOut(user_id=user_id, admin_ids=list(settings.ADMIN_IDS or [])).model_dump())
+    write_mode = str(
+        getattr(getattr(settings, "panel_settings", None), "write_mode", "")
+        or "remnawave"
+    ).lower()
+    return _ok(
+        AdminMeOut(
+            user_id=user_id,
+            admin_ids=list(settings.ADMIN_IDS or []),
+            panel_write_mode=write_mode,
+        ).model_dump()
+    )
 
 
 async def admin_stats_route(request: web.Request) -> web.Response:

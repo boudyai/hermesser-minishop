@@ -251,6 +251,7 @@
 
   const compactQuery = new MediaQuery("max-width: 720px", false);
   let sidebarOpen = $state(false);
+  let panelWriteMode = $state("");
   const isCompact = $derived(compactQuery.current);
   let dismissedUserRouteKey = $state("");
   let lastUserRouteKey = $state("");
@@ -262,6 +263,25 @@
   const adminLanguageGuardActive = $derived(
     isCompact && (adminLanguageMenuOpen || adminLanguageClickGuard)
   );
+
+  async function loadPanelWriteMode(): Promise<void> {
+    // ponytail: /api/me is the webapp payload; admin uses the same
+    // endpoint to read panel_write_mode. Authenticated, returns the
+    // full user snapshot — we only need one string.
+    try {
+      const result = (await api("/me")) as {
+        ok?: boolean;
+        panel_write_mode?: string;
+      };
+      if (result && typeof result.panel_write_mode === "string") {
+        panelWriteMode = result.panel_write_mode;
+      }
+    } catch {
+      // ponytail: the admin already worked in legacy mode before this
+      // load was added; on failure we just default to legacy copy and
+      // let the operator retry the page. Don't flash an error toast.
+    }
+  }
 
   function flash(text: string): void {
     onToast(text);
@@ -681,6 +701,11 @@
     // load, feature-gated sections stay hidden until the admin happens to
     // open a section that fetches settings on its own.
     void settingsStore.loadSettings();
+    // ponytail: hermes-mode admin columns (CornLLM balance instead of
+    // Remnawave premium traffic) depend on panel_write_mode from
+    // /api/me. Fetch once on mount and surface as a prop so sections
+    // don't each hit /api/me independently.
+    void loadPanelWriteMode();
     const healthTimer: ReturnType<typeof window.setInterval> | null =
       typeof window !== "undefined"
         ? window.setInterval(() => void healthStore.loadHealth(), 5 * 60 * 1000)
@@ -921,6 +946,7 @@
               {onTranslationsSaved}
               {paymentStatusVariant}
               {panelStatusBadge}
+              {panelWriteMode}
               {resolvedAvatarUrl}
               {routePrefix}
               {settingsPath}

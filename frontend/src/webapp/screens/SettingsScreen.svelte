@@ -147,11 +147,11 @@
   {#if hasActiveTenant}
     <EnvEditor {apiUnchecked} {t} />
   {/if}
-  <BotTokenInput {appSettings} {apiUnchecked} />
+  <BotTokenInput {appSettings} {apiUnchecked} {t} />
   {#if hasActiveTenant && hermesMode}
-    <CornllmKeyCard {appSettings} {subscription} {apiUnchecked} />
+    <CornllmKeyCard {appSettings} {subscription} {apiUnchecked} {t} />
   {/if}
-  <TenantDangerZone {appSettings} {subscription} {apiUnchecked} />
+  <TenantDangerZone {appSettings} {subscription} {apiUnchecked} {t} />
   {#if telegramNotificationsNeedPrompt}
     <TelegramNotificationsBanner
       startLink={telegramNotificationsStartLink}

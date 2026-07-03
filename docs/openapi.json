@@ -222,6 +222,11 @@
             "title": "Admin Ids",
             "type": "array"
           },
+          "panel_write_mode": {
+            "default": "remnawave",
+            "title": "Panel Write Mode",
+            "type": "string"
+          },
           "user_id": {
             "title": "User Id",
             "type": "integer"
@@ -8333,6 +8338,46 @@
                           },
                           {
                             "properties": {
+                              "cornllm": {
+                                "properties": {
+                                  "budget_duration": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "max_budget": {
+                                    "type": [
+                                      "number",
+                                      "null"
+                                    ]
+                                  },
+                                  "remaining": {
+                                    "type": [
+                                      "number",
+                                      "null"
+                                    ]
+                                  },
+                                  "spent": {
+                                    "type": [
+                                      "number",
+                                      "null"
+                                    ]
+                                  },
+                                  "state": {
+                                    "enum": [
+                                      "none",
+                                      "ok",
+                                      "unreachable"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "state"
+                                ],
+                                "type": "object"
+                              },
                               "invited_users_count": {
                                 "type": "integer"
                               },
@@ -8375,6 +8420,7 @@
                               "panel_status",
                               "subscription_expires_at",
                               "premium_traffic",
+                              "cornllm",
                               "payments_total_amount",
                               "payments_count",
                               "payments_currency",

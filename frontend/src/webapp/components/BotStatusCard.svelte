@@ -13,7 +13,17 @@
     subscription = {},
     appSettings = {},
     apiUnchecked = missingApi,
-  }: { subscription?: AnyRecord; appSettings?: AnyRecord; apiUnchecked?: ApiUnchecked } = $props();
+    t = (key: string, _params?: AnyRecord, fallback?: string) => fallback || key,
+  }: {
+    subscription?: AnyRecord;
+    appSettings?: AnyRecord;
+    apiUnchecked?: ApiUnchecked;
+    t?: (
+      key: string,
+      params?: AnyRecord,
+      fallback?: string
+    ) => string;
+  } = $props();
 
   const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
   const active = $derived(Boolean(subscription?.active));
@@ -83,7 +93,11 @@
     confirmRestart = false;
     try {
       await callApi("/tenant/restart", "POST");
-      info = "Перезагрузка поставлена в очередь. Бот вернётся через ~30 секунд.";
+      info = t(
+        "wa_hermes_restart_queued",
+        {},
+        "Restart queued. Bot returns in ~30 seconds."
+      );
     } catch (e) {
       error = e instanceof Error ? e.message : "Restart failed";
     } finally {
@@ -167,10 +181,20 @@
   // ponytail: tell the user why the action buttons are disabled
   // instead of letting them click and see 409 errors.
   const stateNotice = $derived.by(() => {
-    if (tenantStatus === "deleting") return "Удаляется… действия недоступны";
-    if (tenantStatus === "suspended") return "Приостановлен. Возобновите через подписку";
+    if (tenantStatus === "deleting")
+      return t(
+        "wa_hermes_status_card_deleting",
+        {},
+        "Deleting… actions unavailable"
+      );
+    if (tenantStatus === "suspended")
+      return t(
+        "wa_hermes_status_card_suspended",
+        {},
+        "Suspended. Resume via your subscription."
+      );
     if (tenantStatus === "deleted" || tenantStatus === "archived")
-      return "Удалён. Создайте нового бота";
+      return t("wa_hermes_status_card_deleted", {}, "Deleted. Create a new bot.");
     return null;
   });
 

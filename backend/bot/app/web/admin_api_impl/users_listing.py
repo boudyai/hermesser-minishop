@@ -9,11 +9,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
+    get_panel_service,
     get_session_factory,
     get_settings,
+    get_subscription_service,
 )
 from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
 from bot.infra.redis import cache_delete_pattern, redis_key
+from bot.services.hermes_provisioning_service import HermesProvisioningService
+from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
 from db.models import Subscription
@@ -40,6 +44,7 @@ async def admin_users_list_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     settings: Settings = get_settings(request)
     async_session_factory: sessionmaker = get_session_factory(request)
+    panel_service = get_panel_service(request) if _is_hermes_mode(settings) else None
 
     page = max(0, int(request.query.get("page", 0) or 0))
     page_size = min(100, max(1, int(request.query.get("page_size", 25) or 25)))
@@ -52,6 +57,7 @@ async def admin_users_list_route(request: web.Request) -> web.Response:
     payload = await _load_admin_users_list_payload(
         settings,
         async_session_factory,
+        panel_service=panel_service,
         page=page,
         page_size=page_size,
         query=query,
@@ -67,6 +73,7 @@ async def _load_admin_users_list_payload(
     settings: Settings,
     async_session_factory: sessionmaker,
     *,
+    panel_service: Any | None,
     page: int,
     page_size: int,
     query: str,
@@ -87,7 +94,9 @@ async def _load_admin_users_list_payload(
     )
     if cache is None:
         return await _load_admin_users_list_payload_uncached(
+            settings,
             async_session_factory,
+            panel_service=panel_service,
             page=page,
             page_size=page_size,
             query=query,
@@ -101,7 +110,9 @@ async def _load_admin_users_list_payload(
         await cache.get_or_load(
             cache_key,
             lambda: _load_admin_users_list_payload_uncached(
+                settings,
                 async_session_factory,
+                panel_service=panel_service,
                 page=page,
                 page_size=page_size,
                 query=query,
@@ -115,8 +126,10 @@ async def _load_admin_users_list_payload(
 
 
 async def _load_admin_users_list_payload_uncached(
+    settings: Settings,
     async_session_factory: sessionmaker,
     *,
+    panel_service: Any | None,
     page: int,
     page_size: int,
     query: str,
@@ -145,6 +158,14 @@ async def _load_admin_users_list_payload_uncached(
         payment_summaries = await _bulk_user_payment_summaries(session, [u.user_id for u in users])
         referral_counts = await _bulk_user_referral_counts(session, [u.user_id for u in users])
 
+    # ponytail: in hermes mode the admin wants CornLLM balance / spent
+    # per user, not Remnawave premium traffic. The source of truth
+    # lives in provisioning-core; we batch-call it with
+    # asyncio.gather and degrade gracefully if the core is unreachable
+    # (return "unreachable" per user — admin still sees the rest of the
+    # row). The list cache TTL absorbs most of the cost.
+    cornllm_by_user = await _bulk_cornllm_balance_for_users(panel_service, users)
+
     serialized = []
     for user in users:
         payload = _serialize_user(user)
@@ -159,6 +180,7 @@ async def _load_admin_users_list_payload_uncached(
             else None
         )
         payload["premium_traffic"] = _premium_traffic_list_payload(active_subs.get(user.user_id))
+        payload["cornllm"] = cornllm_by_user.get(user.user_id) or {"state": "none"}
         payment_summary = payment_summaries.get(user.user_id) or {}
         payload["payments_total_amount"] = float(payment_summary.get("total_amount") or 0)
         payload["payments_count"] = int(payment_summary.get("count") or 0)
@@ -172,6 +194,71 @@ async def _load_admin_users_list_payload_uncached(
         "page_size": page_size,
         "total": total,
     }
+
+
+def _is_hermes_mode(settings: Settings) -> bool:
+    """True when the bot is in hosted-Hermes mode (provisioning-core
+    is the panel backend)."""
+    try:
+        return (
+            str(
+                getattr(getattr(settings, "panel_settings", None), "write_mode", "")
+                or ""
+            ).lower()
+            == "hermes"
+        )
+    except Exception:
+        return False
+
+
+async def _bulk_cornllm_balance_for_users(
+    panel_service: Any | None, users: List[Any]
+) -> Dict[int, Dict[str, Any]]:
+    """Per-user CornLLM balance + spent snapshot, fetched from
+    provisioning-core. The lookup goes tenant-by-tenant; we issue all
+    requests in parallel and degrade gracefully on any failure.
+
+    Returns a dict keyed by user_id with a `state` marker:
+
+        {"state": "ok",        "max_budget": 16.0, "spent": 0.5}
+        {"state": "none"}                          # no panel_user_uuid
+        {"state": "unreachable"}                  # core error / timeout
+    """
+    out: Dict[int, Dict[str, Any]] = {}
+    if panel_service is None:
+        return out
+    if not isinstance(panel_service, HermesProvisioningService):
+        return out
+
+    import asyncio
+
+    async def _fetch(user: Any) -> tuple[int, Dict[str, Any]]:
+        panel_uuid = getattr(user, "panel_user_uuid", None)
+        if not panel_uuid:
+            return user.user_id, {"state": "none"}
+        try:
+            quota = await panel_service.get_tenant_quota(str(panel_uuid))
+        except Exception:
+            # ponytail: core may be down or the user has no key yet —
+            # either way we don't want to fail the admin page load.
+            return user.user_id, {"state": "unreachable"}
+        if not quota:
+            return user.user_id, {"state": "none"}
+        return (
+            user.user_id,
+            {
+                "state": "ok",
+                "max_budget": quota.get("max_budget"),
+                "spent": quota.get("spent"),
+                "remaining": quota.get("remaining"),
+                "budget_duration": quota.get("budget_duration"),
+            },
+        )
+
+    results = await asyncio.gather(*[_fetch(u) for u in users], return_exceptions=False)
+    for user_id, payload in results:
+        out[user_id] = payload
+    return out
 
 
 def _admin_users_list_cache(settings: Settings) -> Optional[AsyncTTLCache]:

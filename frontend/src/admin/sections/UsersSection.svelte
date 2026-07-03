@@ -43,11 +43,24 @@
   type FilterKey = "usersFilter" | "usersPanelStatus" | "usersPremiumTraffic";
   type FilterPatch = Partial<Record<FilterKey, string>> & { usersPage?: number };
   type FilterChip = { key: FilterKey; label: string; value: string };
+  type CornllmBalance = {
+    state?: "none" | "ok" | "unreachable";
+    max_budget?: number | null;
+    spent?: number | null;
+    remaining?: number | null;
+    budget_duration?: string | null;
+  };
+
   type UsersSectionProps = {
     at?: TranslateFn;
     fmtDateShort?: (value: string | null | undefined) => string;
     fmtMoney?: (value: number, currency?: string | null) => string;
     panelStatusBadge?: (user: AdminUser) => Record<string, string>;
+    // ponytail: in hermes mode the bot is hosted and "premium traffic"
+    // is replaced with CornLLM balance. Surfaced from the same
+    // /api/me payload the Mini App uses so the admin can render
+    // the right column without a dedicated endpoint.
+    panelWriteMode?: string;
     resolvedAvatarUrl?: (user: AdminUser) => string;
     userDisplayName?: (user: AdminUser) => string;
     userInitials?: (user: AdminUser) => string;
@@ -71,7 +84,10 @@
     userDisplayName = () => "",
     userInitials = () => "",
     userSecondaryName = () => "",
+    panelWriteMode = "",
   }: UsersSectionProps = $props();
+
+  const hermesMode = $derived(String(panelWriteMode || "").toLowerCase() === "hermes");
 
   const usersStore = getUsersStore();
   const usersTable = new TableHandler<AdminUser>();
@@ -211,12 +227,51 @@
     return trafficOfLabel(pt.used_bytes, pt.limit_bytes);
   }
 
+  // ponytail: CornLLM balance formatter. We render whole rubles (1 USD = 100 RUB,
+  // so LiteLLM stores fractional USD but the admin wants stable round
+  // numbers). Use the same kopeck-preserving trick the rest of the
+  // app uses — see backend/bot/utils/currency_format.py.
+  function _formatRubles(usd: number | null | undefined): string {
+    if (usd === null || usd === undefined) return "—";
+    const rub = Number(usd) * 100;
+    if (Number.isNaN(rub)) return "—";
+    if (Math.abs(rub - Math.round(rub)) < 1e-6) return `${Math.round(rub)} ₽`;
+    return `${rub.toFixed(2)} ₽`;
+  }
+
+  function cornllmBadgeVariant(c: CornllmBalance | null | undefined): string {
+    if (!c || c.state === "none" || c.state === "unreachable") return "muted";
+    const remaining = Number(c.remaining ?? 0);
+    const max = Number(c.max_budget ?? 0);
+    if (max <= 0) return "muted";
+    const ratio = remaining / max;
+    if (ratio >= 0.5) return "success";
+    if (ratio >= 0.15) return "warning";
+    return "danger";
+  }
+
+  function cornllmBadgeText(c: CornllmBalance | null | undefined): string {
+    if (!c || c.state === "none") return at("admin_cornllm_balance_no_key", {}, "—");
+    if (c.state === "unreachable") return at("admin_cornllm_balance_unreachable", {}, "n/a");
+    const remaining = c.remaining ?? Math.max(0, (c.max_budget ?? 0) - (c.spent ?? 0));
+    return _formatRubles(remaining);
+  }
+
   function userTableColumns(): UserTableColumn[] {
+    // ponytail: in hermes mode the "premium traffic" column shows the
+    // CornLLM balance + spent for the user's tenant instead. Same
+    // position so the table rhythm stays stable when admin flips
+    // between modes. The sort key falls back to "premium" because
+    // CornLLM ratio sort isn't worth wiring through the store for
+    // now — admins mostly scan by payment total.
+    const trafficLabel = hermesMode
+      ? at("admin_cornllm_balance", {}, "CornLLM")
+      : at("premium_traffic_filter_label", {}, "Премиум трафик");
     return [
       { key: "user", label: at("user", {}, "Пользователь"), sort: SORT_COLUMNS.user },
       {
         key: "premium",
-        label: at("premium_traffic_filter_label", {}, "Премиум трафик"),
+        label: trafficLabel,
         sort: SORT_COLUMNS.premium,
       },
       {
@@ -587,9 +642,18 @@
             </td>
             <td
               class="admin-users-cell-premium"
-              data-label={at("premium_traffic_filter_label", {}, "Премиум трафик")}
+              data-label={hermesMode
+                ? at("admin_cornllm_balance", {}, "CornLLM")
+                : at("premium_traffic_filter_label", {}, "Премиум трафик")}
             >
-              {#if user.premium_traffic && user.premium_traffic.state !== "none"}
+              {#if hermesMode}
+                <AdminBadge
+                  variant={cornllmBadgeVariant(user.cornllm as CornllmBalance | undefined)}
+                  class="admin-user-premium-badge"
+                >
+                  {cornllmBadgeText(user.cornllm as CornllmBalance | undefined)}
+                </AdminBadge>
+              {:else if user.premium_traffic && user.premium_traffic.state !== "none"}
                 <AdminBadge
                   variant={premiumTrafficBadgeVariant(user.premium_traffic)}
                   class="admin-user-premium-badge"

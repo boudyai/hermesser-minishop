@@ -18,12 +18,14 @@
     apiUnchecked = missingApi,
     paymentMethods = [],
     selectedMethod = "",
+    t = (key: string, _params?: AnyRecord, fallback?: string) => fallback || key,
   }: {
     subscription?: AnyRecord;
     appSettings?: AnyRecord;
     apiUnchecked?: ApiUnchecked;
     paymentMethods?: AnyRecord[];
     selectedMethod?: string;
+    t?: (key: string, params?: AnyRecord, fallback?: string) => string;
   } = $props();
 
   const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
@@ -90,18 +92,18 @@
 
   async function submit() {
     if (!localMethod) {
-      error = "Выберите способ оплаты";
+      error = t("wa_topup_pick_method", {}, "Pick a payment method");
       return;
     }
     // ponytail: always re-parse on submit so the typed-but-unblurred
     // value reaches the API instead of the previously-picked quick amount.
     const submitted = parseCustomAmount();
     if (submitted === null) {
-      error = "Введите корректную сумму";
+      error = t("wa_topup_invalid_amount", {}, "Enter a valid amount");
       return;
     }
     if (submitted < MIN_RUB) {
-      error = `Минимум ${MIN_RUB} ₽`;
+      error = t("wa_topup_minimum", { minimum: MIN_RUB }, `Minimum ${MIN_RUB} ₽`);
       return;
     }
     amountRub = submitted;
@@ -161,9 +163,13 @@
   </Card>
   <Dialog
     {open}
-    title="Пополнить CornLLM"
-    description="1 USD = 100 ₽. Сумма зачисляется на баланс ключа LiteLLM бота сразу после оплаты."
-    closeLabel="Закрыть"
+    title={t("wa_topup_cornllm_title", {}, "Top up CornLLM")}
+    description={t(
+      "wa_topup_cornllm_description",
+      {},
+      "1 USD = 100 ₽. The amount is credited to your bot's LiteLLM key right after payment."
+    )}
+    closeLabel={t("wa_topup_close", {}, "Close")}
     onclose={() => (open = false)}
   >
     <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -178,7 +184,9 @@
         {/each}
       </div>
       <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px;">
-        <span style="color: var(--muted);">Своя сумма (от {MIN_RUB} ₽)</span>
+        <span style="color: var(--muted);"
+          >{t("wa_topup_custom_label", { minimum: MIN_RUB }, `Custom amount (min ${MIN_RUB} ₽)`)}</span
+        >
         <input
           type="number"
           min={MIN_RUB}
@@ -186,11 +194,13 @@
           bind:value={customAmount}
           oninput={() => commitCustom()}
           onblur={commitCustom}
-          placeholder="например, 250"
+          placeholder={t("wa_topup_custom_placeholder", {}, "e.g. 250")}
           style="padding: 8px; border: 1px solid var(--border, #ccc); border-radius: 4px; font-size: 14px;"
         />
       </label>
-      <p style="margin: 0; font-size: 12px; color: var(--muted);">Способ оплаты</p>
+      <p style="margin: 0; font-size: 12px; color: var(--muted);">
+        {t("wa_topup_payment_method_label", {}, "Payment method")}
+      </p>
       <PaymentMethodGrid
         methods={enabledMethods}
         selectedMethod={localMethod}
@@ -200,7 +210,7 @@
         <p style="margin: 0; color: var(--danger); font-size: 12px;">{error}</p>
       {/if}
       <Button variant="primary" onclick={submit} disabled={busy || !actionsEnabled}>
-        Пополнить на {amountRub} ₽
+        {t("wa_topup_action_button", { amount: amountRub }, `Top up ${amountRub} ₽`)}
       </Button>
     </div>
   </Dialog>

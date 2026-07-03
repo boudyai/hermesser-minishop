@@ -270,6 +270,10 @@ class PromoOut(HttpResponseModel):
 class AdminMeOut(HttpResponseModel):
     user_id: int
     admin_ids: list[int]
+    # ponytail: surfaced so the admin SPA can switch its users-table
+    # column from Remnawave premium-traffic to CornLLM balance in
+    # hermes mode without a hard reload.
+    panel_write_mode: str = "remnawave"
 
 
 class AdminPanelSyncOut(HttpResponseModel):

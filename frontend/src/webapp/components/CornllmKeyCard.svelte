@@ -13,10 +13,12 @@
     subscription = {},
     appSettings = {},
     apiUnchecked,
+    t = (key: string, _params?: AnyRecord, fallback?: string) => fallback || key,
   }: {
     subscription?: AnyRecord;
     appSettings?: AnyRecord;
     apiUnchecked?: ApiUnchecked;
+    t?: (key: string, params?: AnyRecord, fallback?: string) => string;
   } = $props();
 
   const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
@@ -89,17 +91,19 @@
         style="display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px;"
       >
         <Key size={15} />
-        <span>API-ключ CornLLM</span>
+        <span>{t("wa_settings_cornllm_key_label", {}, "CornLLM API key")}</span>
       </div>
       <div style="display: flex; gap: 6px; align-items: center;">
         <Button variant="secondary" onclick={load} disabled={busy}>
-          {busy ? "Загрузка…" : "Обновить"}
+          {busy
+            ? t("wa_settings_cornllm_key_loading", {}, "Loading…")
+            : t("wa_settings_cornllm_key_refresh", {}, "Refresh")}
         </Button>
       </div>
     </div>
     {#if error}
       <p style="margin: 8px 0 0; color: var(--danger); font-size: 12px;">
-        Не удалось получить ключ: {error}
+        {t("wa_settings_cornllm_key_fetch_failed", { error }, `Could not load key: ${error}`)}
       </p>
     {:else if apiKey}
       <div
@@ -108,21 +112,27 @@
         {revealed ? apiKey : maskKey(apiKey)}
       </div>
       <p style="margin: 4px 0 0; color: var(--muted); font-size: 11px;">
-        Этот ключ расходует ваш баланс CornLLM. Не публикуйте его.
+        {t(
+          "wa_settings_cornllm_key_warning",
+          {},
+          "This key charges your CornLLM balance. Don't publish it."
+        )}
       </p>
       <div style="display: flex; gap: 6px; margin-top: 8px;">
         <Button variant="secondary" onclick={() => (revealed = !revealed)}>
           {#if revealed}
             <EyeOff size={14} />
-            Скрыть
+            {t("wa_settings_cornllm_key_hide", {}, "Hide")}
           {:else}
             <Eye size={14} />
-            Показать
+            {t("wa_settings_cornllm_key_show", {}, "Show")}
           {/if}
         </Button>
         <Button variant="secondary" onclick={copyKey}>
           <Copy size={14} />
-          {copied ? "Скопировано" : "Копировать"}
+          {copied
+            ? t("wa_settings_cornllm_key_copied", {}, "Copied")
+            : t("wa_settings_cornllm_key_copy", {}, "Copy")}
         </Button>
       </div>
     {/if}

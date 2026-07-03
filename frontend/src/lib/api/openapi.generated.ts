@@ -1788,6 +1788,11 @@ export interface components {
         AdminMeOut: {
             /** Admin Ids */
             admin_ids: number[];
+            /**
+             * Panel Write Mode
+             * @default remnawave
+             */
+            panel_write_mode: string;
             /** User Id */
             user_id: number;
         };
@@ -5566,6 +5571,14 @@ export interface operations {
                         page_size: number;
                         total: number;
                         users: (components["schemas"]["AdminUserWithAvatarOut"] & {
+                            cornllm: {
+                                budget_duration?: string | null;
+                                max_budget?: number | null;
+                                remaining?: number | null;
+                                spent?: number | null;
+                                /** @enum {string} */
+                                state: "none" | "ok" | "unreachable";
+                            };
                             invited_users_count: number;
                             panel_status: string | null;
                             panel_status_expired_at?: string | null;
