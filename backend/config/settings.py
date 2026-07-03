@@ -20,12 +20,14 @@ from config.settings_models import (
 )
 
 DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_RU = (
-    "Покупая или продлевая подписку, вы получаете доступ к VPN/прокси-сервису, "
-    "который помогает защищать ваше соединение и поддерживать стабильный доступ к сети."
+    "Покупая или продлевая хостинг AI-агента Hermes в Telegram, вы получаете "
+    "выделенный контейнер 2 vCPU / 4 GB RAM с памятью и файлами, которые сохраняются "
+    "между перезапусками, и доступ к CornLLM (DeepSeek) для ответов модели."
 )
 DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_EN = (
-    "By buying or renewing a subscription, you get access to a VPN/proxy service "
-    "that helps protect your connection and keep your access stable."
+    "By buying or renewing Hermes AI agent hosting on Telegram, you get a dedicated "
+    "2 vCPU / 4 GB RAM container with memory and files that survive restarts, plus "
+    "access to CornLLM (DeepSeek) for the model's replies."
 )
 
 

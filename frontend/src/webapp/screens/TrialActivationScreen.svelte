@@ -177,7 +177,7 @@
                 daysLeft > 0 ? t("wa_trial_days_left", { days: daysLeft }, "{days} days") : "",
               traffic: trafficLabel,
             },
-            "Чтобы активировать пробный период, сначала привяжите Telegram."
+            "Link your Telegram account to activate the trial."
           )}
         </p>
         <dl class="trial-activation-facts">
@@ -203,20 +203,32 @@
           {t(
             "wa_trial_token_required_hint",
             {},
-            "Создайте бота через @BotFather и вставьте сюда его токен. Бот будет принимать сообщения от ваших клиентов."
+            "Create a bot via @BotFather and paste its token here. The bot will receive messages from your customers."
           )}
         </p>
         <details style="margin: 0 0 10px; font-size: 12px; color: var(--muted);">
-          <summary style="cursor: pointer;">Как получить токен (пошагово)?</summary>
+          <summary style="cursor: pointer;">
+            {t("wa_trial_bot_token_steps_title", {}, "How do I get a token?")}
+          </summary>
           <ol style="padding-left: 20px; margin: 6px 0 0;">
             <li>
-              Откройте <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a
-              > в Telegram
+              {t("wa_trial_bot_token_step_1", {}, "Open")} <a
+                href="https://t.me/BotFather"
+                target="_blank"
+                rel="noopener">@BotFather</a
+              >
+              {t("wa_trial_bot_token_step_1b", {}, "in Telegram")}
             </li>
-            <li>Отправьте команду <code>/newbot</code></li>
-            <li>Задайте имя и @username бота</li>
-            <li>Скопируйте токен вида <code>123456789:ABCdef...</code></li>
-            <li>Вставьте его в поле ниже</li>
+            <li>
+              {t("wa_trial_bot_token_step_2", {}, "Send the command")}
+              <code>/newbot</code>
+            </li>
+            <li>{t("wa_trial_bot_token_step_3", {}, "Pick a name and @username for the bot")}</li>
+            <li>
+              {t("wa_trial_bot_token_step_4", {}, "Copy the token like")}
+              <code>123456789:ABCdef...</code>
+            </li>
+            <li>{t("wa_trial_bot_token_step_5", {}, "Paste it into the field below")}</li>
           </ol>
         </details>
         <label class="trial-token-input">

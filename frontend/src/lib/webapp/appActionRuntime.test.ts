@@ -153,7 +153,8 @@ describe("appActionRuntime", () => {
       state.tariffCatalog,
       state.subscription,
       state.plans,
-      "crypto"
+      "crypto",
+      {}
     );
   });
 

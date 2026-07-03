@@ -62,7 +62,8 @@ describe("createBillingModalActions", () => {
       state.tariffCatalog,
       state.subscription,
       state.plans,
-      "card"
+      "card",
+      {}
     );
   });
 

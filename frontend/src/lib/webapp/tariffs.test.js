@@ -94,6 +94,11 @@ describe("webapp tariff helpers", () => {
       "10 GB - 50 GB"
     );
     expect(tariffLimitLabel({ billing_model: "period", monthly_gb: 500 }, { t })).toBe("500 GB");
+    // hermes hosting tariffs have monthly_gb=0 (no traffic counter,
+    // not "0 GB included" and not "unlimited") — the calling UI hides
+    // the line, so the helper returns "".
+    expect(tariffLimitLabel({ billing_model: "period", monthly_gb: 0 }, { t })).toBe("");
+    expect(tariffLimitLabel({ billing_model: "period" }, { t })).toBe("");
     expect(planDisplayTitle({ months: 12 }, { trafficMode: false, t })).toBe("wa_plan_one_year:{}");
     expect(planSubtitle({ tariff_key: "pro", months: 3 }, { t, termUnitLabel })).toBe(
       'wa_sub_term_value_unit:{"value":"3","unit":"3 month"}'

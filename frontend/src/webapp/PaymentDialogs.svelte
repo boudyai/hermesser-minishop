@@ -409,7 +409,9 @@
                 <small>{tariff.description || t("wa_tariff_no_description")}</small>
               </span>
               <span class="option-row-meta">
-                <em>{tariffLimitLabel(tariff)}</em>
+                {#if tariffLimitLabel(tariff)}
+                  <em>{tariffLimitLabel(tariff)}</em>
+                {/if}
                 {#if selectedTariffKey === tariff.key}
                   <CheckCircle2 size={18} />
                 {:else}

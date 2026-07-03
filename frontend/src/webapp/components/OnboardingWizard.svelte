@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Check, ChevronRight, Copy, Server, Sparkles } from "$components/ui/icons.js";
+  import { Check, ChevronRight, Server, Sparkles } from "$components/ui/icons.js";
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
 
@@ -34,15 +34,57 @@
   const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
   const hasBotToken = $derived(Boolean(appSettings?.has_bot_token));
   const active = $derived(Boolean(subscription?.active));
-  // ponytail: lifecycle states we already drive via deriveLifecycleView.
   const tenantStatus = $derived(String(subscription?.tenant_status || "").trim() || null);
 
+  // ponytail: hosting tariffs live in tariffs.json (data/tariffs.json).
+  // We hardcode the display here so the wizard works before the
+  // tariff catalog loads and so we don't depend on the webapp's
+  // enabled-tariff enumeration. Both plans map 1:1 to a
+  // tariff_key the payment modal accepts.
+  type HostingPlan = {
+    key: "hosting_basic" | "hosting_plus";
+    titleKey: string;
+    titleFallback: string;
+    priceRub: number;
+    cpuCores: number;
+    memoryGb: number;
+    cornllmRubMonthly: number;
+    bulletsKey: string;
+    bulletsFallback: string;
+  };
+  const hostingPlans: HostingPlan[] = [
+    {
+      key: "hosting_basic",
+      titleKey: "wa_hermes_tariff_basic",
+      titleFallback: "Basic",
+      priceRub: 300,
+      cpuCores: 2,
+      memoryGb: 4,
+      cornllmRubMonthly: 0,
+      bulletsKey: "wa_hermes_tariff_basic_bullets",
+      bulletsFallback:
+        "2 vCPU · 4 GB RAM · no included CornLLM balance (top up separately)",
+    },
+    {
+      key: "hosting_plus",
+      titleKey: "wa_hermes_tariff_plus",
+      titleFallback: "Plus",
+      priceRub: 500,
+      cpuCores: 2,
+      memoryGb: 4,
+      cornllmRubMonthly: 300,
+      bulletsKey: "wa_hermes_tariff_plus_bullets",
+      bulletsFallback:
+        "2 vCPU · 4 GB RAM · 300 ₽ CornLLM balance included every month",
+    },
+  ];
+
   let step = $state(1);
+  let selectedPlan = $state<HostingPlan>(hostingPlans[1]);
   let botToken = $state("");
   let tokenBusy = $state(false);
   let tokenError = $state<string | null>(null);
   let tokenOk = $state(false);
-  let tokenCopied = $state(false);
 
   async function saveToken() {
     if (!botToken.trim() || !apiUnchecked) return;
@@ -62,33 +104,47 @@
     }
   }
 
-  async function copy(text: string) {
-    try {
-      if (typeof navigator !== "undefined" && navigator.clipboard) {
-        await navigator.clipboard.writeText(text);
-      }
-      tokenCopied = true;
-      window.setTimeout(() => (tokenCopied = false), 1500);
-    } catch {
-      tokenCopied = false;
-    }
+  function payWithPlan() {
+    if (methods.length === 0) return;
+    openPaymentModal(selectedPlan.key);
   }
 
-  function fmtRubles(value: number): string {
-    return `${Math.round(value)} ₽`;
+  // ponytail: Telegram Mini App webview silently swallows window.open
+  // for arbitrary URLs on iOS. The "Open bot" CTA in the success
+  // card has to go through the SDK's openTelegramLink, otherwise the
+  // user sees the bot row but tapping it does nothing.
+  function openBotChat(url: string): void {
+    if (typeof window === "undefined" || !url) return;
+    const tg = (window as AnyRecord).Telegram as
+      | { WebApp?: { openTelegramLink?: (u: string) => void; openLink?: (u: string) => void } }
+      | undefined;
+    const sdk = tg?.WebApp;
+    if (sdk?.openTelegramLink && /^https:\/\/t\.me\//i.test(url)) {
+      try {
+        sdk.openTelegramLink(url);
+        return;
+      } catch {
+        // fall through to plain window.open below
+      }
+    }
+    try {
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch {
+      if (typeof window !== "undefined") window.location.assign(url);
+    }
   }
 </script>
 
 {#if hermesMode && !active}
   <Card class="onboarding-hero">
     <h2 style="margin: 0 0 6px; font-size: 18px;">
-      {t("wa_hermes_onboarding_title", {}, "Запустите своего AI-агента в Telegram")}
+      {t("wa_hermes_onboarding_title", {}, "Launch your personal AI agent on Telegram")}
     </h2>
     <p style="margin: 0 0 12px; color: var(--muted); font-size: 13px;">
       {t(
         "wa_hermes_onboarding_subtitle",
         {},
-        "Личный Hermes Agent в Telegram. Работает 24/7 на нашем сервере."
+        "Personal Hermes Agent on Telegram, running 24/7 on our server."
       )}
     </p>
     <ul style="margin: 0 0 14px; padding: 0; list-style: none; font-size: 13px;">
@@ -98,7 +154,7 @@
           {t(
             "wa_hermes_onboarding_bullet_1",
             {},
-            "Выделенный контейнер: 2 vCPU и 4 GB RAM"
+            "Dedicated container: 2 vCPU and 4 GB RAM"
           )}
         </span>
       </li>
@@ -108,7 +164,7 @@
           {t(
             "wa_hermes_onboarding_bullet_2",
             {},
-            "Память и файлы сохраняются между перезапусками"
+            "Memory and files survive restarts"
           )}
         </span>
       </li>
@@ -118,13 +174,13 @@
           {t(
             "wa_hermes_onboarding_bullet_3",
             {},
-            "DeepSeek через CornLLM, оплата в рублях"
+            "DeepSeek via CornLLM, paid in rubles"
           )}
         </span>
       </li>
     </ul>
     <Button variant="primary" onclick={() => (step = 2)}>
-      {t("wa_hermes_onboarding_cta_choose", {}, "Выбрать тариф")}
+      {t("wa_hermes_onboarding_cta_choose", {}, "Choose a plan")}
       <ChevronRight size={16} />
     </Button>
   </Card>
@@ -132,43 +188,67 @@
   {#if step >= 2}
     <Card>
       <h3 style="margin: 0 0 8px; font-size: 16px;">
-        {t("wa_hermes_onboarding_plan_title", {}, "Выберите тариф")}
+        {t("wa_hermes_onboarding_plan_title", {}, "Choose a plan")}
       </h3>
       <p style="margin: 0 0 12px; color: var(--muted); font-size: 13px;">
         {t(
           "wa_hermes_onboarding_plan_help",
           {},
-          "Тариф включает хостинг контейнера. Баланс CornLLM расходуется на ответы модели — после исчерпания агент продолжит работать, но ответы LLM остановятся до пополнения."
+          "Both plans include the hosting container. The CornLLM balance powers the agent's replies — once exhausted, the agent stays up but LLM replies pause until you top up."
         )}
       </p>
-      <div style="display: grid; gap: 10px;">
-        <div
-          class="tariff-card"
-          style="border: 1px solid var(--border, #ddd); border-radius: 8px; padding: 12px;"
-        >
-          <strong>{t("wa_hermes_tariff_basic", {}, "Базовый")}</strong>
-          <div style="color: var(--muted); font-size: 12px;">
-            300 ₽/мес · 2 vCPU · 4 GB RAM · без включённого баланса CornLLM
-          </div>
-        </div>
-        <div
-          class="tariff-card"
-          style="border: 1px solid var(--border, #ddd); border-radius: 8px; padding: 12px;"
-        >
-          <strong>{t("wa_hermes_tariff_plus", {}, "Плюс")}</strong>
-          <div style="color: var(--muted); font-size: 12px;">
-            500 ₽/мес · 2 vCPU · 4 GB RAM · 300 ₽ баланса CornLLM включено
-          </div>
-        </div>
+      <div style="display: grid; gap: 10px;" data-test-id="hosting-plans">
+        {#each hostingPlans as plan (plan.key)}
+          {@const selected = selectedPlan.key === plan.key}
+          <button
+            type="button"
+            data-test-id={`hosting-plan-${plan.key}`}
+            data-selected={selected}
+            onclick={() => (selectedPlan = plan)}
+            style="
+              all: unset;
+              cursor: pointer;
+              border: 2px solid {selected ? 'var(--accent, #2e7d32)' : 'var(--border, #ddd)'};
+              border-radius: 8px;
+              padding: 12px;
+              background: {selected ? 'var(--surface-accent, #f0f7f0)' : 'transparent'};
+              display: block;
+              width: 100%;
+              text-align: left;
+            "
+          >
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+              <strong>{t(plan.titleKey, {}, plan.titleFallback)}</strong>
+              <span style="font-weight: 700;">{plan.priceRub} ₽/мес</span>
+            </div>
+            <div style="color: var(--muted); font-size: 12px; margin-top: 4px;">
+              {t(plan.bulletsKey, {}, plan.bulletsFallback)}
+            </div>
+            {#if plan.cornllmRubMonthly > 0}
+              <div
+                style="margin-top: 6px; display: inline-block; padding: 2px 8px; background: var(--surface-accent, #f0f7f0); color: var(--accent, #2e7d32); border-radius: 999px; font-size: 11px;"
+              >
+                {t(
+                  "wa_hermes_onboarding_plan_includes_cornllm",
+                  { amount: plan.cornllmRubMonthly },
+                  `Includes ${plan.cornllmRubMonthly} ₽/mo CornLLM`
+                )}
+              </div>
+            {/if}
+          </button>
+        {/each}
       </div>
       <Button
         variant="primary"
-        onclick={() => openPaymentModal()}
+        onclick={payWithPlan}
         disabled={methods.length === 0}
         style="margin-top: 12px;"
       >
-        <Wallet size={15} />
-        {t("wa_hermes_onboarding_cta_pay", {}, "Оплатить и запустить")}
+        {t(
+          "wa_hermes_onboarding_cta_pay",
+          { plan: t(selectedPlan.titleKey, {}, selectedPlan.titleFallback), price: selectedPlan.priceRub },
+          `Pay ${selectedPlan.priceRub} ₽ and launch`
+        )}
       </Button>
     </Card>
   {/if}
@@ -176,28 +256,28 @@
   {#if step >= 3 || (!hasBotToken && active)}
     <Card>
       <h3 style="margin: 0 0 8px; font-size: 16px;">
-        {t("wa_hermes_onboarding_bot_title", {}, "Создайте своего Telegram-бота")}
+        {t("wa_hermes_onboarding_bot_title", {}, "Create your Telegram bot")}
       </h3>
       <ol style="margin: 0 0 12px; padding-left: 18px; font-size: 13px;">
         <li style="margin-bottom: 6px;">
           {t(
             "wa_hermes_onboarding_bot_step_1",
             {},
-            "Откройте @BotFather в Telegram и отправьте /newbot"
+            "Open @BotFather in Telegram and send /newbot"
           )}
         </li>
         <li style="margin-bottom: 6px;">
           {t(
             "wa_hermes_onboarding_bot_step_2",
             {},
-            "Задайте имя и @username бота — BotFather вернёт токен вида 123…:ABC…"
+            "Pick a name and @username — BotFather returns a token like 123…:ABC…"
           )}
         </li>
         <li style="margin-bottom: 6px;">
           {t(
             "wa_hermes_onboarding_bot_step_3",
             {},
-            "Вставьте токен ниже — мы привяжем его к контейнеру и запустим агента"
+            "Paste the token below — we attach it to the container and start the agent"
           )}
         </li>
       </ol>
@@ -213,7 +293,9 @@
           onclick={saveToken}
           disabled={!botToken.trim() || tokenBusy}
         >
-          {tokenBusy ? "..." : t("wa_hermes_onboarding_save", {}, "Сохранить")}
+          {tokenBusy
+            ? t("wa_hermes_onboarding_saving", {}, "Saving…")
+            : t("wa_hermes_onboarding_save", {}, "Save")}
         </Button>
       </div>
       {#if tokenError}
@@ -225,7 +307,7 @@
         {t(
           "wa_hermes_onboarding_bot_help",
           {},
-          "Токен хранится зашифрованным. Мы используем его только для запуска вашего бота."
+          "The token is stored encrypted. We only use it to run your bot."
         )}
       </p>
     </Card>
@@ -235,18 +317,18 @@
     <Card>
       <h3 style="margin: 0 0 8px; font-size: 16px;">
         <Server size={15} style="vertical-align: middle; margin-right: 6px;" />
-        {t("wa_hermes_onboarding_provisioning_title", {}, "Запускаем контейнер…")}
+        {t("wa_hermes_onboarding_provisioning_title", {}, "Starting your container…")}
       </h3>
       <p style="margin: 0 0 8px; color: var(--muted); font-size: 13px;">
         {t(
           "wa_hermes_onboarding_provisioning_help",
           {},
-          "Создаём ключ CornLLM, поднимаем контейнер и запускаем Hermes Agent. Обычно занимает 20–40 секунд."
+          "Creating the CornLLM key, booting the container, and starting Hermes Agent. Usually 20–40 seconds."
         )}
       </p>
       {#if tenantStatus}
         <p style="margin: 0; font-size: 12px;">
-          {t("wa_hermes_onboarding_status", {}, "Статус:")}
+          {t("wa_hermes_onboarding_status", {}, "Status:")}
           <code>{tenantStatus}</code>
         </p>
       {/if}
@@ -257,25 +339,21 @@
     <Card>
       <h3 style="margin: 0 0 8px; font-size: 16px; color: var(--success, #2e7d32);">
         <Sparkles size={15} style="vertical-align: middle; margin-right: 6px;" />
-        {t("wa_hermes_onboarding_done_title", {}, "Готово!")}
+        {t("wa_hermes_onboarding_done_title", {}, "Done!")}
       </h3>
       <p style="margin: 0 0 12px; color: var(--muted); font-size: 13px;">
         {t(
           "wa_hermes_onboarding_done_help",
           {},
-          "Бот запущен. Откройте его в Telegram и напишите — он ответит через DeepSeek (CornLLM)."
+          "Bot is live. Open it in Telegram and say hi — it replies through DeepSeek (CornLLM)."
         )}
       </p>
       {#if appSettings?.bot_username}
         <Button
           variant="primary"
-          onclick={() => {
-            if (typeof window !== "undefined") {
-              window.open(`https://t.me/${appSettings.bot_username}`, "_blank");
-            }
-          }}
+          onclick={() => openBotChat(`https://t.me/${appSettings.bot_username}`)}
         >
-          {t("wa_open_bot", {}, "Открыть бота")}
+          {t("wa_open_bot", {}, "Open bot")}
         </Button>
       {/if}
     </Card>

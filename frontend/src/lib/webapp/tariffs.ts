@@ -174,8 +174,14 @@ export function tariffLimitLabel(
     const max = values[values.length - 1];
     return min === max ? formatTrafficGb(min) : `${formatTrafficGb(min)} - ${formatTrafficGb(max)}`;
   }
-  if (Number(tariff.monthly_gb || 0) > 0) return formatTrafficGb(tariff.monthly_gb);
-  return t("wa_unlimited_traffic");
+  // ponytail: a "period" tariff with monthly_gb=0 in the upstream
+  // catalog is a hosting plan (Hermes: container + CornLLM), not
+  // "0 GB traffic included" and not "unlimited traffic". The proxy
+  // tariff types in this fork never hit that combo. Return empty so
+  // the calling UI hides the line entirely instead of printing a
+  // confusing 0 GB / Unlimited label.
+  if (Number(tariff.monthly_gb || 0) === 0) return "";
+  return formatTrafficGb(tariff.monthly_gb);
 }
 
 export function actionKey(action: BillingPlan | null | undefined): string {

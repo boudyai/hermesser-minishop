@@ -128,6 +128,33 @@
   );
   const hasBotToken = $derived(Boolean(appSettings?.has_bot_token));
   const hermesTokenRequired = $derived(Boolean(hermesMode && !hasBotToken));
+  // ponytail: Telegram Mini App webview silently swallows window.open
+  // for arbitrary URLs, so "Open bot" needs to go through the SDK's
+  // openTelegramLink (which appends the right ?tgsr query and is the
+  // only path Telegram actually honors on iOS). Fall back to a plain
+  // window.open for non-Telegram URLs and for non-Mini-App sessions
+  // where the SDK isn't injected yet.
+  function openBotChat(url: string): void {
+    if (typeof window === "undefined" || !url) return;
+    const tg = (window as AnyRecord).Telegram as
+      | { WebApp?: { openTelegramLink?: (u: string) => void; openLink?: (u: string) => void } }
+      | undefined;
+    const sdk = tg?.WebApp;
+    if (sdk?.openTelegramLink && /^https:\/\/t\.me\//i.test(url)) {
+      try {
+        sdk.openTelegramLink(url);
+        return;
+      } catch {
+        // fall through to plain window.open below
+      }
+    }
+    try {
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch {
+      // some webviews reject window.open entirely — last-ditch: location.assign
+      if (typeof window !== "undefined") window.location.assign(url);
+    }
+  }
   // ponytail: in hermes mode the InstallGuideScreen has no proxy
   // config links to show, so "Открыть бота" should open the bot's
   // Telegram chat directly instead of rendering an empty page.
@@ -182,8 +209,8 @@
     }
   }
   function openHermesBotChat() {
-    if (typeof window === "undefined") return;
-    if (hermesTMeUrl) window.open(hermesTMeUrl, "_blank", "noopener,noreferrer");
+    if (!hermesTMeUrl) return;
+    openBotChat(hermesTMeUrl);
   }
   // ponytail: in hermes mode the InstallGuideScreen has no proxy
   // config links to show, so the main CTA opens the bot's Telegram
@@ -200,11 +227,11 @@
     return trafficPercentFn(sub);
   }
   function activeStatusTitle() {
-    if (hermesMode) return t("wa_home_bot_active", {}, "Бот активен");
+    if (hermesMode) return t("wa_home_bot_active", {}, "Bot is active");
     return trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active");
   }
   function installButtonTitle() {
-    return hermesMode ? t("wa_open_bot", {}, "Открыть бота") : t("wa_install_and_configure");
+    return hermesMode ? t("wa_open_bot", {}, "Open bot") : t("wa_install_and_configure");
   }
   function trafficLabel(sub: AnyRecord) {
     return trafficLabelFn(sub, t);
@@ -249,8 +276,8 @@
   }
   function premiumTrafficMetaLabel(sub: AnyRecord = subscription) {
     return sub?.premium_is_limited
-      ? t("wa_premium_access_limited", {}, "Доступ к premium временно ограничен")
-      : t("wa_premium_reset_monthly", {}, "Отдельный лимит на месяц");
+      ? t("wa_premium_access_limited", {}, "Premium access temporarily limited")
+      : t("wa_premium_reset_monthly", {}, "Separate monthly limit");
   }
   function premiumServerLabels(sub: AnyRecord) {
     return premiumServerLabelsFn(sub);
@@ -342,7 +369,7 @@
   );
   const subscriptionTermDisplayText = $derived(
     subscriptionExpiringSoon
-      ? t("wa_subscription_expiring_soon", {}, "Скоро закончится!")
+      ? t("wa_subscription_expiring_soon", {}, "Expiring soon!")
       : activeSubscriptionTermLabel(subscription)
   );
   const subscriptionEndDisplayText = $derived(
@@ -472,7 +499,7 @@
           )}
         </h2>
         <Button class="wide" onclick={recreateHermesBot} disabled={hermesCardBusy}>
-          {t("wa_hermes_bot_action_create", {}, "🆕 Создать нового бота")}
+          {t("wa_hermes_bot_action_create", {}, "🆕 Create new bot")}
         </Button>
         {#if hermesCardError}
           <p style="margin: 8px 0 0; color: var(--danger); font-size: 12px;">
@@ -595,13 +622,13 @@
             <Gift size={22} />
             <span>
               <strong>
-                {t("wa_home_set_token_first_title", {}, "Укажите токен бота")}
+                {t("wa_home_set_token_first_title", {}, "Set the bot token")}
               </strong>
               <small>
                 {t(
                   "wa_home_set_token_first_hint",
                   {},
-                  "Перейдите в Настройки → Bot token и вставьте токен из @BotFather"
+                  "Go to Settings → Bot token and paste a token from @BotFather"
                 )}
               </small>
             </span>
@@ -617,17 +644,17 @@
                 {t(
                   "wa_referral_welcome_telegram_required_title",
                   {},
-                  "Бонус ждёт привязки Telegram"
+                  "Bonus awaits linking Telegram"
                 )}
               </strong>
-              <small>{t("wa_referral_program_title", {}, "Реферальная программа")}</small>
+              <small>{t("wa_referral_program_title", {}, "Referral program")}</small>
             </span>
           </div>
           <p class="trial-card-description">
             {t(
               "wa_referral_welcome_telegram_required_description",
               { days: Number(referral?.welcome_bonus_days || 0) },
-              "Привяжите Telegram, чтобы получить {days} бонусных дней за регистрацию по приглашению."
+              "Link Telegram to claim {days} bonus days for signing up via invitation."
             )}
           </p>
           <Button
@@ -638,7 +665,7 @@
           >
             <AttentionDot />
             <Send size={18} />
-            {t("wa_referral_link_telegram_and_claim", {}, "Привязать и получить бонус")}
+            {t("wa_referral_link_telegram_and_claim", {}, "Link and claim bonus")}
           </Button>
         </Card>
       {/if}
@@ -648,7 +675,7 @@
           <div class="trial-card-head">
             <Gift size={22} />
             <span>
-              <strong>{t("wa_trial_offer_title", {}, "Можно начать с льготного периода")}</strong>
+              <strong>{t("wa_trial_offer_title", {}, "Start with a free trial")}</strong>
               <small>{t("wa_trial_title")}</small>
             </span>
           </div>
@@ -657,22 +684,22 @@
               ? t(
                   "wa_trial_offer_description_hermes",
                   { duration: trialDurationLabel() },
-                  "Активируйте триал: {duration} бесплатного хостинга для вашего Telegram-бота с Hermes Agent."
+                  "Activate the trial: {duration} of free hosting for your Telegram bot with Hermes Agent."
                 )
               : t(
                   "wa_trial_offer_description",
                   { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
-                  "Активируйте триал: {duration} доступа и {traffic} для скачивания без оплаты."
+                  "Activate the trial: {duration} of access plus {traffic} download allowance, no payment needed."
                 )}
           </p>
           <div class="trial-card-facts">
             <span>
-              <small>{t("wa_trial_duration_label", {}, "Срок")}</small>
+              <small>{t("wa_trial_duration_label", {}, "Duration")}</small>
               <strong>{trialDurationLabel()}</strong>
             </span>
             {#if !hermesMode}
               <span>
-                <small>{t("wa_trial_download_traffic_label", {}, "Доступно для скачивания")}</small>
+                <small>{t("wa_trial_download_traffic_label", {}, "Download allowance")}</small>
                 <strong>{trialTrafficLabel()}</strong>
               </span>
             {/if}
@@ -690,7 +717,7 @@
           >
             <Gift size={18} />
             {hermesMode
-              ? t("wa_trial_activate_hosting", {}, "Запустить пробный хостинг")
+              ? t("wa_trial_activate_hosting", {}, "Start trial hosting")
               : t("wa_trial_try_free", {}, "Попробовать бесплатно")}
           </Button>
         </Card>
@@ -700,7 +727,7 @@
             <Gift size={22} />
             <span>
               <strong>
-                {t("wa_trial_telegram_required_title", {}, "Привяжите Telegram для триала")}
+                {t("wa_trial_telegram_required_title", {}, "Link Telegram to start the trial")}
               </strong>
               <small>{t("wa_trial_title")}</small>
             </span>
@@ -709,16 +736,16 @@
             {t(
               "wa_trial_telegram_required_description",
               { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
-              "Чтобы активировать триал на {duration} с лимитом {traffic}, сначала привяжите Telegram."
+              "To activate the {duration} trial with {traffic} allowance, first link your Telegram."
             )}
           </p>
           <div class="trial-card-facts">
             <span>
-              <small>{t("wa_trial_duration_label", {}, "Срок")}</small>
+              <small>{t("wa_trial_duration_label", {}, "Duration")}</small>
               <strong>{trialDurationLabel()}</strong>
             </span>
             <span>
-              <small>{t("wa_trial_download_traffic_label", {}, "Доступно для скачивания")}</small>
+              <small>{t("wa_trial_download_traffic_label", {}, "Download allowance")}</small>
               <strong>{trialTrafficLabel()}</strong>
             </span>
           </div>
@@ -730,7 +757,7 @@
           >
             <AttentionDot />
             <Send size={18} />
-            {t("wa_trial_link_telegram_and_activate", {}, "Привязать и активировать")}
+            {t("wa_trial_link_telegram_and_activate", {}, "Link and activate")}
           </Button>
         </Card>
       {/if}
