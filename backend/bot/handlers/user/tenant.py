@@ -78,11 +78,20 @@ async def status_command(
     settings: Settings,
     subscription_service: SubscriptionService,
     session: AsyncSession,
+    i18n_data: dict,
 ) -> None:
-    user_id = message.from_user.id if message.from_user else 0
+    user_id = message.from_user.id
     if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
         return
-    await _render_status(message, user_id, settings, subscription_service, session, edit=False)
+    await _render_status(
+        message,
+        user_id,
+        settings,
+        subscription_service,
+        session,
+        edit=False,
+        i18n_data=i18n_data,
+    )
 
 
 @router.callback_query(F.data == "tenant:status")
@@ -91,10 +100,22 @@ async def status_callback(
     settings: Settings,
     subscription_service: SubscriptionService,
     session: AsyncSession,
+    i18n_data: dict,
 ) -> None:
     user_id = callback.from_user.id
     if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
         await callback.answer()
+        return
+    await _render_status(
+        callback.message,
+        user_id,
+        settings,
+        subscription_service,
+        session,
+        edit=True,
+        i18n_data=i18n_data,
+    )
+    await callback.answer()
         return
     await _render_status(
         callback.message, user_id, settings, subscription_service, session, edit=True
@@ -109,14 +130,21 @@ async def _render_status(
     subscription_service: SubscriptionService,
     session: AsyncSession,
     edit: bool,
+    i18n_data: dict | None = None,
 ) -> None:
     if target_message is None:
         return
     tenant_id = await _get_tenant_id(subscription_service, session, user_id)
     panel_service = await _get_hermes_panel(subscription_service)
+    i18n = (i18n_data or {}).get("i18n_instance")
+    current_lang = (i18n_data or {}).get("current_language", "ru")
+    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
 
     if not tenant_id or panel_service is None:
-        text = "🤖 Бот не запущен. Откройте Личный кабинет для активации."
+        text = _(
+            "tg_hermes_status_no_tenant",
+            default="🤖 Bot is not running. Open the Mini App to activate.",
+        )
         await _reply_or_edit(
             target_message,
             text,
@@ -124,7 +152,8 @@ async def _render_status(
                 inline_keyboard=[
                     [
                         types.InlineKeyboardButton(
-                            text="⬅️ В меню", callback_data="main_action:back_to_main"
+                            text=_("back_to_menu", default="⬅️ Menu"),
+                            callback_data="main_action:back_to_main",
                         )
                     ]
                 ]
@@ -133,16 +162,14 @@ async def _render_status(
         )
         return
 
-    # ponytail: after the user deletes the bot in the Mini App, the local
-    # subscription can stay `is_active=true` for a few minutes (no
-    # synchronous panel callback), so the previous "always show active"
-    # render is wrong. Pull the core's runtime state and surface the real
-    # lifecycle (deleting / deleted / suspended / provisioning) instead.
     tenant_state = await panel_service.get_tenant_state(tenant_id) or {}
     tenant_status = str(tenant_state.get("status") or "active").lower()
 
     if tenant_status in ("deleting", "deleted", "archived"):
-        text = "🗑 Бот удалён. Откройте Личный кабинет, чтобы создать нового."
+        text = _(
+            "tg_hermes_status_deleted",
+            default="🗑 Bot deleted. Open the Mini App to create a new one.",
+        )
         await _reply_or_edit(
             target_message,
             text,
@@ -150,13 +177,14 @@ async def _render_status(
                 inline_keyboard=[
                     [
                         types.InlineKeyboardButton(
-                            text="🆕 Создать бота",
+                            text=_("create_bot", default="🆕 Create bot"),
                             callback_data="main_action:my_subscription",
                         )
                     ],
                     [
                         types.InlineKeyboardButton(
-                            text="⬅️ В меню", callback_data="main_action:back_to_main"
+                            text=_("back_to_menu", default="⬅️ Menu"),
+                            callback_data="main_action:back_to_main",
                         )
                     ],
                 ]
@@ -166,7 +194,10 @@ async def _render_status(
         return
 
     if tenant_status == "suspended":
-        text = "⏸ Бот приостановлен. Возобновите подписку, чтобы снова запустить."
+        text = _(
+            "tg_hermes_status_suspended",
+            default="⏸ Bot suspended. Renew your subscription to start it again.",
+        )
         await _reply_or_edit(
             target_message,
             text,
@@ -174,13 +205,14 @@ async def _render_status(
                 inline_keyboard=[
                     [
                         types.InlineKeyboardButton(
-                            text="💳 Продлить",
+                            text=_("renew", default="💳 Renew"),
                             callback_data="main_action:my_subscription",
                         )
                     ],
                     [
                         types.InlineKeyboardButton(
-                            text="⬅️ В меню", callback_data="main_action:back_to_main"
+                            text=_("back_to_menu", default="⬅️ Menu"),
+                            callback_data="main_action:back_to_main",
                         )
                     ],
                 ]
@@ -190,7 +222,10 @@ async def _render_status(
         return
 
     if tenant_status in ("provisioning_vm", "provisioning_litellm_key", "created", "error"):
-        text = "⏳ Бот запускается… Это занимает ~30 секунд.\nПовторите /status через минуту."
+        text = _(
+            "tg_hermes_status_provisioning",
+            default="⏳ Starting your bot… takes ~30 seconds.\nRepeat /status in a minute.",
+        )
         await _reply_or_edit(
             target_message,
             text,
@@ -198,7 +233,8 @@ async def _render_status(
                 inline_keyboard=[
                     [
                         types.InlineKeyboardButton(
-                            text="⬅️ В меню", callback_data="main_action:back_to_main"
+                            text=_("back_to_menu", default="⬅️ Menu"),
+                            callback_data="main_action:back_to_main",
                         )
                     ]
                 ]
@@ -214,29 +250,53 @@ async def _render_status(
 
         max_b = quota.get("max_budget")
         remaining = quota.get("remaining")
-        # ponytail: the Telegram /status used to render USD via
-        # `f"${float(remaining):.2f}"` — but the rest of the bot
-        # (Mini App card, my-subscription copy) is in rubles. Show
-        # the same units everywhere; `format_rub_pair` keeps kopecks
-        # when the value is fractional (e.g. "9.49 / 1500 ₽").
         if max_b is not None and remaining is not None:
             quota_text = (
-                f"\n💰 Бюджет: {format_rub_pair(0, max_b, default='—')} "
-                f"(осталось {format_rub(remaining, default='—')})"
+                f"\n💰 {_('budget_label', default='Budget')}: "
+                f"{format_rub_pair(0, max_b, default='—')} "
+                f"({_('remaining_label', default='remaining')} "
+                f"{format_rub(remaining, default='—')})"
             )
 
-    text = f"🤖 Бот активен{quota_text}\nИспользуйте кнопки ниже для управления:"
+    text = (
+        _(
+            "tg_hermes_status_active",
+            default="🤖 Bot is active",
+        )
+        + f"{quota_text}\n"
+        + _(
+            "tg_hermes_status_actions_hint",
+            default="Use the buttons below to manage:",
+        )
+    )
     markup = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                types.InlineKeyboardButton(text="🔄 Перезагрузить", callback_data="tenant:restart"),
-                types.InlineKeyboardButton(text="📋 Логи", callback_data="tenant:logs"),
+                types.InlineKeyboardButton(
+                    text=_("restart", default="🔄 Restart"),
+                    callback_data="tenant:restart",
+                ),
+                types.InlineKeyboardButton(
+                    text=_("logs", default="📋 Logs"),
+                    callback_data="tenant:logs",
+                ),
             ],
             [
-                types.InlineKeyboardButton(text="⏸ Приостановить", callback_data="tenant:suspend"),
-                types.InlineKeyboardButton(text="🗑 Удалить", callback_data="tenant:delete"),
+                types.InlineKeyboardButton(
+                    text=_("suspend", default="⏸ Suspend"),
+                    callback_data="tenant:suspend",
+                ),
+                types.InlineKeyboardButton(
+                    text=_("delete", default="🗑 Delete"),
+                    callback_data="tenant:delete",
+                ),
             ],
-            [types.InlineKeyboardButton(text="⬅️ В меню", callback_data="main_action:back_to_main")],
+            [
+                types.InlineKeyboardButton(
+                    text=_("back_to_menu", default="⬅️ Menu"),
+                    callback_data="main_action:back_to_main",
+                )
+            ],
         ]
     )
     await _reply_or_edit(target_message, text, markup, edit)
@@ -263,29 +323,41 @@ async def _reply_or_edit(
 
 
 @router.message(Command("restart"))
-async def restart_command(message: types.Message) -> None:
-    await _confirm_restart(message, edit=False)
+async def restart_command(message: types.Message, i18n_data: dict) -> None:
+    await _confirm_restart(message, edit=False, i18n_data=i18n_data)
 
 
 @router.callback_query(F.data == "tenant:restart")
-async def restart_callback(callback: types.CallbackQuery) -> None:
-    await _confirm_restart(callback.message, edit=True)
+async def restart_callback(callback: types.CallbackQuery, i18n_data: dict) -> None:
+    await _confirm_restart(callback.message, edit=True, i18n_data=i18n_data)
     await callback.answer()
 
 
 async def _confirm_restart(
-    target_message: "types.Message | types.InaccessibleMessage | None", edit: bool
+    target_message: "types.Message | types.InaccessibleMessage | None",
+    edit: bool,
+    i18n_data: dict | None = None,
 ) -> None:
     if target_message is None:
         return
-    text = "🔄 Перезагрузить бота?\n\nКонтейнер будет остановлен и запущен заново (~30 секунд)."
+    i18n = (i18n_data or {}).get("i18n_instance")
+    current_lang = (i18n_data or {}).get("current_language", "ru")
+    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
+    text = _(
+        "tg_hermes_restart_confirm",
+        default="🔄 Restart the bot?\n\nContainer will stop and start again (~30 seconds).",
+    )
     markup = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text="✅ Да, перезагрузить", callback_data="tenant:restart:confirm"
+                    text=_("yes_restart", default="✅ Yes, restart"),
+                    callback_data="tenant:restart:confirm",
                 ),
-                types.InlineKeyboardButton(text="❌ Отмена", callback_data="tenant:status"),
+                types.InlineKeyboardButton(
+                    text=_("cancel", default="❌ Cancel"),
+                    callback_data="tenant:status",
+                ),
             ]
         ]
     )
@@ -298,34 +370,38 @@ async def restart_confirm_callback(
     settings: Settings,
     subscription_service: SubscriptionService,
     session: AsyncSession,
+    i18n_data: dict,
 ) -> None:
     user_id = callback.from_user.id
+    i18n = (i18n_data or {}).get("i18n_instance")
+    current_lang = (i18n_data or {}).get("current_language", "ru")
+    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
     panel_service = await _get_hermes_panel(subscription_service)
     if panel_service is None:
-        await callback.answer("Сервис недоступен", show_alert=True)
+        await callback.answer(_("service_unavailable", default="Service unavailable"), show_alert=True)
         return
     tenant_id = await _get_tenant_id(subscription_service, session, user_id)
     if not tenant_id:
-        await callback.answer("Нет активного бота", show_alert=True)
+        await callback.answer(_("no_active_bot", default="No active bot"), show_alert=True)
         return
     ok = await panel_service.restart_tenant(tenant_id)
+    queued_msg = _(
+        "tg_hermes_restart_queued",
+        default="🔄 Restart queued. Bot returns in ~30 seconds.",
+    )
     if ok:
-        await safe_answer_callback(
-            callback,
-            "🔄 Перезагрузка поставлена в очередь. Бот вернётся через ~30 секунд.",
-            show_alert=True,
-        )
+        await safe_answer_callback(callback, queued_msg, show_alert=True)
     else:
         await safe_answer_callback(
             callback,
-            "❌ Не удалось поставить в очередь. Попробуйте позже.",
+            _("tg_hermes_restart_failed", default="❌ Could not queue restart. Try again later."),
             show_alert=True,
         )
         return
     if callback.message:
         try:
             await callback.message.edit_text(  # type: ignore[union-attr]
-                "🔄 Перезагрузка поставлена в очередь. Бот вернётся через ~30 секунд.",
+                queued_msg,
                 reply_markup=types.InlineKeyboardMarkup(
                     inline_keyboard=[
                         [
