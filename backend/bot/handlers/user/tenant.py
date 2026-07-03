@@ -116,11 +116,6 @@ async def status_callback(
         i18n_data=i18n_data,
     )
     await callback.answer()
-        return
-    await _render_status(
-        callback.message, user_id, settings, subscription_service, session, edit=True
-    )
-    await callback.answer()
 
 
 async def _render_status(
@@ -378,11 +373,15 @@ async def restart_confirm_callback(
     _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
     panel_service = await _get_hermes_panel(subscription_service)
     if panel_service is None:
-        await callback.answer(_("service_unavailable", default="Service unavailable"), show_alert=True)
+        await callback.answer(
+            _("service_unavailable", default="Service unavailable"), show_alert=True
+        )
         return
     tenant_id = await _get_tenant_id(subscription_service, session, user_id)
     if not tenant_id:
-        await callback.answer(_("no_active_bot", default="No active bot"), show_alert=True)
+        await callback.answer(
+            _("no_active_bot", default="No active bot"), show_alert=True
+        )
         return
     ok = await panel_service.restart_tenant(tenant_id)
     queued_msg = _(
