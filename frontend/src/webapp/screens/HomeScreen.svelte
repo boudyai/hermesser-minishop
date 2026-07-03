@@ -487,8 +487,18 @@
       <CornllmTopupCard {subscription} {appSettings} {apiUnchecked} {methods} />
     {/if}
 
-    {#if !subscription.active}
-      <OnboardingWizard {appSettings} {subscription} />
+    {#if !subscription.active && hermesMode}
+      <OnboardingWizard
+        {appSettings}
+        {subscription}
+        {apiUnchecked}
+        {methods}
+        {t}
+        {hasActiveTariffSubscription}
+        {hasMultipleTariffs}
+        {currentTariffName}
+        {openPaymentModal}
+      />
     {/if}
 
     {#if subscription.active}
