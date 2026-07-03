@@ -46,9 +46,7 @@
   let error = $state<string | null>(null);
 
   const enabledMethods = $derived(
-    (paymentMethods || []).filter(
-      (m) => m && !m.disabled && typeof m.id === "string" && m.id
-    )
+    (paymentMethods || []).filter((m) => m && !m.disabled && typeof m.id === "string" && m.id)
   );
 
   // ponytail: when the card opens or the parent flips selectedMethod,
@@ -155,18 +153,14 @@
         <Plus size={15} />
         <span>Баланс CornLLM</span>
       </div>
-      <Button
-        variant="primary"
-        onclick={() => (open = true)}
-        disabled={busy || !actionsEnabled}
-      >
+      <Button variant="primary" onclick={() => (open = true)} disabled={busy || !actionsEnabled}>
         <Plus size={14} />
         Пополнить
       </Button>
     </div>
   </Card>
   <Dialog
-    open={open}
+    {open}
     title="Пополнить CornLLM"
     description="1 USD = 100 ₽. Сумма зачисляется на баланс ключа LiteLLM бота сразу после оплаты."
     closeLabel="Закрыть"

@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra.grants import GrantContext, resolve_effective_grant
+from bot.services.hermes_provisioning_service import HermesProvisioningService
 from bot.services.payment_promo import consume_payment_promo, load_payment_promo_effects
 from bot.utils.date_utils import add_months
 from config.tariffs_config import default_currency_key_for_settings
@@ -478,6 +479,30 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             provider=provider,
         )
 
+        # Hosting tariffs credit CornLLM (LiteLLM) balance on each paid
+        # month. The included amount lives on the tariff; we only credit
+        # when this is a hermes-mode tenant (panel_service is the
+        # HermesProvisioningService) and the tariff opted in.
+        cornllm_credit_rub = 0.0
+        if tariff is not None:
+            try:
+                cornllm_credit_rub = float(
+                    getattr(tariff, "included_cornllm_balance_rub", 0.0) or 0.0
+                )
+            except (TypeError, ValueError):
+                cornllm_credit_rub = 0.0
+        cornllm_credit_usd = round(cornllm_credit_rub / 100.0, 2)
+        if cornllm_credit_usd > 0 and isinstance(self.panel_service, HermesProvisioningService):
+            credit_result = await self.panel_service.topup_tenant_quota(
+                panel_user_uuid, cornllm_credit_usd
+            )
+            if not credit_result:
+                logging.warning(
+                    "CornLLM monthly credit failed for tenant %s (%.2f USD)",
+                    panel_user_uuid,
+                    cornllm_credit_usd,
+                )
+
         return {
             "subscription_id": new_or_updated_sub.subscription_id,
             "end_date": final_end_date,
@@ -494,6 +519,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             "hwid_devices_valid_until": hwid_devices_renewed_until or hwid_devices_valid_until,
             "hwid_devices_renewed_count": hwid_devices_renewed_count,
             "hwid_devices_renewed_until": hwid_devices_renewed_until,
+            "cornllm_credit_usd": cornllm_credit_usd if cornllm_credit_usd > 0 else None,
         }
 
     async def extend_active_subscription_days(

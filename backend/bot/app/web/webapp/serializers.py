@@ -816,6 +816,15 @@ def _serialize_plans(
                 )
                 if tariff.billing_model == "period"
                 else [],
+                # Hosting fields — non-Remnaweave, used by the Mini App
+                # onboarding wizard to display resource hints and the
+                # monthly CornLLM credit. Both default to 0/None for the
+                # proxy traffic tariffs so legacy mode is unaffected.
+                "vcpu": getattr(tariff, "vcpu", None),
+                "memory_gb": getattr(tariff, "memory_gb", None),
+                "included_cornllm_balance_rub": float(
+                    getattr(tariff, "included_cornllm_balance_rub", 0.0) or 0.0
+                ),
             }
             if tariff.billing_model == "period":
                 # Render periods in the configured order (enabled_periods is the

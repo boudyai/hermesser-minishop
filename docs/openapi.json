@@ -3655,9 +3655,26 @@
             ],
             "default": null
           },
+          "included_cornllm_balance_rub": {
+            "default": 0.0,
+            "title": "Included Cornllm Balance Rub",
+            "type": "number"
+          },
           "key": {
             "title": "Key",
             "type": "string"
+          },
+          "memory_gb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Gb"
           },
           "monthly_gb": {
             "anyOf": [
@@ -3781,6 +3798,18 @@
               }
             ],
             "default": null
+          },
+          "vcpu": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Vcpu"
           }
         },
         "required": [

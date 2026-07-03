@@ -199,6 +199,20 @@ class Tariff(BaseModel):
     premium_monthly_gb: Optional[float] = None
     premium_topup_packages: Optional[PackageSet] = None
 
+    # Hosting-specific: how many RUB of CornLLM balance the tariff
+    # credits each paid month (1 USD = 100 RUB, so 300 RUB ≈ 3 USD).
+    # Zero means no included balance — the user tops up separately.
+    # Only honored for hermes-mode tenants on a successful monthly
+    # subscription activation; see
+    # ``subscription_service_impl.lifecycle_activation``.
+    included_cornllm_balance_rub: float = 0.0
+    # Resource hints shown on the tariff card / onboarding wizard.
+    # We mirror the worker's actual container caps
+    # (see services/hermesser-provisioner/app/drivers/real_podman.py
+    # `_SECURITY_FLAGS`) so the displayed values match reality.
+    vcpu: Optional[int] = None
+    memory_gb: Optional[int] = None
+
     @model_validator(mode="after")
     def validate_tariff(self) -> "Tariff":
         if not self.key.strip():
@@ -218,6 +232,12 @@ class Tariff(BaseModel):
             )
         if self.premium_monthly_gb and self.premium_monthly_gb > 0 and not self.premium_squad_uuids:
             raise ValueError(f"tariff {self.key}: premium_monthly_gb requires premium_squad_uuids")
+        if self.included_cornllm_balance_rub < 0:
+            raise ValueError(f"tariff {self.key}: included_cornllm_balance_rub must be >= 0")
+        if self.vcpu is not None and self.vcpu <= 0:
+            raise ValueError(f"tariff {self.key}: vcpu must be > 0")
+        if self.memory_gb is not None and self.memory_gb <= 0:
+            raise ValueError(f"tariff {self.key}: memory_gb must be > 0")
 
         self.prices = self._normalize_prices_by_currency(self.prices)
         self.prices_rub = self._normalize_period_price_map(self.prices_rub, "prices_rub")

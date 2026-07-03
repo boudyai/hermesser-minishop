@@ -18,6 +18,10 @@ export function emptyTariffDraft() {
     premium_monthly_gb: "",
     hwid_device_limit: "",
     conversion_rate_rub_per_gb: "",
+    // Hosting-specific fields (hermes mode).
+    vcpu: 2,
+    memory_gb: 4,
+    included_cornllm_balance_rub: 0,
     periodRows: [
       { months: 1, rub: 200, stars: "", referral_inviter: 3, referral_referee: 1 },
       { months: 3, rub: 600, stars: "", referral_inviter: 7, referral_referee: 3 },
@@ -148,6 +152,12 @@ export function draftFromTariff(tariff, defaultCurrency = "rub") {
     premium_monthly_gb: tariff.premium_monthly_gb ?? "",
     hwid_device_limit: tariff.hwid_device_limit ?? "",
     conversion_rate_rub_per_gb: tariff.conversion_rate_rub_per_gb ?? "",
+    vcpu: tariff.vcpu ?? "",
+    memory_gb: tariff.memory_gb ?? "",
+    included_cornllm_balance_rub:
+      tariff.included_cornllm_balance_rub !== undefined
+        ? tariff.included_cornllm_balance_rub
+        : 0,
     periodRows: periodRows.length ? periodRows : emptyTariffDraft().periodRows,
     topupRows: packageRowsFromPackageSet(tariff.topup_packages, currency, "gb"),
     premiumTopupRows: packageRowsFromPackageSet(tariff.premium_topup_packages, currency, "gb"),
@@ -266,6 +276,14 @@ export function tariffFromDraft(draft, fallbackCurrency = "rub") {
   if (premiumMonthlyGb !== null) tariff.premium_monthly_gb = premiumMonthlyGb;
   const premiumTopupPackages = packageSetFromRows(draft.premiumTopupRows, "gb", defaultCurrency);
   if (premiumTopupPackages) tariff.premium_topup_packages = premiumTopupPackages;
+  const vcpu = parseIntNumber(draft.vcpu);
+  if (vcpu !== null) tariff.vcpu = vcpu;
+  const memoryGb = parseIntNumber(draft.memory_gb);
+  if (memoryGb !== null) tariff.memory_gb = memoryGb;
+  const includedCornllmRub = parseNumber(draft.included_cornllm_balance_rub, 0);
+  if (includedCornllmRub !== null) {
+    tariff.included_cornllm_balance_rub = includedCornllmRub;
+  }
 
   if (tariff.billing_model === "period") {
     const seenMonths = new Set();

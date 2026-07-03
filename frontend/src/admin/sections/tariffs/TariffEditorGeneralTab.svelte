@@ -229,6 +229,63 @@
           oninput={draftInputHandler(tariffsStore, "monthly_gb")}
         />
       </Label.Root>
+      <Label.Root class="admin-field-label">
+        <span>{at("tariff_label_vcpu", {}, "vCPU на контейнер")}</span>
+        <small
+          >{at(
+            "tariff_hint_vcpu",
+            {},
+            "Сколько vCPU выдаётся контейнеру тенанта. По умолчанию 2."
+          )}</small
+        >
+        <Input
+          class="input"
+          type="number"
+          min="1"
+          step="1"
+          placeholder="2"
+          value={tariffDraft.vcpu}
+          oninput={draftInputHandler(tariffsStore, "vcpu")}
+        />
+      </Label.Root>
+      <Label.Root class="admin-field-label">
+        <span>{at("tariff_label_memory_gb", {}, "RAM, GB")}</span>
+        <small
+          >{at(
+            "tariff_hint_memory_gb",
+            {},
+            "Лимит памяти на контейнер тенанта. По умолчанию 4."
+          )}</small
+        >
+        <Input
+          class="input"
+          type="number"
+          min="1"
+          step="1"
+          placeholder="4"
+          value={tariffDraft.memory_gb}
+          oninput={draftInputHandler(tariffsStore, "memory_gb")}
+        />
+      </Label.Root>
+      <Label.Root class="admin-field-label">
+        <span>{at("tariff_label_cornllm_credit", {}, "Включённый баланс CornLLM, ₽/мес")}</span>
+        <small
+          >{at(
+            "tariff_hint_cornllm_credit",
+            {},
+            "Сколько ₽ баланса CornLLM (LiteLLM) начисляется тенанту при оплате месяца. 0 — без включённого баланса, пополняется отдельно."
+          )}</small
+        >
+        <Input
+          class="input"
+          type="number"
+          min="0"
+          step="50"
+          placeholder="0"
+          value={tariffDraft.included_cornllm_balance_rub}
+          oninput={draftInputHandler(tariffsStore, "included_cornllm_balance_rub")}
+        />
+      </Label.Root>
     {:else}
       <Label.Root class="admin-field-label">
         <span>{conversionCurrencyLabel}</span>

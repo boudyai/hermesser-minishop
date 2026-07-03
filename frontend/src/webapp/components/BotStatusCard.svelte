@@ -206,11 +206,7 @@
           <FileText size={14} />
           Логи
         </Button>
-        <Button
-          variant="secondary"
-          onclick={askRestart}
-          disabled={busy || !actionsEnabled}
-        >
+        <Button variant="secondary" onclick={askRestart} disabled={busy || !actionsEnabled}>
           <RefreshCw size={14} class={busyAction === "restart" ? "spinning" : ""} />
           Перезагрузить
         </Button>
