@@ -17,10 +17,6 @@ from sqlalchemy.orm import sessionmaker
 from bot.middlewares.i18n import JsonI18n
 from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
-from config.tariffs_config import (
-    default_currency_key_for_settings,
-    default_payment_currency_code_for_settings,
-)
 from db.dal import payment_dal, user_billing_dal
 
 from ..base import (
@@ -38,32 +34,23 @@ from ..shared import (
     PaymentSuccessRequest,
     RecurringChargeContext,
     RecurringChargeResult,
+    CreatePaymentRequest,
     build_payment_record_payload,
-    create_webapp_payment_record,
     decimal_amounts_equal,
-    describe_payment,
     finalize_successful_payment,
-    finalize_webapp_link_payment,
     first_value,
     format_decimal_amount,
     lookup_payment_by_order_or_provider_id,
-    make_translator,
-    notify_callback_parse_error,
-    notify_payment_record_failure,
-    notify_service_unavailable,
     notify_user_payment_failed,
-    parse_payment_callback,
-    payment_failed,
-    payment_record_amounts,
-    payment_unavailable,
     payment_units_for_activation,
     post_json_request,
-    quote_hwid_callback_parts,
-    render_link_or_fail,
-    render_payment_link,
+    LinkPaymentDescriptor,
+    run_callback_payment,
+    run_reuse_webapp_payment,
+    run_webapp_payment,
     safe_callback_answer,
 )
-from ..shared.app_context import app_optional, app_required
+from ..shared.app_context import app_required
 from .manifest import _CONFIG_MANIFEST, _PRESENTATION_MANIFEST
 
 logger = logging.getLogger(__name__)
@@ -693,124 +680,13 @@ async def pay_cloudpayments_callback_handler(
     cloudpayments_service: CloudPaymentsService,
     session: AsyncSession,
 ) -> None:
-    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
-    translator = make_translator(i18n, current_lang)
-
-    if not i18n or not callback.message:
-        await notify_callback_parse_error(callback, translator)
-        return
-
-    if not SPEC.is_available_to_user(
-        settings,
-        user_id=callback.from_user.id,
-        require_configured=False,
-    ):
-        await notify_service_unavailable(callback, translator)
-        return
-
-    if not cloudpayments_service or not cloudpayments_service.configured:
-        logger.error("CloudPayments service is not configured or unavailable.")
-        await notify_service_unavailable(callback, translator)
-        return
-
-    parts = parse_payment_callback(callback.data or "")
-    if not parts:
-        logger.error("Invalid pay_cp data in callback: %s", callback.data)
-        await notify_callback_parse_error(callback, translator)
-        return
-    parts, hwid_quote = await quote_hwid_callback_parts(
-        session=session,
-        user_id=callback.from_user.id,
-        parts=parts,
-        subscription_service=cloudpayments_service.subscription_service,
-        currency=default_currency_key_for_settings(settings),
-    )
-    if not parts:
-        await notify_callback_parse_error(callback, translator)
-        return
-
-    currency_code = default_payment_currency_code_for_settings(settings)
-    payment_description = describe_payment(translator, parts)
-
-    reuse_amounts = payment_record_amounts(
-        months=parts.months,
-        sale_mode=parts.sale_mode,
-        hwid_device_count=hwid_quote.get("device_count") if hwid_quote else None,
-    )
-    reusable_payment = await payment_dal.find_recent_pending_provider_payment(
-        session,
-        user_id=callback.from_user.id,
-        provider="cloudpayments",
-        pending_status="pending_cloudpayments",
-        amount=parts.price,
-        currency=currency_code,
-        sale_mode=parts.sale_mode,
-        months=reuse_amounts.months,
-        purchased_gb=reuse_amounts.purchased_gb,
-        purchased_hwid_devices=reuse_amounts.purchased_hwid_devices,
-        tariff_key=reuse_amounts.tariff_key,
-    )
-    if reusable_payment is not None:
-        reusable_url = await cloudpayments_service.try_reuse_pending_payment(reusable_payment)
-        if reusable_url:
-            await safe_callback_answer(callback)
-            await render_payment_link(
-                callback,
-                translator=translator,
-                current_lang=current_lang,
-                i18n=i18n,
-                parts=parts,
-                payment_url=reusable_url,
-                log_prefix=_LOG,
-            )
-            return
-
-    record_payload = build_payment_record_payload(
-        user_id=callback.from_user.id,
-        amount=parts.price,
-        currency=currency_code,
-        status="pending_cloudpayments",
-        description=payment_description,
-        months=parts.months,
-        provider="cloudpayments",
-        sale_mode=parts.sale_mode,
-        hwid_quote=hwid_quote,
-    )
-
-    try:
-        payment_record = await payment_dal.create_payment_record(session, record_payload)
-        await session.commit()
-    except Exception:
-        await session.rollback()
-        logger.exception(
-            "CloudPayments: failed to create payment record for user %s.", callback.from_user.id
-        )
-        await notify_payment_record_failure(callback, translator)
-        return
-
-    await safe_callback_answer(callback)
-
-    success, response_data = await cloudpayments_service.create_order(
-        payment_db_id=payment_record.payment_id,
-        user_id=payment_record.user_id,
-        amount=parts.price,
-        currency=currency_code,
-        description=payment_description,
-    )
-    await render_link_or_fail(
+    await run_callback_payment(
+        _DESCRIPTOR,
         callback,
-        translator=translator,
-        current_lang=current_lang,
-        i18n=i18n,
-        parts=parts,
-        session=session,
-        payment=payment_record,
-        api_success=success,
-        payment_url=first_value(response_data, "Url", "url"),
-        provider_payment_id=first_value(response_data, "Id", "Number", "id"),
-        provider_response=response_data,
-        log_prefix=_LOG,
+        settings,
+        i18n_data,
+        cloudpayments_service,
+        session,
     )
 
 
@@ -834,50 +710,36 @@ def create_service(ctx: ServiceFactoryContext) -> CloudPaymentsService:
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    settings: Settings = app_required(ctx.request, "settings", Settings)
-    service: CloudPaymentsService = app_required(
-        ctx.request, "cloudpayments_service", CloudPaymentsService
-    )
-    if not service or not service.configured:
-        return payment_unavailable()
-
-    currency = ctx.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
-    try:
-        payment = await create_webapp_payment_record(
-            ctx,
-            amount=ctx.price,
-            currency=currency,
-            status="pending_cloudpayments",
-            provider="cloudpayments",
-        )
-        success, response_data = await service.create_order(
-            payment_db_id=payment.payment_id,
-            user_id=ctx.user_id,
-            amount=ctx.price,
-            currency=currency,
-            description=ctx.description,
-        )
-    except Exception:
-        await ctx.session.rollback()
-        logger.exception("CloudPayments WebApp payment failed")
-        return payment_failed()
-
-    return await finalize_webapp_link_payment(
-        session=ctx.session,
-        payment=payment,
-        api_success=success,
-        payment_url=first_value(response_data, "Url", "url") if success else None,
-        provider_payment_id=first_value(response_data, "Id", "Number", "id"),
-        provider_response=response_data,
-        log_prefix="CloudPayments",
-    )
+    return await run_webapp_payment(_DESCRIPTOR, ctx)
 
 
 async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> str | None:
-    service = app_optional(ctx.request, "cloudpayments_service", CloudPaymentsService)
-    if not service or not service.configured:
-        return None
+    return await run_reuse_webapp_payment(_DESCRIPTOR, ctx, payment)
+
+
+async def _create_payment(
+    service: CloudPaymentsService,
+    request: CreatePaymentRequest,
+) -> tuple[bool, dict]:
+    return await service.create_order(
+        payment_db_id=request.payment.payment_id,
+        user_id=request.user_id,
+        amount=request.amount,
+        currency=request.currency,
+        description=request.description,
+    )
+
+
+async def _reuse_payment(service: CloudPaymentsService, payment: Any) -> str | None:
     return await service.try_reuse_pending_payment(payment)
+
+
+def _extract_payment_url(response_data: dict) -> str | None:
+    return first_value(response_data, "Url", "url")
+
+
+def _extract_provider_id(response_data: dict) -> str | None:
+    return first_value(response_data, "Id", "Number", "id")
 
 
 SPEC = PaymentProviderSpec(
@@ -908,4 +770,20 @@ SPEC = PaymentProviderSpec(
         "CloudPayments orders accept RUB, USD, EUR, GBP and CIS currencies as the payment currency."
     ),
     currency_support_url="https://developers.cloudpayments.ru/#valyuty",
+)
+
+_DESCRIPTOR: LinkPaymentDescriptor[CloudPaymentsService] = LinkPaymentDescriptor(
+    spec=SPEC,
+    provider_key="cloudpayments",
+    pending_status="pending_cloudpayments",
+    display_name="CloudPayments",
+    log_prefix=_LOG,
+    service_app_key="cloudpayments_service",
+    service_type=CloudPaymentsService,
+    create=_create_payment,
+    reuse=_reuse_payment,
+    extract_url=_extract_payment_url,
+    extract_provider_id=_extract_provider_id,
+    callback_before_create=safe_callback_answer,
+    callback_reuse_answer=True,
 )

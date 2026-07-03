@@ -36,7 +36,6 @@ PROVIDER_NAMES = sorted({s.service_key.removesuffix("_service") for s in SPECS i
 # Providers whose callback/webapp flow is genuinely provider-specific and does
 # NOT use the shared link-flow engine. Each value documents the divergence.
 LINKFLOW_BESPOKE = {
-    "cloudpayments": "answers the callback query mid-flow (safe_callback_answer)",
     "cryptopay": "aiocryptopay invoice flow, not a hosted-link redirect",
     "pally": "answers the callback query mid-flow + per-flow create_bill args",
     "platega": (
