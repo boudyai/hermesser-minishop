@@ -77,14 +77,25 @@ def get_main_menu_inline_keyboard(
 
     # ponytail: in hermes mode the main menu offers tenant management directly
     # (status / logs / restart / suspend / delete) so users never have to open
-    # the Mini App. In proxy mode the menu is unchanged.
+    # the Mini App. In proxy mode the menu is unchanged. Button labels are
+    # pulled through i18n so a user on `en` sees English copy regardless of
+    # the admin's default language.
     if is_hermes:
         builder.row(
-            InlineKeyboardButton(text="📊 Статус", callback_data="tenant:status"),
-            InlineKeyboardButton(text="📋 Логи", callback_data="tenant:logs"),
+            InlineKeyboardButton(
+                text=_(key="tg_hermes_main_menu_status"),
+                callback_data="tenant:status",
+            ),
+            InlineKeyboardButton(
+                text=_(key="tg_hermes_main_menu_logs"),
+                callback_data="tenant:logs",
+            ),
         )
         builder.row(
-            InlineKeyboardButton(text="🔧 Токен бота", callback_data="main_action:set_token"),
+            InlineKeyboardButton(
+                text=_(key="tg_hermes_main_menu_token"),
+                callback_data="main_action:set_token",
+            ),
         )
 
     if (

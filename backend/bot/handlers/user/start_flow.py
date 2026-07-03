@@ -138,7 +138,7 @@ async def start_command_handler(
                         types.InlineKeyboardButton(
                             text=i18n.gettext(current_lang, "wa_support_open_ticket")
                             if i18n
-                            else "Открыть тикет",
+                            else "Open ticket",
                             web_app=types.WebAppInfo(url=ticket_url),
                         )
                     ]
@@ -147,7 +147,7 @@ async def start_command_handler(
             await message.answer(
                 i18n.gettext(current_lang, "wa_support_open_ticket_hint")
                 if i18n
-                else "Откройте тикет в Mini App.",
+                else "Open a ticket in the Mini App.",
                 reply_markup=keyboard,
             )
             return

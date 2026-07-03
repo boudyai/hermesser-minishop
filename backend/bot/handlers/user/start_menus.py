@@ -79,10 +79,14 @@ async def send_main_menu(
 
     is_hermes = str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
     if is_hermes:
-        text = (
-            f"Привет, {user_full_name}! 👋\n\n"
-            "Я хостю AI-ботов для Telegram. Управляйте своим агентом через кнопки ниже "
-            "или откройте Личный кабинет."
+        # ponytail: in hermes mode the main menu is the host's product
+        # surface (hosted AI agents), not the legacy Remnawave proxy.
+        # The two language variants are i18n keys so a user on `en`
+        # gets English even though the admin configured Russian as
+        # default. user_name is a Telegram-controlled string so we
+        # still feed it through the html.quote helper.
+        text = f"{_('tg_hermes_main_menu_greeting', user_name=user_full_name)} 👋\n\n" + _(
+            "tg_hermes_main_menu_greeting_body",
         )
     else:
         text = _(key="main_menu_greeting", user_name=user_full_name)

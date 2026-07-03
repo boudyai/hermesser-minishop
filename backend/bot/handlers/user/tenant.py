@@ -379,9 +379,7 @@ async def restart_confirm_callback(
         return
     tenant_id = await _get_tenant_id(subscription_service, session, user_id)
     if not tenant_id:
-        await callback.answer(
-            _("no_active_bot", default="No active bot"), show_alert=True
-        )
+        await callback.answer(_("no_active_bot", default="No active bot"), show_alert=True)
         return
     ok = await panel_service.restart_tenant(tenant_id)
     queued_msg = _(
@@ -405,7 +403,11 @@ async def restart_confirm_callback(
                     inline_keyboard=[
                         [
                             types.InlineKeyboardButton(
-                                text="⬅️ К статусу", callback_data="tenant:status"
+                                text=_(
+                                    key="tg_hermes_back_to_status_button",
+                                    default="⬅️ Back to status",
+                                ),
+                                callback_data="tenant:status",
                             )
                         ]
                     ]
@@ -414,7 +416,10 @@ async def restart_confirm_callback(
         except Exception:
             try:
                 await callback.message.answer(  # type: ignore[union-attr]
-                    "🔄 Перезагрузка поставлена в очередь. Бот вернётся через ~30 секунд."
+                    _(
+                        "tg_hermes_restart_queued_inline",
+                        default="🔄 Restart queued. Bot returns in ~30 seconds.",
+                    )
                 )
             except Exception:
                 pass
@@ -431,6 +436,7 @@ async def ensure_bot_creation_entrypoint(
     settings: Settings,
     subscription_service: SubscriptionService,
     async_session_factory,
+    i18n_data: dict | None = None,
 ) -> None:
     """Routes the user into the bot-creation flow used by the bot menu.
 
@@ -447,12 +453,17 @@ async def ensure_bot_creation_entrypoint(
     Returns silently if Hermes mode is off or the panel service is
     unavailable.
     """
+    i18n = (i18n_data or {}).get("i18n_instance")
+    current_lang = (i18n_data or {}).get("current_language", "ru")
+    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
     if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
         await callback.answer()
         return
     panel_service = await _get_hermes_panel(subscription_service)
     if panel_service is None:
-        await callback.answer("Сервис недоступен", show_alert=True)
+        await callback.answer(
+            _("service_unavailable", default="Service unavailable"), show_alert=True
+        )
         return
 
     user_id = callback.from_user.id
@@ -500,11 +511,21 @@ async def ensure_bot_creation_entrypoint(
                 result = None
             await callback.answer()
             if result and not result.get("error"):
-                text = f"✅ Ваш бот @{pending_username} создаётся и запустится через ~30 секунд."
+                text = "✅ " + _(
+                    "tg_hermes_bot_creating",
+                    default="Your bot @{username} is being created and will start in ~30 seconds.",
+                    username=pending_username,
+                )
             else:
                 text = (
-                    "⚠️ Не удалось создать бота автоматически. Попробуйте позже или "
-                    "откройте Личный кабинет."
+                    "⚠️ "
+                    + _(
+                        "tg_hermes_bot_creation_failed",
+                        default=(
+                            "Could not create the bot automatically. "
+                            "Try again later or open the Mini App."
+                        ),
+                    )
                 )
             if callback.message:
                 try:
@@ -523,14 +544,26 @@ async def token_command(
     message: types.Message,
     state: FSMContext,
     settings: Settings,
+    i18n_data: dict,
 ) -> None:
+    i18n = (i18n_data or {}).get("i18n_instance")
+    current_lang = (i18n_data or {}).get("current_language", "ru")
+    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
     if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
-        await message.answer("Эта команда доступна только в hermes mode.")
+        await message.answer(
+            _(
+                "tg_hermes_command_only_in_hermes_mode",
+                default="This command is only available in hermes mode.",
+            )
+        )
         return
     text = (
-        "🔧 Введите токен вашего бота из @BotFather:\n\n"
-        "Формат: 123456789:ABCdef...\n\n"
-        "Создайте бота: откройте @BotFather → /newbot"
+        "🔧 "
+        + _("tg_hermes_token_intro_title", default="Enter your bot token from @BotFather:")
+        + "\n\n"
+        + _("tg_hermes_token_intro_format", default="Format: 123456789:ABCdef...")
+        + "\n\n"
+        + _("tg_hermes_token_intro_help", default="Create a bot: open @BotFather → /newbot")
     )
     await message.answer(text)
     await state.set_state(TokenFSM.waiting_for_token)
@@ -541,15 +574,22 @@ async def set_token_callback(
     callback: types.CallbackQuery,
     state: FSMContext,
     settings: Settings,
+    i18n_data: dict,
 ) -> None:
+    i18n = (i18n_data or {}).get("i18n_instance")
+    current_lang = (i18n_data or {}).get("current_language", "ru")
+    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
     if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
         await callback.answer()
         return
     await state.set_state(TokenFSM.waiting_for_token)
     text = (
-        "🔧 Введите токен вашего бота из @BotFather:\n\n"
-        "Формат: 123456789:ABCdef...\n\n"
-        "Создайте бота: откройте @BotFather → /newbot"
+        "🔧 "
+        + _("tg_hermes_token_intro_title", default="Enter your bot token from @BotFather:")
+        + "\n\n"
+        + _("tg_hermes_token_intro_format", default="Format: 123456789:ABCdef...")
+        + "\n\n"
+        + _("tg_hermes_token_intro_help", default="Create a bot: open @BotFather → /newbot")
     )
     if callback.message:
         try:
@@ -565,11 +605,20 @@ async def token_input(
     state: FSMContext,
     async_session_factory,
     subscription_service: "SubscriptionService | None" = None,
+    i18n_data: dict | None = None,
 ) -> None:
+    i18n = (i18n_data or {}).get("i18n_instance")
+    current_lang = (i18n_data or {}).get("current_language", "ru")
+    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
     user_id = message.from_user.id if message.from_user else 0
     token = (message.text or "").strip()
     if not token or ":" not in token or not token.split(":", 1)[0].isdigit():
-        await message.answer("❌ Неверный формат. Введите токен вида 123456789:ABCdef...")
+        await message.answer(
+            _(
+                "tg_hermes_token_invalid_format",
+                default="❌ Invalid format. Enter a token like 123456789:ABCdef...",
+            )
+        )
         return
 
     bot_username = ""
@@ -581,12 +630,25 @@ async def token_input(
             ) as resp:
                 data = await resp.json()
                 if not data.get("ok"):
-                    await message.answer("❌ Telegram отклонил этот токен. Проверьте @BotFather.")
+                    await message.answer(
+                        _(
+                            "tg_hermes_token_rejected",
+                            default=(
+                                "❌ Telegram rejected this token. "
+                                "Double-check with @BotFather."
+                            ),
+                        )
+                    )
                     return
                 bot_username = data.get("result", {}).get("username", "")
     except Exception:
         logger.exception("getMe validation failed for user %s", user_id)
-        await message.answer("❌ Не удалось связаться с Telegram. Попробуйте позже.")
+        await message.answer(
+            _(
+                "tg_hermes_token_unreachable",
+                default="❌ Could not reach Telegram. Try again later.",
+            )
+        )
         return
 
     from db.dal import user_dal
@@ -676,22 +738,56 @@ async def token_input(
     await state.clear()
     await _safe_delete_message(message)
     if created_via_bot:
-        text = f"✅ Ваш бот @{bot_username} создаётся и запустится через ~30 секунд."
+        text = "✅ " + _(
+            "tg_hermes_bot_creating_named",
+            default=(
+                "Your bot @{username} is being created "
+                "and will start in ~30 seconds."
+            ),
+            username=bot_username,
+        )
     elif applied_to_tenant:
-        text = (
-            f"✅ Токен сохранён! Ваш бот @{bot_username} обновлён и перезапускается (~30 секунд)."
+        text = "✅ " + _(
+            "tg_hermes_token_updated",
+            default=(
+                "Token saved! Your bot @{username} was updated "
+                "and is restarting (~30 seconds)."
+            ),
+            username=bot_username,
         )
     elif tenant_uuid:
-        text = (
-            f"⚠️ Токен сохранён локально, но не применён к работающему боту. "
-            f"Бот @{bot_username} продолжит работать со старым токеном до следующей активации."
+        text = "⚠️ " + _(
+            "tg_hermes_token_saved_but_not_applied",
+            default=(
+                "Token saved locally but not applied to the running bot. "
+                "Bot @{username} will keep using the old token until "
+                "the next activation."
+            ),
+            username=bot_username,
         )
     else:
-        text = f"✅ Токен сохранён! Ваш бот @{bot_username} будет запущен при активации."
+        text = "✅ " + _(
+            "tg_hermes_token_saved_pending",
+            default=(
+                "Token saved! Your bot @{username} "
+                "will start once you activate."
+            ),
+            username=bot_username,
+        )
     markup = types.InlineKeyboardMarkup(
         inline_keyboard=[
-            [types.InlineKeyboardButton(text="📊 Статус", callback_data="tenant:status")],
-            [types.InlineKeyboardButton(text="⬅️ В меню", callback_data="main_action:back_to_main")],
+            [
+                types.InlineKeyboardButton(
+                    text=_(key="tg_hermes_main_menu_status_button", default="📊 Status"),
+                    callback_data="tenant:status",
+                )
+            ],
+            [
+                types.InlineKeyboardButton(
+                    text=_(key="back_to_menu_button", default="⬅️ Menu"),
+                    callback_data="main_action:back_to_main",
+                )
+            ],
         ]
     )
     await message.answer(text, reply_markup=markup)
@@ -708,11 +804,14 @@ async def logs_command(
     settings: Settings,
     subscription_service: SubscriptionService,
     session: AsyncSession,
+    i18n_data: dict | None = None,
 ) -> None:
     user_id = message.from_user.id if message.from_user else 0
     if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
         return
-    await _send_logs(message, user_id, settings, subscription_service, session, edit=False)
+    await _send_logs(
+        message, user_id, settings, subscription_service, session, edit=False, i18n_data=i18n_data
+    )
 
 
 @router.callback_query(F.data == "tenant:logs")
@@ -721,13 +820,25 @@ async def logs_callback(
     settings: Settings,
     subscription_service: SubscriptionService,
     session: AsyncSession,
+    i18n_data: dict | None = None,
 ) -> None:
     user_id = callback.from_user.id
     if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
         await callback.answer()
         return
-    await _send_logs(callback.message, user_id, settings, subscription_service, session, edit=True)
-    await callback.answer("Логи обновлены")
+    i18n = (i18n_data or {}).get("i18n_instance")
+    current_lang = (i18n_data or {}).get("current_language", "ru")
+    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
+    await _send_logs(
+        callback.message,
+        user_id,
+        settings,
+        subscription_service,
+        session,
+        edit=True,
+        i18n_data=i18n_data,
+    )
+    await callback.answer(_("tg_hermes_logs_refreshed_toast", default="Logs refreshed"))
 
 
 @router.callback_query(F.data == "tenant:logs:refresh")
@@ -736,25 +847,39 @@ async def logs_refresh_callback(
     settings: Settings,
     subscription_service: SubscriptionService,
     session: AsyncSession,
+    i18n_data: dict | None = None,
 ) -> None:
     user_id = callback.from_user.id
     if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
         await callback.answer()
         return
+    i18n = (i18n_data or {}).get("i18n_instance")
+    current_lang = (i18n_data or {}).get("current_language", "ru")
+    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
     panel_service = await _get_hermes_panel(subscription_service)
     if panel_service is None:
-        await callback.answer("Сервис недоступен", show_alert=True)
+        await callback.answer(
+            _("service_unavailable", default="Service unavailable"), show_alert=True
+        )
         return
     tenant_id = await _get_tenant_id(subscription_service, session, user_id)
     if not tenant_id:
-        await callback.answer("Нет активного бота", show_alert=True)
+        await callback.answer(_("no_active_bot", default="No active bot"), show_alert=True)
         return
     await panel_service.refresh_tenant_logs(tenant_id)
     import asyncio
 
     await asyncio.sleep(2)
-    await _send_logs(callback.message, user_id, settings, subscription_service, session, edit=True)
-    await callback.answer("Обновлено")
+    await _send_logs(
+        callback.message,
+        user_id,
+        settings,
+        subscription_service,
+        session,
+        edit=True,
+        i18n_data=i18n_data,
+    )
+    await callback.answer(_("tg_hermes_logs_updated_toast", default="Updated"))
 
 
 async def _send_logs(
@@ -764,9 +889,13 @@ async def _send_logs(
     subscription_service: SubscriptionService,
     session: AsyncSession,
     edit: bool,
+    i18n_data: dict | None = None,
 ) -> None:
     if target_message is None:
         return
+    i18n = (i18n_data or {}).get("i18n_instance")
+    current_lang = (i18n_data or {}).get("current_language", "ru")
+    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
     panel_service = await _get_hermes_panel(subscription_service)
     if panel_service is None:
         return
@@ -775,12 +904,21 @@ async def _send_logs(
         return
     logs = await panel_service.get_tenant_logs(tenant_id)
     snippet = logs[-3500:] if len(logs) > 3500 else logs
-    text = f"📋 Логи ({len(snippet)} символов):\n\n<pre>{snippet or '(empty)'}</pre>"
+    text = (
+        f"{_('tg_hermes_logs_header', count=len(snippet), default='📋 Logs ({count} chars):')}"
+        f"\n\n<pre>{snippet or '(empty)'}</pre>"
+    )
     markup = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                types.InlineKeyboardButton(text="🔄 Обновить", callback_data="tenant:logs:refresh"),
-                types.InlineKeyboardButton(text="⬅️ К статусу", callback_data="tenant:status"),
+                types.InlineKeyboardButton(
+                    text=_(key="tg_hermes_logs_refresh_button", default="🔄 Refresh"),
+                    callback_data="tenant:logs:refresh",
+                ),
+                types.InlineKeyboardButton(
+                    text=_(key="tg_hermes_back_to_status_button", default="⬅️ Back to status"),
+                    callback_data="tenant:status",
+                ),
             ]
         ]
     )
@@ -793,38 +931,57 @@ async def _send_logs(
 
 
 @router.message(Command("suspend"))
-async def suspend_command(message: types.Message, settings: Settings) -> None:
+async def suspend_command(
+    message: types.Message, settings: Settings, i18n_data: dict | None = None
+) -> None:
     if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
         return
-    await _confirm_suspend(message, edit=False)
+    await _confirm_suspend(message, edit=False, i18n_data=i18n_data)
 
 
 @router.callback_query(F.data == "tenant:suspend")
-async def suspend_callback(callback: types.CallbackQuery, settings: Settings) -> None:
+async def suspend_callback(
+    callback: types.CallbackQuery, settings: Settings, i18n_data: dict | None = None
+) -> None:
     if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
         await callback.answer()
         return
-    await _confirm_suspend(callback.message, edit=True)
+    await _confirm_suspend(callback.message, edit=True, i18n_data=i18n_data)
     await callback.answer()
 
 
 async def _confirm_suspend(
-    target_message: "types.Message | types.InaccessibleMessage | None", edit: bool
+    target_message: "types.Message | types.InaccessibleMessage | None",
+    edit: bool,
+    i18n_data: dict | None = None,
 ) -> None:
     if target_message is None:
         return
+    i18n = (i18n_data or {}).get("i18n_instance")
+    current_lang = (i18n_data or {}).get("current_language", "ru")
+    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
     text = (
-        "⏸ Приостановить бота?\n\n"
-        "Контейнер будет остановлен, а ключ CornLLM заблокирован.\n"
-        "Вы сможете возобновить бота, оплатив подписку."
+        "⏸ "
+        + _("tg_hermes_suspend_confirm_body", default="Suspend the bot?\n\n")
+        + _(
+            "tg_hermes_suspend_confirm_footer",
+            default=(
+                "The container will stop and the CornLLM key will be blocked. "
+                "You can resume the bot by renewing the subscription."
+            ),
+        )
     )
     markup = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text="✅ Да, приостановить", callback_data="tenant:suspend:confirm"
+                    text=_(key="tg_hermes_suspend_confirm_button", default="✅ Yes, suspend"),
+                    callback_data="tenant:suspend:confirm",
                 ),
-                types.InlineKeyboardButton(text="❌ Отмена", callback_data="tenant:status"),
+                types.InlineKeyboardButton(
+                    text=_(key="tg_hermes_cancel_button", default="❌ Cancel"),
+                    callback_data="tenant:status",
+                ),
             ]
         ]
     )
@@ -837,21 +994,32 @@ async def suspend_confirm_callback(
     settings: Settings,
     subscription_service: SubscriptionService,
     session: AsyncSession,
+    i18n_data: dict | None = None,
 ) -> None:
     user_id = callback.from_user.id
     if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
         await callback.answer()
         return
+    i18n = (i18n_data or {}).get("i18n_instance")
+    current_lang = (i18n_data or {}).get("current_language", "ru")
+    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
     panel_service = await _get_hermes_panel(subscription_service)
     if panel_service is None:
-        await callback.answer("Сервис недоступен", show_alert=True)
+        await callback.answer(
+            _("service_unavailable", default="Service unavailable"),
+            show_alert=True,
+        )
         return
     tenant_id = await _get_tenant_id(subscription_service, session, user_id)
     if not tenant_id:
-        await callback.answer("Нет активного бота", show_alert=True)
+        await callback.answer(_("no_active_bot", default="No active bot"), show_alert=True)
         return
     ok = await panel_service.update_user_status_on_panel(tenant_id, enable=False)
-    text = "⏸ Бот приостановлен." if ok else "❌ Не удалось приостановить."
+    text = (
+        "⏸ " + _("tg_hermes_suspend_success", default="Bot suspended.")
+        if ok
+        else "❌ " + _("tg_hermes_suspend_failed", default="Could not suspend.")
+    )
     if callback.message:
         try:
             await callback.message.edit_text(  # type: ignore[union-attr]
@@ -860,7 +1028,8 @@ async def suspend_confirm_callback(
                     inline_keyboard=[
                         [
                             types.InlineKeyboardButton(
-                                text="⬅️ В меню", callback_data="main_action:back_to_main"
+                                text=_(key="back_to_menu_button", default="⬅️ Menu"),
+                                callback_data="main_action:back_to_main",
                             )
                         ]
                     ]
@@ -877,18 +1046,38 @@ async def suspend_confirm_callback(
 
 
 @router.message(Command("delete"))
-async def delete_command(message: types.Message, state: FSMContext, settings: Settings) -> None:
+async def delete_command(
+    message: types.Message,
+    state: FSMContext,
+    settings: Settings,
+    i18n_data: dict | None = None,
+) -> None:
     if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
         return
+    i18n = (i18n_data or {}).get("i18n_instance")
+    current_lang = (i18n_data or {}).get("current_language", "ru")
+    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
     await state.set_state(DeleteFSM.waiting_for_confirmation)
     text = (
-        "🗑 Удалить бота?\n\n"
-        "Контейнер будет остановлен и удалён. Бэкапы хранятся 30 дней.\n\n"
-        "Для подтверждения введите: <code>DELETE</code>"
+        "🗑 "
+        + _("tg_hermes_delete_confirm_body", default="Delete the bot?\n\n")
+        + _(
+            "tg_hermes_delete_confirm_typed_footer",
+            default=(
+                "The container will stop and be deleted. "
+                "Backups are kept for 30 days.\n\n"
+                "Type <code>DELETE</code> to confirm."
+            ),
+        )
     )
     markup = types.InlineKeyboardMarkup(
         inline_keyboard=[
-            [types.InlineKeyboardButton(text="❌ Отмена", callback_data="tenant:status")]
+            [
+                types.InlineKeyboardButton(
+                    text=_(key="tg_hermes_cancel_button", default="❌ Cancel"),
+                    callback_data="tenant:status",
+                )
+            ]
         ]
     )
     await message.answer(text, reply_markup=markup)
@@ -899,15 +1088,27 @@ async def delete_callback(
     callback: types.CallbackQuery,
     state: FSMContext,
     settings: Settings,
+    i18n_data: dict | None = None,
 ) -> None:
     if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
         await callback.answer()
         return
+    i18n = (i18n_data or {}).get("i18n_instance")
+    current_lang = (i18n_data or {}).get("current_language", "ru")
+    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
     await state.set_state(DeleteFSM.waiting_for_confirmation)
-    text = "🗑 Удалить бота?\n\nДля подтверждения введите: <code>DELETE</code>"
+    text = "🗑 " + _(
+        "tg_hermes_delete_confirm_typed_body",
+        default="Delete the bot?\n\nType <code>DELETE</code> to confirm.",
+    )
     markup = types.InlineKeyboardMarkup(
         inline_keyboard=[
-            [types.InlineKeyboardButton(text="❌ Отмена", callback_data="tenant:status")]
+            [
+                types.InlineKeyboardButton(
+                    text=_(key="tg_hermes_cancel_button", default="❌ Cancel"),
+                    callback_data="tenant:status",
+                )
+            ]
         ]
     )
     if callback.message:
@@ -925,10 +1126,17 @@ async def delete_confirm_input(
     settings: Settings,
     subscription_service: SubscriptionService,
     session: AsyncSession,
+    i18n_data: dict | None = None,
 ) -> None:
+    i18n = (i18n_data or {}).get("i18n_instance")
+    current_lang = (i18n_data or {}).get("current_language", "ru")
+    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
     if (message.text or "").strip() != "DELETE":
         await message.answer(
-            "Введите DELETE заглавными буквами для подтверждения, или нажмите Отмена."
+            _(
+                "tg_hermes_delete_typed_hint",
+                default="Type DELETE in capital letters to confirm, or press Cancel.",
+            )
         )
         return
 
@@ -936,21 +1144,40 @@ async def delete_confirm_input(
     panel_service = await _get_hermes_panel(subscription_service)
     if panel_service is None:
         await state.clear()
-        await message.answer("Сервис недоступен.")
+        await message.answer(
+            _(
+                "tg_hermes_service_unavailable_short",
+                default="Service unavailable.",
+            )
+        )
         return
 
     tenant_id = await _get_tenant_id(subscription_service, session, user_id)
     if not tenant_id:
         await state.clear()
-        await message.answer("Нет активного бота.")
+        await message.answer(
+            _(
+                "tg_hermes_no_active_bot_short",
+                default="No active bot.",
+            )
+        )
         return
 
     await state.clear()
     ok = await panel_service.delete_user_from_panel(tenant_id)
-    text = "🗑 Бот удалён. Бэкапы хранятся 30 дней." if ok else "❌ Не удалось удалить."
+    text = (
+        "🗑 " + _("tg_hermes_delete_success", default="Bot deleted. Backups are kept for 30 days.")
+        if ok
+        else "❌ " + _("tg_hermes_delete_failed", default="Could not delete.")
+    )
     markup = types.InlineKeyboardMarkup(
         inline_keyboard=[
-            [types.InlineKeyboardButton(text="⬅️ В меню", callback_data="main_action:back_to_main")]
+            [
+                types.InlineKeyboardButton(
+                    text=_(key="back_to_menu_button", default="⬅️ Menu"),
+                    callback_data="main_action:back_to_main",
+                )
+            ]
         ]
     )
     await message.answer(text, reply_markup=markup)
