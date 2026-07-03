@@ -14,7 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
-from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
 from db.dal import payment_dal
 
@@ -25,6 +24,7 @@ from ..shared import (
     PAYMENT_STATUS_PENDING_FINALIZATION,
     HttpClientMixin,
     PaymentSuccessRequest,
+    check_webhook_source_ip,
     decimal_amounts_equal,
     finalize_successful_payment,
     first_value,
@@ -775,13 +775,18 @@ class WataService(HttpClientMixin):
         if not self.configured:
             return web.Response(status=503, text="wata_disabled")
 
-        client_ip = request_client_ip(request, trusted_proxies=self.settings.trusted_proxies)
         trusted = self.config.trusted_ips_list
-        if trusted and not ip_in_allowlist(client_ip, trusted):
+        ip_check = check_webhook_source_ip(
+            request,
+            trusted_ips=trusted,
+            trusted_proxies=self.settings.trusted_proxies,
+            allow_empty=True,
+        )
+        if not ip_check.allowed:
             logger.warning(
                 "Wata webhook denied from unauthorized IP source "
                 "(client_ip=%s remote=%s x_forwarded_for=%s).",
-                client_ip,
+                ip_check.client_ip,
                 request.remote,
                 request.headers.get("X-Forwarded-For"),
             )

@@ -15,7 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
-from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
 from db.dal import payment_dal, user_billing_dal
 
@@ -30,12 +29,15 @@ from ..base import (
 )
 from ..shared import (
     PAYMENT_STATUS_PENDING_FINALIZATION,
+    CreatePaymentRequest,
     HttpClientMixin,
+    LinkPaymentDescriptor,
     PaymentSuccessRequest,
     RecurringChargeContext,
     RecurringChargeResult,
-    CreatePaymentRequest,
     build_payment_record_payload,
+    check_webhook_source_ip,
+    constant_time_compare,
     decimal_amounts_equal,
     finalize_successful_payment,
     first_value,
@@ -44,7 +46,6 @@ from ..shared import (
     notify_user_payment_failed,
     payment_units_for_activation,
     post_json_request,
-    LinkPaymentDescriptor,
     run_callback_payment,
     run_reuse_webapp_payment,
     run_webapp_payment,
@@ -457,7 +458,7 @@ class CloudPaymentsService(HttpClientMixin):
         for body in candidates:
             digest = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).digest()
             expected = base64.b64encode(digest).decode("ascii")
-            if hmac.compare_digest(expected, received):
+            if constant_time_compare(expected, received):
                 return True
         return False
 
@@ -498,13 +499,18 @@ class CloudPaymentsService(HttpClientMixin):
         if not self.configured:
             return web.json_response({"code": 13}, status=503)
 
-        client_ip = request_client_ip(request, trusted_proxies=self.settings.trusted_proxies)
         trusted = self.config.trusted_ips_list
-        if trusted and not ip_in_allowlist(client_ip, trusted):
+        ip_check = check_webhook_source_ip(
+            request,
+            trusted_ips=trusted,
+            trusted_proxies=self.settings.trusted_proxies,
+            allow_empty=True,
+        )
+        if not ip_check.allowed:
             logger.warning(
                 "CloudPayments webhook denied from unauthorized IP source "
                 "(client_ip=%s remote=%s x_forwarded_for=%s).",
-                client_ip,
+                ip_check.client_ip,
                 request.remote,
                 request.headers.get("X-Forwarded-For"),
             )

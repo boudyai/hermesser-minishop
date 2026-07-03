@@ -1,6 +1,5 @@
 import base64
 import hashlib
-import hmac
 import json
 import logging
 import time
@@ -15,7 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
-from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
 from config.tariffs_config import (
     default_payment_currency_code_for_settings,
@@ -39,6 +37,8 @@ from ..shared import (
     HttpClientMixin,
     LinkPaymentDescriptor,
     PaymentSuccessRequest,
+    check_webhook_source_ip,
+    constant_time_compare,
     decimal_amounts_equal,
     finalize_successful_payment,
     first_value,
@@ -442,7 +442,7 @@ class HeleketService(HttpClientMixin):
         data = OrderedDict((k, v) for k, v in payload.items() if k != "sign")
         candidates = _signature_candidates(data, self.api_key)
         for name, expected, _canonical in candidates:
-            if hmac.compare_digest(expected, received):
+            if constant_time_compare(expected, received):
                 if name != "php_unicode_slash":
                     logger.info("Heleket webhook: signature matched variant %s.", name)
                 return True
@@ -463,13 +463,18 @@ class HeleketService(HttpClientMixin):
         if not self.configured:
             return web.Response(status=503, text="heleket_disabled")
 
-        client_ip = request_client_ip(request, trusted_proxies=self.settings.trusted_proxies)
         trusted = self.config.trusted_ips_list
-        if trusted and not ip_in_allowlist(client_ip, trusted):
+        ip_check = check_webhook_source_ip(
+            request,
+            trusted_ips=trusted,
+            trusted_proxies=self.settings.trusted_proxies,
+            allow_empty=True,
+        )
+        if not ip_check.allowed:
             logger.warning(
                 "Heleket webhook denied from unauthorized IP source "
                 "(client_ip=%s remote=%s x_forwarded_for=%s).",
-                client_ip,
+                ip_check.client_ip,
                 request.remote,
                 request.headers.get("X-Forwarded-For"),
             )

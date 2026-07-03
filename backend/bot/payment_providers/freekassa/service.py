@@ -16,7 +16,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
-from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
 from config.tariffs_config import default_payment_currency_code_for_settings
 from db.dal import payment_dal
@@ -38,6 +37,8 @@ from ..shared import (
     HttpClientMixin,
     LinkPaymentDescriptor,
     PaymentSuccessRequest,
+    check_webhook_source_ip,
+    constant_time_compare,
     decimal_amounts_equal,
     finalize_successful_payment,
     first_value,
@@ -348,20 +349,25 @@ class FreeKassaService(HttpClientMixin):
             raw_body,
             hashlib.sha256,
         ).hexdigest()
-        return hmac.compare_digest(expected_signature, provided_signature)
+        return constant_time_compare(expected_signature, provided_signature)
 
     async def webhook_route(self, request: web.Request) -> web.Response:
         if not self.configured:
             return web.Response(status=503, text="freekassa_disabled")
 
         try:
-            client_ip = request_client_ip(request, trusted_proxies=self.settings.trusted_proxies)
             trusted = self.config.trusted_ips_list
-            if not ip_in_allowlist(client_ip, trusted):
+            ip_check = check_webhook_source_ip(
+                request,
+                trusted_ips=trusted,
+                trusted_proxies=self.settings.trusted_proxies,
+                allow_empty=False,
+            )
+            if not ip_check.allowed:
                 logger.warning(
                     "FreeKassa webhook denied from unauthorized IP source "
                     "(client_ip=%s remote=%s x_forwarded_for=%s).",
-                    client_ip,
+                    ip_check.client_ip,
                     request.remote,
                     request.headers.get("X-Forwarded-For"),
                 )

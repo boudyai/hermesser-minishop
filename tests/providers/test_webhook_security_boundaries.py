@@ -1,10 +1,9 @@
 """Characterization tests for provider webhook security boundaries.
 
-These pin the *reject* paths of the service-route providers that previously had
-no direct ``webhook_route`` coverage (freekassa, heleket, platega, paykilla):
-disabled service (503), unauthorized source IP / auth headers (403), and invalid
-signature (403). The bytes here are the live contract — any refactor that moves a
-helper out of these routes (F2 step 3 / F3) must keep these responses identical.
+These pin the *reject* paths of service-route providers around disabled services
+(503), unauthorized source IP / auth headers (403), and invalid signatures (403).
+The bytes here are the live contract — any refactor that moves a helper out of
+these routes (F2 step 3 / F3) must keep these responses identical.
 
 The services are driven as unbound methods over a ``SimpleNamespace`` carrying
 only the attributes each reject path touches, mirroring the existing
@@ -16,10 +15,12 @@ import asyncio
 import json
 from types import SimpleNamespace
 
+from bot.payment_providers.cloudpayments.service import CloudPaymentsService
 from bot.payment_providers.freekassa.service import FreeKassaService
 from bot.payment_providers.heleket.service import HeleketService
 from bot.payment_providers.paykilla.service import PaykillaService
 from bot.payment_providers.platega.service import PlategaService
+from bot.payment_providers.wata.service import WataService
 
 
 class _FakeRequest:
@@ -89,6 +90,17 @@ def test_freekassa_webhook_rejects_unauthorized_ip():
     assert response.status == 403
 
 
+def test_cloudpayments_webhook_rejects_unauthorized_ip():
+    service = SimpleNamespace(
+        configured=True,
+        settings=SimpleNamespace(trusted_proxies=[]),
+        config=SimpleNamespace(trusted_ips_list=["1.2.3.4"]),
+    )
+    response = _run(CloudPaymentsService.webhook_route(service, _FakeRequest(remote="9.9.9.9")))
+    assert response.status == 403
+    assert json.loads(response.body) == {"code": 13}
+
+
 def test_heleket_webhook_rejects_unauthorized_ip():
     service = SimpleNamespace(
         configured=True,
@@ -107,6 +119,17 @@ def test_paykilla_webhook_rejects_unauthorized_ip():
         config=SimpleNamespace(trusted_ips_list=["1.2.3.4"]),
     )
     response = _run(PaykillaService.webhook_route(service, _FakeRequest(remote="9.9.9.9")))
+    assert response.status == 403
+    assert response.text == "forbidden"
+
+
+def test_wata_webhook_rejects_unauthorized_ip():
+    service = SimpleNamespace(
+        configured=True,
+        settings=SimpleNamespace(trusted_proxies=[]),
+        config=SimpleNamespace(trusted_ips_list=["1.2.3.4"]),
+    )
+    response = _run(WataService.webhook_route(service, _FakeRequest(remote="9.9.9.9")))
     assert response.status == 403
     assert response.text == "forbidden"
 

@@ -1,4 +1,3 @@
-import hmac
 import json
 import logging
 from typing import TYPE_CHECKING, Any
@@ -31,6 +30,7 @@ from ..shared import (
     HttpClientMixin,
     LinkPaymentDescriptor,
     PaymentSuccessRequest,
+    constant_time_compare,
     decimal_amounts_equal,
     finalize_successful_payment,
     first_value,
@@ -354,8 +354,8 @@ class PlategaService(HttpClientMixin):
         header_merchant = request.headers.get("X-MerchantId")
         header_secret = request.headers.get("X-Secret")
         if not (
-            hmac.compare_digest(str(header_merchant or ""), str(self.merchant_id or ""))
-            and hmac.compare_digest(str(header_secret or ""), str(self.secret or ""))
+            constant_time_compare(header_merchant, self.merchant_id)
+            and constant_time_compare(header_secret, self.secret)
         ):
             logger.error("Platega webhook: invalid auth headers")
             return web.Response(status=403, text="forbidden")

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
-import hmac
 import json
 import logging
 from collections.abc import Mapping
@@ -32,16 +31,17 @@ from ..base import (
 )
 from ..shared import (
     PAYMENT_STATUS_PENDING_FINALIZATION,
-    HttpClientMixin,
-    PaymentSuccessRequest,
     CreatePaymentRequest,
+    HttpClientMixin,
+    LinkPaymentDescriptor,
+    PaymentSuccessRequest,
+    constant_time_compare,
     finalize_successful_payment,
     first_value,
     format_decimal_amount,
     lookup_payment_by_order_or_provider_id,
     notify_user_payment_failed,
     payment_units_for_activation,
-    LinkPaymentDescriptor,
     run_callback_payment,
     run_reuse_webapp_payment,
     run_webapp_payment,
@@ -460,7 +460,7 @@ class PallyService(HttpClientMixin):
         if not expected:
             logger.error("Pally webhook: no signature token configured.")
             return False
-        return hmac.compare_digest(expected, received)
+        return constant_time_compare(expected, received)
 
     def _amount_matches_payment(
         self, payload: Mapping[str, Any], payment: Any, status: str
