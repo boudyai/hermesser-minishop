@@ -136,6 +136,24 @@ async def tenant_quota_route(request: web.Request) -> web.Response:
     return json_response({"ok": True, **quota})
 
 
+async def tenant_cornllm_key_route(request: web.Request) -> web.Response:
+    """Return the user's CornLLM virtual key for the Settings UI.
+
+    Exposes only the customer-scoped virtual key (one per tenant).
+    Never the LiteLLM master key, never the upstream provider key.
+    The Mini App renders it masked by default; the user explicitly
+    reveals/copies on demand.
+    """
+    result = await _resolve_tenant(request)
+    if isinstance(result, web.Response):
+        return result
+    panel_service, tenant_id = result
+    payload = await panel_service.get_tenant_cornllm_key(tenant_id)
+    if payload is None:
+        return _json_error(404, "no_active_key", "No active CornLLM key for this tenant")
+    return json_response({"ok": True, **payload})
+
+
 # ============================================
 # Logs
 # ============================================

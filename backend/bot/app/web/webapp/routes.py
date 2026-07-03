@@ -79,6 +79,7 @@ from .env import (
     tenant_logs_refresh_route,
     tenant_logs_route,
     tenant_quota_route,
+    tenant_cornllm_key_route,
     tenant_recreate_route,
     tenant_restart_route,
     tenant_suspend_route,
@@ -209,6 +210,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_put("/api/env", env_update_route)
     app.router.add_post("/api/tenant/restart", tenant_restart_route)
     app.router.add_get("/api/tenant/quota", tenant_quota_route)
+    app.router.add_get("/api/tenant/cornllm-key", tenant_cornllm_key_route)
     app.router.add_get("/api/tenant/logs", tenant_logs_route)
     app.router.add_post("/api/tenant/logs/refresh", tenant_logs_refresh_route)
     app.router.add_post("/api/tenant/suspend", tenant_suspend_route)

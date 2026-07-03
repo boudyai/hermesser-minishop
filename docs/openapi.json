@@ -13120,6 +13120,66 @@
         ]
       }
     },
+    "/api/tenant/cornllm-key": {
+      "get": {
+        "operationId": "get_tenant_cornllm_key_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "api_key": {
+                      "type": "string"
+                    },
+                    "budget_duration": {
+                      "type": "string"
+                    },
+                    "key_id": {
+                      "type": "string"
+                    },
+                    "max_budget": {
+                      "type": "number"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "spent": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "tenant_id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Tenant Cornllm Key",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
     "/api/tenant/logs": {
       "get": {
         "operationId": "get_tenant_logs_route",

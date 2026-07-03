@@ -17,6 +17,7 @@
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
   import EnvEditor from "../components/EnvEditor.svelte";
   import BotTokenInput from "../components/BotTokenInput.svelte";
+  import CornllmKeyCard from "../components/CornllmKeyCard.svelte";
   import TenantDangerZone from "../components/TenantDangerZone.svelte";
 
   type AnyRecord = Record<string, any>;
@@ -147,6 +148,9 @@
     <EnvEditor {apiUnchecked} {t} />
   {/if}
   <BotTokenInput {appSettings} {apiUnchecked} />
+  {#if hasActiveTenant && hermesMode}
+    <CornllmKeyCard {appSettings} {subscription} {apiUnchecked} />
+  {/if}
   <TenantDangerZone {appSettings} {subscription} {apiUnchecked} />
   {#if telegramNotificationsNeedPrompt}
     <TelegramNotificationsBanner

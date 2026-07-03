@@ -6,6 +6,7 @@ from bot.app.web.route_contracts import (
     NULLABLE_INTEGER_SCHEMA,
     NULLABLE_NUMBER_SCHEMA,
     NULLABLE_STRING_SCHEMA,
+    NUMBER_SCHEMA,
     STRING_SCHEMA,
     RouteContract,
     ok_envelope_with,
@@ -126,6 +127,19 @@ AUTH_ROUTE_CONTRACTS: dict[str, RouteContract] = {
                 "spent": NULLABLE_NUMBER_SCHEMA,
                 "remaining": NULLABLE_NUMBER_SCHEMA,
                 "budget_duration": NULLABLE_STRING_SCHEMA,
+            },
+            required=[],
+        ),
+    ),
+    "tenant_cornllm_key_route": user_contract(
+        response_schema=ok_envelope_with(
+            {
+                "tenant_id": STRING_SCHEMA,
+                "api_key": STRING_SCHEMA,
+                "key_id": STRING_SCHEMA,
+                "max_budget": NUMBER_SCHEMA,
+                "spent": NULLABLE_NUMBER_SCHEMA,
+                "budget_duration": STRING_SCHEMA,
             },
             required=[],
         ),

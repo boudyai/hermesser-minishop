@@ -1528,6 +1528,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tenant/cornllm-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tenant Cornllm Key */
+        get: operations["get_tenant_cornllm_key_route"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tenant/logs": {
         parameters: {
             query?: never;
@@ -7450,6 +7467,35 @@ export interface operations {
                     "application/json": {
                         /** @constant */
                         ok: true;
+                    };
+                };
+            };
+        };
+    };
+    get_tenant_cornllm_key_route: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        api_key?: string;
+                        budget_duration?: string;
+                        key_id?: string;
+                        max_budget?: number;
+                        /** @constant */
+                        ok: true;
+                        spent?: number | null;
+                        tenant_id?: string;
                     };
                 };
             };

@@ -500,6 +500,28 @@ class HermesProvisioningService(PanelApiService):
             )
             return None
 
+    async def get_tenant_cornllm_key(
+        self, tenant_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Fetch the tenant's CornLLM virtual key for the user-facing
+        Settings UI. Returns None on 404 (no active key) or 5xx; the
+        caller renders the appropriate copy.
+        """
+        session = await self._core_get_session()
+        async with session.get(
+            f"{self._core_base_url}/shop/tenants/{tenant_id}/cornllm-key"
+        ) as resp:
+            if resp.status == 200:
+                return await resp.json()
+            body = await resp.text()
+            log.warning(
+                "CornLLM key fetch failed for %s: %s %s",
+                tenant_id,
+                resp.status,
+                body[:200],
+            )
+            return None
+
     async def get_tenant_state(self, tenant_id: str) -> Optional[Dict[str, Any]]:
         """Fetch tenant runtime state from provisioning-core with short TTL cache.
 
