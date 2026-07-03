@@ -153,11 +153,11 @@
         style="display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px;"
       >
         <Plus size={15} />
-        <span>Баланс CornLLM</span>
+        <span>{t("admin_cornllm_balance", {}, "CornLLM")}</span>
       </div>
       <Button variant="primary" onclick={() => (open = true)} disabled={busy || !actionsEnabled}>
         <Plus size={14} />
-        Пополнить
+        {t("wa_topup_action", {}, "Top up")}
       </Button>
     </div>
   </Card>

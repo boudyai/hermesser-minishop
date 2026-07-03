@@ -223,16 +223,16 @@
         style="display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px;"
       >
         <Activity size={15} />
-        <span>Статус бота</span>
+        <span>{t("wa_hermes_status_card_label", {}, "Bot status")}</span>
       </div>
       <div style="display: flex; gap: 6px; align-items: center;">
         <Button variant="secondary" onclick={loadLogs} disabled={busy || !actionsEnabled}>
           <FileText size={14} />
-          Логи
+          {t("logs", {}, "Logs")}
         </Button>
         <Button variant="secondary" onclick={askRestart} disabled={busy || !actionsEnabled}>
           <RefreshCw size={14} class={busyAction === "restart" ? "spinning" : ""} />
-          Перезагрузить
+          {t("restart", {}, "Restart")}
         </Button>
       </div>
     </div>
@@ -241,15 +241,17 @@
         style="margin-top: 8px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 12px;"
       >
         <div>
-          <small style="color: var(--muted);">Баланс CornLLM</small>
+          <small style="color: var(--muted);">{t("admin_cornllm_balance", {}, "CornLLM")}</small>
           <div><strong>{fmtRub(quotaMax)}</strong></div>
         </div>
         <div>
-          <small style="color: var(--muted);">Потрачено</small>
+          <small style="color: var(--muted);"
+            >{t("admin_cornllm_balance_spent", {}, "Spent")}</small
+          >
           <div><strong>{fmtRub(quotaSpent)}</strong></div>
         </div>
         <div>
-          <small style="color: var(--muted);">Осталось</small>
+          <small style="color: var(--muted);">{t("wa_home_remaining", {}, "Remaining")}</small>
           <div>
             <strong
               style={quotaRemaining !== null && quotaRemaining < 1 ? "color: var(--danger)" : ""}
@@ -264,11 +266,11 @@
       <div style="margin-top: 10px;">
         <Button variant="secondary" onclick={loadLogs} disabled={busy}>
           <RefreshCw size={12} class={busyAction === "logs-refresh" ? "spinning" : ""} />
-          Обновить логи
+          {t("tg_hermes_logs_refresh_button", {}, "Refresh logs")}
         </Button>
         <pre
-          style="margin-top: 8px; padding: 8px; background: var(--surface-subtle); border: 1px solid var(--surface-subtle-border); border-radius: 8px; font-family: ui-monospace, monospace; font-size: 11px; max-height: 240px; overflow: auto; white-space: pre-wrap; word-break: break-all;">{logs ||
-            "(empty)"}</pre>
+          style="margin-top: 8px; padding: 8px; background: var(--surface-subtle); border: 1px solid var(--surface-subtle-border); border-radius: 8px; font-family: ui-monospace, monospace; font-size: 11px; max-height: 240px; overflow: auto; white-space: pre-wrap; word-break: break-all;"
+          >{logs || t("logs_empty", {}, "(empty)")}</pre>
       </div>
     {/if}
     {#if confirmRestart}
@@ -276,14 +278,20 @@
         style="margin-top: 10px; padding: 10px; border: 1px solid var(--border, #ccc); border-radius: 6px; background: var(--surface-subtle, #f7f7f7);"
       >
         <p style="margin: 0 0 6px; font-size: 13px;">
-          🔄 Перезагрузить бота? Контейнер будет остановлен и запущен заново (~30 секунд).
+          {t(
+            "wa_hermes_restart_confirm_inline",
+            {},
+            "🔄 Restart the bot? Container will stop and start again (~30 seconds)."
+          )}
         </p>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <Button variant="primary" onclick={confirmRestartAction} disabled={busy}>
             <RefreshCw size={14} class={busyAction === "restart" ? "spinning" : ""} />
-            Да, перезагрузить
+            {t("wa_hermes_restart_confirm_button", {}, "Yes, restart")}
           </Button>
-          <Button variant="secondary" onclick={cancelRestart} disabled={busy}>Отмена</Button>
+          <Button variant="secondary" onclick={cancelRestart} disabled={busy}
+            >{t("cancel", {}, "Cancel")}</Button
+          >
         </div>
       </div>
     {/if}
