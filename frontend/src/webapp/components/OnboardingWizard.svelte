@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Check, ChevronRight, Copy, Gift, Server, Sparkles, Wallet } from "$components/ui/icons.js";
+  import { Check, ChevronRight, Copy, Server, Sparkles } from "$components/ui/icons.js";
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
 
