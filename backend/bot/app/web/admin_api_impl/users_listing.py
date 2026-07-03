@@ -12,12 +12,10 @@ from bot.app.web.context import (
     get_panel_service,
     get_session_factory,
     get_settings,
-    get_subscription_service,
 )
 from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
 from bot.infra.redis import cache_delete_pattern, redis_key
 from bot.services.hermes_provisioning_service import HermesProvisioningService
-from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
 from db.models import Subscription
