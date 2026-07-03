@@ -61,7 +61,7 @@
 
 Переключатель **Регистрация только по приглашению** находится в **Система -> Настройки -> Общие**. Когда он включён, новые пользователи создаются только после перехода по валидной реферальной ссылке Telegram/Web App; существующие Telegram, WebApp/OAuth, email-code, magic-link и password пользователи продолжают входить без реферального параметра.
 
-Для каждого платежного метода в разделе провайдера доступны настройки отображения `PAYMENT_<METHOD>_WEBAPP_LABEL_RU`, `PAYMENT_<METHOD>_WEBAPP_LABEL_EN`, `PAYMENT_<METHOD>_WEBAPP_ICON`, `PAYMENT_<METHOD>_TELEGRAM_LABEL_RU`, `PAYMENT_<METHOD>_TELEGRAM_LABEL_EN` и `PAYMENT_<METHOD>_TELEGRAM_EMOJI`. Пустое значение возвращает мультиязычное значение по умолчанию из модуля платежного провайдера. Иконка Web App выбирается из уже подключенных lucide-иконок (`frontend/src/lib/components/ui/icons.js`) через модалку в админке.
+Для каждого платежного метода в разделе провайдера доступны настройки отображения `PAYMENT_<METHOD>_WEBAPP_LABEL_RU`, `PAYMENT_<METHOD>_WEBAPP_LABEL_EN`, `PAYMENT_<METHOD>_WEBAPP_ICON`, `PAYMENT_<METHOD>_TELEGRAM_LABEL_RU`, `PAYMENT_<METHOD>_TELEGRAM_LABEL_EN` и `PAYMENT_<METHOD>_TELEGRAM_EMOJI`. Пустое значение возвращает мультиязычное значение по умолчанию из модуля платежного провайдера. Иконка Web App выбирается из уже подключенных lucide-иконок (`frontend/src/lib/components/ui/icons.ts`) через модалку в админке.
 
 ## Бэкапы
 
