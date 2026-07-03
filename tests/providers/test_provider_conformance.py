@@ -37,7 +37,6 @@ PROVIDER_NAMES = sorted({s.service_key.removesuffix("_service") for s in SPECS i
 # NOT use the shared link-flow engine. Each value documents the divergence.
 LINKFLOW_BESPOKE = {
     "cryptopay": "aiocryptopay invoice flow, not a hosted-link redirect",
-    "pally": "answers the callback query mid-flow + per-flow create_bill args",
     "platega": (
         "callback/webapp variant routing is part of provider payload validation: "
         "legacy pay_platega maps to SBP, crypto/SBP use distinct method ids, "

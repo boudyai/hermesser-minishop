@@ -19,10 +19,6 @@ from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
 from config.settings import Settings
-from config.tariffs_config import (
-    default_currency_key_for_settings,
-    default_payment_currency_code_for_settings,
-)
 from db.dal import payment_dal
 
 from ..base import (
@@ -38,30 +34,20 @@ from ..shared import (
     PAYMENT_STATUS_PENDING_FINALIZATION,
     HttpClientMixin,
     PaymentSuccessRequest,
-    build_payment_record_payload,
-    create_webapp_payment_record,
-    describe_payment,
+    CreatePaymentRequest,
     finalize_successful_payment,
-    finalize_webapp_link_payment,
     first_value,
     format_decimal_amount,
     lookup_payment_by_order_or_provider_id,
-    make_translator,
-    notify_callback_parse_error,
-    notify_payment_record_failure,
-    notify_service_unavailable,
     notify_user_payment_failed,
-    parse_payment_callback,
-    payment_failed,
-    payment_record_amounts,
-    payment_unavailable,
     payment_units_for_activation,
-    quote_hwid_callback_parts,
-    render_link_or_fail,
-    render_payment_link,
+    LinkPaymentDescriptor,
+    run_callback_payment,
+    run_reuse_webapp_payment,
+    run_webapp_payment,
     safe_callback_answer,
 )
-from ..shared.app_context import app_optional, app_required
+from ..shared.app_context import app_required
 from .manifest import _CONFIG_MANIFEST, _PRESENTATION_MANIFEST
 
 if TYPE_CHECKING:
@@ -683,123 +669,13 @@ async def pay_pally_callback_handler(
     pally_service: PallyService,
     session: AsyncSession,
 ) -> None:
-    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
-    translator = make_translator(i18n, current_lang)
-
-    if not i18n or not callback.message:
-        await notify_callback_parse_error(callback, translator)
-        return
-
-    if not SPEC.is_available_to_user(
-        settings,
-        user_id=callback.from_user.id,
-        require_configured=False,
-    ):
-        await notify_service_unavailable(callback, translator)
-        return
-
-    if not pally_service or not pally_service.configured:
-        logger.error("Pally service is not configured or unavailable.")
-        await notify_service_unavailable(callback, translator)
-        return
-
-    parts = parse_payment_callback(callback.data or "")
-    if not parts:
-        logger.error("Invalid pay_pally data in callback: %s", callback.data)
-        await notify_callback_parse_error(callback, translator)
-        return
-    parts, hwid_quote = await quote_hwid_callback_parts(
-        session=session,
-        user_id=callback.from_user.id,
-        parts=parts,
-        subscription_service=pally_service.subscription_service,
-        currency=default_currency_key_for_settings(settings),
-    )
-    if not parts:
-        await notify_callback_parse_error(callback, translator)
-        return
-
-    currency_code = default_payment_currency_code_for_settings(settings)
-    payment_description = describe_payment(translator, parts)
-
-    reuse_amounts = payment_record_amounts(
-        months=parts.months,
-        sale_mode=parts.sale_mode,
-        hwid_device_count=hwid_quote.get("device_count") if hwid_quote else None,
-    )
-    reusable_payment = await payment_dal.find_recent_pending_provider_payment(
-        session,
-        user_id=callback.from_user.id,
-        provider="pally",
-        pending_status="pending_pally",
-        amount=parts.price,
-        currency=currency_code,
-        sale_mode=parts.sale_mode,
-        months=reuse_amounts.months,
-        purchased_gb=reuse_amounts.purchased_gb,
-        purchased_hwid_devices=reuse_amounts.purchased_hwid_devices,
-        tariff_key=reuse_amounts.tariff_key,
-    )
-    if reusable_payment is not None:
-        reusable_url = await pally_service.try_reuse_pending_bill(reusable_payment)
-        if reusable_url:
-            await render_payment_link(
-                callback,
-                translator=translator,
-                current_lang=current_lang,
-                i18n=i18n,
-                parts=parts,
-                payment_url=reusable_url,
-                log_prefix=_LOG,
-            )
-            return
-
-    record_payload = build_payment_record_payload(
-        user_id=callback.from_user.id,
-        amount=parts.price,
-        currency=currency_code,
-        status="pending_pally",
-        description=payment_description,
-        months=parts.months,
-        provider="pally",
-        sale_mode=parts.sale_mode,
-        hwid_quote=hwid_quote,
-    )
-
-    try:
-        payment_record = await payment_dal.create_payment_record(session, record_payload)
-        await session.commit()
-    except Exception:
-        await session.rollback()
-        logger.exception(
-            "Pally: failed to create payment record for user %s.", callback.from_user.id
-        )
-        await notify_payment_record_failure(callback, translator)
-        return
-
-    await safe_callback_answer(callback)
-
-    success, response_data = await pally_service.create_bill(
-        payment_db_id=payment_record.payment_id,
-        amount=parts.price,
-        currency=currency_code,
-        description=payment_description,
-        language=current_lang,
-    )
-    await render_link_or_fail(
+    await run_callback_payment(
+        _DESCRIPTOR,
         callback,
-        translator=translator,
-        current_lang=current_lang,
-        i18n=i18n,
-        parts=parts,
-        session=session,
-        payment=payment_record,
-        api_success=success,
-        payment_url=_payment_page_url(response_data) if success else None,
-        provider_payment_id=_bill_id_value(response_data),
-        provider_response=response_data,
-        log_prefix="Pally",
+        settings,
+        i18n_data,
+        pally_service,
+        session,
     )
 
 
@@ -819,46 +695,27 @@ def create_service(ctx: ServiceFactoryContext) -> PallyService:
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    settings: Settings = app_required(ctx.request, "settings", Settings)
-    service: PallyService = app_required(ctx.request, "pally_service", PallyService)
-    if not service or not service.configured:
-        return payment_unavailable()
-
-    currency = ctx.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
-    try:
-        payment = await create_webapp_payment_record(
-            ctx,
-            amount=ctx.price,
-            currency=currency,
-            status="pending_pally",
-            provider="pally",
-        )
-        success, response_data = await service.create_bill(
-            payment_db_id=payment.payment_id,
-            amount=ctx.price,
-            currency=currency,
-            description=ctx.description,
-        )
-    except Exception:
-        await ctx.session.rollback()
-        logger.exception("Pally WebApp payment failed")
-        return payment_failed()
-
-    return await finalize_webapp_link_payment(
-        session=ctx.session,
-        payment=payment,
-        api_success=success,
-        payment_url=_payment_page_url(response_data) if success else None,
-        provider_payment_id=_bill_id_value(response_data),
-        provider_response=response_data,
-        log_prefix="Pally",
-    )
+    return await run_webapp_payment(_DESCRIPTOR, ctx)
 
 
 async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> str | None:
-    service = app_optional(ctx.request, "pally_service", PallyService)
-    if not service or not service.configured:
-        return None
+    return await run_reuse_webapp_payment(_DESCRIPTOR, ctx, payment)
+
+
+async def _create_payment(
+    service: PallyService,
+    request: CreatePaymentRequest,
+) -> tuple[bool, dict]:
+    return await service.create_bill(
+        payment_db_id=request.payment.payment_id,
+        amount=request.amount,
+        currency=request.currency,
+        description=request.description,
+        language=request.language,
+    )
+
+
+async def _reuse_payment(service: PallyService, payment: Any) -> str | None:
     return await service.try_reuse_pending_bill(payment)
 
 
@@ -887,4 +744,19 @@ SPEC = PaymentProviderSpec(
     supported_currencies=PALLY_SUPPORTED_CURRENCIES,
     currency_support_note="Pally bills support RUB, USD and EUR.",
     currency_support_url="https://pally.info/reference/api",
+)
+
+_DESCRIPTOR: LinkPaymentDescriptor[PallyService] = LinkPaymentDescriptor(
+    spec=SPEC,
+    provider_key="pally",
+    pending_status="pending_pally",
+    display_name="Pally",
+    log_prefix=_LOG,
+    service_app_key="pally_service",
+    service_type=PallyService,
+    create=_create_payment,
+    reuse=_reuse_payment,
+    extract_url=_payment_page_url,
+    extract_provider_id=_bill_id_value,
+    callback_before_create=safe_callback_answer,
 )

@@ -91,6 +91,7 @@ class CreatePaymentRequest:
     description: str
     months: float
     sale_mode: str
+    language: str | None = None
     provider_context: dict[str, Any] | None = None
 
 
@@ -324,6 +325,7 @@ async def run_callback_payment[ServiceT: LinkFlowService](
         description=payment_description,
         months=float(parts.months),
         sale_mode=str(parts.sale_mode),
+        language=current_lang,
         provider_context=provider_context,
     )
     success, response_data = await descriptor.create(service, create_request)
