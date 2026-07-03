@@ -244,11 +244,12 @@ async def _render_status(
         from bot.utils.currency_format import format_rub, format_rub_pair
 
         max_b = quota.get("max_budget")
+        spent = quota.get("spent")
         remaining = quota.get("remaining")
-        if max_b is not None and remaining is not None:
+        if max_b is not None and spent is not None and remaining is not None:
             quota_text = (
                 f"\n💰 {_('budget_label', default='Budget')}: "
-                f"{format_rub_pair(0, max_b, default='—')} "
+                f"{format_rub_pair(spent, max_b, default='—')} "
                 f"({_('remaining_label', default='remaining')} "
                 f"{format_rub(remaining, default='—')})"
             )
