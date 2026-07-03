@@ -702,6 +702,7 @@
   "wa_topup_action": "Top up",
   "wa_hermes_restart_confirm_inline": "🔄 Restart the bot? Container will stop and start again (~30 seconds).",
   "wa_hermes_restart_confirm_button": "Yes, restart",
+  "tg_hermes_logs_header": "📋 Logs ({count} chars):",
   "wa_topup_pick_method": "Pick a payment method",
   "wa_topup_invalid_amount": "Enter a valid amount",
   "wa_topup_minimum": "Minimum {minimum} ₽",
