@@ -12,10 +12,12 @@ from urllib.parse import quote
 
 from aiohttp import web
 from aiohttp.typedefs import Handler
+from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
     get_bot_username,
     get_i18n,
+    get_session_factory,
     get_settings,
     get_webapp_rate_limit_buckets,
     get_webapp_rate_limit_lock,
@@ -31,7 +33,7 @@ from config.webapp_themes_config import (
     public_themes_catalog_payload,
     resolve_webapp_theme_selection,
 )
-from db.dal import subscription_dal
+from db.dal import subscription_dal, user_dal
 
 from ._runtime import (
     _APP_VERSION_CACHE,
