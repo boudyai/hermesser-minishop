@@ -23,6 +23,13 @@ def _worker(**overrides):
     )
 
 
+def _hermes_worker(**overrides):
+    return _worker(
+        panel_settings=SimpleNamespace(write_mode="hermes"),
+        **overrides,
+    )
+
+
 def _sub(end_date, *, suppress_early_expiry_notifications=False, user_id=123, subscription_id=1):
     return SimpleNamespace(
         end_date=end_date,
@@ -114,3 +121,40 @@ def test_expired_row_without_other_coverage_is_not_superseded():
     sub = _sub(now - timedelta(hours=25), user_id=555, subscription_id=244)
 
     assert _worker()._superseded_by_active_subscription(sub, {}, now) is False
+
+
+def test_hermes_trial_sends_day_reminder_when_suppressed_in_legacy():
+    now = datetime(2026, 5, 28, 12, tzinfo=timezone.utc)
+    sub = _sub(
+        now + timedelta(hours=23),
+        suppress_early_expiry_notifications=True,
+    )
+    legacy = _worker().stage_for_subscription(sub, now)
+    hermes = _hermes_worker().stage_for_subscription(sub, now)
+
+    assert legacy is None
+    assert hermes is not None
+    assert hermes.key == "before_1d"
+    assert hermes.message_key == "subscription_24h_notification"
+
+
+def test_hermes_trial_sends_three_day_reminder_when_suppressed_in_legacy():
+    now = datetime(2026, 5, 28, 12, tzinfo=timezone.utc)
+    sub = _sub(
+        now + timedelta(hours=48),
+        suppress_early_expiry_notifications=True,
+    )
+    hermes = _hermes_worker().stage_for_subscription(sub, now)
+
+    assert hermes is not None
+    assert hermes.key == "before_2d"
+
+
+def test_hermes_trial_does_not_send_day_reminder_outside_days_window():
+    now = datetime(2026, 5, 28, 12, tzinfo=timezone.utc)
+    sub = _sub(
+        now + timedelta(days=5),
+        suppress_early_expiry_notifications=True,
+    )
+
+    assert _hermes_worker().stage_for_subscription(sub, now) is None

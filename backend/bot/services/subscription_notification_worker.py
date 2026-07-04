@@ -253,7 +253,26 @@ class SubscriptionNotificationWorker:
             # the day-before stages for them — they still get the hours-before
             # reminder above and the expiry/after-expiry notices below. Paying
             # for a real subscription clears the flag and restores all stages.
-            if bool(getattr(sub, "suppress_early_expiry_notifications", False)):
+            # ponytail: Hermes-managed trials run for a few days too but the
+            # user pays for hosting — they need the same day reminders as a
+            # paid subscription or they will be surprised by a silent
+            # suspension. We still skip them in legacy mode where the row is a
+            # short-lived VPN trial.
+            panel_write_mode = (
+                str(
+                    getattr(
+                        getattr(self.settings, "panel_settings", None), "write_mode", ""
+                    )
+                    or ""
+                )
+                .strip()
+                .lower()
+            )
+            is_hermes_mode = panel_write_mode == "hermes"
+            if (
+                not is_hermes_mode
+                and bool(getattr(sub, "suppress_early_expiry_notifications", False))
+            ):
                 return None
 
             days_before_limit = max(
