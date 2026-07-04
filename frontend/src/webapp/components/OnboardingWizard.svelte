@@ -335,9 +335,9 @@
     </Card>
   {/if}
 
-  {#if tokenOk && active}
+{#if tokenOk && active}
     <Card>
-      <h3 style="margin: 0 0 8px; font-size: 16px; color: var(--success, #2e7d32);">
+      <h3 style="margin: 0 0 12px; font-size: 16px; color: var(--success, #2e7d32);">
         <Sparkles size={15} style="vertical-align: middle; margin-right: 6px;" />
         {t("wa_hermes_onboarding_done_title", {}, "Done!")}
       </h3>
@@ -348,12 +348,12 @@
           "Bot is live. Open it in Telegram and say hi — it replies through DeepSeek (CornLLM)."
         )}
       </p>
-      {#if subscription?.bot_username || appSettings?.bot_username}
+      {#if subscription?.bot_username || appSettings?.bot_username || appSettings?.pending_bot_username}
         <Button
           variant="primary"
           onclick={() =>
             openBotChat(
-              `https://t.me/${subscription?.bot_username || appSettings?.bot_username}`
+              `https://t.me/${subscription?.bot_username || appSettings?.bot_username || appSettings?.pending_bot_username}`
             )}
         >
           {t("wa_open_bot", {}, "Open bot")}

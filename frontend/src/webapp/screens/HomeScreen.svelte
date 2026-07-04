@@ -765,7 +765,18 @@
 
     <div class="action-stack">
       {#if subscription.active}
-        <Button class="wide" onclick={onPrimaryOpenBot} disabled={hermesMode && !hermesTMeUrl}>
+        <Button
+          class="wide"
+          onclick={onPrimaryOpenBot}
+          disabled={hermesMode && !hermesTMeUrl}
+          title={hermesMode && !hermesTMeUrl
+            ? t(
+                "wa_hermes_open_bot_no_username",
+                {},
+                "Bot username is not yet known — wait for the container to start or contact support."
+              )
+            : undefined}
+        >
           {#if hermesMode}
             <Send size={18} />
           {:else}

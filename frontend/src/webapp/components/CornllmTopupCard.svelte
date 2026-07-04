@@ -47,6 +47,20 @@
   let busy = $state(false);
   let error = $state<string | null>(null);
 
+  // ponytail: derived preview of what the typed-but-unblurred input will
+  // resolve to on submit. The submit() function re-parses on click, but
+  // showing the live preview avoids the "I typed 250 and the button still
+  // says 300" confusion. Returns null when the input is empty (so the
+  // user sees the currently-picked quick amount instead).
+  const customParsed = $derived.by(() => {
+    const raw = customAmount.replace(",", ".").trim();
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? Math.round(n) : null;
+  });
+  const submitAmount = $derived(customParsed !== null ? customParsed : amountRub);
+  const submitAmountValid = $derived(submitAmount >= MIN_RUB);
+
   const enabledMethods = $derived(
     (paymentMethods || []).filter((m) => m && !m.disabled && typeof m.id === "string" && m.id)
   );
@@ -71,24 +85,11 @@
     amountRub = rub;
   }
 
-  function parseCustomAmount(): number | null {
-    // ponytail: parse on every relevant event (blur AND submit) so the
-    // typed value actually reaches the API. Previously the input only
-    // committed on blur, so a user who typed and immediately tapped
-    // "Пополнить" sent the stale `amountRub`.
-    const raw = customAmount.replace(",", ".").trim();
-    if (!raw) return amountRub;
-    const parsed = Number(raw);
-    if (!Number.isFinite(parsed)) return null;
-    return Math.round(parsed);
-  }
-
-  function commitCustom() {
-    const parsed = parseCustomAmount();
-    if (parsed !== null && parsed >= MIN_RUB) {
-      amountRub = parsed;
-    }
-  }
+  // ponytail: no oninput commit. The previous version committed on every
+  // keystroke and would reset amountRub when the user typed a value
+  // smaller than MIN_RUB (e.g. typing "1500" passes through "1" → "15"
+  // → "150" → "1500", each step potentially resetting the submit target).
+  // Now commit only on blur; submit() re-parses fresh from customAmount.
 
   async function submit() {
     if (!localMethod) {
@@ -97,8 +98,9 @@
     }
     // ponytail: always re-parse on submit so the typed-but-unblurred
     // value reaches the API instead of the previously-picked quick amount.
-    const submitted = parseCustomAmount();
-    if (submitted === null) {
+    const raw = customAmount.replace(",", ".").trim();
+    const submitted = raw ? Math.round(Number(raw)) : amountRub;
+    if (!Number.isFinite(submitted) || submitted <= 0) {
       error = t("wa_topup_invalid_amount", {}, "Enter a valid amount");
       return;
     }
@@ -192,11 +194,14 @@
           min={MIN_RUB}
           step={1}
           bind:value={customAmount}
-          oninput={() => commitCustom()}
-          onblur={commitCustom}
           placeholder={t("wa_topup_custom_placeholder", {}, "e.g. 250")}
           style="padding: 8px; border: 1px solid var(--border, #ccc); border-radius: 4px; font-size: 14px;"
         />
+        {#if customParsed !== null}
+          <span style="color: var(--muted); font-size: 11px;">
+            {submitAmountValid ? "→" : "✗"} {submitAmount} ₽{#if !submitAmountValid} (минимум {MIN_RUB} ₽){/if}
+          </span>
+        {/if}
       </label>
       <p style="margin: 0; font-size: 12px; color: var(--muted);">
         {t("wa_topup_payment_method_label", {}, "Payment method")}
@@ -209,8 +214,8 @@
       {#if error}
         <p style="margin: 0; color: var(--danger); font-size: 12px;">{error}</p>
       {/if}
-      <Button variant="primary" onclick={submit} disabled={busy || !actionsEnabled}>
-        {t("wa_topup_action_button", { amount: amountRub }, `Top up ${amountRub} ₽`)}
+      <Button variant="primary" onclick={submit} disabled={busy || !actionsEnabled || !submitAmountValid}>
+        {t("wa_topup_action_button", { amount: submitAmount }, `Top up ${submitAmount} ₽`)}
       </Button>
     </div>
   </Dialog>
