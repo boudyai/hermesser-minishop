@@ -128,7 +128,7 @@
           >{t("wa_danger_suspend", {}, "⏸ Suspend")}</Button
         >
         <Button variant="danger" onclick={requestDelete} disabled={busy !== "" || !actionsEnabled}
-          >{t("wa_danger_delete", {}, "🗑 Delete bot")}</Button
+          >{t("wa_danger_delete", {}, "Delete bot")}</Button
         >
       </div>
     {:else}

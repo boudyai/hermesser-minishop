@@ -138,7 +138,7 @@ async def _render_status(
     if not tenant_id or panel_service is None:
         text = _(
             "tg_hermes_status_no_tenant",
-            default="🤖 Bot is not running. Open the Mini App to activate.",
+            default="Bot is not running. Open the Mini App to activate.",
         )
         await _reply_or_edit(
             target_message,
@@ -147,7 +147,7 @@ async def _render_status(
                 inline_keyboard=[
                     [
                         types.InlineKeyboardButton(
-                            text=_("back_to_menu", default="⬅️ Menu"),
+                            text=_("back_to_menu", default="Menu"),
                             callback_data="main_action:back_to_main",
                         )
                     ]
@@ -163,7 +163,7 @@ async def _render_status(
     if tenant_status in ("deleting", "deleted", "archived"):
         text = _(
             "tg_hermes_status_deleted",
-            default="🗑 Bot deleted. Open the Mini App to create a new one.",
+            default="Bot deleted. Open the Mini App to create a new one.",
         )
         await _reply_or_edit(
             target_message,
@@ -172,13 +172,13 @@ async def _render_status(
                 inline_keyboard=[
                     [
                         types.InlineKeyboardButton(
-                            text=_("create_bot", default="🆕 Create bot"),
+                            text=_("create_bot", default="Create bot"),
                             callback_data="main_action:my_subscription",
                         )
                     ],
                     [
                         types.InlineKeyboardButton(
-                            text=_("back_to_menu", default="⬅️ Menu"),
+                            text=_("back_to_menu", default="Menu"),
                             callback_data="main_action:back_to_main",
                         )
                     ],
@@ -191,7 +191,7 @@ async def _render_status(
     if tenant_status == "suspended":
         text = _(
             "tg_hermes_status_suspended",
-            default="⏸ Bot suspended. Renew your subscription to start it again.",
+            default="Bot suspended. Renew your subscription to start it again.",
         )
         await _reply_or_edit(
             target_message,
@@ -200,13 +200,13 @@ async def _render_status(
                 inline_keyboard=[
                     [
                         types.InlineKeyboardButton(
-                            text=_("renew", default="💳 Renew"),
+                            text=_("renew", default="Renew"),
                             callback_data="main_action:my_subscription",
                         )
                     ],
                     [
                         types.InlineKeyboardButton(
-                            text=_("back_to_menu", default="⬅️ Menu"),
+                            text=_("back_to_menu", default="Menu"),
                             callback_data="main_action:back_to_main",
                         )
                     ],
@@ -219,7 +219,7 @@ async def _render_status(
     if tenant_status in ("provisioning_vm", "provisioning_litellm_key", "created", "error"):
         text = _(
             "tg_hermes_status_provisioning",
-            default="⏳ Starting your bot… takes ~30 seconds.\nRepeat /status in a minute.",
+            default="Starting your bot… takes ~30 seconds.\nRepeat /status in a minute.",
         )
         await _reply_or_edit(
             target_message,
@@ -228,7 +228,7 @@ async def _render_status(
                 inline_keyboard=[
                     [
                         types.InlineKeyboardButton(
-                            text=_("back_to_menu", default="⬅️ Menu"),
+                            text=_("back_to_menu", default="Menu"),
                             callback_data="main_action:back_to_main",
                         )
                     ]
@@ -248,7 +248,7 @@ async def _render_status(
         remaining = quota.get("remaining")
         if max_b is not None and spent is not None and remaining is not None:
             quota_text = (
-                f"\n💰 {_('budget_label', default='Budget')}: "
+                f"\n{_('budget_label', default='Budget')}: "
                 f"{format_rub_pair(spent, max_b, default='—')} "
                 f"({_('remaining_label', default='remaining')} "
                 f"{format_rub(remaining, default='—')})"
@@ -257,7 +257,7 @@ async def _render_status(
     text = (
         _(
             "tg_hermes_status_active",
-            default="🤖 Bot is active",
+            default="Bot is active",
         )
         + f"{quota_text}\n"
         + _(
@@ -269,27 +269,27 @@ async def _render_status(
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text=_("restart", default="🔄 Restart"),
+                    text=_("restart", default="Restart"),
                     callback_data="tenant:restart",
                 ),
                 types.InlineKeyboardButton(
-                    text=_("logs", default="📋 Logs"),
+                    text=_("logs", default="Logs"),
                     callback_data="tenant:logs",
                 ),
             ],
             [
                 types.InlineKeyboardButton(
-                    text=_("suspend", default="⏸ Suspend"),
+                    text=_("suspend", default="Suspend"),
                     callback_data="tenant:suspend",
                 ),
                 types.InlineKeyboardButton(
-                    text=_("delete", default="🗑 Delete"),
+                    text=_("delete", default="Delete"),
                     callback_data="tenant:delete",
                 ),
             ],
             [
                 types.InlineKeyboardButton(
-                    text=_("back_to_menu", default="⬅️ Menu"),
+                    text=_("back_to_menu", default="Menu"),
                     callback_data="main_action:back_to_main",
                 )
             ],
@@ -341,17 +341,17 @@ async def _confirm_restart(
     _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
     text = _(
         "tg_hermes_restart_confirm",
-        default="🔄 Restart the bot?\n\nContainer will stop and start again (~30 seconds).",
+        default="Restart the bot?\n\nContainer will stop and start again (~30 seconds).",
     )
     markup = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text=_("yes_restart", default="✅ Yes, restart"),
+                    text=_("yes_restart", default="Yes, restart"),
                     callback_data="tenant:restart:confirm",
                 ),
                 types.InlineKeyboardButton(
-                    text=_("cancel", default="❌ Cancel"),
+                    text=_("cancel", default="Cancel"),
                     callback_data="tenant:status",
                 ),
             ]
@@ -385,14 +385,14 @@ async def restart_confirm_callback(
     ok = await panel_service.restart_tenant(tenant_id)
     queued_msg = _(
         "tg_hermes_restart_queued",
-        default="🔄 Restart queued. Bot returns in ~30 seconds.",
+        default="Restart queued. Bot returns in ~30 seconds.",
     )
     if ok:
         await safe_answer_callback(callback, queued_msg, show_alert=True)
     else:
         await safe_answer_callback(
             callback,
-            _("tg_hermes_restart_failed", default="❌ Could not queue restart. Try again later."),
+            _("tg_hermes_restart_failed", default="Could not queue restart. Try again later."),
             show_alert=True,
         )
         return
@@ -406,7 +406,7 @@ async def restart_confirm_callback(
                             types.InlineKeyboardButton(
                                 text=_(
                                     key="tg_hermes_back_to_status_button",
-                                    default="⬅️ Back to status",
+                                    default="Back to status",
                                 ),
                                 callback_data="tenant:status",
                             )
@@ -419,7 +419,7 @@ async def restart_confirm_callback(
                 await callback.message.answer(  # type: ignore[union-attr]
                     _(
                         "tg_hermes_restart_queued_inline",
-                        default="🔄 Restart queued. Bot returns in ~30 seconds.",
+                        default="Restart queued. Bot returns in ~30 seconds.",
                     )
                 )
             except Exception:
@@ -512,21 +512,18 @@ async def ensure_bot_creation_entrypoint(
                 result = None
             await callback.answer()
             if result and not result.get("error"):
-                text = "✅ " + _(
+                text = _(
                     "tg_hermes_bot_creating",
                     default="Your bot @{username} is being created and will start in ~30 seconds.",
                     username=pending_username,
                 )
             else:
-                text = (
-                    "⚠️ "
-                    + _(
-                        "tg_hermes_bot_creation_failed",
-                        default=(
-                            "Could not create the bot automatically. "
-                            "Try again later or open the Mini App."
-                        ),
-                    )
+                text = _(
+                    "tg_hermes_bot_creation_failed",
+                    default=(
+                        "Could not create the bot automatically. "
+                        "Try again later or open the Mini App."
+                    ),
                 )
             if callback.message:
                 try:
@@ -559,8 +556,7 @@ async def token_command(
         )
         return
     text = (
-        "🔧 "
-        + _("tg_hermes_token_intro_title", default="Enter your bot token from @BotFather:")
+        _("tg_hermes_token_intro_title", default="Enter your bot token from @BotFather:")
         + "\n\n"
         + _("tg_hermes_token_intro_format", default="Format: 123456789:ABCdef...")
         + "\n\n"
@@ -585,8 +581,7 @@ async def set_token_callback(
         return
     await state.set_state(TokenFSM.waiting_for_token)
     text = (
-        "🔧 "
-        + _("tg_hermes_token_intro_title", default="Enter your bot token from @BotFather:")
+        _("tg_hermes_token_intro_title", default="Enter your bot token from @BotFather:")
         + "\n\n"
         + _("tg_hermes_token_intro_format", default="Format: 123456789:ABCdef...")
         + "\n\n"
@@ -617,7 +612,7 @@ async def token_input(
         await message.answer(
             _(
                 "tg_hermes_token_invalid_format",
-                default="❌ Invalid format. Enter a token like 123456789:ABCdef...",
+                default="Invalid format. Enter a token like 123456789:ABCdef...",
             )
         )
         return
@@ -635,7 +630,7 @@ async def token_input(
                         _(
                             "tg_hermes_token_rejected",
                             default=(
-                                "❌ Telegram rejected this token. "
+                                "Telegram rejected this token. "
                                 "Double-check with @BotFather."
                             ),
                         )
@@ -647,7 +642,7 @@ async def token_input(
         await message.answer(
             _(
                 "tg_hermes_token_unreachable",
-                default="❌ Could not reach Telegram. Try again later.",
+                default="Could not reach Telegram. Try again later.",
             )
         )
         return
@@ -739,7 +734,7 @@ async def token_input(
     await state.clear()
     await _safe_delete_message(message)
     if created_via_bot:
-        text = "✅ " + _(
+        text = _(
             "tg_hermes_bot_creating_named",
             default=(
                 "Your bot @{username} is being created "
@@ -748,7 +743,7 @@ async def token_input(
             username=bot_username,
         )
     elif applied_to_tenant:
-        text = "✅ " + _(
+        text = _(
             "tg_hermes_token_updated",
             default=(
                 "Token saved! Your bot @{username} was updated "
@@ -757,7 +752,7 @@ async def token_input(
             username=bot_username,
         )
     elif tenant_uuid:
-        text = "⚠️ " + _(
+        text = _(
             "tg_hermes_token_saved_but_not_applied",
             default=(
                 "Token saved locally but not applied to the running bot. "
@@ -767,7 +762,7 @@ async def token_input(
             username=bot_username,
         )
     else:
-        text = "✅ " + _(
+        text = _(
             "tg_hermes_token_saved_pending",
             default=(
                 "Token saved! Your bot @{username} "
@@ -779,13 +774,13 @@ async def token_input(
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text=_(key="tg_hermes_main_menu_status_button", default="📊 Status"),
+                    text=_(key="tg_hermes_main_menu_status_button", default="Status"),
                     callback_data="tenant:status",
                 )
             ],
             [
                 types.InlineKeyboardButton(
-                    text=_(key="back_to_menu_button", default="⬅️ Menu"),
+                    text=_(key="back_to_menu_button", default="Menu"),
                     callback_data="main_action:back_to_main",
                 )
             ],
@@ -906,18 +901,18 @@ async def _send_logs(
     logs = await panel_service.get_tenant_logs(tenant_id)
     snippet = logs[-3500:] if len(logs) > 3500 else logs
     text = (
-        f"{_('tg_hermes_logs_header', count=len(snippet), default='📋 Logs ({count} chars):')}"
+        f"{_('tg_hermes_logs_header', count=len(snippet), default='Logs ({count} chars):')}"
         f"\n\n<pre>{snippet or '(empty)'}</pre>"
     )
     markup = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text=_(key="tg_hermes_logs_refresh_button", default="🔄 Refresh"),
+                    text=_(key="tg_hermes_logs_refresh_button", default="Refresh"),
                     callback_data="tenant:logs:refresh",
                 ),
                 types.InlineKeyboardButton(
-                    text=_(key="tg_hermes_back_to_status_button", default="⬅️ Back to status"),
+                    text=_(key="tg_hermes_back_to_status_button", default="Back to status"),
                     callback_data="tenant:status",
                 ),
             ]
@@ -976,11 +971,11 @@ async def _confirm_suspend(
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text=_(key="tg_hermes_suspend_confirm_button", default="✅ Yes, suspend"),
+                    text=_(key="tg_hermes_suspend_confirm_button", default="Yes, suspend"),
                     callback_data="tenant:suspend:confirm",
                 ),
                 types.InlineKeyboardButton(
-                    text=_(key="tg_hermes_cancel_button", default="❌ Cancel"),
+                    text=_(key="tg_hermes_cancel_button", default="Cancel"),
                     callback_data="tenant:status",
                 ),
             ]
@@ -1017,9 +1012,9 @@ async def suspend_confirm_callback(
         return
     ok = await panel_service.update_user_status_on_panel(tenant_id, enable=False)
     text = (
-        "⏸ " + _("tg_hermes_suspend_success", default="Bot suspended.")
+        _("tg_hermes_suspend_success", default="Bot suspended.")
         if ok
-        else "❌ " + _("tg_hermes_suspend_failed", default="Could not suspend.")
+        else _("tg_hermes_suspend_failed", default="Could not suspend.")
     )
     if callback.message:
         try:
@@ -1060,8 +1055,7 @@ async def delete_command(
     _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
     await state.set_state(DeleteFSM.waiting_for_confirmation)
     text = (
-        "🗑 "
-        + _("tg_hermes_delete_confirm_body", default="Delete the bot?\n\n")
+        _("tg_hermes_delete_confirm_body", default="Delete the bot?\n\n")
         + _(
             "tg_hermes_delete_confirm_typed_footer",
             default=(
@@ -1075,7 +1069,7 @@ async def delete_command(
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text=_(key="tg_hermes_cancel_button", default="❌ Cancel"),
+                    text=_(key="tg_hermes_cancel_button", default="Cancel"),
                     callback_data="tenant:status",
                 )
             ]
@@ -1098,7 +1092,7 @@ async def delete_callback(
     current_lang = (i18n_data or {}).get("current_language", "ru")
     _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
     await state.set_state(DeleteFSM.waiting_for_confirmation)
-    text = "🗑 " + _(
+    text = _(
         "tg_hermes_delete_confirm_typed_body",
         default="Delete the bot?\n\nType <code>DELETE</code> to confirm.",
     )
@@ -1106,7 +1100,7 @@ async def delete_callback(
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text=_(key="tg_hermes_cancel_button", default="❌ Cancel"),
+                    text=_(key="tg_hermes_cancel_button", default="Cancel"),
                     callback_data="tenant:status",
                 )
             ]
@@ -1167,15 +1161,15 @@ async def delete_confirm_input(
     await state.clear()
     ok = await panel_service.delete_user_from_panel(tenant_id)
     text = (
-        "🗑 " + _("tg_hermes_delete_success", default="Bot deleted. Backups are kept for 30 days.")
+        _("tg_hermes_delete_success", default="Bot deleted. Backups are kept for 30 days.")
         if ok
-        else "❌ " + _("tg_hermes_delete_failed", default="Could not delete.")
+        else _("tg_hermes_delete_failed", default="Could not delete.")
     )
     markup = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text=_(key="back_to_menu_button", default="⬅️ Menu"),
+                    text=_(key="back_to_menu_button", default="Menu"),
                     callback_data="main_action:back_to_main",
                 )
             ]

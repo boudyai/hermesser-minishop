@@ -64,7 +64,7 @@
 {#if hermesMode}
   <Card>
     <h3 style="margin: 0 0 8px; font-size: 15px;">
-      {t("wa_settings_bot_token_title", {}, "🤖 Bot token")}
+      {t("wa_settings_bot_token_title", {}, "Bot token")}
     </h3>
     <p style="margin: 0 0 10px; color: var(--muted); font-size: 12px;">
       {t(

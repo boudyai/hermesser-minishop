@@ -281,7 +281,7 @@
           {t(
             "wa_hermes_restart_confirm_inline",
             {},
-            "🔄 Restart the bot? Container will stop and start again (~30 seconds)."
+            "Restart the bot? Container will stop and start again (~30 seconds)."
           )}
         </p>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
