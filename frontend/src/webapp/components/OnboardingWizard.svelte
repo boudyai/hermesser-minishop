@@ -348,10 +348,13 @@
           "Bot is live. Open it in Telegram and say hi — it replies through DeepSeek (CornLLM)."
         )}
       </p>
-      {#if appSettings?.bot_username}
+      {#if subscription?.bot_username || appSettings?.bot_username}
         <Button
           variant="primary"
-          onclick={() => openBotChat(`https://t.me/${appSettings.bot_username}`)}
+          onclick={() =>
+            openBotChat(
+              `https://t.me/${subscription?.bot_username || appSettings?.bot_username}`
+            )}
         >
           {t("wa_open_bot", {}, "Open bot")}
         </Button>

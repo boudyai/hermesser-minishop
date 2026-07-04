@@ -641,17 +641,24 @@ async def index_route(request: web.Request) -> web.Response:
     return response
 
 
-def share_link_redirect_route(request: web.Request) -> web.Response:
-    """Redirect install-share links to the Telegram bot.
+async def share_link_redirect_route(request: web.Request) -> web.Response:
+    """Redirect install-share links to the customer's own Hermes bot.
 
     The /s/{share_token} URL was originally the public install guide
     landing page in the Mini App. The product has shifted to a pure
     hosted-Hermes flow where the user picks a plan in the Mini App
     that ships inside the bot, and the share links are how the
-    operator hands a customer a turn-key onboarding URL. Send the
-    visitor straight to the bot with a /start payload that includes
-    the share token so the bot can resolve the subscription and
-    drop the user into the right plan / trial / setup screen.
+    operator hands a customer a turn-key onboarding URL. Resolve the
+    share token to the subscription's `pending_bot_username` and 302
+    to https://t.me/<customer_bot>?start=share_<token> so the customer's
+    own bot's /start handler can drop the user into the right plan /
+    trial / setup screen — never the operator's dispatcher.
+
+    Falls back to the dispatcher bot if the token can't be resolved
+    or the user hasn't saved a bot username yet (uncommon: the token
+    is generated alongside the bot at provisioning time). The
+    dispatcher's `start_flow` already recognises `start=share_<token>`
+    and can route onward, so even the fallback is useful.
 
     302 Found is the right status: Telegram clients and the
     in-app browser follow it without showing a confirmation
@@ -663,7 +670,20 @@ def share_link_redirect_route(request: web.Request) -> web.Response:
     ).strip()
     if not share_token:
         raise web.HTTPNotFound(text="missing_share_token")
-    bot_username = get_bot_username(request).strip() or "cornmesbot"
+    bot_username = ""
+    async_session_factory: sessionmaker = get_session_factory(request)
+    async with async_session_factory() as session:
+        sub = await subscription_dal.get_subscription_by_install_share_token(
+            session, share_token
+        )
+        if sub is not None:
+            owner = await user_dal.get_user_by_id(session, sub.user_id)
+            if owner is not None:
+                bot_username = str(
+                    getattr(owner, "pending_bot_username", "") or ""
+                ).strip()
+    if not bot_username:
+        bot_username = get_bot_username(request).strip() or "cornmesbot"
     target = f"https://t.me/{bot_username}?start=share_{share_token}"
     raise web.HTTPFound(location=target)
 
