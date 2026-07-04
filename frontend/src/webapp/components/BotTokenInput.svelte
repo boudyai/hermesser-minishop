@@ -75,13 +75,26 @@
     </p>
     <details style="margin-bottom: 10px;">
       <summary style="cursor: pointer; color: var(--muted); font-size: 12px;"
-        >Как получить токен?</summary
+        >{t("wa_settings_bot_token_steps_title", {}, "How do I get a token?")}</summary
       >
       <ol style="font-size: 12px; color: var(--muted); padding-left: 20px; margin: 8px 0 0;">
-        <li>Откройте <a href="https://t.me/BotFather" target="_blank">@BotFather</a> в Telegram</li>
-        <li>Отправьте <code>/newbot</code> и следуйте инструкциям</li>
-        <li>Скопируйте токен вида <code>123456789:ABCdef...</code></li>
-        <li>Вставьте его в поле ниже</li>
+        <li>
+          {t("wa_settings_bot_token_step_1", {}, "Open")} <a
+            href="https://t.me/BotFather"
+            target="_blank">@BotFather</a
+          >
+          {t("wa_settings_bot_token_step_1b", {}, "in Telegram")}
+        </li>
+        <li>
+          {t("wa_settings_bot_token_step_2", {}, "Send /newbot and follow the prompts")}
+        </li>
+        <li>
+          {t("wa_settings_bot_token_step_3", {}, "Copy the token like")}
+          <code>123456789:ABCdef...</code>
+        </li>
+        <li>
+          {t("wa_settings_bot_token_step_4", {}, "Paste it into the field below")}
+        </li>
       </ol>
     </details>
     <div style="display: flex; gap: 8px; align-items: center;">

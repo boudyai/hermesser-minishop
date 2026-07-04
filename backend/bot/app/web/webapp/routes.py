@@ -33,6 +33,7 @@ from .assets import (
     index_route,
     js_asset_route,
     robots_txt_route,
+    share_link_redirect_route,
     theme_asset_route,
     theme_css_asset_route,
     webapp_current_favicon_route,
@@ -75,11 +76,11 @@ from .devices import (
 from .env import (
     env_route,
     env_update_route,
+    tenant_cornllm_key_route,
     tenant_delete_route,
     tenant_logs_refresh_route,
     tenant_logs_route,
     tenant_quota_route,
-    tenant_cornllm_key_route,
     tenant_recreate_route,
     tenant_restart_route,
     tenant_suspend_route,
@@ -117,7 +118,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/install", index_route)
     app.router.add_get("/trial", index_route)
     app.router.add_get("/open-app", app_deeplink_route)
-    app.router.add_get(r"/s/{share_token:[a-f0-9]{32}}", index_route)
+    app.router.add_get(r"/s/{share_token:[a-f0-9]{32}}", share_link_redirect_route)
     app.router.add_get("/invite", index_route)
     app.router.add_get("/devices", index_route)
     app.router.add_get("/settings", index_route)

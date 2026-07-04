@@ -641,6 +641,33 @@ async def index_route(request: web.Request) -> web.Response:
     return response
 
 
+def share_link_redirect_route(request: web.Request) -> web.Response:
+    """Redirect install-share links to the Telegram bot.
+
+    The /s/{share_token} URL was originally the public install guide
+    landing page in the Mini App. The product has shifted to a pure
+    hosted-Hermes flow where the user picks a plan in the Mini App
+    that ships inside the bot, and the share links are how the
+    operator hands a customer a turn-key onboarding URL. Send the
+    visitor straight to the bot with a /start payload that includes
+    the share token so the bot can resolve the subscription and
+    drop the user into the right plan / trial / setup screen.
+
+    302 Found is the right status: Telegram clients and the
+    in-app browser follow it without showing a confirmation
+    step, while crawlers / link previews still see the eventual
+    destination via the Location header.
+    """
+    share_token = str(
+        getattr(request, "match_info", {}).get("share_token") or ""
+    ).strip()
+    if not share_token:
+        raise web.HTTPNotFound(text="missing_share_token")
+    bot_username = get_bot_username(request).strip() or "cornmesbot"
+    target = f"https://t.me/{bot_username}?start=share_{share_token}"
+    raise web.HTTPFound(location=target)
+
+
 async def app_deeplink_route(request: web.Request) -> web.Response:
     settings: Settings = get_settings(request)
     if not settings.WEBAPP_ENABLED:
