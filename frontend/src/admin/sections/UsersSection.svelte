@@ -6,6 +6,7 @@
     ArrowUp,
     ChevronsUpDown,
     DollarSign,
+    RefreshCw,
     Sliders,
     X,
     UsersRound,
@@ -255,6 +256,41 @@
     if (c.state === "unreachable") return at("admin_cornllm_balance_unreachable", {}, "n/a");
     const remaining = c.remaining ?? Math.max(0, (c.max_budget ?? 0) - (c.spent ?? 0));
     return _formatRubles(remaining);
+  }
+
+  // ponytail: full explanation surfaced as a native tooltip on the
+  // badge — the user (or support) hovers to see "why isn't the
+  // balance showing". Without it, "n/a" looks like a bug; with it,
+  // the user sees "no CornLLM key" or "core unreachable" and
+  // self-diagnoses.
+  function cornllmBadgeTitle(c: CornllmBalance | null | undefined): string {
+    if (!c || c.state === "none") {
+      return at(
+        "admin_cornllm_tooltip_no_key",
+        {},
+        "У пользователя нет CornLLM-ключа (нет платной подписки)"
+      );
+    }
+    if (c.state === "unreachable") {
+      return at(
+        "admin_cornllm_tooltip_unreachable",
+        {},
+        "Provisioning-core недоступен или ответил ошибкой; цифры не обновились"
+      );
+    }
+    const remaining = c.remaining ?? Math.max(0, (c.max_budget ?? 0) - (c.spent ?? 0));
+    const spent = c.spent ?? 0;
+    const max = c.max_budget ?? 0;
+    return at(
+      "admin_cornllm_tooltip_ok",
+      {
+        remaining: _formatRubles(remaining),
+        spent: _formatRubles(spent),
+        max: _formatRubles(max),
+        duration: c.budget_duration || "—",
+      },
+      `Осталось ${_formatRubles(remaining)} из ${_formatRubles(max)}; потрачено ${_formatRubles(spent)}; период: ${c.budget_duration || "—"}`
+    );
   }
 
   function userTableColumns(): UserTableColumn[] {
@@ -515,6 +551,19 @@
       <span class="admin-toolbar-field-label">{at("total", {}, "Всего")}</span>
       <strong>{usersTotal}</strong>
     </div>
+
+    <AdminButton
+      variant="ghost"
+      class="admin-users-refresh"
+      aria-label={at("refresh", {}, "Обновить")}
+      title={at("users_refresh_tooltip", {}, "Force-refresh users list (skip admin cache)")}
+      disabled={usersLoading}
+      onclick={() => {
+        usersStore.loadUsers({ refresh: true });
+      }}
+    >
+      <RefreshCw size={15} class={usersLoading ? "is-spinning" : ""} />
+    </AdminButton>
   </div>
 
   {@render renderActiveUserFilterChips()}
@@ -650,6 +699,9 @@
                 <AdminBadge
                   variant={cornllmBadgeVariant(user.cornllm as CornllmBalance | undefined)}
                   class="admin-user-premium-badge"
+                  title={cornllmBadgeTitle(
+                    user.cornllm as CornllmBalance | undefined
+                  )}
                 >
                   {cornllmBadgeText(user.cornllm as CornllmBalance | undefined)}
                 </AdminBadge>
