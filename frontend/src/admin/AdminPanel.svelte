@@ -265,11 +265,12 @@
   );
 
   async function loadPanelWriteMode(): Promise<void> {
-    // ponytail: /api/me is the webapp payload; admin uses the same
-    // endpoint to read panel_write_mode. Authenticated, returns the
-    // full user snapshot — we only need one string.
+    // ponytail: /api/admin/me (AdminMeOut) returns panel_write_mode
+    // at the top level. The webapp /api/me payload buries it under
+    // settings.panel_write_mode, which used to leave the gate closed
+    // and CornLLM hidden in the user detail card.
     try {
-      const result = (await api("/me")) as {
+      const result = (await api("/admin/me")) as {
         ok?: boolean;
         panel_write_mode?: string;
       };
