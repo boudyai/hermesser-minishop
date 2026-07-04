@@ -13,6 +13,7 @@
     fmtMoney,
     openTelegramProfileLink,
     paymentStatusVariant,
+    panelWriteMode,
     resolvedAvatarUrl,
     trafficLeftLabel,
     trafficOfLabel,
@@ -31,6 +32,7 @@
     fmtMoney: (value: unknown, currency?: string | null) => string;
     openTelegramProfileLink: (url: string) => boolean;
     paymentStatusVariant: (status: unknown) => BadgeVariant;
+    panelWriteMode?: string;
     resolvedAvatarUrl: (user: AdminUser) => string;
     trafficLeftLabel: (used: unknown, limit: unknown) => string;
     trafficOfLabel: (used: unknown, limit: unknown) => string;
@@ -109,6 +111,7 @@
     {fmtDate}
     {fmtDateShort}
     {fmtMoney}
+    {panelWriteMode}
     {resolvedAvatarUrl}
     {userDisplayName}
     {userSecondaryName}

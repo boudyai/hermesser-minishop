@@ -306,71 +306,88 @@ async def my_subscription_command_handler(
         callback_data=back_callback,
     )
     kb = base_markup.inline_keyboard
+    # ponytail: in hermes mode the user is in the bot already — the
+    # "Connect" button is meaningless (no client app to install) and the
+    # public share link was retired. The status text already shows the
+    # bot username + state, so we leave the menu clean: just the back
+    # button.
+    is_hermes_menu = (
+        str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
+    )
     try:
         local_sub = await subscription_dal.get_active_subscription_by_user_id(
             session, _event_user_id(event)
         )
-        install_links = await ensure_user_install_guide_links(
-            session,
-            settings,
-            _event_user_id(event),
-            local_subscription=local_sub,
-        )
-        install_url = install_links.personal_url
-        install_share_url = install_links.public_share_url
-        if install_share_url:
-            try:
-                await session.commit()
-                text = append_install_share_link_text(text, get_text, install_share_url)
-            except Exception:
-                await session.rollback()
-                logging.exception(
-                    "Failed to persist install guide share token for user %s.",
-                    _event_user_id(event),
-                )
-                install_share_url = None
+        if is_hermes_menu:
+            install_url = None
+            install_share_url = None
+        else:
+            install_links = await ensure_user_install_guide_links(
+                session,
+                settings,
+                _event_user_id(event),
+                local_subscription=local_sub,
+            )
+            install_url = install_links.personal_url
+            install_share_url = install_links.public_share_url
+            if install_share_url:
+                try:
+                    await session.commit()
+                    text = append_install_share_link_text(text, get_text, install_share_url)
+                except Exception:
+                    await session.rollback()
+                    logging.exception(
+                        "Failed to persist install guide share token for user %s.",
+                        _event_user_id(event),
+                    )
+                    install_share_url = None
 
         # Build rows to prepend above the base "back" markup
         prepend_rows = []
 
-        # 1) Connect button: prefer the actual subscription URL; fall back to mini-app
-        cfg_link_val = connect_button_url or config_link_display
-        if install_url:
-            prepend_rows.append(
-                [
-                    InlineKeyboardButton(
-                        text=get_text("connect_button"),
-                        web_app=WebAppInfo(url=install_url),
-                    )
-                ]
-            )
-            if install_share_url:
+        if is_hermes_menu:
+            # No install guide / connect / share rows in Hermes mode —
+            # the bot token + container status are already in the text.
+            pass
+        else:
+            # 1) Connect button: prefer the actual subscription URL; fall back to mini-app
+            cfg_link_val = connect_button_url or config_link_display
+            if install_url:
                 prepend_rows.append(
                     [
                         InlineKeyboardButton(
-                            text=get_text("install_guide_share_button"),
-                            url=install_share_url,
+                            text=get_text("connect_button"),
+                            web_app=WebAppInfo(url=install_url),
                         )
                     ]
                 )
-        elif cfg_link_val:
-            prepend_rows.append(
-                [
-                    InlineKeyboardButton(
-                        text=get_text("connect_button"),
-                        url=cfg_link_val,
+                if install_share_url:
+                    prepend_rows.append(
+                        [
+                            InlineKeyboardButton(
+                                text=get_text("install_guide_share_button"),
+                                url=install_share_url,
+                            )
+                        ]
                     )
-                ]
-            )
-        elif settings.SUBSCRIPTION_MINI_APP_URL:
-            prepend_rows.append(
-                [
-                    InlineKeyboardButton(
-                        text=get_text("connect_button"),
-                        web_app=WebAppInfo(url=settings.SUBSCRIPTION_MINI_APP_URL),
-                    )
-                ]
-            )
+            elif cfg_link_val:
+                prepend_rows.append(
+                    [
+                        InlineKeyboardButton(
+                            text=get_text("connect_button"),
+                            url=cfg_link_val,
+                        )
+                    ]
+                )
+            elif settings.SUBSCRIPTION_MINI_APP_URL:
+                prepend_rows.append(
+                    [
+                        InlineKeyboardButton(
+                            text=get_text("connect_button"),
+                            web_app=WebAppInfo(url=settings.SUBSCRIPTION_MINI_APP_URL),
+                        )
+                    ]
+                )
 
         if settings.MY_DEVICES_SECTION_ENABLED:
             max_devices_value = active.get("max_devices")

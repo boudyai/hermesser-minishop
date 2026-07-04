@@ -12,12 +12,10 @@ from urllib.parse import quote
 
 from aiohttp import web
 from aiohttp.typedefs import Handler
-from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
     get_bot_username,
     get_i18n,
-    get_session_factory,
     get_settings,
     get_webapp_rate_limit_buckets,
     get_webapp_rate_limit_lock,
@@ -33,7 +31,7 @@ from config.webapp_themes_config import (
     public_themes_catalog_payload,
     resolve_webapp_theme_selection,
 )
-from db.dal import subscription_dal, user_dal
+from db.dal import subscription_dal
 
 from ._runtime import (
     _APP_VERSION_CACHE,
@@ -644,49 +642,21 @@ async def index_route(request: web.Request) -> web.Response:
 
 
 async def share_link_redirect_route(request: web.Request) -> web.Response:
-    """Redirect install-share links to the customer's own Hermes bot.
+    """Redirect old /s/{share_token} install-guide links to the Mini App.
 
-    The /s/{share_token} URL was originally the public install guide
-    landing page in the Mini App. The product has shifted to a pure
-    hosted-Hermes flow where the user picks a plan in the Mini App
-    that ships inside the bot, and the share links are how the
-    operator hands a customer a turn-key onboarding URL. Resolve the
-    share token to the subscription's `pending_bot_username` and 302
-    to https://t.me/<customer_bot>?start=share_<token> so the customer's
-    own bot's /start handler can drop the user into the right plan /
-    trial / setup screen — never the operator's dispatcher.
-
-    Falls back to the dispatcher bot if the token can't be resolved
-    or the user hasn't saved a bot username yet (uncommon: the token
-    is generated alongside the bot at provisioning time). The
-    dispatcher's `start_flow` already recognises `start=share_<token>`
-    and can route onward, so even the fallback is useful.
-
-    302 Found is the right status: Telegram clients and the
-    in-app browser follow it without showing a confirmation
-    step, while crawlers / link previews still see the eventual
-    destination via the Location header.
+    Public share links were retired on 2026-07-04: the /s/ landing page
+    in the Mini App now serves only authenticated viewers, so the
+    public URL would 404 (and it was confusing — the visitor lands on
+    a bot they don't own). Old messages can still contain the URL, so
+    we keep the route and 302 to the shop home so the visitor sees a
+    working page instead of a 404. We do NOT resolve the token or
+    look up the customer's bot: the share token itself is unused now.
     """
-    share_token = str(
-        getattr(request, "match_info", {}).get("share_token") or ""
-    ).strip()
-    if not share_token:
-        raise web.HTTPNotFound(text="missing_share_token")
-    bot_username = ""
-    async_session_factory: sessionmaker = get_session_factory(request)
-    async with async_session_factory() as session:
-        sub = await subscription_dal.get_subscription_by_install_share_token(
-            session, share_token
-        )
-        if sub is not None:
-            owner = await user_dal.get_user_by_id(session, sub.user_id)
-            if owner is not None:
-                bot_username = str(
-                    getattr(owner, "pending_bot_username", "") or ""
-                ).strip()
-    if not bot_username:
-        bot_username = get_bot_username(request).strip() or "cornmesbot"
-    target = f"https://t.me/{bot_username}?start=share_{share_token}"
+    settings: Settings = get_settings(request)
+    target = (
+        str(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", "") or "").strip()
+        or "/install"
+    )
     raise web.HTTPFound(location=target)
 
 

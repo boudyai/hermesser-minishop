@@ -120,42 +120,55 @@ def get_connect_and_main_keyboard(
     preserve_message: bool = False,
     install_share_url: Optional[str] = None,
 ) -> InlineKeyboardMarkup:
-    """Keyboard with a connect button and a back to main menu button."""
+    """Keyboard with a connect button and a back to main menu button.
+
+    In Hermes mode the connect button and the install share button are
+    suppressed: the user is in the host bot already, and the public
+    share link was retired. We still keep the back-to-main-menu row so
+    the keyboard doesn't collapse to a single button.
+    """
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
-    install_url = bot_install_guide_url(settings)
-    button_target = connect_button_url or config_link
+    # ponytail: hermes-mode guard. Mirrors the in-handler check in
+    # core_status.py so trial/promo success paths behave consistently.
+    is_hermes_menu = (
+        str(getattr(getattr(settings, "panel_settings", None), "write_mode", "") or "").lower()
+        == "hermes"
+    )
+    if not is_hermes_menu:
+        install_url = bot_install_guide_url(settings)
+        button_target = connect_button_url or config_link
 
-    if install_url:
-        builder.row(
-            InlineKeyboardButton(
-                text=_("connect_button"),
-                web_app=WebAppInfo(url=install_url),
-            )
-        )
-        if install_share_url:
+        if install_url:
             builder.row(
                 InlineKeyboardButton(
-                    text=_("install_guide_share_button"),
-                    url=install_share_url,
+                    text=_("connect_button"),
+                    web_app=WebAppInfo(url=install_url),
                 )
             )
-    elif button_target:
-        builder.row(InlineKeyboardButton(text=_("connect_button"), url=button_target))
-    elif settings.SUBSCRIPTION_MINI_APP_URL:
-        builder.row(
-            InlineKeyboardButton(
-                text=_("connect_button"),
-                web_app=WebAppInfo(url=settings.SUBSCRIPTION_MINI_APP_URL),
+            if install_share_url:
+                builder.row(
+                    InlineKeyboardButton(
+                        text=_("install_guide_share_button"),
+                        url=install_share_url,
+                    )
+                )
+        elif button_target:
+            builder.row(InlineKeyboardButton(text=_("connect_button"), url=button_target))
+        elif settings.SUBSCRIPTION_MINI_APP_URL:
+            builder.row(
+                InlineKeyboardButton(
+                    text=_("connect_button"),
+                    web_app=WebAppInfo(url=settings.SUBSCRIPTION_MINI_APP_URL),
+                )
             )
-        )
-    else:
-        builder.row(
-            InlineKeyboardButton(
-                text=_("connect_button"),
-                callback_data="main_action:my_subscription",
+        else:
+            builder.row(
+                InlineKeyboardButton(
+                    text=_("connect_button"),
+                    callback_data="main_action:my_subscription",
+                )
             )
-        )
 
     back_callback = (
         "main_action:back_to_main_keep" if preserve_message else "main_action:back_to_main"

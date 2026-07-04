@@ -572,6 +572,19 @@ def _serialize_subscription(
         is_throttled = False
         max_devices = 0
 
+    # ponytail: in Hermes mode the public /s/{token} install-guide share
+    # link is suppressed — the visitor would land on a bot they don't own.
+    # The token still gets persisted on the subscription row when other
+    # flows (proxy shop) generate it, but we never expose it on the wire.
+    serialized_share_token = (
+        None
+        if hermes_mode
+        else subscription_dal.normalize_install_share_token(share_token) or None
+    )
+    serialized_share_url = (
+        None if hermes_mode else _build_install_share_link(request, settings, share_token)
+    )
+
     return {
         "active": seconds_left > 0,
         "status": active.get("status_from_panel") or "UNKNOWN",
@@ -580,8 +593,8 @@ def _serialize_subscription(
         "days_left": seconds_left // 86400,
         "remaining_text": _format_remaining(seconds_left, lang),
         "tenant_id": panel_short_uuid or None,
-        "install_share_token": subscription_dal.normalize_install_share_token(share_token) or None,
-        "install_share_url": _build_install_share_link(request, settings, share_token),
+        "install_share_token": serialized_share_token,
+        "install_share_url": serialized_share_url,
         "tariff_key": active.get("tariff_key"),
         "tariff_name": active.get("tariff_name"),
         "tariff_description": active.get("tariff_description"),

@@ -10,7 +10,6 @@
     ExternalLink,
     Monitor,
     QrCode,
-    Share2,
     Smartphone,
   } from "$components/ui/icons.js";
   import { AttentionDot, Spinner } from "$components/ui/index.js";
@@ -152,7 +151,6 @@
       subscription?.config_link ||
       ""
   );
-  const shareUrl = $derived(guideSubscription?.share_url || subscription?.install_share_url || "");
   $effect(() => {
     if (finalSubscriptionLink === lastQrValue) return;
     lastQrValue = finalSubscriptionLink;
@@ -240,23 +238,6 @@
 
   async function copySubscriptionLink() {
     await copyText(finalSubscriptionLink, t("wa_install_link_copied", {}, "Link copied"));
-  }
-
-  async function shareInstallGuide() {
-    const url = shareUrl || (typeof window !== "undefined" ? window.location.href : "");
-    if (!url) return;
-    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-      try {
-        await navigator.share({
-          title: localized(config?.baseTranslations?.installationGuideHeader, brandTitleFallback()),
-          url,
-        });
-        return;
-      } catch (_error) {
-        void _error;
-      }
-    }
-    await copyText(url, t("wa_install_share_copied", {}, "Share link copied"));
   }
 
   function brandTitleFallback() {
@@ -533,10 +514,6 @@
                   <Button variant="secondary" onclick={copySubscriptionLink}>
                     <Copy size={16} />
                     {t("wa_install_copy_subscription_link", {}, "Copy link")}
-                  </Button>
-                  <Button onclick={shareInstallGuide}>
-                    <Share2 size={16} />
-                    {t("wa_install_share", {}, "Share")}
                   </Button>
                 </div>
               </div>

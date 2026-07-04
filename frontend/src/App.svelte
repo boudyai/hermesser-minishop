@@ -399,7 +399,6 @@
   });
   const { setPasswordLoginMode, showLogin, submitEmailOnEnter } = authRuntime;
   const bootRuntime = createAppBootRuntime({
-    loadPublicInstall: (shareToken) => appActions.loadPublicInstall(shareToken),
     isDemoAuthMock: () => Boolean(MOCK) && demoAuth.isDemoAuthMock(),
     prepareDemoAuthState: () => demoAuth.prepareAuthState(),
     mock: MOCK,
@@ -649,7 +648,6 @@
     loadInstallGuides: () => {
       installGuidesStore.load();
     },
-    loadPublicInstall: (shareToken) => appActions.loadPublicInstall(shareToken),
     loadSupport: () => {
       supportStore.loadList();
     },

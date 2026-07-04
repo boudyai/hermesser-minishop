@@ -79,7 +79,7 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("GET", "/install"): "index_route",
             ("GET", "/trial"): "index_route",
             ("GET", "/open-app"): "app_deeplink_route",
-            ("GET", "/s/{share_token}"): "index_route",
+            ("GET", "/s/{share_token}"): "share_link_redirect_route",
             ("GET", "/invite"): "index_route",
             ("GET", "/devices"): "index_route",
             ("GET", "/settings"): "index_route",

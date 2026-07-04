@@ -23,7 +23,6 @@ type PopstateLifecycleDeps = {
   isDocsDemo: boolean;
   loadDevices: () => void;
   loadInstallGuides: () => void;
-  loadPublicInstall: (shareToken: string) => MaybePromise;
   loadSupport: () => void;
   routePathnameFromLocation: () => string;
   routePrefix: string;
@@ -46,7 +45,6 @@ export function createPopstateLifecycle({
   isDocsDemo,
   loadDevices,
   loadInstallGuides,
-  loadPublicInstall,
   loadSupport,
   routePathnameFromLocation,
   routePrefix,
@@ -104,10 +102,6 @@ export function createPopstateLifecycle({
       supportEnabled: getSupportEnabled(),
     });
 
-    if (decision.kind === "publicInstall") {
-      void loadPublicInstall(decision.shareToken);
-      return decision;
-    }
     if (decision.kind === "boot") {
       void boot();
       return decision;

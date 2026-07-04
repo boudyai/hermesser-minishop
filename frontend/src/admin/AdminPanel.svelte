@@ -980,6 +980,7 @@
   {fmtMoney}
   {openTelegramProfileLink}
   {paymentStatusVariant}
+  {panelWriteMode}
   {resolvedAvatarUrl}
   {trafficLeftLabel}
   {trafficOfLabel}

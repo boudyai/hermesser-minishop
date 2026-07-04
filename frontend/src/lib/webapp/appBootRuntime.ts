@@ -1,4 +1,3 @@
-import { publicInstallTokenFromPath } from "./routes.js";
 import { shellState } from "./shellState.svelte";
 import { refreshTelegramNotificationsAfterResume } from "./telegramNotificationsResume.js";
 import { runWebappBoot } from "./webappBoot.js";
@@ -10,7 +9,6 @@ type LoadData = (
 
 type AppBootRuntimeDeps = {
   // Pre-boot short-circuits.
-  loadPublicInstall: (shareToken: string) => Promise<unknown> | unknown;
   isDemoAuthMock: () => boolean;
   prepareDemoAuthState: () => void;
   // Shared / runWebappBoot environment.
@@ -42,20 +40,13 @@ type AppBootRuntimeDeps = {
 };
 
 /**
- * Boot + resume glue for the webapp shell. `boot()` resolves the public-install
- * short-circuit and demo-auth mock, runs the shared boot sequence, then performs
- * the post-boot activation handoff; `refreshTelegramNotificationsOnResume()`
- * re-checks the notifications prompt when the app regains focus. Behaviour is
- * identical to the former inline functions in App.svelte — the shell passes its
- * state through getters/setters as before.
+ * Boot + resume glue for the webapp shell. `boot()` resolves the demo-auth
+ * mock, runs the shared boot sequence, then performs the post-boot
+ * activation handoff; `refreshTelegramNotificationsOnResume()` re-checks
+ * the notifications prompt when the app regains focus.
  */
 export function createAppBootRuntime(deps: AppBootRuntimeDeps) {
   async function boot() {
-    const shareToken = publicInstallTokenFromPath(window.location.pathname);
-    if (shareToken) {
-      await deps.loadPublicInstall(shareToken);
-      return;
-    }
     if (deps.isDemoAuthMock()) {
       deps.prepareDemoAuthState();
       deps.showLogin();

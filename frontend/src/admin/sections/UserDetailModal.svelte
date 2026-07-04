@@ -31,6 +31,7 @@
     at,
     fmtDate,
     fmtMoney,
+    panelWriteMode,
     resolvedAvatarUrl,
     userDisplayName,
     userSecondaryName,
@@ -48,6 +49,7 @@
     at: TranslateFn;
     fmtDate: DateFormatter;
     fmtMoney: MoneyFormatter;
+    panelWriteMode?: string;
     resolvedAvatarUrl: (user: AdminUser) => string;
     userDisplayName: (user: AdminUser) => string;
     userSecondaryName: (user: AdminUser) => string;
@@ -62,6 +64,62 @@
     openTelegramProfileLink?: (url: string) => boolean;
     onClose?: () => void;
   } = $props();
+
+  const hermesMode = $derived(
+    String(panelWriteMode || "").toLowerCase() === "hermes"
+  );
+  type CornllmBalance = {
+    state?: "none" | "ok" | "unreachable";
+    max_budget?: number | null;
+    spent?: number | null;
+    remaining?: number | null;
+    budget_duration?: string | null;
+  };
+  // ponytail: 1 USD = 100 RUB → admin shows whole rubles. The
+  // kopeck-preserving trick keeps the formatter stable when LiteLLM
+  // gives us fractional cents on the wire.
+  function formatCornllmRub(usd: unknown): string {
+    if (usd === null || usd === undefined) return "—";
+    const rub = Number(usd) * 100;
+    if (Number.isNaN(rub)) return "—";
+    if (Math.abs(rub - Math.round(rub)) < 1e-6) return `${Math.round(rub)} ₽`;
+    return `${rub.toFixed(2)} ₽`;
+  }
+  const cornllmValue = $derived(
+    openedUserDetail?.cornllm as CornllmBalance | null | undefined
+  );
+  const cornllmRemaining = $derived(
+    cornllmValue?.remaining ??
+      (cornllmValue?.max_budget !== undefined && cornllmValue?.spent !== undefined
+        ? Math.max(
+            0,
+            Number(cornllmValue.max_budget || 0) - Number(cornllmValue.spent || 0)
+          )
+        : null)
+  );
+  const cornllmStateLabel = $derived(
+    !cornllmValue || cornllmValue.state === "none"
+      ? at("admin_cornllm_balance_no_key", {}, "—")
+      : cornllmValue.state === "unreachable"
+        ? at("admin_cornllm_balance_unreachable", {}, "n/a")
+        : formatCornllmRub(cornllmRemaining)
+  );
+  const cornllmSpentLabel = $derived(formatCornllmRub(cornllmValue?.spent));
+  const cornllmMaxLabel = $derived(formatCornllmRub(cornllmValue?.max_budget));
+  const cornllmRatio = $derived(
+    cornllmValue && Number(cornllmValue.max_budget) > 0
+      ? Number(cornllmRemaining || 0) / Number(cornllmValue.max_budget)
+      : 0
+  );
+  const cornllmVariant: BadgeVariant = $derived(
+    !cornllmValue || cornllmValue.state === "none" || cornllmValue.state === "unreachable"
+      ? "muted"
+      : cornllmRatio >= 0.5
+        ? "success"
+        : cornllmRatio >= 0.15
+          ? "warning"
+          : "danger"
+  );
 
   let avatarPreviewOpen = $state(false);
   let avatarPreviewUrl = $state("");
@@ -781,6 +839,28 @@
                     />
                   {/if}
                 </div>
+                {#if hermesMode}
+                  <div class="admin-traffic-summary">
+                    <AdminTrafficCard
+                      title={at("admin_cornllm_balance", {}, "CornLLM")}
+                      value={cornllmStateLabel}
+                      left={at(
+                        "admin_cornllm_meta",
+                        { spent: cornllmSpentLabel, max: cornllmMaxLabel },
+                        `Spent ${cornllmSpentLabel} / Limit ${cornllmMaxLabel}`
+                      )}
+                      percent={Math.round(
+                        Math.max(0, Math.min(1, cornllmRatio)) * 100
+                      )}
+                      warning={cornllmVariant === "warning" || cornllmVariant === "danger"}
+                      label={at(
+                        "aria_label_cornllm",
+                        {},
+                        "CornLLM (LiteLLM) budget"
+                      )}
+                    />
+                  </div>
+                {/if}
               {:else}
                 <p class="admin-muted">
                   {at("user_no_active_subscription", {}, "Активной подписки нет")}

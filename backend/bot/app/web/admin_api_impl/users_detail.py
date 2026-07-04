@@ -626,6 +626,41 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
     )
     trial_payload = _serialize_trial_summary(user, trial_subs)
 
+    # ponytail: in Hermes mode surface the tenant's CornLLM (LiteLLM)
+    # balance here too — the table column is easy to miss and the
+    # user-detail card is where the operator goes to look up a single
+    # customer. Mirrors the per-row fetch in _bulk_cornllm_balance_for_users
+    # (see users_listing.py) so the wire shape matches the list endpoint.
+    cornllm_payload: Dict[str, Any] = {"state": "none"}
+    hermes_mode = (
+        str(
+            getattr(getattr(settings, "panel_settings", None), "write_mode", "")
+            or ""
+        ).lower()
+        == "hermes"
+    )
+    if hermes_mode and panel_uuid:
+        subscription_service = get_optional_subscription_service(request)
+        panel_service = getattr(subscription_service, "panel_service", None)
+        if panel_service is not None and hasattr(panel_service, "get_tenant_quota"):
+            try:
+                quota = await panel_service.get_tenant_quota(str(panel_uuid))
+                if quota:
+                    cornllm_payload = {
+                        "state": "ok",
+                        "max_budget": quota.get("max_budget"),
+                        "spent": quota.get("spent"),
+                        "remaining": quota.get("remaining"),
+                        "budget_duration": quota.get("budget_duration"),
+                    }
+                # quota falsy = no key yet; leave "none" so the UI shows
+                # "no key" instead of a misleading 0.
+            except Exception as exc_quota:  # pragma: no cover — best-effort
+                logger.debug(
+                    "CornLLM quota fetch failed for user %s: %s", target_id, exc_quota
+                )
+                cornllm_payload = {"state": "unreachable"}
+
     return _ok(
         {
             "user": serialized_user,
@@ -638,6 +673,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
             "subscription_url": subscription_url,
             "last_vpn_connected_at": last_vpn_connected_at,
             "vpn_connection_status": vpn_connection_status,
+            "cornllm": cornllm_payload,
             "referral": {
                 "code": referral_code,
                 "bot_link": referral_bot_link,

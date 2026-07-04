@@ -8538,6 +8538,46 @@
                         }
                       ]
                     },
+                    "cornllm": {
+                      "properties": {
+                        "budget_duration": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "max_budget": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "remaining": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "spent": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "state": {
+                          "enum": [
+                            "none",
+                            "ok",
+                            "unreachable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "state"
+                      ],
+                      "type": "object"
+                    },
                     "last_vpn_connected_at": {
                       "type": [
                         "string",
@@ -8638,6 +8678,7 @@
                     "subscription_url",
                     "last_vpn_connected_at",
                     "vpn_connection_status",
+                    "cornllm",
                     "referral"
                   ],
                   "type": "object"

@@ -3,14 +3,16 @@ import { activeTabForWebappSection, resolveAvailableWebappSection } from "./sect
 import {
   adminSectionFromPath,
   normalizeSection,
-  publicInstallTokenFromPath,
   sectionFromPath,
 } from "./routes.js";
 
-export type PopstateMode = "app" | "login" | "publicInstall" | string;
+// ponytail: public install-mode was retired on 2026-07-04 alongside the
+// /s/{token} share-link flow. Old messages may still contain the URL
+// but the backend now 302s them to /install, so the frontend just
+// needs to route to the install section as usual.
+export type PopstateMode = "app" | "login" | string;
 
 export type PopstateRouteDecision =
-  | { kind: "publicInstall"; shareToken: string }
   | { kind: "boot" }
   | { kind: "login"; passwordLoginEnabled: boolean }
   | { kind: "admin"; adminSection: string; activeTab: "settings"; section: "admin" }
@@ -49,10 +51,6 @@ export function resolvePopstateRoute({
   screenQuery = null,
   supportEnabled = true,
 }: PopstateRouteInput): PopstateRouteDecision {
-  const shareToken = publicInstallTokenFromPath(pathname);
-  if (shareToken) return { kind: "publicInstall", shareToken };
-  if (mode === "publicInstall") return { kind: "boot" };
-
   const routeSection =
     isDocsDemo && screenQuery
       ? normalizeSection(screenQuery)

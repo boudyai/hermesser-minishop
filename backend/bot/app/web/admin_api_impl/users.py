@@ -146,6 +146,25 @@ register_contract(
                 "subscription_url": NULLABLE_STRING_SCHEMA,
                 "last_vpn_connected_at": NULLABLE_STRING_SCHEMA,
                 "vpn_connection_status": STRING_SCHEMA,
+                # ponytail: in Hermes mode the user-detail card shows
+                # CornLLM (LiteLLM) budget so the operator doesn't have
+                # to scan the user table just to find a customer's
+                # remaining balance. The shape mirrors the per-row
+                # payload in the users list endpoint.
+                "cornllm": {
+                    "type": "object",
+                    "properties": {
+                        "state": {
+                            "type": "string",
+                            "enum": ["none", "ok", "unreachable"],
+                        },
+                        "max_budget": NULLABLE_NUMBER_SCHEMA,
+                        "spent": NULLABLE_NUMBER_SCHEMA,
+                        "remaining": NULLABLE_NUMBER_SCHEMA,
+                        "budget_duration": NULLABLE_STRING_SCHEMA,
+                    },
+                    "required": ["state"],
+                },
                 "referral": {
                     "type": "object",
                     "additionalProperties": False,

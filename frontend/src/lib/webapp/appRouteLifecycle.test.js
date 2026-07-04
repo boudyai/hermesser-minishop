@@ -3,29 +3,6 @@ import { describe, expect, it } from "vitest";
 import { resolvePopstateRoute } from "./appRouteLifecycle.js";
 
 describe("resolvePopstateRoute", () => {
-  it("routes public install share links before mode-specific handling", () => {
-    expect(
-      resolvePopstateRoute({
-        fallbackAdminSection: "stats",
-        mode: "app",
-        pathname: "/s/0123456789abcdef0123456789abcdef",
-      })
-    ).toEqual({
-      kind: "publicInstall",
-      shareToken: "0123456789abcdef0123456789abcdef",
-    });
-  });
-
-  it("requests a boot refresh when leaving public install mode", () => {
-    expect(
-      resolvePopstateRoute({
-        fallbackAdminSection: "stats",
-        mode: "publicInstall",
-        pathname: "/settings",
-      })
-    ).toEqual({ kind: "boot" });
-  });
-
   it("syncs login password mode from the route", () => {
     expect(
       resolvePopstateRoute({

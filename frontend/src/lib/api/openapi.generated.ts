@@ -4,7692 +4,7702 @@
  */
 
 export interface paths {
-    "/api/account/avatar": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Account Avatar */
-        get: operations["get_account_avatar_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/account/bot_token": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Account Bot Token */
-        put: operations["put_account_bot_token_route"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/account/email/request": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Account Email Request */
-        post: operations["post_account_email_request_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/account/email/verify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Account Email Verify */
-        post: operations["post_account_email_verify_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/account/language": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Account Language */
-        post: operations["post_account_language_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/account/password/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Account Password Confirm */
-        post: operations["post_account_password_confirm_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/account/password/request": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Account Password Request */
-        post: operations["post_account_password_request_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/account/telegram/link": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Account Telegram Link */
-        post: operations["post_account_telegram_link_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/account/telegram/notifications/probe": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Account Telegram Notifications Probe */
-        post: operations["post_account_telegram_notifications_probe_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/ads": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Ads List */
-        get: operations["get_admin_ads_list_route"];
-        put?: never;
-        /** Admin Ad Create */
-        post: operations["post_admin_ad_create_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/ads/{campaign_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Admin Ad Delete */
-        delete: operations["delete_admin_ad_delete_route"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/ads/{campaign_id}/toggle": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin Ad Toggle */
-        post: operations["post_admin_ad_toggle_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/appearance/favicon": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin Appearance Favicon Upload */
-        post: operations["post_admin_appearance_favicon_upload_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/appearance/logo": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin Appearance Logo Upload */
-        post: operations["post_admin_appearance_logo_upload_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/backups": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Backups List */
-        get: operations["get_admin_backups_list_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/backups/create": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin Backups Create */
-        post: operations["post_admin_backups_create_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/backups/restore": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin Backups Restore */
-        post: operations["post_admin_backups_restore_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/backups/upload": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin Backups Upload */
-        post: operations["post_admin_backups_upload_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/broadcast": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin Broadcast */
-        post: operations["post_admin_broadcast_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/broadcast/audience-counts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Broadcast Audience Counts */
-        get: operations["get_admin_broadcast_audience_counts_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Health */
-        get: operations["get_admin_health_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/logs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Logs */
-        get: operations["get_admin_logs_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Me */
-        get: operations["get_admin_me_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/panel/internal-squads": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Panel Internal Squads */
-        get: operations["get_admin_panel_internal_squads_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/payments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Payments List */
-        get: operations["get_admin_payments_list_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/payments/export.csv": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Payments Export */
-        get: operations["get_admin_payments_export_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/payments/{payment_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Payment Detail */
-        get: operations["get_admin_payment_detail_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/promos": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Promos List */
-        get: operations["get_admin_promos_list_route"];
-        put?: never;
-        /** Admin Promo Create */
-        post: operations["post_admin_promo_create_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/promos/{promo_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Admin Promo Delete */
-        delete: operations["delete_admin_promo_delete_route"];
-        options?: never;
-        head?: never;
-        /** Admin Promo Update */
-        patch: operations["patch_admin_promo_update_route"];
-        trace?: never;
-    };
-    "/api/admin/promos/{promo_id}/activations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Promo Activations */
-        get: operations["get_admin_promo_activations_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/settings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Settings Get */
-        get: operations["get_admin_settings_get_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Admin Settings Patch */
-        patch: operations["patch_admin_settings_patch_route"];
-        trace?: never;
-    };
-    "/api/admin/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Stats */
-        get: operations["get_admin_stats_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/support/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Support Stats */
-        get: operations["get_admin_support_stats_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/support/tickets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Support Tickets */
-        get: operations["get_admin_support_tickets_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/support/tickets/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Support Ticket Detail */
-        get: operations["get_admin_support_ticket_detail_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Admin Support Ticket Patch */
-        patch: operations["patch_admin_support_ticket_patch_route"];
-        trace?: never;
-    };
-    "/api/admin/support/tickets/{id}/messages": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin Support Ticket Reply */
-        post: operations["post_admin_support_ticket_reply_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/support/tickets/{id}/read": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin Support Ticket Read */
-        post: operations["post_admin_support_ticket_read_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/sync": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin Sync */
-        post: operations["post_admin_sync_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/tariffs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Tariffs Get */
-        get: operations["get_admin_tariffs_get_route"];
-        /** Admin Tariffs Save */
-        put: operations["put_admin_tariffs_save_route"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/themes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Themes Get */
-        get: operations["get_admin_themes_get_route"];
-        /** Admin Themes Save */
-        put: operations["put_admin_themes_save_route"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/translations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Translations Get */
-        get: operations["get_admin_translations_get_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Admin Translations Patch */
-        patch: operations["patch_admin_translations_patch_route"];
-        trace?: never;
-    };
-    "/api/admin/users": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Users List */
-        get: operations["get_admin_users_list_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/users/{user_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin User Detail */
-        get: operations["get_admin_user_detail_route"];
-        put?: never;
-        post?: never;
-        /** Admin User Delete */
-        delete: operations["delete_admin_user_delete_route"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/users/{user_id}/avatar": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin User Avatar */
-        get: operations["get_admin_user_avatar_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/users/{user_id}/ban": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin User Ban */
-        post: operations["post_admin_user_ban_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/users/{user_id}/extend": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin User Extend */
-        post: operations["post_admin_user_extend_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/users/{user_id}/hwid-device-limit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin User Hwid Device Limit */
-        post: operations["post_admin_user_hwid_device_limit_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/users/{user_id}/message": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin User Message */
-        post: operations["post_admin_user_message_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/users/{user_id}/message/preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin User Message Preview */
-        post: operations["post_admin_user_message_preview_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/users/{user_id}/premium-override": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin User Premium Override */
-        post: operations["post_admin_user_premium_override_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/users/{user_id}/referrals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin User Referrals */
-        get: operations["get_admin_user_referrals_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/users/{user_id}/regular-traffic-override": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin User Regular Traffic Override */
-        post: operations["post_admin_user_regular_traffic_override_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/users/{user_id}/reset-trial": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin User Reset Trial */
-        post: operations["post_admin_user_reset_trial_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/users/{user_id}/tariff": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin User Tariff */
-        post: operations["post_admin_user_tariff_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/users/{user_id}/telegram-profile-link": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin User Telegram Profile Link */
-        post: operations["post_admin_user_telegram_profile_link_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/users/{user_id}/traffic-grant": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin User Traffic Grant */
-        post: operations["post_admin_user_traffic_grant_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/auth/email/magic": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Email Auth Magic */
-        post: operations["post_email_auth_magic_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/auth/email/password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Email Password Auth */
-        post: operations["post_email_password_auth_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/auth/email/request": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Email Auth Request */
-        post: operations["post_email_auth_request_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/auth/email/verify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Email Auth Verify */
-        post: operations["post_email_auth_verify_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/auth/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Logout */
-        post: operations["post_logout_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/auth/telegram/nonce": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Telegram Oauth Nonce */
-        post: operations["post_telegram_oauth_nonce_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/auth/token": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Auth Token */
-        post: operations["post_auth_token_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/bootstrap": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Bootstrap */
-        get: operations["get_bootstrap_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/cornllm/topup": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Cornllm Topup */
-        post: operations["post_cornllm_topup_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/devices": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Devices */
-        get: operations["get_devices_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/devices/disconnect": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Disconnect Device */
-        post: operations["post_disconnect_device_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/devices/topup-options": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Device Topup Options */
-        get: operations["get_device_topup_options_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/env": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Env */
-        get: operations["get_env_route"];
-        /** Env Update */
-        put: operations["put_env_update_route"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/i18n": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** I18N */
-        get: operations["get_i18n_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Me */
-        get: operations["get_me_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/payments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create Payment */
-        post: operations["post_create_payment_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/payments/{payment_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Payment Status */
-        get: operations["get_payment_status_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/promo/apply": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Apply Promo */
-        post: operations["post_apply_promo_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/referral/welcome-bonus/claim": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Referral Welcome Bonus Claim */
-        post: operations["post_referral_welcome_bonus_claim_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/subscription-guides": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Subscription Guides */
-        get: operations["get_subscription_guides_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/subscription-guides/public/{share_token}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Public Subscription Guides */
-        get: operations["get_public_subscription_guides_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/subscription/auto-renew": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Subscription Auto Renew */
-        post: operations["post_subscription_auto_renew_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/subscription/quote-promo": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Quote Promo */
-        post: operations["post_quote_promo_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/support/tickets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Support Tickets */
-        get: operations["get_support_tickets_route"];
-        put?: never;
-        /** Support Create Ticket */
-        post: operations["post_support_create_ticket_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/support/tickets/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Support Ticket Detail */
-        get: operations["get_support_ticket_detail_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/support/tickets/{id}/messages": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Support Ticket Reply */
-        post: operations["post_support_ticket_reply_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/support/tickets/{id}/read": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Support Ticket Read */
-        post: operations["post_support_ticket_read_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/support/unread": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Support Unread */
-        get: operations["get_support_unread_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tariffs/change": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Tariff Change */
-        post: operations["post_tariff_change_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tariffs/change-options": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Tariff Change Options */
-        get: operations["get_tariff_change_options_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tariffs/change-payment": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Tariff Change Payment */
-        post: operations["post_tariff_change_payment_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tariffs/topup-options": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Tariff Topup Options */
-        get: operations["get_tariff_topup_options_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tenant": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Tenant Delete */
-        delete: operations["delete_tenant_delete_route"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tenant/cornllm-key": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Tenant Cornllm Key */
-        get: operations["get_tenant_cornllm_key_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tenant/logs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Tenant Logs */
-        get: operations["get_tenant_logs_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tenant/logs/refresh": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Tenant Logs Refresh */
-        post: operations["post_tenant_logs_refresh_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tenant/quota": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Tenant Quota */
-        get: operations["get_tenant_quota_route"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tenant/recreate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Tenant Recreate */
-        post: operations["post_tenant_recreate_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tenant/restart": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Tenant Restart */
-        post: operations["post_tenant_restart_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tenant/suspend": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Tenant Suspend */
-        post: operations["post_tenant_suspend_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/trial/activate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Activate Trial */
-        post: operations["post_activate_trial_route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
+  "/api/account/avatar": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Account Avatar */
+    get: operations["get_account_avatar_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/bot_token": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Account Bot Token */
+    put: operations["put_account_bot_token_route"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/email/request": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Email Request */
+    post: operations["post_account_email_request_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/email/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Email Verify */
+    post: operations["post_account_email_verify_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/language": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Language */
+    post: operations["post_account_language_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/password/confirm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Password Confirm */
+    post: operations["post_account_password_confirm_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/password/request": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Password Request */
+    post: operations["post_account_password_request_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/telegram/link": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Telegram Link */
+    post: operations["post_account_telegram_link_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/telegram/notifications/probe": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Telegram Notifications Probe */
+    post: operations["post_account_telegram_notifications_probe_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/ads": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Ads List */
+    get: operations["get_admin_ads_list_route"];
+    put?: never;
+    /** Admin Ad Create */
+    post: operations["post_admin_ad_create_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/ads/{campaign_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Admin Ad Delete */
+    delete: operations["delete_admin_ad_delete_route"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/ads/{campaign_id}/toggle": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Ad Toggle */
+    post: operations["post_admin_ad_toggle_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/appearance/favicon": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Appearance Favicon Upload */
+    post: operations["post_admin_appearance_favicon_upload_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/appearance/logo": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Appearance Logo Upload */
+    post: operations["post_admin_appearance_logo_upload_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/backups": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Backups List */
+    get: operations["get_admin_backups_list_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/backups/create": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Backups Create */
+    post: operations["post_admin_backups_create_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/backups/restore": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Backups Restore */
+    post: operations["post_admin_backups_restore_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/backups/upload": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Backups Upload */
+    post: operations["post_admin_backups_upload_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/broadcast": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Broadcast */
+    post: operations["post_admin_broadcast_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/broadcast/audience-counts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Broadcast Audience Counts */
+    get: operations["get_admin_broadcast_audience_counts_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/health": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Health */
+    get: operations["get_admin_health_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/logs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Logs */
+    get: operations["get_admin_logs_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Me */
+    get: operations["get_admin_me_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/panel/internal-squads": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Panel Internal Squads */
+    get: operations["get_admin_panel_internal_squads_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/payments": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Payments List */
+    get: operations["get_admin_payments_list_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/payments/export.csv": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Payments Export */
+    get: operations["get_admin_payments_export_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/payments/{payment_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Payment Detail */
+    get: operations["get_admin_payment_detail_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/promos": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Promos List */
+    get: operations["get_admin_promos_list_route"];
+    put?: never;
+    /** Admin Promo Create */
+    post: operations["post_admin_promo_create_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/promos/{promo_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Admin Promo Delete */
+    delete: operations["delete_admin_promo_delete_route"];
+    options?: never;
+    head?: never;
+    /** Admin Promo Update */
+    patch: operations["patch_admin_promo_update_route"];
+    trace?: never;
+  };
+  "/api/admin/promos/{promo_id}/activations": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Promo Activations */
+    get: operations["get_admin_promo_activations_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Settings Get */
+    get: operations["get_admin_settings_get_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Admin Settings Patch */
+    patch: operations["patch_admin_settings_patch_route"];
+    trace?: never;
+  };
+  "/api/admin/stats": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Stats */
+    get: operations["get_admin_stats_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/support/stats": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Support Stats */
+    get: operations["get_admin_support_stats_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/support/tickets": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Support Tickets */
+    get: operations["get_admin_support_tickets_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/support/tickets/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Support Ticket Detail */
+    get: operations["get_admin_support_ticket_detail_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Admin Support Ticket Patch */
+    patch: operations["patch_admin_support_ticket_patch_route"];
+    trace?: never;
+  };
+  "/api/admin/support/tickets/{id}/messages": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Support Ticket Reply */
+    post: operations["post_admin_support_ticket_reply_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/support/tickets/{id}/read": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Support Ticket Read */
+    post: operations["post_admin_support_ticket_read_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/sync": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Sync */
+    post: operations["post_admin_sync_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/tariffs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Tariffs Get */
+    get: operations["get_admin_tariffs_get_route"];
+    /** Admin Tariffs Save */
+    put: operations["put_admin_tariffs_save_route"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/themes": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Themes Get */
+    get: operations["get_admin_themes_get_route"];
+    /** Admin Themes Save */
+    put: operations["put_admin_themes_save_route"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/translations": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Translations Get */
+    get: operations["get_admin_translations_get_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Admin Translations Patch */
+    patch: operations["patch_admin_translations_patch_route"];
+    trace?: never;
+  };
+  "/api/admin/users": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Users List */
+    get: operations["get_admin_users_list_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin User Detail */
+    get: operations["get_admin_user_detail_route"];
+    put?: never;
+    post?: never;
+    /** Admin User Delete */
+    delete: operations["delete_admin_user_delete_route"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/avatar": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin User Avatar */
+    get: operations["get_admin_user_avatar_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/ban": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Ban */
+    post: operations["post_admin_user_ban_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/extend": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Extend */
+    post: operations["post_admin_user_extend_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/hwid-device-limit": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Hwid Device Limit */
+    post: operations["post_admin_user_hwid_device_limit_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/message": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Message */
+    post: operations["post_admin_user_message_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/message/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Message Preview */
+    post: operations["post_admin_user_message_preview_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/premium-override": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Premium Override */
+    post: operations["post_admin_user_premium_override_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/referrals": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin User Referrals */
+    get: operations["get_admin_user_referrals_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/regular-traffic-override": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Regular Traffic Override */
+    post: operations["post_admin_user_regular_traffic_override_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/reset-trial": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Reset Trial */
+    post: operations["post_admin_user_reset_trial_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/tariff": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Tariff */
+    post: operations["post_admin_user_tariff_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/telegram-profile-link": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Telegram Profile Link */
+    post: operations["post_admin_user_telegram_profile_link_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/traffic-grant": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Traffic Grant */
+    post: operations["post_admin_user_traffic_grant_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/email/magic": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Email Auth Magic */
+    post: operations["post_email_auth_magic_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/email/password": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Email Password Auth */
+    post: operations["post_email_password_auth_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/email/request": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Email Auth Request */
+    post: operations["post_email_auth_request_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/email/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Email Auth Verify */
+    post: operations["post_email_auth_verify_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/logout": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Logout */
+    post: operations["post_logout_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/telegram/nonce": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Telegram Oauth Nonce */
+    post: operations["post_telegram_oauth_nonce_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/token": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Auth Token */
+    post: operations["post_auth_token_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/bootstrap": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Bootstrap */
+    get: operations["get_bootstrap_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/cornllm/topup": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Cornllm Topup */
+    post: operations["post_cornllm_topup_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/devices": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Devices */
+    get: operations["get_devices_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/devices/disconnect": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Disconnect Device */
+    post: operations["post_disconnect_device_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/devices/topup-options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Device Topup Options */
+    get: operations["get_device_topup_options_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/env": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Env */
+    get: operations["get_env_route"];
+    /** Env Update */
+    put: operations["put_env_update_route"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/i18n": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** I18N */
+    get: operations["get_i18n_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Me */
+    get: operations["get_me_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/payments": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Payment */
+    post: operations["post_create_payment_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/payments/{payment_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Payment Status */
+    get: operations["get_payment_status_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/promo/apply": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Apply Promo */
+    post: operations["post_apply_promo_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/referral/welcome-bonus/claim": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Referral Welcome Bonus Claim */
+    post: operations["post_referral_welcome_bonus_claim_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/subscription-guides": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Subscription Guides */
+    get: operations["get_subscription_guides_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/subscription-guides/public/{share_token}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Public Subscription Guides */
+    get: operations["get_public_subscription_guides_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/subscription/auto-renew": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Subscription Auto Renew */
+    post: operations["post_subscription_auto_renew_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/subscription/quote-promo": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Quote Promo */
+    post: operations["post_quote_promo_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/support/tickets": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Support Tickets */
+    get: operations["get_support_tickets_route"];
+    put?: never;
+    /** Support Create Ticket */
+    post: operations["post_support_create_ticket_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/support/tickets/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Support Ticket Detail */
+    get: operations["get_support_ticket_detail_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/support/tickets/{id}/messages": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Support Ticket Reply */
+    post: operations["post_support_ticket_reply_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/support/tickets/{id}/read": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Support Ticket Read */
+    post: operations["post_support_ticket_read_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/support/unread": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Support Unread */
+    get: operations["get_support_unread_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/tariffs/change": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Tariff Change */
+    post: operations["post_tariff_change_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/tariffs/change-options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Tariff Change Options */
+    get: operations["get_tariff_change_options_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/tariffs/change-payment": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Tariff Change Payment */
+    post: operations["post_tariff_change_payment_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/tariffs/topup-options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Tariff Topup Options */
+    get: operations["get_tariff_topup_options_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/tenant": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Tenant Delete */
+    delete: operations["delete_tenant_delete_route"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/tenant/cornllm-key": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Tenant Cornllm Key */
+    get: operations["get_tenant_cornllm_key_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/tenant/logs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Tenant Logs */
+    get: operations["get_tenant_logs_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/tenant/logs/refresh": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Tenant Logs Refresh */
+    post: operations["post_tenant_logs_refresh_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/tenant/quota": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Tenant Quota */
+    get: operations["get_tenant_quota_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/tenant/recreate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Tenant Recreate */
+    post: operations["post_tenant_recreate_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/tenant/restart": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Tenant Restart */
+    post: operations["post_tenant_restart_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/tenant/suspend": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Tenant Suspend */
+    post: operations["post_tenant_suspend_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/trial/activate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Activate Trial */
+    post: operations["post_activate_trial_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: {
-        /** AdCreateBody */
-        AdCreateBody: {
-            /**
-             * Cost
-             * @default 0
-             */
-            cost: number;
-            /** Source */
-            source: string;
-            /** Start Param */
-            start_param: string;
-        };
-        /** AdOut */
-        AdOut: {
-            /** Cost */
-            cost: number;
-            /**
-             * Created At
-             * @default null
-             */
-            created_at: string | null;
-            /** Id */
-            id: number;
-            /** Is Active */
-            is_active: boolean;
-            /**
-             * Source
-             * @default null
-             */
-            source: string | null;
-            /**
-             * Start Param
-             * @default null
-             */
-            start_param: string | null;
-            /** Stats */
-            stats?: {
-                [key: string]: unknown;
-            };
-        };
-        /** AdToggleBody */
-        AdToggleBody: {
-            /**
-             * Is Active
-             * @default true
-             */
-            is_active: unknown;
-        };
-        /** AdminAdsListOut */
-        AdminAdsListOut: {
-            /** Campaigns */
-            campaigns: components["schemas"]["AdOut"][];
-            /** Totals */
-            totals: {
-                [key: string]: number;
-            };
-        };
-        /** AdminBackupRestoreBody */
-        AdminBackupRestoreBody: {
-            /**
-             * Archive Name
-             * @default
-             */
-            archive_name: unknown;
-            /**
-             * Confirm
-             * @default false
-             */
-            confirm: unknown;
-            /**
-             * Restore Compose
-             * @default false
-             */
-            restore_compose: unknown;
-            /**
-             * Restore Database
-             * @default false
-             */
-            restore_database: unknown;
-        };
-        /** AdminBroadcastBody */
-        AdminBroadcastBody: {
-            /**
-             * Target
-             * @default all
-             */
-            target: unknown;
-            /**
-             * Text
-             * @default
-             */
-            text: unknown;
-        };
-        /** AdminHealthOut */
-        AdminHealthOut: {
-            /** Alerts */
-            alerts: {
-                [key: string]: unknown;
-            }[];
-            /**
-             * Checked At
-             * Format: date-time
-             */
-            checked_at: string;
-        };
-        /** AdminLogsListOut */
-        AdminLogsListOut: {
-            /** Logs */
-            logs: components["schemas"]["LogOut"][];
-            /** Page */
-            page: number;
-            /** Page Size */
-            page_size: number;
-            /** Total */
-            total: number;
-        };
-        /** AdminMeOut */
-        AdminMeOut: {
-            /** Admin Ids */
-            admin_ids: number[];
-            /**
-             * Panel Write Mode
-             * @default remnawave
-             */
-            panel_write_mode: string;
-            /** User Id */
-            user_id: number;
-        };
-        /** AdminPanelSyncOut */
-        AdminPanelSyncOut: {
-            /**
-             * Details
-             * @default null
-             */
-            details: unknown;
-            /**
-             * Last Sync Time
-             * @default null
-             */
-            last_sync_time: string | null;
-            /** Status */
-            status: string;
-            /** Subscriptions Synced */
-            subscriptions_synced: number;
-            /** Users Processed */
-            users_processed: number;
-        };
-        /** AdminPaymentsListOut */
-        AdminPaymentsListOut: {
-            /** Page */
-            page: number;
-            /** Page Size */
-            page_size: number;
-            /** Payments */
-            payments: components["schemas"]["PaymentOut"][];
-            /** Total */
-            total: number;
-        };
-        /** AdminSettingsPatchBody */
-        AdminSettingsPatchBody: {
-            /** Deletes */
-            deletes?: unknown;
-            /** Updates */
-            updates?: unknown;
-        };
-        /** AdminStatsOut */
-        AdminStatsOut: {
-            /** Currency Symbol */
-            currency_symbol: string;
-            /** Financial */
-            financial: {
-                [key: string]: unknown;
-            };
-            /**
-             * Panel
-             * @default null
-             */
-            panel: {
-                [key: string]: unknown;
-            } | null;
-            panel_sync: components["schemas"]["AdminPanelSyncOut"];
-            /**
-             * Queue
-             * @default null
-             */
-            queue: {
-                [key: string]: unknown;
-            } | null;
-            /** Recent Payments */
-            recent_payments: components["schemas"]["PaymentOut"][];
-            /** Users */
-            users: {
-                [key: string]: unknown;
-            };
-        };
-        /** AdminSubscriptionOut */
-        AdminSubscriptionOut: {
-            /** Auto Renew Enabled */
-            auto_renew_enabled: boolean;
-            /**
-             * Display Label
-             * @default null
-             */
-            display_label: string | null;
-            /**
-             * Duration Months
-             * @default null
-             */
-            duration_months: number | null;
-            /**
-             * End Date
-             * @default null
-             */
-            end_date: string | null;
-            /** Extra Hwid Devices */
-            extra_hwid_devices: number;
-            /**
-             * Hwid Device Limit
-             * @default null
-             */
-            hwid_device_limit: number | null;
-            /** Is Active */
-            is_active: boolean;
-            /** Is Throttled */
-            is_throttled: boolean;
-            /** Is Trial */
-            is_trial: boolean;
-            /**
-             * Panel Subscription Uuid
-             * @default null
-             */
-            panel_subscription_uuid: string | null;
-            /**
-             * Panel User Uuid
-             * @default null
-             */
-            panel_user_uuid: string | null;
-            /**
-             * Premium Baseline Bytes
-             * @default null
-             */
-            premium_baseline_bytes: number | null;
-            /** Premium Bonus Bytes */
-            premium_bonus_bytes: number;
-            /** Premium Is Limited */
-            premium_is_limited: boolean;
-            /** Premium Limit Bytes */
-            premium_limit_bytes: number;
-            /**
-             * Premium Topup Balance Bytes
-             * @default null
-             */
-            premium_topup_balance_bytes: number | null;
-            /**
-             * Premium Topup Used Bytes
-             * @default null
-             */
-            premium_topup_used_bytes: number | null;
-            /** Premium Unlimited Override */
-            premium_unlimited_override: boolean;
-            /**
-             * Premium Used Bytes
-             * @default null
-             */
-            premium_used_bytes: number | null;
-            /**
-             * Provider
-             * @default null
-             */
-            provider: string | null;
-            /** Regular Bonus Bytes */
-            regular_bonus_bytes: number;
-            /** Regular Unlimited Override */
-            regular_unlimited_override: boolean;
-            /**
-             * Start Date
-             * @default null
-             */
-            start_date: string | null;
-            /**
-             * Status From Panel
-             * @default null
-             */
-            status_from_panel: string | null;
-            /** Subscription Id */
-            subscription_id: number;
-            /**
-             * Tariff Key
-             * @default null
-             */
-            tariff_key: string | null;
-            /**
-             * Tier Baseline Bytes
-             * @default null
-             */
-            tier_baseline_bytes: number | null;
-            /**
-             * Topup Balance Bytes
-             * @default null
-             */
-            topup_balance_bytes: number | null;
-            /**
-             * Traffic Limit Bytes
-             * @default null
-             */
-            traffic_limit_bytes: number | null;
-            /**
-             * Traffic Used Bytes
-             * @default null
-             */
-            traffic_used_bytes: number | null;
-        };
-        /** AdminSupportMessageOut */
-        AdminSupportMessageOut: {
-            /**
-             * Author Name
-             * @default null
-             */
-            author_name: string | null;
-            /** Author Role */
-            author_role: string;
-            /**
-             * Author User Id
-             * @default null
-             */
-            author_user_id: number | null;
-            /** Body */
-            body: string;
-            /**
-             * Created At
-             * @default null
-             */
-            created_at: string | null;
-            /** Is Internal Note */
-            is_internal_note: boolean;
-            /** Message Id */
-            message_id: number;
-            /**
-             * Read By Admin At
-             * @default null
-             */
-            read_by_admin_at: string | null;
-            /**
-             * Read By User At
-             * @default null
-             */
-            read_by_user_at: string | null;
-            /** Ticket Id */
-            ticket_id: number;
-        };
-        /** AdminSupportStatsOut */
-        AdminSupportStatsOut: {
-            /** Active */
-            active: number;
-            /** Awaiting Admin */
-            awaiting_admin: number;
-            /** Awaiting User */
-            awaiting_user: number;
-            /** Closed */
-            closed: number;
-            /** Open */
-            open: number;
-            /** Total */
-            total: number;
-            /** Total Unread Admin */
-            total_unread_admin: number;
-        } & {
-            [key: string]: unknown;
-        };
-        /** AdminSupportTicketOut */
-        AdminSupportTicketOut: {
-            /**
-             * Assigned Admin Id
-             * @default null
-             */
-            assigned_admin_id: number | null;
-            /** Category */
-            category: string;
-            /**
-             * Closed At
-             * @default null
-             */
-            closed_at: string | null;
-            /**
-             * Created At
-             * @default null
-             */
-            created_at: string | null;
-            /**
-             * Last Message At
-             * @default null
-             */
-            last_message_at: string | null;
-            /**
-             * Last Message Role
-             * @default null
-             */
-            last_message_role: string | null;
-            /** Priority */
-            priority: string;
-            /** Status */
-            status: string;
-            /** Subject */
-            subject: string;
-            /** Ticket Id */
-            ticket_id: number;
-            /** Unread Admin Count */
-            unread_admin_count: number;
-            /** Unread User Count */
-            unread_user_count: number;
-            /**
-             * Updated At
-             * @default null
-             */
-            updated_at: string | null;
-            /** User */
-            user: components["schemas"]["AdminSupportUserOut"] | components["schemas"]["EmptyObjectOut"];
-            /** User Id */
-            user_id: number;
-        };
-        /** AdminSupportUserOut */
-        AdminSupportUserOut: {
-            /**
-             * Email
-             * @default null
-             */
-            email: string | null;
-            /**
-             * First Name
-             * @default null
-             */
-            first_name: string | null;
-            /**
-             * Is Banned
-             * @default null
-             */
-            is_banned: boolean | null;
-            /**
-             * Last Name
-             * @default null
-             */
-            last_name: string | null;
-            /**
-             * Registration Date
-             * @default null
-             */
-            registration_date: string | null;
-            /**
-             * Telegram Id
-             * @default null
-             */
-            telegram_id: number | null;
-            /**
-             * Telegram Photo Url
-             * @default null
-             */
-            telegram_photo_url: string | null;
-            /**
-             * User Id
-             * @default null
-             */
-            user_id: number | null;
-            /**
-             * Username
-             * @default null
-             */
-            username: string | null;
-        };
-        /** AdminSupportUserSnapshotOut */
-        AdminSupportUserSnapshotOut: {
-            /**
-             * Email
-             * @default null
-             */
-            email: string | null;
-            /**
-             * Email Login
-             * @default null
-             */
-            email_login: boolean | null;
-            /**
-             * End Date
-             * @default null
-             */
-            end_date: string | null;
-            /**
-             * Is Throttled
-             * @default null
-             */
-            is_throttled: boolean | null;
-            /**
-             * Language
-             * @default null
-             */
-            language: string | null;
-            /**
-             * Lifetime Used Traffic Bytes
-             * @default null
-             */
-            lifetime_used_traffic_bytes: number | null;
-            /**
-             * Name
-             * @default null
-             */
-            name: string | null;
-            /**
-             * Panel Status
-             * @default null
-             */
-            panel_status: string | null;
-            /**
-             * Premium Topup Balance Bytes
-             * @default null
-             */
-            premium_topup_balance_bytes: number | null;
-            /**
-             * Registration Date
-             * @default null
-             */
-            registration_date: string | null;
-            /**
-             * Remaining
-             * @default null
-             */
-            remaining: string | null;
-            /**
-             * Subscription Active
-             * @default null
-             */
-            subscription_active: boolean | null;
-            /**
-             * Tariff
-             * @default null
-             */
-            tariff: string | null;
-            /**
-             * Telegram Id
-             * @default null
-             */
-            telegram_id: number | null;
-            /**
-             * Topup Balance Bytes
-             * @default null
-             */
-            topup_balance_bytes: number | null;
-            /** @default null */
-            traffic_premium: components["schemas"]["SupportTrafficSnapshotOut"] | null;
-            /** @default null */
-            traffic_regular: components["schemas"]["SupportTrafficSnapshotOut"] | null;
-            /**
-             * User Id
-             * @default null
-             */
-            user_id: number | null;
-            /**
-             * Username
-             * @default null
-             */
-            username: string | null;
-        };
-        /** AdminTicketPatchPayload */
-        AdminTicketPatchPayload: {
-            /**
-             * Assigned Admin Id
-             * @default null
-             */
-            assigned_admin_id: number | null;
-            /**
-             * Category
-             * @default null
-             */
-            category: ("billing" | "technical" | "account" | "other") | null;
-            /**
-             * Priority
-             * @default null
-             */
-            priority: ("low" | "normal" | "high" | "urgent") | null;
-            /**
-             * Status
-             * @default null
-             */
-            status: ("open" | "awaiting_user" | "awaiting_admin" | "resolved" | "closed") | null;
-        };
-        /** AdminTicketReplyPayload */
-        AdminTicketReplyPayload: {
-            /** Body */
-            body: string;
-            /**
-             * Is Internal Note
-             * @default false
-             */
-            is_internal_note: boolean;
-        };
-        /** AdminTranslationsPatchBody */
-        AdminTranslationsPatchBody: {
-            /** Deletes */
-            deletes?: unknown;
-            /** Updates */
-            updates?: unknown;
-        };
-        /** AdminUserBanBody */
-        AdminUserBanBody: {
-            /**
-             * Banned
-             * @default false
-             */
-            banned: unknown;
-        };
-        /** AdminUserExtendBody */
-        AdminUserExtendBody: {
-            /**
-             * Days
-             * @default null
-             */
-            days: unknown;
-            /**
-             * Extend Hwid Devices
-             * @default null
-             */
-            extend_hwid_devices: unknown;
-            /**
-             * Tariff Key
-             * @default null
-             */
-            tariff_key: unknown;
-        };
-        /** AdminUserHwidDeviceLimitBody */
-        AdminUserHwidDeviceLimitBody: {
-            /**
-             * Hwid Device Limit
-             * @default null
-             */
-            hwid_device_limit: unknown;
-            /**
-             * Limit
-             * @default null
-             */
-            limit: unknown;
-            /**
-             * Reset To Default
-             * @default false
-             */
-            reset_to_default: unknown;
-            /**
-             * Unlimited
-             * @default false
-             */
-            unlimited: unknown;
-            /**
-             * Use Default
-             * @default false
-             */
-            use_default: unknown;
-        };
-        /** AdminUserMessageBody */
-        AdminUserMessageBody: {
-            /**
-             * Text
-             * @default
-             */
-            text: unknown;
-        };
-        /** AdminUserOut */
-        AdminUserOut: {
-            /**
-             * Email
-             * @default null
-             */
-            email: string | null;
-            /**
-             * First Name
-             * @default null
-             */
-            first_name: string | null;
-            /** Is Banned */
-            is_banned: boolean;
-            /**
-             * Language Code
-             * @default null
-             */
-            language_code: string | null;
-            /**
-             * Last Name
-             * @default null
-             */
-            last_name: string | null;
-            /**
-             * Panel User Uuid
-             * @default null
-             */
-            panel_user_uuid: string | null;
-            /**
-             * Referral Code
-             * @default null
-             */
-            referral_code: string | null;
-            /**
-             * Referred By Id
-             * @default null
-             */
-            referred_by_id: number | null;
-            /**
-             * Registration Date
-             * @default null
-             */
-            registration_date: string | null;
-            /**
-             * Telegram Id
-             * @default null
-             */
-            telegram_id: number | null;
-            /**
-             * Telegram Photo Url
-             * @default null
-             */
-            telegram_photo_url: string | null;
-            /** User Id */
-            user_id: number;
-            /**
-             * Username
-             * @default null
-             */
-            username: string | null;
-        };
-        /** AdminUserPremiumOverrideBody */
-        AdminUserPremiumOverrideBody: {
-            /**
-             * Bonus Bytes
-             * @default null
-             */
-            bonus_bytes: unknown;
-            /**
-             * Bonus Gb
-             * @default null
-             */
-            bonus_gb: unknown;
-            /**
-             * Unlimited
-             * @default false
-             */
-            unlimited: unknown;
-        };
-        /** AdminUserRegularTrafficOverrideBody */
-        AdminUserRegularTrafficOverrideBody: {
-            /**
-             * Regular Bonus Bytes
-             * @default null
-             */
-            regular_bonus_bytes: unknown;
-            /**
-             * Regular Bonus Gb
-             * @default null
-             */
-            regular_bonus_gb: unknown;
-            /**
-             * Unlimited
-             * @default false
-             */
-            unlimited: unknown;
-        };
-        /** AdminUserTariffBody */
-        AdminUserTariffBody: {
-            /**
-             * Tariff Key
-             * @default null
-             */
-            tariff_key: unknown;
-        };
-        /** AdminUserTrafficGrantBody */
-        AdminUserTrafficGrantBody: {
-            /**
-             * Bytes
-             * @default null
-             */
-            bytes: unknown;
-            /**
-             * Gb
-             * @default null
-             */
-            gb: unknown;
-            /**
-             * Kind
-             * @default regular
-             */
-            kind: unknown;
-        };
-        /** AdminUserTrialOut */
-        AdminUserTrialOut: {
-            /** Active */
-            active: boolean;
-            /** Count */
-            count: number;
-            /**
-             * First Activated At
-             * @default null
-             */
-            first_activated_at: string | null;
-            /**
-             * Last Reset At
-             * @default null
-             */
-            last_reset_at: string | null;
-            /**
-             * Latest Activated At
-             * @default null
-             */
-            latest_activated_at: string | null;
-            /**
-             * Latest End Date
-             * @default null
-             */
-            latest_end_date: string | null;
-            /** Used */
-            used: boolean;
-        };
-        /** AdminUserWithAvatarOut */
-        AdminUserWithAvatarOut: {
-            /**
-             * Avatar Url
-             * @default null
-             */
-            avatar_url: string | null;
-            /**
-             * Email
-             * @default null
-             */
-            email: string | null;
-            /**
-             * First Name
-             * @default null
-             */
-            first_name: string | null;
-            /** Is Banned */
-            is_banned: boolean;
-            /**
-             * Language Code
-             * @default null
-             */
-            language_code: string | null;
-            /**
-             * Last Name
-             * @default null
-             */
-            last_name: string | null;
-            /**
-             * Panel User Uuid
-             * @default null
-             */
-            panel_user_uuid: string | null;
-            /**
-             * Referral Code
-             * @default null
-             */
-            referral_code: string | null;
-            /**
-             * Referred By Id
-             * @default null
-             */
-            referred_by_id: number | null;
-            /**
-             * Registration Date
-             * @default null
-             */
-            registration_date: string | null;
-            /**
-             * Telegram Id
-             * @default null
-             */
-            telegram_id: number | null;
-            /**
-             * Telegram Photo Url
-             * @default null
-             */
-            telegram_photo_url: string | null;
-            /** User Id */
-            user_id: number;
-            /**
-             * Username
-             * @default null
-             */
-            username: string | null;
-        };
-        /** CreateTicketPayload */
-        CreateTicketPayload: {
-            /** Body */
-            body: string;
-            /**
-             * Category
-             * @default other
-             * @enum {string}
-             */
-            category: "billing" | "technical" | "account" | "other";
-            /**
-             * Priority
-             * @default normal
-             * @enum {string}
-             */
-            priority: "normal" | "high";
-            /** Subject */
-            subject: string;
-        };
-        /** EmptyObjectOut */
-        EmptyObjectOut: Record<string, never>;
-        /** HwidDevicePackage */
-        HwidDevicePackage: {
-            /** Count */
-            count: number;
-            /**
-             * Min Price
-             * @default null
-             */
-            min_price: number | null;
-            /** Price */
-            price: number;
-            /** Prices */
-            prices?: {
-                [key: string]: number;
-            };
-        };
-        /** HwidDevicePackageSet */
-        HwidDevicePackageSet: {
-            [key: string]: components["schemas"]["HwidDevicePackage"][];
-        };
-        /** LogOut */
-        LogOut: {
-            /**
-             * Content
-             * @default null
-             */
-            content: string | null;
-            /**
-             * Email
-             * @default null
-             */
-            email: string | null;
-            /**
-             * Event Type
-             * @default null
-             */
-            event_type: string | null;
-            /** Is Admin Event */
-            is_admin_event: boolean;
-            /** Log Id */
-            log_id: number;
-            /**
-             * Target User Id
-             * @default null
-             */
-            target_user_id: number | null;
-            /**
-             * Target User Label
-             * @default null
-             */
-            target_user_label: string | null;
-            /**
-             * Telegram First Name
-             * @default null
-             */
-            telegram_first_name: string | null;
-            /**
-             * Telegram Username
-             * @default null
-             */
-            telegram_username: string | null;
-            /**
-             * Timestamp
-             * @default null
-             */
-            timestamp: string | null;
-            /**
-             * User Id
-             * @default null
-             */
-            user_id: number | null;
-            /**
-             * User Label
-             * @default null
-             */
-            user_label: string | null;
-        };
-        /** PackageSet */
-        PackageSet: {
-            [key: string]: components["schemas"]["TrafficPackage"][];
-        };
-        /** PaymentDetailOut */
-        PaymentDetailOut: {
-            /** Amount */
-            amount: number;
-            /**
-             * Created At
-             * @default null
-             */
-            created_at: string | null;
-            /**
-             * Currency
-             * @default null
-             */
-            currency: string | null;
-            /**
-             * Description
-             * @default null
-             */
-            description: string | null;
-            /**
-             * Idempotence Key
-             * @default null
-             */
-            idempotence_key: string | null;
-            /** Payment Id */
-            payment_id: number;
-            /**
-             * Promo Code
-             * @default null
-             */
-            promo_code: string | null;
-            /**
-             * Provider
-             * @default null
-             */
-            provider: string | null;
-            /**
-             * Provider Payment Id
-             * @default null
-             */
-            provider_payment_id: string | null;
-            /**
-             * Purchased Gb
-             * @default null
-             */
-            purchased_gb: unknown;
-            /**
-             * Purchased Hwid Devices
-             * @default null
-             */
-            purchased_hwid_devices: number | null;
-            /**
-             * Sale Mode
-             * @default null
-             */
-            sale_mode: string | null;
-            /**
-             * Status
-             * @default null
-             */
-            status: string | null;
-            /**
-             * Subscription Duration Months
-             * @default null
-             */
-            subscription_duration_months: number | null;
-            /**
-             * Tariff Key
-             * @default null
-             */
-            tariff_key: string | null;
-            /**
-             * Telegram Id
-             * @default null
-             */
-            telegram_id: number | null;
-            /**
-             * Traffic Premium Gb
-             * @default null
-             */
-            traffic_premium_gb: number | null;
-            /**
-             * Traffic Regular Gb
-             * @default null
-             */
-            traffic_regular_gb: number | null;
-            /**
-             * Updated At
-             * @default null
-             */
-            updated_at: string | null;
-            /** User Id */
-            user_id: number;
-            /** User Label */
-            user_label: string;
-            /**
-             * Yookassa Payment Id
-             * @default null
-             */
-            yookassa_payment_id: string | null;
-        };
-        /** PaymentOut */
-        PaymentOut: {
-            /** Amount */
-            amount: number;
-            /**
-             * Created At
-             * @default null
-             */
-            created_at: string | null;
-            /**
-             * Currency
-             * @default null
-             */
-            currency: string | null;
-            /**
-             * Description
-             * @default null
-             */
-            description: string | null;
-            /** Payment Id */
-            payment_id: number;
-            /**
-             * Provider
-             * @default null
-             */
-            provider: string | null;
-            /**
-             * Provider Payment Id
-             * @default null
-             */
-            provider_payment_id: string | null;
-            /**
-             * Purchased Gb
-             * @default null
-             */
-            purchased_gb: unknown;
-            /**
-             * Purchased Hwid Devices
-             * @default null
-             */
-            purchased_hwid_devices: number | null;
-            /**
-             * Sale Mode
-             * @default null
-             */
-            sale_mode: string | null;
-            /**
-             * Status
-             * @default null
-             */
-            status: string | null;
-            /**
-             * Subscription Duration Months
-             * @default null
-             */
-            subscription_duration_months: number | null;
-            /**
-             * Tariff Key
-             * @default null
-             */
-            tariff_key: string | null;
-            /**
-             * Telegram Id
-             * @default null
-             */
-            telegram_id: number | null;
-            /**
-             * Traffic Premium Gb
-             * @default null
-             */
-            traffic_premium_gb: number | null;
-            /**
-             * Traffic Regular Gb
-             * @default null
-             */
-            traffic_regular_gb: number | null;
-            /** User Id */
-            user_id: number;
-            /** User Label */
-            user_label: string;
-        };
-        /** PromoActivationOut */
-        PromoActivationOut: {
-            /**
-             * Activated At
-             * @default null
-             */
-            activated_at: string | null;
-            /** Activation Id */
-            activation_id: number;
-            /**
-             * Applies To
-             * @default null
-             */
-            applies_to: string | null;
-            /**
-             * Base Amount
-             * @default null
-             */
-            base_amount: number | null;
-            /**
-             * Bonus Days
-             * @default null
-             */
-            bonus_days: number | null;
-            /**
-             * Charged Gb
-             * @default null
-             */
-            charged_gb: number | null;
-            /**
-             * Charged Months
-             * @default null
-             */
-            charged_months: number | null;
-            /**
-             * Discount Amount
-             * @default null
-             */
-            discount_amount: number | null;
-            /**
-             * Discount Percent
-             * @default null
-             */
-            discount_percent: number | null;
-            /**
-             * Duration Multiplier
-             * @default null
-             */
-            duration_multiplier: number | null;
-            /**
-             * Effect Summary
-             * @default null
-             */
-            effect_summary: string | null;
-            /**
-             * Granted Days
-             * @default null
-             */
-            granted_days: number | null;
-            /**
-             * Granted Gb
-             * @default null
-             */
-            granted_gb: number | null;
-            /**
-             * Payment Amount
-             * @default null
-             */
-            payment_amount: number | null;
-            /**
-             * Payment Created At
-             * @default null
-             */
-            payment_created_at: string | null;
-            /**
-             * Payment Currency
-             * @default null
-             */
-            payment_currency: string | null;
-            /**
-             * Payment Description
-             * @default null
-             */
-            payment_description: string | null;
-            /**
-             * Payment Id
-             * @default null
-             */
-            payment_id: number | null;
-            /**
-             * Payment Provider
-             * @default null
-             */
-            payment_provider: string | null;
-            /**
-             * Payment Sale Mode
-             * @default null
-             */
-            payment_sale_mode: string | null;
-            /**
-             * Payment Status
-             * @default null
-             */
-            payment_status: string | null;
-            /** Promo Id */
-            promo_id: number;
-            /**
-             * Telegram Id
-             * @default null
-             */
-            telegram_id: number | null;
-            /**
-             * Traffic Multiplier
-             * @default null
-             */
-            traffic_multiplier: number | null;
-            /** User Id */
-            user_id: number;
-            /** User Label */
-            user_label: string;
-        };
-        /** PromoCreateBody */
-        PromoCreateBody: {
-            /**
-             * Applies To
-             * @default all
-             */
-            applies_to: string;
-            /**
-             * Bonus Days
-             * @default 0
-             */
-            bonus_days: number;
-            /**
-             * Bonus Requires Payment
-             * @default false
-             */
-            bonus_requires_payment: boolean;
-            /**
-             * Code
-             * @default null
-             */
-            code: string | null;
-            /**
-             * Discount Percent
-             * @default null
-             */
-            discount_percent: number | null;
-            /**
-             * Duration Multiplier
-             * @default null
-             */
-            duration_multiplier: number | null;
-            /** Max Activations */
-            max_activations: number;
-            /**
-             * Min Subscription Months
-             * @default null
-             */
-            min_subscription_months: number | null;
-            /**
-             * Min Traffic Gb
-             * @default null
-             */
-            min_traffic_gb: number | null;
-            /**
-             * Origin
-             * @default admin
-             */
-            origin: string;
-            /**
-             * Traffic Multiplier
-             * @default null
-             */
-            traffic_multiplier: number | null;
-            /**
-             * Valid Days
-             * @default null
-             */
-            valid_days: unknown;
-        };
-        /** PromoOut */
-        PromoOut: {
-            /** Applies To */
-            applies_to: string;
-            /** Bonus Days */
-            bonus_days: number;
-            /**
-             * Bonus Requires Payment
-             * @default false
-             */
-            bonus_requires_payment: boolean;
-            /**
-             * Bot Link
-             * @default null
-             */
-            bot_link: string | null;
-            /** Code */
-            code: string;
-            /**
-             * Created At
-             * @default null
-             */
-            created_at: string | null;
-            /**
-             * Created By Admin Id
-             * @default null
-             */
-            created_by_admin_id: number | null;
-            /** Current Activations */
-            current_activations: number;
-            /**
-             * Discount Percent
-             * @default null
-             */
-            discount_percent: number | null;
-            /**
-             * Duration Multiplier
-             * @default null
-             */
-            duration_multiplier: number | null;
-            /** Effect Summary */
-            effect_summary: string;
-            /** Id */
-            id: number;
-            /** Is Active */
-            is_active: boolean;
-            /** Max Activations */
-            max_activations: number;
-            /**
-             * Min Subscription Months
-             * @default null
-             */
-            min_subscription_months: number | null;
-            /**
-             * Min Traffic Gb
-             * @default null
-             */
-            min_traffic_gb: number | null;
-            /** Origin */
-            origin: string;
-            /**
-             * Traffic Multiplier
-             * @default null
-             */
-            traffic_multiplier: number | null;
-            /**
-             * Valid Until
-             * @default null
-             */
-            valid_until: string | null;
-            /**
-             * Webapp Link
-             * @default null
-             */
-            webapp_link: string | null;
-        };
-        /** PromoUpdateBody */
-        PromoUpdateBody: {
-            /**
-             * Applies To
-             * @default null
-             */
-            applies_to: string | null;
-            /**
-             * Bonus Days
-             * @default null
-             */
-            bonus_days: number | null;
-            /**
-             * Bonus Requires Payment
-             * @default null
-             */
-            bonus_requires_payment: boolean | null;
-            /**
-             * Clear Valid Until
-             * @default null
-             */
-            clear_valid_until: unknown;
-            /**
-             * Discount Percent
-             * @default null
-             */
-            discount_percent: number | null;
-            /**
-             * Duration Multiplier
-             * @default null
-             */
-            duration_multiplier: number | null;
-            /**
-             * Is Active
-             * @default null
-             */
-            is_active: unknown;
-            /**
-             * Max Activations
-             * @default null
-             */
-            max_activations: number | null;
-            /**
-             * Min Subscription Months
-             * @default null
-             */
-            min_subscription_months: number | null;
-            /**
-             * Min Traffic Gb
-             * @default null
-             */
-            min_traffic_gb: number | null;
-            /**
-             * Origin
-             * @default null
-             */
-            origin: string | null;
-            /**
-             * Traffic Multiplier
-             * @default null
-             */
-            traffic_multiplier: number | null;
-            /**
-             * Valid Until
-             * @default null
-             */
-            valid_until: string | null;
-        };
-        /**
-         * SupportCountsOut
-         * @description Ticket counters keyed by known statuses, with room for future status keys.
-         */
-        SupportCountsOut: {
-            /** Active */
-            active: number;
-            /** Closed */
-            closed: number;
-            /** Total */
-            total: number;
-        } & {
-            [key: string]: unknown;
-        };
-        /** SupportMessageOut */
-        SupportMessageOut: {
-            /** Author Role */
-            author_role: string;
-            /**
-             * Author User Id
-             * @default null
-             */
-            author_user_id: number | null;
-            /** Body */
-            body: string;
-            /**
-             * Created At
-             * @default null
-             */
-            created_at: string | null;
-            /** Is Internal Note */
-            is_internal_note: boolean;
-            /** Message Id */
-            message_id: number;
-            /**
-             * Read By Admin At
-             * @default null
-             */
-            read_by_admin_at: string | null;
-            /**
-             * Read By User At
-             * @default null
-             */
-            read_by_user_at: string | null;
-            /** Ticket Id */
-            ticket_id: number;
-        };
-        /** SupportTicketOut */
-        SupportTicketOut: {
-            /**
-             * Assigned Admin Id
-             * @default null
-             */
-            assigned_admin_id: number | null;
-            /** Category */
-            category: string;
-            /**
-             * Closed At
-             * @default null
-             */
-            closed_at: string | null;
-            /**
-             * Created At
-             * @default null
-             */
-            created_at: string | null;
-            /**
-             * Last Message At
-             * @default null
-             */
-            last_message_at: string | null;
-            /**
-             * Last Message Role
-             * @default null
-             */
-            last_message_role: string | null;
-            /** Priority */
-            priority: string;
-            /** Status */
-            status: string;
-            /** Subject */
-            subject: string;
-            /** Ticket Id */
-            ticket_id: number;
-            /** Unread Admin Count */
-            unread_admin_count: number;
-            /** Unread User Count */
-            unread_user_count: number;
-            /**
-             * Updated At
-             * @default null
-             */
-            updated_at: string | null;
-            /** User Id */
-            user_id: number;
-        };
-        /** SupportTrafficSnapshotOut */
-        SupportTrafficSnapshotOut: {
-            /**
-             * Left Bytes
-             * @default 0
-             */
-            left_bytes: number;
-            /**
-             * Limit Bytes
-             * @default 0
-             */
-            limit_bytes: number;
-            /**
-             * Percent
-             * @default 0
-             */
-            percent: number;
-            /**
-             * Used Bytes
-             * @default 0
-             */
-            used_bytes: number;
-        };
-        /** Tariff */
-        Tariff: {
-            /**
-             * Billing Model
-             * @enum {string}
-             */
-            billing_model: "period" | "traffic";
-            /**
-             * Conversion Rate Per Gb
-             * @default null
-             */
-            conversion_rate_per_gb: number | null;
-            /**
-             * Conversion Rate Rub Per Gb
-             * @default null
-             */
-            conversion_rate_rub_per_gb: number | null;
-            /** Descriptions */
-            descriptions?: {
-                [key: string]: string;
-            };
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled: boolean;
-            /** Enabled Periods */
-            enabled_periods?: number[];
-            /**
-             * Hwid Device Limit
-             * @default null
-             */
-            hwid_device_limit: number | null;
-            /** @default null */
-            hwid_device_packages: components["schemas"]["HwidDevicePackageSet"] | null;
-            /**
-             * Included Cornllm Balance Rub
-             * @default 0
-             */
-            included_cornllm_balance_rub: number;
-            /** Key */
-            key: string;
-            /**
-             * Memory Gb
-             * @default null
-             */
-            memory_gb: number | null;
-            /**
-             * Monthly Gb
-             * @default null
-             */
-            monthly_gb: number | null;
-            /** Names */
-            names?: {
-                [key: string]: string;
-            };
-            /**
-             * Premium Monthly Gb
-             * @default null
-             */
-            premium_monthly_gb: number | null;
-            /** Premium Names */
-            premium_names?: {
-                [key: string]: string;
-            };
-            /** Premium Squad Uuids */
-            premium_squad_uuids?: string[];
-            /** @default null */
-            premium_topup_packages: components["schemas"]["PackageSet"] | null;
-            /** Prices */
-            prices?: {
-                [key: string]: {
-                    [key: string]: number;
-                };
-            };
-            /** Prices Rub */
-            prices_rub?: {
-                [key: string]: number;
-            };
-            /** Prices Stars */
-            prices_stars?: {
-                [key: string]: number;
-            };
-            /** Referral Bonus Days Inviter */
-            referral_bonus_days_inviter?: {
-                [key: string]: number;
-            };
-            /** Referral Bonus Days Referee */
-            referral_bonus_days_referee?: {
-                [key: string]: number;
-            };
-            /** Squad Uuids */
-            squad_uuids?: string[];
-            /** @default null */
-            topup_packages: components["schemas"]["PackageSet"] | null;
-            /** @default null */
-            traffic_packages: components["schemas"]["PackageSet"] | null;
-            /**
-             * Vcpu
-             * @default null
-             */
-            vcpu: number | null;
-        };
-        /** TariffsConfig */
-        TariffsConfig: {
-            /**
-             * Default Currency
-             * @default rub
-             */
-            default_currency: string;
-            /** Default Tariff */
-            default_tariff: string;
-            /** Tariffs */
-            tariffs: components["schemas"]["Tariff"][];
-            /** @default null */
-            topup_packages_default: components["schemas"]["PackageSet"] | null;
-        };
-        /** TariffsSaveBody */
-        TariffsSaveBody: {
-            /**
-             * Catalog
-             * @default null
-             */
-            catalog: unknown;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * ThemeTokens
-         * @description CSS design tokens for the subscription Mini App shell.
-         */
-        ThemeTokens: {
-            /**
-             * Accent
-             * @default null
-             */
-            accent: string | null;
-            /**
-             * Accent Contrast
-             * @default null
-             */
-            accent_contrast: string | null;
-            /**
-             * Admin Bg
-             * @default null
-             */
-            admin_bg: string | null;
-            /**
-             * Admin Border
-             * @default null
-             */
-            admin_border: string | null;
-            /**
-             * Admin Border Strong
-             * @default null
-             */
-            admin_border_strong: string | null;
-            /**
-             * Admin Chart Fill
-             * @default null
-             */
-            admin_chart_fill: string | null;
-            /**
-             * Admin Chart Stroke
-             * @default null
-             */
-            admin_chart_stroke: string | null;
-            /**
-             * Admin Dim
-             * @default null
-             */
-            admin_dim: string | null;
-            /**
-             * Admin Elev
-             * @default null
-             */
-            admin_elev: string | null;
-            /**
-             * Admin Muted
-             * @default null
-             */
-            admin_muted: string | null;
-            /**
-             * Admin Surface
-             * @default null
-             */
-            admin_surface: string | null;
-            /**
-             * Admin Surface 2
-             * @default null
-             */
-            admin_surface_2: string | null;
-            /**
-             * Admin Text
-             * @default null
-             */
-            admin_text: string | null;
-            /**
-             * Bg
-             * @default null
-             */
-            bg: string | null;
-            /**
-             * Blue
-             * @default null
-             */
-            blue: string | null;
-            /**
-             * Border
-             * @default null
-             */
-            border: string | null;
-            /**
-             * Border Strong
-             * @default null
-             */
-            border_strong: string | null;
-            /**
-             * Color Scheme
-             * @default dark
-             * @enum {string}
-             */
-            color_scheme: "light" | "dark";
-            /**
-             * Danger
-             * @default null
-             */
-            danger: string | null;
-            /**
-             * Danger Border
-             * @default null
-             */
-            danger_border: string | null;
-            /**
-             * Danger Soft
-             * @default null
-             */
-            danger_soft: string | null;
-            /**
-             * Danger Text
-             * @default null
-             */
-            danger_text: string | null;
-            /**
-             * Dim
-             * @default null
-             */
-            dim: string | null;
-            /**
-             * Font Logo
-             * @default null
-             */
-            font_logo: string | null;
-            /**
-             * Font Mono
-             * @default null
-             */
-            font_mono: string | null;
-            /**
-             * Font Sans
-             * @default null
-             */
-            font_sans: string | null;
-            /**
-             * Home Logo Scale
-             * @default null
-             */
-            home_logo_scale: number | null;
-            /**
-             * Home Logo Scale Desktop
-             * @default null
-             */
-            home_logo_scale_desktop: number | null;
-            /**
-             * Home Logo Scale Mobile
-             * @default null
-             */
-            home_logo_scale_mobile: number | null;
-            /**
-             * Info
-             * @default null
-             */
-            info: string | null;
-            /**
-             * Info Border
-             * @default null
-             */
-            info_border: string | null;
-            /**
-             * Info Soft
-             * @default null
-             */
-            info_soft: string | null;
-            /**
-             * Info Text
-             * @default null
-             */
-            info_text: string | null;
-            /**
-             * Inset Highlight
-             * @default null
-             */
-            inset_highlight: string | null;
-            /**
-             * Muted
-             * @default null
-             */
-            muted: string | null;
-            /**
-             * Nav Bg
-             * @default null
-             */
-            nav_bg: string | null;
-            /**
-             * Overlay Scrim
-             * @default null
-             */
-            overlay_scrim: string | null;
-            /**
-             * Panel
-             * @default null
-             */
-            panel: string | null;
-            /**
-             * Panel 2
-             * @default null
-             */
-            panel_2: string | null;
-            /**
-             * Panel 3
-             * @default null
-             */
-            panel_3: string | null;
-            /**
-             * Radius
-             * @default null
-             */
-            radius: string | null;
-            /**
-             * Rail Bg
-             * @default null
-             */
-            rail_bg: string | null;
-            /**
-             * Shadow Popover
-             * @default null
-             */
-            shadow_popover: string | null;
-            /**
-             * Shadow Soft
-             * @default null
-             */
-            shadow_soft: string | null;
-            /**
-             * Shadow Strong
-             * @default null
-             */
-            shadow_strong: string | null;
-            /**
-             * Style Preset
-             * @default null
-             */
-            style_preset: string | null;
-            /**
-             * Success
-             * @default null
-             */
-            success: string | null;
-            /**
-             * Success Border
-             * @default null
-             */
-            success_border: string | null;
-            /**
-             * Success Soft
-             * @default null
-             */
-            success_soft: string | null;
-            /**
-             * Success Text
-             * @default null
-             */
-            success_text: string | null;
-            /**
-             * Surface Hover
-             * @default null
-             */
-            surface_hover: string | null;
-            /**
-             * Surface Muted
-             * @default null
-             */
-            surface_muted: string | null;
-            /**
-             * Surface Sheen
-             * @default null
-             */
-            surface_sheen: string | null;
-            /**
-             * Surface Sheen Soft
-             * @default null
-             */
-            surface_sheen_soft: string | null;
-            /**
-             * Surface Subtle
-             * @default null
-             */
-            surface_subtle: string | null;
-            /**
-             * Surface Subtle Border
-             * @default null
-             */
-            surface_subtle_border: string | null;
-            /**
-             * Text
-             * @default null
-             */
-            text: string | null;
-            /**
-             * Warning
-             * @default null
-             */
-            warning: string | null;
-            /**
-             * Warning Border
-             * @default null
-             */
-            warning_border: string | null;
-            /**
-             * Warning Soft
-             * @default null
-             */
-            warning_soft: string | null;
-            /**
-             * Warning Text
-             * @default null
-             */
-            warning_text: string | null;
-        };
-        /** ThemesSaveBody */
-        ThemesSaveBody: {
-            /**
-             * Catalog
-             * @default null
-             */
-            catalog: unknown;
-        } & {
-            [key: string]: unknown;
-        };
-        /** TicketReplyPayload */
-        TicketReplyPayload: {
-            /** Body */
-            body: string;
-        };
-        /** TrafficPackage */
-        TrafficPackage: {
-            /** Gb */
-            gb: number;
-            /** Price */
-            price: number;
-        };
-        /** WebAppAutoRenewPayload */
-        WebAppAutoRenewPayload: {
-            /** Enabled */
-            enabled: boolean;
-        };
-        /** WebAppBotTokenPayload */
-        WebAppBotTokenPayload: {
-            /** Bot Token */
-            bot_token: string;
-        };
-        /**
-         * WebAppCornllmTopupPayload
-         * @description Payload for a paid CornLLM (LiteLLM) budget topup.
-         *
-         *     The amount is in rubles; the shop converts to USD (1 USD = 100 RUB)
-         *     and provisioning-core adds the delta to the tenant's active
-         *     LitellmKey max_budget. Minimum is 100 RUB to keep payment / quota
-         *     meaningful.
-         */
-        WebAppCornllmTopupPayload: {
-            /** Amount Rub */
-            amount_rub: number;
-            /**
-             * Method
-             * @default
-             */
-            method: string;
-        };
-        /** WebAppDeviceDisconnectPayload */
-        WebAppDeviceDisconnectPayload: {
-            /** Token */
-            token: string;
-        };
-        /** WebAppDeviceOut */
-        WebAppDeviceOut: {
-            /** Can Disconnect */
-            can_disconnect: boolean;
-            /**
-             * Created At
-             * @default null
-             */
-            created_at: string | null;
-            /** Created At Text */
-            created_at_text: string;
-            /** Display Name */
-            display_name: string;
-            /** Hwid Short */
-            hwid_short: string;
-            /** Index */
-            index: number;
-            /** Os Version */
-            os_version: string;
-            /** Platform */
-            platform: string;
-            /** Platform Label */
-            platform_label: string;
-            /** Token */
-            token: string;
-            /** User Agent */
-            user_agent: string;
-        };
-        /** WebAppEmailCodeAuthPayload */
-        WebAppEmailCodeAuthPayload: {
-            /**
-             * Code
-             * @default
-             */
-            code: string;
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-            /**
-             * Referral Code
-             * @default null
-             */
-            referral_code: string | null;
-            /**
-             * Start Param
-             * @default null
-             */
-            start_param: string | null;
-        };
-        /** WebAppEmailCodePayload */
-        WebAppEmailCodePayload: {
-            /**
-             * Code
-             * @default
-             */
-            code: string;
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-        };
-        /** WebAppEmailMagicAuthPayload */
-        WebAppEmailMagicAuthPayload: {
-            /**
-             * Referral Code
-             * @default null
-             */
-            referral_code: string | null;
-            /**
-             * Start Param
-             * @default null
-             */
-            start_param: string | null;
-            /** Token */
-            token: string;
-        };
-        /** WebAppEmailPasswordPayload */
-        WebAppEmailPasswordPayload: {
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-            /** Password */
-            password: string;
-        };
-        /** WebAppEmailPayload */
-        WebAppEmailPayload: {
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-        };
-        /** WebAppEmailRequestPayload */
-        WebAppEmailRequestPayload: {
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-            /**
-             * Language
-             * @default null
-             */
-            language: string | null;
-            /**
-             * Referral Code
-             * @default null
-             */
-            referral_code: string | null;
-            /**
-             * Start Param
-             * @default null
-             */
-            start_param: string | null;
-        };
-        /** WebAppEnvUpdatePayload */
-        WebAppEnvUpdatePayload: {
-            /**
-             * Env Content
-             * @default
-             */
-            env_content: string;
-        };
-        /** WebAppLanguagePayload */
-        WebAppLanguagePayload: {
-            /** Language */
-            language: string;
-        };
-        /** WebAppPaymentCreatePayload */
-        WebAppPaymentCreatePayload: {
-            /**
-             * Comment
-             * @default null
-             */
-            comment: string | null;
-            /**
-             * Description
-             * @default null
-             */
-            description: string | null;
-            /**
-             * Device Count
-             * @default null
-             */
-            device_count: unknown;
-            /**
-             * Method
-             * @default
-             */
-            method: string;
-            /**
-             * Months
-             * @default null
-             */
-            months: unknown;
-            /**
-             * Note
-             * @default null
-             */
-            note: string | null;
-            /**
-             * Promo Code
-             * @default null
-             */
-            promo_code: string | null;
-            /**
-             * Renew Hwid Devices
-             * @default null
-             */
-            renew_hwid_devices: boolean | null;
-            /**
-             * Sale Mode
-             * @default null
-             */
-            sale_mode: string | null;
-            /**
-             * Tariff Key
-             * @default null
-             */
-            tariff_key: string | null;
-            /**
-             * Traffic Gb
-             * @default null
-             */
-            traffic_gb: unknown;
-        };
-        /** WebAppPromoApplyPayload */
-        WebAppPromoApplyPayload: {
-            /**
-             * Code
-             * @default
-             */
-            code: unknown;
-        };
-        /** WebAppPromoQuotePayload */
-        WebAppPromoQuotePayload: {
-            /**
-             * Comment
-             * @default null
-             */
-            comment: string | null;
-            /**
-             * Description
-             * @default null
-             */
-            description: string | null;
-            /**
-             * Device Count
-             * @default null
-             */
-            device_count: unknown;
-            /**
-             * Method
-             * @default
-             */
-            method: string;
-            /**
-             * Months
-             * @default null
-             */
-            months: unknown;
-            /**
-             * Note
-             * @default null
-             */
-            note: string | null;
-            /** Promo Code */
-            promo_code: string;
-            /**
-             * Renew Hwid Devices
-             * @default null
-             */
-            renew_hwid_devices: boolean | null;
-            /**
-             * Sale Mode
-             * @default null
-             */
-            sale_mode: string | null;
-            /**
-             * Tariff Key
-             * @default null
-             */
-            tariff_key: string | null;
-            /**
-             * Traffic Gb
-             * @default null
-             */
-            traffic_gb: unknown;
-        };
-        /** WebAppSetPasswordPayload */
-        WebAppSetPasswordPayload: {
-            /** Code */
-            code: string;
-            /** Password */
-            password: string;
-            /** Password Confirm */
-            password_confirm: string;
-        };
-        /** WebAppTariffChangePayload */
-        WebAppTariffChangePayload: {
-            /** Mode */
-            mode: string;
-            /** Tariff Key */
-            tariff_key: string;
-        };
-        /** WebAppTelegramAuthPayload */
-        WebAppTelegramAuthPayload: {
-            /**
-             * Auth Data
-             * @default null
-             */
-            auth_data: unknown;
-            /**
-             * Id Token
-             * @default
-             */
-            id_token: string;
-            /**
-             * Init Data
-             * @default
-             */
-            init_data: string;
-            /**
-             * Nonce
-             * @default
-             */
-            nonce: string;
-            /**
-             * Referral Code
-             * @default null
-             */
-            referral_code: string | null;
-            /**
-             * Start Param
-             * @default null
-             */
-            start_param: string | null;
-        };
-        /** WebAppTrialActivatePayload */
-        WebAppTrialActivatePayload: {
-            /**
-             * Bot Token
-             * @default null
-             */
-            bot_token: string | null;
-        };
-        /**
-         * WebappTheme
-         * @description Single theme descriptor loaded from WEBAPP_THEMES_DIR/<key>/theme.json.
-         */
-        WebappTheme: {
-            /**
-             * Active Variant
-             * @default null
-             */
-            active_variant: ("light" | "dark") | null;
-            /**
-             * Assets Version
-             * @default 1
-             */
-            assets_version: number;
-            /**
-             * Css File
-             * @default null
-             */
-            css_file: string | null;
-            /**
-             * Default
-             * @default false
-             */
-            default: boolean;
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Hidden
-             * @default false
-             */
-            hidden: boolean;
-            /** Key */
-            key: string;
-            /** Names */
-            names?: {
-                [key: string]: string;
-            };
-            tokens?: components["schemas"]["ThemeTokens"];
-            /**
-             * Use In Admin
-             * @default true
-             */
-            use_in_admin: boolean;
-            /**
-             * Use Primary Accent
-             * @default true
-             */
-            use_primary_accent: boolean;
-            /**
-             * Variant Alias For
-             * @default null
-             */
-            variant_alias_for: string | null;
-            /** Variants */
-            variants?: {
-                [key: string]: components["schemas"]["ThemeTokens"];
-            };
-        };
-        /**
-         * WebappThemesConfig
-         * @description Runtime catalog assembled from individual theme descriptor files.
-         */
-        WebappThemesConfig: {
-            /**
-             * Default Theme
-             * @default dark
-             */
-            default_theme: string;
-            /** Themes */
-            themes?: components["schemas"]["WebappTheme"][];
-        };
+  schemas: {
+    /** AdCreateBody */
+    AdCreateBody: {
+      /**
+       * Cost
+       * @default 0
+       */
+      cost: number;
+      /** Source */
+      source: string;
+      /** Start Param */
+      start_param: string;
     };
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+    /** AdOut */
+    AdOut: {
+      /** Cost */
+      cost: number;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /** Id */
+      id: number;
+      /** Is Active */
+      is_active: boolean;
+      /**
+       * Source
+       * @default null
+       */
+      source: string | null;
+      /**
+       * Start Param
+       * @default null
+       */
+      start_param: string | null;
+      /** Stats */
+      stats?: {
+        [key: string]: unknown;
+      };
+    };
+    /** AdToggleBody */
+    AdToggleBody: {
+      /**
+       * Is Active
+       * @default true
+       */
+      is_active: unknown;
+    };
+    /** AdminAdsListOut */
+    AdminAdsListOut: {
+      /** Campaigns */
+      campaigns: components["schemas"]["AdOut"][];
+      /** Totals */
+      totals: {
+        [key: string]: number;
+      };
+    };
+    /** AdminBackupRestoreBody */
+    AdminBackupRestoreBody: {
+      /**
+       * Archive Name
+       * @default
+       */
+      archive_name: unknown;
+      /**
+       * Confirm
+       * @default false
+       */
+      confirm: unknown;
+      /**
+       * Restore Compose
+       * @default false
+       */
+      restore_compose: unknown;
+      /**
+       * Restore Database
+       * @default false
+       */
+      restore_database: unknown;
+    };
+    /** AdminBroadcastBody */
+    AdminBroadcastBody: {
+      /**
+       * Target
+       * @default all
+       */
+      target: unknown;
+      /**
+       * Text
+       * @default
+       */
+      text: unknown;
+    };
+    /** AdminHealthOut */
+    AdminHealthOut: {
+      /** Alerts */
+      alerts: {
+        [key: string]: unknown;
+      }[];
+      /**
+       * Checked At
+       * Format: date-time
+       */
+      checked_at: string;
+    };
+    /** AdminLogsListOut */
+    AdminLogsListOut: {
+      /** Logs */
+      logs: components["schemas"]["LogOut"][];
+      /** Page */
+      page: number;
+      /** Page Size */
+      page_size: number;
+      /** Total */
+      total: number;
+    };
+    /** AdminMeOut */
+    AdminMeOut: {
+      /** Admin Ids */
+      admin_ids: number[];
+      /**
+       * Panel Write Mode
+       * @default remnawave
+       */
+      panel_write_mode: string;
+      /** User Id */
+      user_id: number;
+    };
+    /** AdminPanelSyncOut */
+    AdminPanelSyncOut: {
+      /**
+       * Details
+       * @default null
+       */
+      details: unknown;
+      /**
+       * Last Sync Time
+       * @default null
+       */
+      last_sync_time: string | null;
+      /** Status */
+      status: string;
+      /** Subscriptions Synced */
+      subscriptions_synced: number;
+      /** Users Processed */
+      users_processed: number;
+    };
+    /** AdminPaymentsListOut */
+    AdminPaymentsListOut: {
+      /** Page */
+      page: number;
+      /** Page Size */
+      page_size: number;
+      /** Payments */
+      payments: components["schemas"]["PaymentOut"][];
+      /** Total */
+      total: number;
+    };
+    /** AdminSettingsPatchBody */
+    AdminSettingsPatchBody: {
+      /** Deletes */
+      deletes?: unknown;
+      /** Updates */
+      updates?: unknown;
+    };
+    /** AdminStatsOut */
+    AdminStatsOut: {
+      /** Currency Symbol */
+      currency_symbol: string;
+      /** Financial */
+      financial: {
+        [key: string]: unknown;
+      };
+      /**
+       * Panel
+       * @default null
+       */
+      panel: {
+        [key: string]: unknown;
+      } | null;
+      panel_sync: components["schemas"]["AdminPanelSyncOut"];
+      /**
+       * Queue
+       * @default null
+       */
+      queue: {
+        [key: string]: unknown;
+      } | null;
+      /** Recent Payments */
+      recent_payments: components["schemas"]["PaymentOut"][];
+      /** Users */
+      users: {
+        [key: string]: unknown;
+      };
+    };
+    /** AdminSubscriptionOut */
+    AdminSubscriptionOut: {
+      /** Auto Renew Enabled */
+      auto_renew_enabled: boolean;
+      /**
+       * Display Label
+       * @default null
+       */
+      display_label: string | null;
+      /**
+       * Duration Months
+       * @default null
+       */
+      duration_months: number | null;
+      /**
+       * End Date
+       * @default null
+       */
+      end_date: string | null;
+      /** Extra Hwid Devices */
+      extra_hwid_devices: number;
+      /**
+       * Hwid Device Limit
+       * @default null
+       */
+      hwid_device_limit: number | null;
+      /** Is Active */
+      is_active: boolean;
+      /** Is Throttled */
+      is_throttled: boolean;
+      /** Is Trial */
+      is_trial: boolean;
+      /**
+       * Panel Subscription Uuid
+       * @default null
+       */
+      panel_subscription_uuid: string | null;
+      /**
+       * Panel User Uuid
+       * @default null
+       */
+      panel_user_uuid: string | null;
+      /**
+       * Premium Baseline Bytes
+       * @default null
+       */
+      premium_baseline_bytes: number | null;
+      /** Premium Bonus Bytes */
+      premium_bonus_bytes: number;
+      /** Premium Is Limited */
+      premium_is_limited: boolean;
+      /** Premium Limit Bytes */
+      premium_limit_bytes: number;
+      /**
+       * Premium Topup Balance Bytes
+       * @default null
+       */
+      premium_topup_balance_bytes: number | null;
+      /**
+       * Premium Topup Used Bytes
+       * @default null
+       */
+      premium_topup_used_bytes: number | null;
+      /** Premium Unlimited Override */
+      premium_unlimited_override: boolean;
+      /**
+       * Premium Used Bytes
+       * @default null
+       */
+      premium_used_bytes: number | null;
+      /**
+       * Provider
+       * @default null
+       */
+      provider: string | null;
+      /** Regular Bonus Bytes */
+      regular_bonus_bytes: number;
+      /** Regular Unlimited Override */
+      regular_unlimited_override: boolean;
+      /**
+       * Start Date
+       * @default null
+       */
+      start_date: string | null;
+      /**
+       * Status From Panel
+       * @default null
+       */
+      status_from_panel: string | null;
+      /** Subscription Id */
+      subscription_id: number;
+      /**
+       * Tariff Key
+       * @default null
+       */
+      tariff_key: string | null;
+      /**
+       * Tier Baseline Bytes
+       * @default null
+       */
+      tier_baseline_bytes: number | null;
+      /**
+       * Topup Balance Bytes
+       * @default null
+       */
+      topup_balance_bytes: number | null;
+      /**
+       * Traffic Limit Bytes
+       * @default null
+       */
+      traffic_limit_bytes: number | null;
+      /**
+       * Traffic Used Bytes
+       * @default null
+       */
+      traffic_used_bytes: number | null;
+    };
+    /** AdminSupportMessageOut */
+    AdminSupportMessageOut: {
+      /**
+       * Author Name
+       * @default null
+       */
+      author_name: string | null;
+      /** Author Role */
+      author_role: string;
+      /**
+       * Author User Id
+       * @default null
+       */
+      author_user_id: number | null;
+      /** Body */
+      body: string;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /** Is Internal Note */
+      is_internal_note: boolean;
+      /** Message Id */
+      message_id: number;
+      /**
+       * Read By Admin At
+       * @default null
+       */
+      read_by_admin_at: string | null;
+      /**
+       * Read By User At
+       * @default null
+       */
+      read_by_user_at: string | null;
+      /** Ticket Id */
+      ticket_id: number;
+    };
+    /** AdminSupportStatsOut */
+    AdminSupportStatsOut: {
+      /** Active */
+      active: number;
+      /** Awaiting Admin */
+      awaiting_admin: number;
+      /** Awaiting User */
+      awaiting_user: number;
+      /** Closed */
+      closed: number;
+      /** Open */
+      open: number;
+      /** Total */
+      total: number;
+      /** Total Unread Admin */
+      total_unread_admin: number;
+    } & {
+      [key: string]: unknown;
+    };
+    /** AdminSupportTicketOut */
+    AdminSupportTicketOut: {
+      /**
+       * Assigned Admin Id
+       * @default null
+       */
+      assigned_admin_id: number | null;
+      /** Category */
+      category: string;
+      /**
+       * Closed At
+       * @default null
+       */
+      closed_at: string | null;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /**
+       * Last Message At
+       * @default null
+       */
+      last_message_at: string | null;
+      /**
+       * Last Message Role
+       * @default null
+       */
+      last_message_role: string | null;
+      /** Priority */
+      priority: string;
+      /** Status */
+      status: string;
+      /** Subject */
+      subject: string;
+      /** Ticket Id */
+      ticket_id: number;
+      /** Unread Admin Count */
+      unread_admin_count: number;
+      /** Unread User Count */
+      unread_user_count: number;
+      /**
+       * Updated At
+       * @default null
+       */
+      updated_at: string | null;
+      /** User */
+      user: components["schemas"]["AdminSupportUserOut"] | components["schemas"]["EmptyObjectOut"];
+      /** User Id */
+      user_id: number;
+    };
+    /** AdminSupportUserOut */
+    AdminSupportUserOut: {
+      /**
+       * Email
+       * @default null
+       */
+      email: string | null;
+      /**
+       * First Name
+       * @default null
+       */
+      first_name: string | null;
+      /**
+       * Is Banned
+       * @default null
+       */
+      is_banned: boolean | null;
+      /**
+       * Last Name
+       * @default null
+       */
+      last_name: string | null;
+      /**
+       * Registration Date
+       * @default null
+       */
+      registration_date: string | null;
+      /**
+       * Telegram Id
+       * @default null
+       */
+      telegram_id: number | null;
+      /**
+       * Telegram Photo Url
+       * @default null
+       */
+      telegram_photo_url: string | null;
+      /**
+       * User Id
+       * @default null
+       */
+      user_id: number | null;
+      /**
+       * Username
+       * @default null
+       */
+      username: string | null;
+    };
+    /** AdminSupportUserSnapshotOut */
+    AdminSupportUserSnapshotOut: {
+      /**
+       * Email
+       * @default null
+       */
+      email: string | null;
+      /**
+       * Email Login
+       * @default null
+       */
+      email_login: boolean | null;
+      /**
+       * End Date
+       * @default null
+       */
+      end_date: string | null;
+      /**
+       * Is Throttled
+       * @default null
+       */
+      is_throttled: boolean | null;
+      /**
+       * Language
+       * @default null
+       */
+      language: string | null;
+      /**
+       * Lifetime Used Traffic Bytes
+       * @default null
+       */
+      lifetime_used_traffic_bytes: number | null;
+      /**
+       * Name
+       * @default null
+       */
+      name: string | null;
+      /**
+       * Panel Status
+       * @default null
+       */
+      panel_status: string | null;
+      /**
+       * Premium Topup Balance Bytes
+       * @default null
+       */
+      premium_topup_balance_bytes: number | null;
+      /**
+       * Registration Date
+       * @default null
+       */
+      registration_date: string | null;
+      /**
+       * Remaining
+       * @default null
+       */
+      remaining: string | null;
+      /**
+       * Subscription Active
+       * @default null
+       */
+      subscription_active: boolean | null;
+      /**
+       * Tariff
+       * @default null
+       */
+      tariff: string | null;
+      /**
+       * Telegram Id
+       * @default null
+       */
+      telegram_id: number | null;
+      /**
+       * Topup Balance Bytes
+       * @default null
+       */
+      topup_balance_bytes: number | null;
+      /** @default null */
+      traffic_premium: components["schemas"]["SupportTrafficSnapshotOut"] | null;
+      /** @default null */
+      traffic_regular: components["schemas"]["SupportTrafficSnapshotOut"] | null;
+      /**
+       * User Id
+       * @default null
+       */
+      user_id: number | null;
+      /**
+       * Username
+       * @default null
+       */
+      username: string | null;
+    };
+    /** AdminTicketPatchPayload */
+    AdminTicketPatchPayload: {
+      /**
+       * Assigned Admin Id
+       * @default null
+       */
+      assigned_admin_id: number | null;
+      /**
+       * Category
+       * @default null
+       */
+      category: ("billing" | "technical" | "account" | "other") | null;
+      /**
+       * Priority
+       * @default null
+       */
+      priority: ("low" | "normal" | "high" | "urgent") | null;
+      /**
+       * Status
+       * @default null
+       */
+      status: ("open" | "awaiting_user" | "awaiting_admin" | "resolved" | "closed") | null;
+    };
+    /** AdminTicketReplyPayload */
+    AdminTicketReplyPayload: {
+      /** Body */
+      body: string;
+      /**
+       * Is Internal Note
+       * @default false
+       */
+      is_internal_note: boolean;
+    };
+    /** AdminTranslationsPatchBody */
+    AdminTranslationsPatchBody: {
+      /** Deletes */
+      deletes?: unknown;
+      /** Updates */
+      updates?: unknown;
+    };
+    /** AdminUserBanBody */
+    AdminUserBanBody: {
+      /**
+       * Banned
+       * @default false
+       */
+      banned: unknown;
+    };
+    /** AdminUserExtendBody */
+    AdminUserExtendBody: {
+      /**
+       * Days
+       * @default null
+       */
+      days: unknown;
+      /**
+       * Extend Hwid Devices
+       * @default null
+       */
+      extend_hwid_devices: unknown;
+      /**
+       * Tariff Key
+       * @default null
+       */
+      tariff_key: unknown;
+    };
+    /** AdminUserHwidDeviceLimitBody */
+    AdminUserHwidDeviceLimitBody: {
+      /**
+       * Hwid Device Limit
+       * @default null
+       */
+      hwid_device_limit: unknown;
+      /**
+       * Limit
+       * @default null
+       */
+      limit: unknown;
+      /**
+       * Reset To Default
+       * @default false
+       */
+      reset_to_default: unknown;
+      /**
+       * Unlimited
+       * @default false
+       */
+      unlimited: unknown;
+      /**
+       * Use Default
+       * @default false
+       */
+      use_default: unknown;
+    };
+    /** AdminUserMessageBody */
+    AdminUserMessageBody: {
+      /**
+       * Text
+       * @default
+       */
+      text: unknown;
+    };
+    /** AdminUserOut */
+    AdminUserOut: {
+      /**
+       * Email
+       * @default null
+       */
+      email: string | null;
+      /**
+       * First Name
+       * @default null
+       */
+      first_name: string | null;
+      /** Is Banned */
+      is_banned: boolean;
+      /**
+       * Language Code
+       * @default null
+       */
+      language_code: string | null;
+      /**
+       * Last Name
+       * @default null
+       */
+      last_name: string | null;
+      /**
+       * Panel User Uuid
+       * @default null
+       */
+      panel_user_uuid: string | null;
+      /**
+       * Referral Code
+       * @default null
+       */
+      referral_code: string | null;
+      /**
+       * Referred By Id
+       * @default null
+       */
+      referred_by_id: number | null;
+      /**
+       * Registration Date
+       * @default null
+       */
+      registration_date: string | null;
+      /**
+       * Telegram Id
+       * @default null
+       */
+      telegram_id: number | null;
+      /**
+       * Telegram Photo Url
+       * @default null
+       */
+      telegram_photo_url: string | null;
+      /** User Id */
+      user_id: number;
+      /**
+       * Username
+       * @default null
+       */
+      username: string | null;
+    };
+    /** AdminUserPremiumOverrideBody */
+    AdminUserPremiumOverrideBody: {
+      /**
+       * Bonus Bytes
+       * @default null
+       */
+      bonus_bytes: unknown;
+      /**
+       * Bonus Gb
+       * @default null
+       */
+      bonus_gb: unknown;
+      /**
+       * Unlimited
+       * @default false
+       */
+      unlimited: unknown;
+    };
+    /** AdminUserRegularTrafficOverrideBody */
+    AdminUserRegularTrafficOverrideBody: {
+      /**
+       * Regular Bonus Bytes
+       * @default null
+       */
+      regular_bonus_bytes: unknown;
+      /**
+       * Regular Bonus Gb
+       * @default null
+       */
+      regular_bonus_gb: unknown;
+      /**
+       * Unlimited
+       * @default false
+       */
+      unlimited: unknown;
+    };
+    /** AdminUserTariffBody */
+    AdminUserTariffBody: {
+      /**
+       * Tariff Key
+       * @default null
+       */
+      tariff_key: unknown;
+    };
+    /** AdminUserTrafficGrantBody */
+    AdminUserTrafficGrantBody: {
+      /**
+       * Bytes
+       * @default null
+       */
+      bytes: unknown;
+      /**
+       * Gb
+       * @default null
+       */
+      gb: unknown;
+      /**
+       * Kind
+       * @default regular
+       */
+      kind: unknown;
+    };
+    /** AdminUserTrialOut */
+    AdminUserTrialOut: {
+      /** Active */
+      active: boolean;
+      /** Count */
+      count: number;
+      /**
+       * First Activated At
+       * @default null
+       */
+      first_activated_at: string | null;
+      /**
+       * Last Reset At
+       * @default null
+       */
+      last_reset_at: string | null;
+      /**
+       * Latest Activated At
+       * @default null
+       */
+      latest_activated_at: string | null;
+      /**
+       * Latest End Date
+       * @default null
+       */
+      latest_end_date: string | null;
+      /** Used */
+      used: boolean;
+    };
+    /** AdminUserWithAvatarOut */
+    AdminUserWithAvatarOut: {
+      /**
+       * Avatar Url
+       * @default null
+       */
+      avatar_url: string | null;
+      /**
+       * Email
+       * @default null
+       */
+      email: string | null;
+      /**
+       * First Name
+       * @default null
+       */
+      first_name: string | null;
+      /** Is Banned */
+      is_banned: boolean;
+      /**
+       * Language Code
+       * @default null
+       */
+      language_code: string | null;
+      /**
+       * Last Name
+       * @default null
+       */
+      last_name: string | null;
+      /**
+       * Panel User Uuid
+       * @default null
+       */
+      panel_user_uuid: string | null;
+      /**
+       * Referral Code
+       * @default null
+       */
+      referral_code: string | null;
+      /**
+       * Referred By Id
+       * @default null
+       */
+      referred_by_id: number | null;
+      /**
+       * Registration Date
+       * @default null
+       */
+      registration_date: string | null;
+      /**
+       * Telegram Id
+       * @default null
+       */
+      telegram_id: number | null;
+      /**
+       * Telegram Photo Url
+       * @default null
+       */
+      telegram_photo_url: string | null;
+      /** User Id */
+      user_id: number;
+      /**
+       * Username
+       * @default null
+       */
+      username: string | null;
+    };
+    /** CreateTicketPayload */
+    CreateTicketPayload: {
+      /** Body */
+      body: string;
+      /**
+       * Category
+       * @default other
+       * @enum {string}
+       */
+      category: "billing" | "technical" | "account" | "other";
+      /**
+       * Priority
+       * @default normal
+       * @enum {string}
+       */
+      priority: "normal" | "high";
+      /** Subject */
+      subject: string;
+    };
+    /** EmptyObjectOut */
+    EmptyObjectOut: Record<string, never>;
+    /** HwidDevicePackage */
+    HwidDevicePackage: {
+      /** Count */
+      count: number;
+      /**
+       * Min Price
+       * @default null
+       */
+      min_price: number | null;
+      /** Price */
+      price: number;
+      /** Prices */
+      prices?: {
+        [key: string]: number;
+      };
+    };
+    /** HwidDevicePackageSet */
+    HwidDevicePackageSet: {
+      [key: string]: components["schemas"]["HwidDevicePackage"][];
+    };
+    /** LogOut */
+    LogOut: {
+      /**
+       * Content
+       * @default null
+       */
+      content: string | null;
+      /**
+       * Email
+       * @default null
+       */
+      email: string | null;
+      /**
+       * Event Type
+       * @default null
+       */
+      event_type: string | null;
+      /** Is Admin Event */
+      is_admin_event: boolean;
+      /** Log Id */
+      log_id: number;
+      /**
+       * Target User Id
+       * @default null
+       */
+      target_user_id: number | null;
+      /**
+       * Target User Label
+       * @default null
+       */
+      target_user_label: string | null;
+      /**
+       * Telegram First Name
+       * @default null
+       */
+      telegram_first_name: string | null;
+      /**
+       * Telegram Username
+       * @default null
+       */
+      telegram_username: string | null;
+      /**
+       * Timestamp
+       * @default null
+       */
+      timestamp: string | null;
+      /**
+       * User Id
+       * @default null
+       */
+      user_id: number | null;
+      /**
+       * User Label
+       * @default null
+       */
+      user_label: string | null;
+    };
+    /** PackageSet */
+    PackageSet: {
+      [key: string]: components["schemas"]["TrafficPackage"][];
+    };
+    /** PaymentDetailOut */
+    PaymentDetailOut: {
+      /** Amount */
+      amount: number;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /**
+       * Currency
+       * @default null
+       */
+      currency: string | null;
+      /**
+       * Description
+       * @default null
+       */
+      description: string | null;
+      /**
+       * Idempotence Key
+       * @default null
+       */
+      idempotence_key: string | null;
+      /** Payment Id */
+      payment_id: number;
+      /**
+       * Promo Code
+       * @default null
+       */
+      promo_code: string | null;
+      /**
+       * Provider
+       * @default null
+       */
+      provider: string | null;
+      /**
+       * Provider Payment Id
+       * @default null
+       */
+      provider_payment_id: string | null;
+      /**
+       * Purchased Gb
+       * @default null
+       */
+      purchased_gb: unknown;
+      /**
+       * Purchased Hwid Devices
+       * @default null
+       */
+      purchased_hwid_devices: number | null;
+      /**
+       * Sale Mode
+       * @default null
+       */
+      sale_mode: string | null;
+      /**
+       * Status
+       * @default null
+       */
+      status: string | null;
+      /**
+       * Subscription Duration Months
+       * @default null
+       */
+      subscription_duration_months: number | null;
+      /**
+       * Tariff Key
+       * @default null
+       */
+      tariff_key: string | null;
+      /**
+       * Telegram Id
+       * @default null
+       */
+      telegram_id: number | null;
+      /**
+       * Traffic Premium Gb
+       * @default null
+       */
+      traffic_premium_gb: number | null;
+      /**
+       * Traffic Regular Gb
+       * @default null
+       */
+      traffic_regular_gb: number | null;
+      /**
+       * Updated At
+       * @default null
+       */
+      updated_at: string | null;
+      /** User Id */
+      user_id: number;
+      /** User Label */
+      user_label: string;
+      /**
+       * Yookassa Payment Id
+       * @default null
+       */
+      yookassa_payment_id: string | null;
+    };
+    /** PaymentOut */
+    PaymentOut: {
+      /** Amount */
+      amount: number;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /**
+       * Currency
+       * @default null
+       */
+      currency: string | null;
+      /**
+       * Description
+       * @default null
+       */
+      description: string | null;
+      /** Payment Id */
+      payment_id: number;
+      /**
+       * Provider
+       * @default null
+       */
+      provider: string | null;
+      /**
+       * Provider Payment Id
+       * @default null
+       */
+      provider_payment_id: string | null;
+      /**
+       * Purchased Gb
+       * @default null
+       */
+      purchased_gb: unknown;
+      /**
+       * Purchased Hwid Devices
+       * @default null
+       */
+      purchased_hwid_devices: number | null;
+      /**
+       * Sale Mode
+       * @default null
+       */
+      sale_mode: string | null;
+      /**
+       * Status
+       * @default null
+       */
+      status: string | null;
+      /**
+       * Subscription Duration Months
+       * @default null
+       */
+      subscription_duration_months: number | null;
+      /**
+       * Tariff Key
+       * @default null
+       */
+      tariff_key: string | null;
+      /**
+       * Telegram Id
+       * @default null
+       */
+      telegram_id: number | null;
+      /**
+       * Traffic Premium Gb
+       * @default null
+       */
+      traffic_premium_gb: number | null;
+      /**
+       * Traffic Regular Gb
+       * @default null
+       */
+      traffic_regular_gb: number | null;
+      /** User Id */
+      user_id: number;
+      /** User Label */
+      user_label: string;
+    };
+    /** PromoActivationOut */
+    PromoActivationOut: {
+      /**
+       * Activated At
+       * @default null
+       */
+      activated_at: string | null;
+      /** Activation Id */
+      activation_id: number;
+      /**
+       * Applies To
+       * @default null
+       */
+      applies_to: string | null;
+      /**
+       * Base Amount
+       * @default null
+       */
+      base_amount: number | null;
+      /**
+       * Bonus Days
+       * @default null
+       */
+      bonus_days: number | null;
+      /**
+       * Charged Gb
+       * @default null
+       */
+      charged_gb: number | null;
+      /**
+       * Charged Months
+       * @default null
+       */
+      charged_months: number | null;
+      /**
+       * Discount Amount
+       * @default null
+       */
+      discount_amount: number | null;
+      /**
+       * Discount Percent
+       * @default null
+       */
+      discount_percent: number | null;
+      /**
+       * Duration Multiplier
+       * @default null
+       */
+      duration_multiplier: number | null;
+      /**
+       * Effect Summary
+       * @default null
+       */
+      effect_summary: string | null;
+      /**
+       * Granted Days
+       * @default null
+       */
+      granted_days: number | null;
+      /**
+       * Granted Gb
+       * @default null
+       */
+      granted_gb: number | null;
+      /**
+       * Payment Amount
+       * @default null
+       */
+      payment_amount: number | null;
+      /**
+       * Payment Created At
+       * @default null
+       */
+      payment_created_at: string | null;
+      /**
+       * Payment Currency
+       * @default null
+       */
+      payment_currency: string | null;
+      /**
+       * Payment Description
+       * @default null
+       */
+      payment_description: string | null;
+      /**
+       * Payment Id
+       * @default null
+       */
+      payment_id: number | null;
+      /**
+       * Payment Provider
+       * @default null
+       */
+      payment_provider: string | null;
+      /**
+       * Payment Sale Mode
+       * @default null
+       */
+      payment_sale_mode: string | null;
+      /**
+       * Payment Status
+       * @default null
+       */
+      payment_status: string | null;
+      /** Promo Id */
+      promo_id: number;
+      /**
+       * Telegram Id
+       * @default null
+       */
+      telegram_id: number | null;
+      /**
+       * Traffic Multiplier
+       * @default null
+       */
+      traffic_multiplier: number | null;
+      /** User Id */
+      user_id: number;
+      /** User Label */
+      user_label: string;
+    };
+    /** PromoCreateBody */
+    PromoCreateBody: {
+      /**
+       * Applies To
+       * @default all
+       */
+      applies_to: string;
+      /**
+       * Bonus Days
+       * @default 0
+       */
+      bonus_days: number;
+      /**
+       * Bonus Requires Payment
+       * @default false
+       */
+      bonus_requires_payment: boolean;
+      /**
+       * Code
+       * @default null
+       */
+      code: string | null;
+      /**
+       * Discount Percent
+       * @default null
+       */
+      discount_percent: number | null;
+      /**
+       * Duration Multiplier
+       * @default null
+       */
+      duration_multiplier: number | null;
+      /** Max Activations */
+      max_activations: number;
+      /**
+       * Min Subscription Months
+       * @default null
+       */
+      min_subscription_months: number | null;
+      /**
+       * Min Traffic Gb
+       * @default null
+       */
+      min_traffic_gb: number | null;
+      /**
+       * Origin
+       * @default admin
+       */
+      origin: string;
+      /**
+       * Traffic Multiplier
+       * @default null
+       */
+      traffic_multiplier: number | null;
+      /**
+       * Valid Days
+       * @default null
+       */
+      valid_days: unknown;
+    };
+    /** PromoOut */
+    PromoOut: {
+      /** Applies To */
+      applies_to: string;
+      /** Bonus Days */
+      bonus_days: number;
+      /**
+       * Bonus Requires Payment
+       * @default false
+       */
+      bonus_requires_payment: boolean;
+      /**
+       * Bot Link
+       * @default null
+       */
+      bot_link: string | null;
+      /** Code */
+      code: string;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /**
+       * Created By Admin Id
+       * @default null
+       */
+      created_by_admin_id: number | null;
+      /** Current Activations */
+      current_activations: number;
+      /**
+       * Discount Percent
+       * @default null
+       */
+      discount_percent: number | null;
+      /**
+       * Duration Multiplier
+       * @default null
+       */
+      duration_multiplier: number | null;
+      /** Effect Summary */
+      effect_summary: string;
+      /** Id */
+      id: number;
+      /** Is Active */
+      is_active: boolean;
+      /** Max Activations */
+      max_activations: number;
+      /**
+       * Min Subscription Months
+       * @default null
+       */
+      min_subscription_months: number | null;
+      /**
+       * Min Traffic Gb
+       * @default null
+       */
+      min_traffic_gb: number | null;
+      /** Origin */
+      origin: string;
+      /**
+       * Traffic Multiplier
+       * @default null
+       */
+      traffic_multiplier: number | null;
+      /**
+       * Valid Until
+       * @default null
+       */
+      valid_until: string | null;
+      /**
+       * Webapp Link
+       * @default null
+       */
+      webapp_link: string | null;
+    };
+    /** PromoUpdateBody */
+    PromoUpdateBody: {
+      /**
+       * Applies To
+       * @default null
+       */
+      applies_to: string | null;
+      /**
+       * Bonus Days
+       * @default null
+       */
+      bonus_days: number | null;
+      /**
+       * Bonus Requires Payment
+       * @default null
+       */
+      bonus_requires_payment: boolean | null;
+      /**
+       * Clear Valid Until
+       * @default null
+       */
+      clear_valid_until: unknown;
+      /**
+       * Discount Percent
+       * @default null
+       */
+      discount_percent: number | null;
+      /**
+       * Duration Multiplier
+       * @default null
+       */
+      duration_multiplier: number | null;
+      /**
+       * Is Active
+       * @default null
+       */
+      is_active: unknown;
+      /**
+       * Max Activations
+       * @default null
+       */
+      max_activations: number | null;
+      /**
+       * Min Subscription Months
+       * @default null
+       */
+      min_subscription_months: number | null;
+      /**
+       * Min Traffic Gb
+       * @default null
+       */
+      min_traffic_gb: number | null;
+      /**
+       * Origin
+       * @default null
+       */
+      origin: string | null;
+      /**
+       * Traffic Multiplier
+       * @default null
+       */
+      traffic_multiplier: number | null;
+      /**
+       * Valid Until
+       * @default null
+       */
+      valid_until: string | null;
+    };
+    /**
+     * SupportCountsOut
+     * @description Ticket counters keyed by known statuses, with room for future status keys.
+     */
+    SupportCountsOut: {
+      /** Active */
+      active: number;
+      /** Closed */
+      closed: number;
+      /** Total */
+      total: number;
+    } & {
+      [key: string]: unknown;
+    };
+    /** SupportMessageOut */
+    SupportMessageOut: {
+      /** Author Role */
+      author_role: string;
+      /**
+       * Author User Id
+       * @default null
+       */
+      author_user_id: number | null;
+      /** Body */
+      body: string;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /** Is Internal Note */
+      is_internal_note: boolean;
+      /** Message Id */
+      message_id: number;
+      /**
+       * Read By Admin At
+       * @default null
+       */
+      read_by_admin_at: string | null;
+      /**
+       * Read By User At
+       * @default null
+       */
+      read_by_user_at: string | null;
+      /** Ticket Id */
+      ticket_id: number;
+    };
+    /** SupportTicketOut */
+    SupportTicketOut: {
+      /**
+       * Assigned Admin Id
+       * @default null
+       */
+      assigned_admin_id: number | null;
+      /** Category */
+      category: string;
+      /**
+       * Closed At
+       * @default null
+       */
+      closed_at: string | null;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /**
+       * Last Message At
+       * @default null
+       */
+      last_message_at: string | null;
+      /**
+       * Last Message Role
+       * @default null
+       */
+      last_message_role: string | null;
+      /** Priority */
+      priority: string;
+      /** Status */
+      status: string;
+      /** Subject */
+      subject: string;
+      /** Ticket Id */
+      ticket_id: number;
+      /** Unread Admin Count */
+      unread_admin_count: number;
+      /** Unread User Count */
+      unread_user_count: number;
+      /**
+       * Updated At
+       * @default null
+       */
+      updated_at: string | null;
+      /** User Id */
+      user_id: number;
+    };
+    /** SupportTrafficSnapshotOut */
+    SupportTrafficSnapshotOut: {
+      /**
+       * Left Bytes
+       * @default 0
+       */
+      left_bytes: number;
+      /**
+       * Limit Bytes
+       * @default 0
+       */
+      limit_bytes: number;
+      /**
+       * Percent
+       * @default 0
+       */
+      percent: number;
+      /**
+       * Used Bytes
+       * @default 0
+       */
+      used_bytes: number;
+    };
+    /** Tariff */
+    Tariff: {
+      /**
+       * Billing Model
+       * @enum {string}
+       */
+      billing_model: "period" | "traffic";
+      /**
+       * Conversion Rate Per Gb
+       * @default null
+       */
+      conversion_rate_per_gb: number | null;
+      /**
+       * Conversion Rate Rub Per Gb
+       * @default null
+       */
+      conversion_rate_rub_per_gb: number | null;
+      /** Descriptions */
+      descriptions?: {
+        [key: string]: string;
+      };
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled: boolean;
+      /** Enabled Periods */
+      enabled_periods?: number[];
+      /**
+       * Hwid Device Limit
+       * @default null
+       */
+      hwid_device_limit: number | null;
+      /** @default null */
+      hwid_device_packages: components["schemas"]["HwidDevicePackageSet"] | null;
+      /**
+       * Included Cornllm Balance Rub
+       * @default 0
+       */
+      included_cornllm_balance_rub: number;
+      /** Key */
+      key: string;
+      /**
+       * Memory Gb
+       * @default null
+       */
+      memory_gb: number | null;
+      /**
+       * Monthly Gb
+       * @default null
+       */
+      monthly_gb: number | null;
+      /** Names */
+      names?: {
+        [key: string]: string;
+      };
+      /**
+       * Premium Monthly Gb
+       * @default null
+       */
+      premium_monthly_gb: number | null;
+      /** Premium Names */
+      premium_names?: {
+        [key: string]: string;
+      };
+      /** Premium Squad Uuids */
+      premium_squad_uuids?: string[];
+      /** @default null */
+      premium_topup_packages: components["schemas"]["PackageSet"] | null;
+      /** Prices */
+      prices?: {
+        [key: string]: {
+          [key: string]: number;
+        };
+      };
+      /** Prices Rub */
+      prices_rub?: {
+        [key: string]: number;
+      };
+      /** Prices Stars */
+      prices_stars?: {
+        [key: string]: number;
+      };
+      /** Referral Bonus Days Inviter */
+      referral_bonus_days_inviter?: {
+        [key: string]: number;
+      };
+      /** Referral Bonus Days Referee */
+      referral_bonus_days_referee?: {
+        [key: string]: number;
+      };
+      /** Squad Uuids */
+      squad_uuids?: string[];
+      /** @default null */
+      topup_packages: components["schemas"]["PackageSet"] | null;
+      /** @default null */
+      traffic_packages: components["schemas"]["PackageSet"] | null;
+      /**
+       * Vcpu
+       * @default null
+       */
+      vcpu: number | null;
+    };
+    /** TariffsConfig */
+    TariffsConfig: {
+      /**
+       * Default Currency
+       * @default rub
+       */
+      default_currency: string;
+      /** Default Tariff */
+      default_tariff: string;
+      /** Tariffs */
+      tariffs: components["schemas"]["Tariff"][];
+      /** @default null */
+      topup_packages_default: components["schemas"]["PackageSet"] | null;
+    };
+    /** TariffsSaveBody */
+    TariffsSaveBody: {
+      /**
+       * Catalog
+       * @default null
+       */
+      catalog: unknown;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * ThemeTokens
+     * @description CSS design tokens for the subscription Mini App shell.
+     */
+    ThemeTokens: {
+      /**
+       * Accent
+       * @default null
+       */
+      accent: string | null;
+      /**
+       * Accent Contrast
+       * @default null
+       */
+      accent_contrast: string | null;
+      /**
+       * Admin Bg
+       * @default null
+       */
+      admin_bg: string | null;
+      /**
+       * Admin Border
+       * @default null
+       */
+      admin_border: string | null;
+      /**
+       * Admin Border Strong
+       * @default null
+       */
+      admin_border_strong: string | null;
+      /**
+       * Admin Chart Fill
+       * @default null
+       */
+      admin_chart_fill: string | null;
+      /**
+       * Admin Chart Stroke
+       * @default null
+       */
+      admin_chart_stroke: string | null;
+      /**
+       * Admin Dim
+       * @default null
+       */
+      admin_dim: string | null;
+      /**
+       * Admin Elev
+       * @default null
+       */
+      admin_elev: string | null;
+      /**
+       * Admin Muted
+       * @default null
+       */
+      admin_muted: string | null;
+      /**
+       * Admin Surface
+       * @default null
+       */
+      admin_surface: string | null;
+      /**
+       * Admin Surface 2
+       * @default null
+       */
+      admin_surface_2: string | null;
+      /**
+       * Admin Text
+       * @default null
+       */
+      admin_text: string | null;
+      /**
+       * Bg
+       * @default null
+       */
+      bg: string | null;
+      /**
+       * Blue
+       * @default null
+       */
+      blue: string | null;
+      /**
+       * Border
+       * @default null
+       */
+      border: string | null;
+      /**
+       * Border Strong
+       * @default null
+       */
+      border_strong: string | null;
+      /**
+       * Color Scheme
+       * @default dark
+       * @enum {string}
+       */
+      color_scheme: "light" | "dark";
+      /**
+       * Danger
+       * @default null
+       */
+      danger: string | null;
+      /**
+       * Danger Border
+       * @default null
+       */
+      danger_border: string | null;
+      /**
+       * Danger Soft
+       * @default null
+       */
+      danger_soft: string | null;
+      /**
+       * Danger Text
+       * @default null
+       */
+      danger_text: string | null;
+      /**
+       * Dim
+       * @default null
+       */
+      dim: string | null;
+      /**
+       * Font Logo
+       * @default null
+       */
+      font_logo: string | null;
+      /**
+       * Font Mono
+       * @default null
+       */
+      font_mono: string | null;
+      /**
+       * Font Sans
+       * @default null
+       */
+      font_sans: string | null;
+      /**
+       * Home Logo Scale
+       * @default null
+       */
+      home_logo_scale: number | null;
+      /**
+       * Home Logo Scale Desktop
+       * @default null
+       */
+      home_logo_scale_desktop: number | null;
+      /**
+       * Home Logo Scale Mobile
+       * @default null
+       */
+      home_logo_scale_mobile: number | null;
+      /**
+       * Info
+       * @default null
+       */
+      info: string | null;
+      /**
+       * Info Border
+       * @default null
+       */
+      info_border: string | null;
+      /**
+       * Info Soft
+       * @default null
+       */
+      info_soft: string | null;
+      /**
+       * Info Text
+       * @default null
+       */
+      info_text: string | null;
+      /**
+       * Inset Highlight
+       * @default null
+       */
+      inset_highlight: string | null;
+      /**
+       * Muted
+       * @default null
+       */
+      muted: string | null;
+      /**
+       * Nav Bg
+       * @default null
+       */
+      nav_bg: string | null;
+      /**
+       * Overlay Scrim
+       * @default null
+       */
+      overlay_scrim: string | null;
+      /**
+       * Panel
+       * @default null
+       */
+      panel: string | null;
+      /**
+       * Panel 2
+       * @default null
+       */
+      panel_2: string | null;
+      /**
+       * Panel 3
+       * @default null
+       */
+      panel_3: string | null;
+      /**
+       * Radius
+       * @default null
+       */
+      radius: string | null;
+      /**
+       * Rail Bg
+       * @default null
+       */
+      rail_bg: string | null;
+      /**
+       * Shadow Popover
+       * @default null
+       */
+      shadow_popover: string | null;
+      /**
+       * Shadow Soft
+       * @default null
+       */
+      shadow_soft: string | null;
+      /**
+       * Shadow Strong
+       * @default null
+       */
+      shadow_strong: string | null;
+      /**
+       * Style Preset
+       * @default null
+       */
+      style_preset: string | null;
+      /**
+       * Success
+       * @default null
+       */
+      success: string | null;
+      /**
+       * Success Border
+       * @default null
+       */
+      success_border: string | null;
+      /**
+       * Success Soft
+       * @default null
+       */
+      success_soft: string | null;
+      /**
+       * Success Text
+       * @default null
+       */
+      success_text: string | null;
+      /**
+       * Surface Hover
+       * @default null
+       */
+      surface_hover: string | null;
+      /**
+       * Surface Muted
+       * @default null
+       */
+      surface_muted: string | null;
+      /**
+       * Surface Sheen
+       * @default null
+       */
+      surface_sheen: string | null;
+      /**
+       * Surface Sheen Soft
+       * @default null
+       */
+      surface_sheen_soft: string | null;
+      /**
+       * Surface Subtle
+       * @default null
+       */
+      surface_subtle: string | null;
+      /**
+       * Surface Subtle Border
+       * @default null
+       */
+      surface_subtle_border: string | null;
+      /**
+       * Text
+       * @default null
+       */
+      text: string | null;
+      /**
+       * Warning
+       * @default null
+       */
+      warning: string | null;
+      /**
+       * Warning Border
+       * @default null
+       */
+      warning_border: string | null;
+      /**
+       * Warning Soft
+       * @default null
+       */
+      warning_soft: string | null;
+      /**
+       * Warning Text
+       * @default null
+       */
+      warning_text: string | null;
+    };
+    /** ThemesSaveBody */
+    ThemesSaveBody: {
+      /**
+       * Catalog
+       * @default null
+       */
+      catalog: unknown;
+    } & {
+      [key: string]: unknown;
+    };
+    /** TicketReplyPayload */
+    TicketReplyPayload: {
+      /** Body */
+      body: string;
+    };
+    /** TrafficPackage */
+    TrafficPackage: {
+      /** Gb */
+      gb: number;
+      /** Price */
+      price: number;
+    };
+    /** WebAppAutoRenewPayload */
+    WebAppAutoRenewPayload: {
+      /** Enabled */
+      enabled: boolean;
+    };
+    /** WebAppBotTokenPayload */
+    WebAppBotTokenPayload: {
+      /** Bot Token */
+      bot_token: string;
+    };
+    /**
+     * WebAppCornllmTopupPayload
+     * @description Payload for a paid CornLLM (LiteLLM) budget topup.
+     *
+     *     The amount is in rubles; the shop converts to USD (1 USD = 100 RUB)
+     *     and provisioning-core adds the delta to the tenant's active
+     *     LitellmKey max_budget. Minimum is 100 RUB to keep payment / quota
+     *     meaningful.
+     */
+    WebAppCornllmTopupPayload: {
+      /** Amount Rub */
+      amount_rub: number;
+      /**
+       * Method
+       * @default
+       */
+      method: string;
+    };
+    /** WebAppDeviceDisconnectPayload */
+    WebAppDeviceDisconnectPayload: {
+      /** Token */
+      token: string;
+    };
+    /** WebAppDeviceOut */
+    WebAppDeviceOut: {
+      /** Can Disconnect */
+      can_disconnect: boolean;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /** Created At Text */
+      created_at_text: string;
+      /** Display Name */
+      display_name: string;
+      /** Hwid Short */
+      hwid_short: string;
+      /** Index */
+      index: number;
+      /** Os Version */
+      os_version: string;
+      /** Platform */
+      platform: string;
+      /** Platform Label */
+      platform_label: string;
+      /** Token */
+      token: string;
+      /** User Agent */
+      user_agent: string;
+    };
+    /** WebAppEmailCodeAuthPayload */
+    WebAppEmailCodeAuthPayload: {
+      /**
+       * Code
+       * @default
+       */
+      code: string;
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+      /**
+       * Referral Code
+       * @default null
+       */
+      referral_code: string | null;
+      /**
+       * Start Param
+       * @default null
+       */
+      start_param: string | null;
+    };
+    /** WebAppEmailCodePayload */
+    WebAppEmailCodePayload: {
+      /**
+       * Code
+       * @default
+       */
+      code: string;
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+    };
+    /** WebAppEmailMagicAuthPayload */
+    WebAppEmailMagicAuthPayload: {
+      /**
+       * Referral Code
+       * @default null
+       */
+      referral_code: string | null;
+      /**
+       * Start Param
+       * @default null
+       */
+      start_param: string | null;
+      /** Token */
+      token: string;
+    };
+    /** WebAppEmailPasswordPayload */
+    WebAppEmailPasswordPayload: {
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+      /** Password */
+      password: string;
+    };
+    /** WebAppEmailPayload */
+    WebAppEmailPayload: {
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+    };
+    /** WebAppEmailRequestPayload */
+    WebAppEmailRequestPayload: {
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+      /**
+       * Language
+       * @default null
+       */
+      language: string | null;
+      /**
+       * Referral Code
+       * @default null
+       */
+      referral_code: string | null;
+      /**
+       * Start Param
+       * @default null
+       */
+      start_param: string | null;
+    };
+    /** WebAppEnvUpdatePayload */
+    WebAppEnvUpdatePayload: {
+      /**
+       * Env Content
+       * @default
+       */
+      env_content: string;
+    };
+    /** WebAppLanguagePayload */
+    WebAppLanguagePayload: {
+      /** Language */
+      language: string;
+    };
+    /** WebAppPaymentCreatePayload */
+    WebAppPaymentCreatePayload: {
+      /**
+       * Comment
+       * @default null
+       */
+      comment: string | null;
+      /**
+       * Description
+       * @default null
+       */
+      description: string | null;
+      /**
+       * Device Count
+       * @default null
+       */
+      device_count: unknown;
+      /**
+       * Method
+       * @default
+       */
+      method: string;
+      /**
+       * Months
+       * @default null
+       */
+      months: unknown;
+      /**
+       * Note
+       * @default null
+       */
+      note: string | null;
+      /**
+       * Promo Code
+       * @default null
+       */
+      promo_code: string | null;
+      /**
+       * Renew Hwid Devices
+       * @default null
+       */
+      renew_hwid_devices: boolean | null;
+      /**
+       * Sale Mode
+       * @default null
+       */
+      sale_mode: string | null;
+      /**
+       * Tariff Key
+       * @default null
+       */
+      tariff_key: string | null;
+      /**
+       * Traffic Gb
+       * @default null
+       */
+      traffic_gb: unknown;
+    };
+    /** WebAppPromoApplyPayload */
+    WebAppPromoApplyPayload: {
+      /**
+       * Code
+       * @default
+       */
+      code: unknown;
+    };
+    /** WebAppPromoQuotePayload */
+    WebAppPromoQuotePayload: {
+      /**
+       * Comment
+       * @default null
+       */
+      comment: string | null;
+      /**
+       * Description
+       * @default null
+       */
+      description: string | null;
+      /**
+       * Device Count
+       * @default null
+       */
+      device_count: unknown;
+      /**
+       * Method
+       * @default
+       */
+      method: string;
+      /**
+       * Months
+       * @default null
+       */
+      months: unknown;
+      /**
+       * Note
+       * @default null
+       */
+      note: string | null;
+      /** Promo Code */
+      promo_code: string;
+      /**
+       * Renew Hwid Devices
+       * @default null
+       */
+      renew_hwid_devices: boolean | null;
+      /**
+       * Sale Mode
+       * @default null
+       */
+      sale_mode: string | null;
+      /**
+       * Tariff Key
+       * @default null
+       */
+      tariff_key: string | null;
+      /**
+       * Traffic Gb
+       * @default null
+       */
+      traffic_gb: unknown;
+    };
+    /** WebAppSetPasswordPayload */
+    WebAppSetPasswordPayload: {
+      /** Code */
+      code: string;
+      /** Password */
+      password: string;
+      /** Password Confirm */
+      password_confirm: string;
+    };
+    /** WebAppTariffChangePayload */
+    WebAppTariffChangePayload: {
+      /** Mode */
+      mode: string;
+      /** Tariff Key */
+      tariff_key: string;
+    };
+    /** WebAppTelegramAuthPayload */
+    WebAppTelegramAuthPayload: {
+      /**
+       * Auth Data
+       * @default null
+       */
+      auth_data: unknown;
+      /**
+       * Id Token
+       * @default
+       */
+      id_token: string;
+      /**
+       * Init Data
+       * @default
+       */
+      init_data: string;
+      /**
+       * Nonce
+       * @default
+       */
+      nonce: string;
+      /**
+       * Referral Code
+       * @default null
+       */
+      referral_code: string | null;
+      /**
+       * Start Param
+       * @default null
+       */
+      start_param: string | null;
+    };
+    /** WebAppTrialActivatePayload */
+    WebAppTrialActivatePayload: {
+      /**
+       * Bot Token
+       * @default null
+       */
+      bot_token: string | null;
+    };
+    /**
+     * WebappTheme
+     * @description Single theme descriptor loaded from WEBAPP_THEMES_DIR/<key>/theme.json.
+     */
+    WebappTheme: {
+      /**
+       * Active Variant
+       * @default null
+       */
+      active_variant: ("light" | "dark") | null;
+      /**
+       * Assets Version
+       * @default 1
+       */
+      assets_version: number;
+      /**
+       * Css File
+       * @default null
+       */
+      css_file: string | null;
+      /**
+       * Default
+       * @default false
+       */
+      default: boolean;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled: boolean;
+      /**
+       * Hidden
+       * @default false
+       */
+      hidden: boolean;
+      /** Key */
+      key: string;
+      /** Names */
+      names?: {
+        [key: string]: string;
+      };
+      tokens?: components["schemas"]["ThemeTokens"];
+      /**
+       * Use In Admin
+       * @default true
+       */
+      use_in_admin: boolean;
+      /**
+       * Use Primary Accent
+       * @default true
+       */
+      use_primary_accent: boolean;
+      /**
+       * Variant Alias For
+       * @default null
+       */
+      variant_alias_for: string | null;
+      /** Variants */
+      variants?: {
+        [key: string]: components["schemas"]["ThemeTokens"];
+      };
+    };
+    /**
+     * WebappThemesConfig
+     * @description Runtime catalog assembled from individual theme descriptor files.
+     */
+    WebappThemesConfig: {
+      /**
+       * Default Theme
+       * @default dark
+       */
+      default_theme: string;
+      /** Themes */
+      themes?: components["schemas"]["WebappTheme"][];
+    };
+  };
+  responses: never;
+  parameters: never;
+  requestBodies: never;
+  headers: never;
+  pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    get_account_avatar_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "image/jpeg": string;
-                };
-            };
-        };
-    };
-    put_account_bot_token_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppBotTokenPayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        bot_username: string;
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    post_account_email_request_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppEmailPayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        already_linked?: boolean;
-                        code?: string;
-                        email_code?: string;
-                        /** @constant */
-                        ok: true;
-                        retry_after?: number | null;
-                    };
-                };
-            };
-        };
-    };
-    post_account_email_verify_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppEmailCodePayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        account_merge?: {
-                            final_end_date: string | null;
-                            final_end_date_text: string | null;
-                            language: string;
-                            merged: boolean;
-                            primary_panel_user_uuid: string | null;
-                            primary_user_id: number;
-                            removed_panel_user_uuid: string | null;
-                            removed_user_id: number;
-                        };
-                        csrf_token: string;
-                        /** @constant */
-                        ok: true;
-                        telegram_id?: number | null;
-                        token: string;
-                        user_id?: number | null;
-                    };
-                };
-            };
-        };
-    };
-    post_account_language_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppLanguagePayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        language: string;
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    post_account_password_confirm_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppSetPasswordPayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        password_auth_enabled: boolean;
-                    };
-                };
-            };
-        };
-    };
-    post_account_password_request_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        retry_after?: number | null;
-                    };
-                };
-            };
-        };
-    };
-    post_account_telegram_link_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppTelegramAuthPayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        account_merge?: {
-                            final_end_date: string | null;
-                            final_end_date_text: string | null;
-                            language: string;
-                            merged: boolean;
-                            primary_panel_user_uuid: string | null;
-                            primary_user_id: number;
-                            removed_panel_user_uuid: string | null;
-                            removed_user_id: number;
-                        };
-                        csrf_token: string;
-                        /** @constant */
-                        ok: true;
-                        telegram_id?: number | null;
-                        token: string;
-                        user_id?: number | null;
-                    };
-                };
-            };
-        };
-    };
-    post_account_telegram_notifications_probe_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        telegram_notifications: {
-                            enabled: boolean;
-                            ok: boolean;
-                            start_link: string | null;
-                            status: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    get_admin_ads_list_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    } & components["schemas"]["AdminAdsListOut"];
-                };
-            };
-        };
-    };
-    post_admin_ad_create_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdCreateBody"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        campaign: components["schemas"]["AdOut"];
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    delete_admin_ad_delete_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                campaign_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    post_admin_ad_toggle_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                campaign_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdToggleBody"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    post_admin_appearance_favicon_upload_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    url: string;
-                } & {
-                    [key: string]: unknown;
-                };
-                "multipart/form-data": {
-                    /** Format: binary */
-                    file: string;
-                };
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        favicon_url?: string;
-                        /** @constant */
-                        ok: true;
-                        persisted: boolean;
-                    };
-                };
-            };
-        };
-    };
-    post_admin_appearance_logo_upload_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    url: string;
-                } & {
-                    [key: string]: unknown;
-                };
-                "multipart/form-data": {
-                    /** Format: binary */
-                    file: string;
-                };
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        favicon_url?: string;
-                        logo_url: string;
-                        /** @constant */
-                        ok: true;
-                        persisted: boolean;
-                    };
-                };
-            };
-        };
-    };
-    get_admin_backups_list_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        archives: {
-                            [key: string]: unknown;
-                        }[];
-                        backup_dir: string;
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    post_admin_backups_create_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        archive: {
-                            [key: string]: unknown;
-                        };
-                        /** @constant */
-                        ok: true;
-                        result: {
-                            [key: string]: unknown;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    post_admin_backups_restore_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminBackupRestoreBody"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        result: {
-                            [key: string]: unknown;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    post_admin_backups_upload_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": {
-                    /** Format: binary */
-                    file: string;
-                };
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        archive: {
-                            [key: string]: unknown;
-                        };
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    post_admin_broadcast_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminBroadcastBody"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        failed: number;
-                        /** @constant */
-                        ok: true;
-                        queued: number;
-                        target: string;
-                    };
-                };
-            };
-        };
-    };
-    get_admin_broadcast_audience_counts_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        counts: {
-                            [key: string]: unknown;
-                        };
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    get_admin_health_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    } & components["schemas"]["AdminHealthOut"];
-                };
-            };
-        };
-    };
-    get_admin_logs_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    } & components["schemas"]["AdminLogsListOut"];
-                };
-            };
-        };
-    };
-    get_admin_me_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    } & components["schemas"]["AdminMeOut"];
-                };
-            };
-        };
-    };
-    get_admin_panel_internal_squads_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        squads: {
-                            [key: string]: unknown;
-                        }[];
-                    };
-                };
-            };
-        };
-    };
-    get_admin_payments_list_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    } & components["schemas"]["AdminPaymentsListOut"];
-                };
-            };
-        };
-    };
-    get_admin_payments_export_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/csv": string;
-                };
-            };
-        };
-    };
-    get_admin_payment_detail_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                payment_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        payment: components["schemas"]["PaymentDetailOut"];
-                    };
-                };
-            };
-        };
-    };
-    get_admin_promos_list_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        page: number;
-                        page_size: number;
-                        promos: components["schemas"]["PromoOut"][];
-                        total: number;
-                    };
-                };
-            };
-        };
-    };
-    post_admin_promo_create_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PromoCreateBody"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        promo: components["schemas"]["PromoOut"];
-                    };
-                };
-            };
-        };
-    };
-    delete_admin_promo_delete_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                promo_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    patch_admin_promo_update_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                promo_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PromoUpdateBody"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        promo: components["schemas"]["PromoOut"];
-                    };
-                };
-            };
-        };
-    };
-    get_admin_promo_activations_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                promo_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        activations: components["schemas"]["PromoActivationOut"][];
-                        /** @constant */
-                        ok: true;
-                        page: number;
-                        page_size: number;
-                        total: number;
-                    };
-                };
-            };
-        };
-    };
-    get_admin_settings_get_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        features: string[];
-                        /** @constant */
-                        ok: true;
-                        sections: {
-                            [key: string]: unknown;
-                        }[];
-                    };
-                };
-            };
-        };
-    };
-    patch_admin_settings_patch_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminSettingsPatchBody"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        applied: number;
-                        /** @constant */
-                        ok: true;
-                        reverted: number;
-                    };
-                };
-            };
-        };
-    };
-    get_admin_stats_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    } & components["schemas"]["AdminStatsOut"];
-                };
-            };
-        };
-    };
-    get_admin_support_stats_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        stats: components["schemas"]["AdminSupportStatsOut"];
-                    };
-                };
-            };
-        };
-    };
-    get_admin_support_tickets_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        tickets: components["schemas"]["AdminSupportTicketOut"][];
-                    };
-                };
-            };
-        };
-    };
-    get_admin_support_ticket_detail_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        messages: components["schemas"]["AdminSupportMessageOut"][];
-                        /** @constant */
-                        ok: true;
-                        ticket: components["schemas"]["AdminSupportTicketOut"];
-                        user_snapshot: components["schemas"]["AdminSupportUserSnapshotOut"] | components["schemas"]["EmptyObjectOut"];
-                    };
-                };
-            };
-        };
-    };
-    patch_admin_support_ticket_patch_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminTicketPatchPayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        ticket: components["schemas"]["SupportTicketOut"];
-                    };
-                };
-            };
-        };
-    };
-    post_admin_support_ticket_reply_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminTicketReplyPayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        message: components["schemas"]["AdminSupportMessageOut"];
-                        /** @constant */
-                        ok: true;
-                        ticket: components["schemas"]["SupportTicketOut"];
-                    };
-                };
-            };
-        };
-    };
-    post_admin_support_ticket_read_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    post_admin_sync_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        result: {
-                            [key: string]: unknown;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    get_admin_tariffs_get_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        catalog: {
-                            [key: string]: unknown;
-                        };
-                        exists: boolean;
-                        /** @constant */
-                        ok: true;
-                        path: string;
-                        provider_currency_support: {
-                            [key: string]: unknown;
-                        }[];
-                    };
-                };
-            };
-        };
-    };
-    put_admin_tariffs_save_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TariffsSaveBody"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        catalog: {
-                            [key: string]: unknown;
-                        };
-                        exists: boolean;
-                        /** @constant */
-                        ok: true;
-                        path: string;
-                        provider_currency_support: {
-                            [key: string]: unknown;
-                        }[];
-                    };
-                };
-            };
-        };
-    };
-    get_admin_themes_get_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        catalog: {
-                            [key: string]: unknown;
-                        };
-                        exists: boolean;
-                        /** @constant */
-                        ok: true;
-                        themes_dir: string;
-                    };
-                };
-            };
-        };
-    };
-    put_admin_themes_save_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ThemesSaveBody"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        catalog: {
-                            [key: string]: unknown;
-                        };
-                        exists: boolean;
-                        /** @constant */
-                        ok: true;
-                        themes_dir: string;
-                    };
-                };
-            };
-        };
-    };
-    get_admin_translations_get_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        groups: {
-                            [key: string]: unknown;
-                        }[];
-                        languages: {
-                            [key: string]: unknown;
-                        }[];
-                        /** @constant */
-                        ok: true;
-                        override_count: number;
-                        path: string;
-                    };
-                };
-            };
-        };
-    };
-    patch_admin_translations_patch_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminTranslationsPatchBody"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        applied: number;
-                        file_written: boolean;
-                        /** @constant */
-                        ok: true;
-                        reverted: number;
-                    };
-                };
-            };
-        };
-    };
-    get_admin_users_list_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        page: number;
-                        page_size: number;
-                        total: number;
-                        users: (components["schemas"]["AdminUserWithAvatarOut"] & {
-                            cornllm: {
-                                budget_duration?: string | null;
-                                max_budget?: number | null;
-                                remaining?: number | null;
-                                spent?: number | null;
-                                /** @enum {string} */
-                                state: "none" | "ok" | "unreachable";
-                            };
-                            invited_users_count: number;
-                            panel_status: string | null;
-                            panel_status_expired_at?: string | null;
-                            payments_count: number;
-                            payments_currency: string | null;
-                            payments_total_amount: number;
-                            premium_traffic: {
-                                [key: string]: unknown;
-                            };
-                            subscription_expires_at: string | null;
-                        })[];
-                    };
-                };
-            };
-        };
-    };
-    get_admin_user_detail_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        active_subscription: components["schemas"]["AdminSubscriptionOut"] | null;
-                        last_vpn_connected_at: string | null;
-                        log_count: number;
-                        /** @constant */
-                        ok: true;
-                        recent_payments: components["schemas"]["PaymentOut"][];
-                        referral: {
-                            bot_link: string | null;
-                            code: string | null;
-                            invitees_total: number;
-                            inviter: components["schemas"]["AdminUserWithAvatarOut"] | null;
-                            webapp_link: string | null;
-                        };
-                        subscription_url: string | null;
-                        subscriptions: components["schemas"]["AdminSubscriptionOut"][];
-                        total_paid: number;
-                        trial: components["schemas"]["AdminUserTrialOut"];
-                        user: components["schemas"]["AdminUserWithAvatarOut"];
-                        vpn_connection_status: string;
-                    };
-                };
-            };
-        };
-    };
-    delete_admin_user_delete_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    get_admin_user_avatar_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "image/jpeg": string;
-                };
-            };
-        };
-    };
-    post_admin_user_ban_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminUserBanBody"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        user: components["schemas"]["AdminUserOut"];
-                    };
-                };
-            };
-        };
-    };
-    post_admin_user_extend_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminUserExtendBody"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        subscription?: components["schemas"]["AdminSubscriptionOut"];
-                    };
-                };
-            };
-        };
-    };
-    post_admin_user_hwid_device_limit_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminUserHwidDeviceLimitBody"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        subscription?: components["schemas"]["AdminSubscriptionOut"];
-                    };
-                };
-            };
-        };
-    };
-    post_admin_user_message_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminUserMessageBody"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    post_admin_user_message_preview_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminUserMessageBody"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    post_admin_user_premium_override_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminUserPremiumOverrideBody"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        subscription?: components["schemas"]["AdminSubscriptionOut"];
-                    };
-                };
-            };
-        };
-    };
-    get_admin_user_referrals_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        invitees: components["schemas"]["AdminUserWithAvatarOut"][];
-                        inviter: components["schemas"]["AdminUserWithAvatarOut"] | null;
-                        /** @constant */
-                        ok: true;
-                        page: number;
-                        page_size: number;
-                        total: number;
-                        user: components["schemas"]["AdminUserWithAvatarOut"];
-                    };
-                };
-            };
-        };
-    };
-    post_admin_user_regular_traffic_override_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminUserRegularTrafficOverrideBody"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        subscription?: components["schemas"]["AdminSubscriptionOut"];
-                    };
-                };
-            };
-        };
-    };
-    post_admin_user_reset_trial_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    post_admin_user_tariff_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminUserTariffBody"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        subscription?: components["schemas"]["AdminSubscriptionOut"];
-                    };
-                };
-            };
-        };
-    };
-    post_admin_user_telegram_profile_link_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        queued: boolean;
-                    };
-                };
-            };
-        };
-    };
-    post_admin_user_traffic_grant_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminUserTrafficGrantBody"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        grant: {
-                            granted_bytes: number;
-                            granted_gb: number;
-                            kind: string;
-                        };
-                        /** @constant */
-                        ok: true;
-                        subscription?: components["schemas"]["AdminSubscriptionOut"] | null;
-                    };
-                };
-            };
-        };
-    };
-    post_email_auth_magic_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppEmailMagicAuthPayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        account_merge?: {
-                            final_end_date: string | null;
-                            final_end_date_text: string | null;
-                            language: string;
-                            merged: boolean;
-                            primary_panel_user_uuid: string | null;
-                            primary_user_id: number;
-                            removed_panel_user_uuid: string | null;
-                            removed_user_id: number;
-                        };
-                        csrf_token: string;
-                        /** @constant */
-                        ok: true;
-                        telegram_id?: number | null;
-                        token: string;
-                        user_id?: number | null;
-                    };
-                };
-            };
-        };
-    };
-    post_email_password_auth_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppEmailPasswordPayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        account_merge?: {
-                            final_end_date: string | null;
-                            final_end_date_text: string | null;
-                            language: string;
-                            merged: boolean;
-                            primary_panel_user_uuid: string | null;
-                            primary_user_id: number;
-                            removed_panel_user_uuid: string | null;
-                            removed_user_id: number;
-                        };
-                        csrf_token: string;
-                        /** @constant */
-                        ok: true;
-                        telegram_id?: number | null;
-                        token: string;
-                        user_id?: number | null;
-                    };
-                };
-            };
-        };
-    };
-    post_email_auth_request_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppEmailRequestPayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        email_code?: string;
-                        /** @constant */
-                        ok: true;
-                        retry_after?: number | null;
-                    };
-                };
-            };
-        };
-    };
-    post_email_auth_verify_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppEmailCodeAuthPayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        account_merge?: {
-                            final_end_date: string | null;
-                            final_end_date_text: string | null;
-                            language: string;
-                            merged: boolean;
-                            primary_panel_user_uuid: string | null;
-                            primary_user_id: number;
-                            removed_panel_user_uuid: string | null;
-                            removed_user_id: number;
-                        };
-                        csrf_token: string;
-                        /** @constant */
-                        ok: true;
-                        telegram_id?: number | null;
-                        token: string;
-                        user_id?: number | null;
-                    };
-                };
-            };
-        };
-    };
-    post_logout_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    post_telegram_oauth_nonce_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        client_id: string;
-                        nonce: string;
-                        /** @constant */
-                        ok: true;
-                        request_access: string;
-                    };
-                };
-            };
-        };
-    };
-    post_auth_token_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppTelegramAuthPayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        account_merge?: {
-                            final_end_date: string | null;
-                            final_end_date_text: string | null;
-                            language: string;
-                            merged: boolean;
-                            primary_panel_user_uuid: string | null;
-                            primary_user_id: number;
-                            removed_panel_user_uuid: string | null;
-                            removed_user_id: number;
-                        };
-                        csrf_token: string;
-                        /** @constant */
-                        ok: true;
-                        telegram_id?: number | null;
-                        token: string;
-                        user_id?: number | null;
-                    };
-                };
-            };
-        };
-    };
-    get_bootstrap_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Runtime Mini App config assembled from settings and theme catalog. */
-                        config: {
-                            [key: string]: unknown;
-                        };
-                        /** @description Locale dictionary keyed by language and translation key. */
-                        i18n: {
-                            [key: string]: unknown;
-                        };
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    post_cornllm_topup_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppCornllmTopupPayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        confirmation_url?: string | null;
-                        /** @constant */
-                        ok: true;
-                        paid?: boolean;
-                        /** @description Provider-specific payment payload returned by the selected integration. */
-                        payment?: {
-                            [key: string]: unknown;
-                        };
-                        payment_id?: number;
-                        payment_url?: string | null;
-                        status?: string;
-                    };
-                };
-            };
-        };
-    };
-    get_devices_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        current_devices?: number;
-                        devices?: components["schemas"]["WebAppDeviceOut"][];
-                        enabled?: boolean;
-                        max_devices?: number | null;
-                        max_devices_label?: string | null;
-                        /** @constant */
-                        ok: true;
-                        subscription_active?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    post_disconnect_device_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppDeviceDisconnectPayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    get_device_topup_options_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        current_limit?: number | null;
-                        extra_hwid_devices?: number;
-                        extra_hwid_devices_valid_until?: string | null;
-                        extra_hwid_devices_valid_until_text?: string | null;
-                        /** @constant */
-                        ok: true;
-                        plans?: {
-                            billing_model?: string;
-                            currency?: string;
-                            description?: string;
-                            device_count?: number;
-                            hwid_device_limit?: number | null;
-                            hwid_device_packages?: {
-                                billing_model?: string;
-                                currency?: string;
-                                device_count?: number;
-                                id?: string;
-                                months?: number;
-                                price?: number;
-                                sale_mode?: string;
-                                stars_price?: number;
-                                subtitle?: string;
-                                tariff_key?: string;
-                                tariff_name?: string;
-                                title?: string;
-                            }[];
-                            hwid_renewal?: {
-                                active_until?: string | null;
-                                active_until_text?: string | null;
-                                available?: boolean;
-                                currency?: string;
-                                device_count?: number;
-                                price?: number;
-                                pricing_period_months?: number;
-                                stars_price?: number;
-                                valid_from?: string | null;
-                                valid_from_text?: string | null;
-                                valid_until?: string | null;
-                                valid_until_text?: string | null;
-                            };
-                            id?: string;
-                            is_default_tariff?: boolean;
-                            monthly_gb?: number | null;
-                            months?: number;
-                            price?: number;
-                            proration_ratio?: number;
-                            sale_mode?: string;
-                            squad_uuids?: string[];
-                            stars_price?: number;
-                            subtitle?: string;
-                            tariff_key?: string;
-                            tariff_name?: string;
-                            title?: string;
-                            traffic_gb?: number;
-                            valid_from?: string | null;
-                            valid_from_text?: string | null;
-                            valid_until?: string | null;
-                            valid_until_text?: string | null;
-                        }[];
-                        premium_baseline_bytes?: number;
-                        premium_bonus_bytes?: number;
-                        premium_is_limited?: boolean;
-                        premium_limit_bytes?: number;
-                        premium_node_labels?: string[];
-                        premium_squad_labels?: string[];
-                        premium_title?: string;
-                        premium_topup_balance_bytes?: number;
-                        premium_topup_used_bytes?: number;
-                        premium_traffic_percent?: number;
-                        premium_unlimited_override?: boolean;
-                        premium_used_bytes?: number;
-                        renewal_available?: boolean;
-                        renewal_recommended_count?: number;
-                        tariff_key?: string;
-                        tariff_name?: string;
-                        topup_kind?: string;
-                        traffic_percent?: number;
-                        warning_levels?: number[];
-                    };
-                };
-            };
-        };
-    };
-    get_env_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        env_content: string | null;
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    put_env_update_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppEnvUpdatePayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    get_i18n_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Locale dictionary keyed by language and translation key. */
-                        i18n: {
-                            [key: string]: unknown;
-                        };
-                        /** @constant */
-                        ok: true;
-                        scope: string;
-                    };
-                };
-            };
-        };
-    };
-    get_me_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        payment_methods: {
-                            currency?: string;
-                            icon?: string;
-                            id?: string;
-                            min_amount?: number;
-                            minimum_amount?: number;
-                            minimum_amount_text?: string;
-                            name?: string;
-                        }[];
-                        plans: {
-                            billing_model?: string;
-                            currency?: string;
-                            description?: string;
-                            device_count?: number;
-                            hwid_device_limit?: number | null;
-                            hwid_device_packages?: {
-                                billing_model?: string;
-                                currency?: string;
-                                device_count?: number;
-                                id?: string;
-                                months?: number;
-                                price?: number;
-                                sale_mode?: string;
-                                stars_price?: number;
-                                subtitle?: string;
-                                tariff_key?: string;
-                                tariff_name?: string;
-                                title?: string;
-                            }[];
-                            hwid_renewal?: {
-                                active_until?: string | null;
-                                active_until_text?: string | null;
-                                available?: boolean;
-                                currency?: string;
-                                device_count?: number;
-                                price?: number;
-                                pricing_period_months?: number;
-                                stars_price?: number;
-                                valid_from?: string | null;
-                                valid_from_text?: string | null;
-                                valid_until?: string | null;
-                                valid_until_text?: string | null;
-                            };
-                            id?: string;
-                            is_default_tariff?: boolean;
-                            monthly_gb?: number | null;
-                            months?: number;
-                            price?: number;
-                            proration_ratio?: number;
-                            sale_mode?: string;
-                            squad_uuids?: string[];
-                            stars_price?: number;
-                            subtitle?: string;
-                            tariff_key?: string;
-                            tariff_name?: string;
-                            title?: string;
-                            traffic_gb?: number;
-                            valid_from?: string | null;
-                            valid_from_text?: string | null;
-                            valid_until?: string | null;
-                            valid_until_text?: string | null;
-                        }[];
-                        referral: {
-                            bonus_details?: {
-                                details?: {
-                                    [key: string]: unknown;
-                                }[];
-                                friend_days?: number;
-                                friend_max_days?: number;
-                                friend_min_days?: number;
-                                id?: string;
-                                inviter_days?: number;
-                                inviter_max_days?: number;
-                                inviter_min_days?: number;
-                                months?: number;
-                                tariff_key?: string;
-                                tariff_name?: string;
-                                title?: string;
-                                type?: string;
-                            }[];
-                            bot_link?: string | null;
-                            code?: string | null;
-                            invited_count?: number;
-                            one_bonus_per_referee?: boolean;
-                            purchased_count?: number;
-                            webapp_link?: string | null;
-                            welcome_bonus_block_reason?: string | null;
-                            welcome_bonus_days?: number;
-                            welcome_bonus_requires_telegram?: boolean;
-                            welcome_bonus_without_telegram_enabled?: boolean;
-                        };
-                        settings: {
-                            email_auth_enabled?: boolean;
-                            has_bot_token?: boolean;
-                            my_devices_enabled?: boolean;
-                            panel_write_mode?: string;
-                            server_status_url?: string | null;
-                            subscription_guides_enabled?: boolean;
-                            subscription_purchase_description?: string;
-                            support_ticket_max_body_length?: number;
-                            support_ticket_max_subject_length?: number;
-                            support_tickets_enabled?: boolean;
-                            support_url?: string | null;
-                            traffic_mode?: boolean;
-                            trial_available?: boolean;
-                            trial_block_reason?: string | null;
-                            trial_duration_days?: number;
-                            trial_enabled?: boolean;
-                            trial_requires_telegram?: boolean;
-                            trial_traffic_limit_gb?: number;
-                            trial_traffic_strategy?: string;
-                            trial_without_telegram_enabled?: boolean;
-                            user_hwid_device_limit?: number | null;
-                        };
-                        subscription: {
-                            active?: boolean;
-                            auto_renew_available?: boolean;
-                            auto_renew_can_enable?: boolean;
-                            auto_renew_enabled?: boolean;
-                            auto_renew_provider_label?: string | null;
-                            base_hwid_device_limit?: number | null;
-                            billing_model?: string | null;
-                            bot_username?: string | null;
-                            can_topup_devices?: boolean;
-                            can_topup_premium_traffic?: boolean;
-                            can_topup_regular_traffic?: boolean;
-                            can_topup_traffic?: boolean;
-                            config_link?: string | null;
-                            connect_url?: string | null;
-                            days_left?: number;
-                            device_topup_renewal_available?: boolean;
-                            end_date?: string | null;
-                            end_date_text?: string | null;
-                            extra_hwid_devices?: number;
-                            extra_hwid_devices_next_valid_from?: string | null;
-                            extra_hwid_devices_valid_until?: string | null;
-                            extra_hwid_devices_valid_until_text?: string | null;
-                            install_share_token?: string | null;
-                            install_share_url?: string | null;
-                            is_throttled?: boolean;
-                            max_devices?: number | null;
-                            panel_short_uuid?: string | null;
-                            period_start_at?: string | null;
-                            premium_baseline_bytes?: number | null;
-                            premium_bonus_bytes?: number;
-                            premium_is_limited?: boolean;
-                            premium_limit?: string;
-                            premium_limit_bytes?: number | null;
-                            premium_node_labels?: string[];
-                            premium_squad_labels?: string[];
-                            premium_title?: string | null;
-                            premium_topup_balance_bytes?: number | null;
-                            premium_topup_used_bytes?: number | null;
-                            premium_unlimited_override?: boolean;
-                            premium_used?: string;
-                            premium_used_bytes?: number | null;
-                            provider?: string | null;
-                            regular_bonus_bytes?: number;
-                            regular_unlimited_override?: boolean;
-                            remaining_text?: string;
-                            status?: string;
-                            tariff_description?: string | null;
-                            tariff_key?: string | null;
-                            tariff_name?: string | null;
-                            tenant_actual_state?: string | null;
-                            tenant_desired_state?: string | null;
-                            tenant_id?: string | null;
-                            tenant_last_state_change?: string | null;
-                            tenant_status?: string | null;
-                            tier_baseline_bytes?: number | null;
-                            topup_balance_bytes?: number | null;
-                            traffic_limit?: string;
-                            traffic_limit_bytes?: number | null;
-                            traffic_limit_strategy?: string;
-                            traffic_used?: string;
-                            traffic_used_bytes?: number | null;
-                        };
-                        support_unread_count: number;
-                        themes_catalog: {
-                            default_theme?: string;
-                            themes?: ({
-                                default?: boolean;
-                                enabled?: boolean;
-                                key?: string;
-                                label?: string;
-                            } & {
-                                [key: string]: unknown;
-                            })[];
-                        } & {
-                            [key: string]: unknown;
-                        };
-                        user: {
-                            email?: string | null;
-                            email_verified?: boolean;
-                            first_name?: string | null;
-                            id?: number;
-                            is_admin?: boolean;
-                            language_code?: string;
-                            password_auth_enabled?: boolean;
-                            telegram_id?: number | null;
-                            telegram_linked?: boolean;
-                            telegram_notifications_enabled?: boolean;
-                            telegram_notifications_need_prompt?: boolean;
-                            telegram_notifications_start_link?: string | null;
-                            telegram_notifications_status?: string;
-                            telegram_photo_url?: string;
-                            username?: string | null;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    post_create_payment_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppPaymentCreatePayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        confirmation_url?: string | null;
-                        /** @constant */
-                        ok: true;
-                        paid?: boolean;
-                        /** @description Provider-specific payment payload returned by the selected integration. */
-                        payment?: {
-                            [key: string]: unknown;
-                        };
-                        payment_id?: number;
-                        payment_url?: string | null;
-                        status?: string;
-                    };
-                };
-            };
-        };
-    };
-    get_payment_status_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                payment_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        confirmation_url?: string | null;
-                        /** @constant */
-                        ok: true;
-                        paid?: boolean;
-                        /** @description Provider-specific payment payload returned by the selected integration. */
-                        payment?: {
-                            [key: string]: unknown;
-                        };
-                        payment_id?: number;
-                        payment_url?: string | null;
-                        status?: string;
-                    };
-                };
-            };
-        };
-    };
-    post_apply_promo_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppPromoApplyPayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        applies_to?: string;
-                        code?: string;
-                        effect_summary?: string;
-                        end_date?: string | null;
-                        end_date_text?: string | null;
-                        min_subscription_months?: number | null;
-                        min_traffic_gb?: number | null;
-                        /** @constant */
-                        ok: true;
-                        requires_checkout?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    post_referral_welcome_bonus_claim_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        claimed: boolean;
-                        end_date: string | null;
-                        end_date_text: string | null;
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    get_subscription_guides_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Resolved subscription guide config from admin override or panel. */
-                        config?: {
-                            [key: string]: unknown;
-                        };
-                        enabled: boolean;
-                        /** @constant */
-                        ok: true;
-                        source?: string | null;
-                    };
-                };
-            };
-        };
-    };
-    get_public_subscription_guides_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                share_token: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Resolved subscription guide config from admin override or panel. */
-                        config?: {
-                            [key: string]: unknown;
-                        };
-                        enabled: boolean;
-                        /** @constant */
-                        ok: true;
-                        source?: string | null;
-                        /** @description Public install subscription context resolved by share token. */
-                        subscription?: {
-                            [key: string]: unknown;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    post_subscription_auto_renew_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppAutoRenewPayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        auto_renew_enabled: boolean;
-                        /** @constant */
-                        ok: true;
-                        provider: string;
-                        provider_label: string;
-                    };
-                };
-            };
-        };
-    };
-    post_quote_promo_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppPromoQuotePayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        applies_to?: string;
-                        base_amount?: number;
-                        base_stars?: number | null;
-                        code?: string;
-                        currency?: string;
-                        discount_amount?: number;
-                        discount_percent?: number;
-                        effect_summary?: string;
-                        effective_amount?: number;
-                        effective_stars?: number | null;
-                        min_subscription_months?: number | null;
-                        min_traffic_gb?: number | null;
-                        /** @constant */
-                        ok: true;
-                        payable?: boolean;
-                        promo_code_id?: number;
-                        reason?: string | null;
-                        reason_key?: string | null;
-                        valid: boolean;
-                    };
-                };
-            };
-        };
-    };
-    get_support_tickets_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        counts: components["schemas"]["SupportCountsOut"];
-                        /** @constant */
-                        ok: true;
-                        tickets: components["schemas"]["SupportTicketOut"][];
-                    };
-                };
-            };
-        };
-    };
-    post_support_create_ticket_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateTicketPayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        ticket: components["schemas"]["SupportTicketOut"];
-                    };
-                };
-            };
-        };
-    };
-    get_support_ticket_detail_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        messages: components["schemas"]["SupportMessageOut"][];
-                        /** @constant */
-                        ok: true;
-                        ticket: components["schemas"]["SupportTicketOut"];
-                    };
-                };
-            };
-        };
-    };
-    post_support_ticket_reply_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TicketReplyPayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        message: components["schemas"]["SupportMessageOut"];
-                        /** @constant */
-                        ok: true;
-                        ticket: components["schemas"]["SupportTicketOut"];
-                    };
-                };
-            };
-        };
-    };
-    post_support_ticket_read_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    get_support_unread_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        unread: number;
-                    };
-                };
-            };
-        };
-    };
-    post_tariff_change_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppTariffChangePayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                        subscription_id: number;
-                        tariff_key: string;
-                    };
-                };
-            };
-        };
-    };
-    get_tariff_change_options_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        current: {
-                            billing_model: string;
-                            description: string;
-                            tariff_key: string;
-                            title: string;
-                        };
-                        /** @constant */
-                        ok: true;
-                        targets: {
-                            actions: {
-                                converted_gb?: number;
-                                converted_hwid_days?: number;
-                                converted_hwid_gb?: number;
-                                converted_hwid_value_rub?: number;
-                                currency?: string;
-                                days_after?: number;
-                                kind?: string;
-                                mode?: string;
-                                months?: number;
-                                price?: number;
-                                remaining_days?: number;
-                                title?: string;
-                                traffic_gb?: number;
-                            }[];
-                            billing_model: string;
-                            description: string;
-                            monthly_gb?: number | null;
-                            /** @description Raw switch calculation details from the subscription service. */
-                            options?: {
-                                [key: string]: unknown;
-                            };
-                            tariff_key: string;
-                            title: string;
-                        }[];
-                    };
-                };
-            };
-        };
-    };
-    post_tariff_change_payment_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppPaymentCreatePayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        confirmation_url?: string | null;
-                        /** @constant */
-                        ok: true;
-                        paid?: boolean;
-                        /** @description Provider-specific payment payload returned by the selected integration. */
-                        payment?: {
-                            [key: string]: unknown;
-                        };
-                        payment_id?: number;
-                        payment_url?: string | null;
-                        status?: string;
-                    };
-                };
-            };
-        };
-    };
-    get_tariff_topup_options_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        current_limit?: number | null;
-                        extra_hwid_devices?: number;
-                        extra_hwid_devices_valid_until?: string | null;
-                        extra_hwid_devices_valid_until_text?: string | null;
-                        /** @constant */
-                        ok: true;
-                        plans?: {
-                            billing_model?: string;
-                            currency?: string;
-                            description?: string;
-                            device_count?: number;
-                            hwid_device_limit?: number | null;
-                            hwid_device_packages?: {
-                                billing_model?: string;
-                                currency?: string;
-                                device_count?: number;
-                                id?: string;
-                                months?: number;
-                                price?: number;
-                                sale_mode?: string;
-                                stars_price?: number;
-                                subtitle?: string;
-                                tariff_key?: string;
-                                tariff_name?: string;
-                                title?: string;
-                            }[];
-                            hwid_renewal?: {
-                                active_until?: string | null;
-                                active_until_text?: string | null;
-                                available?: boolean;
-                                currency?: string;
-                                device_count?: number;
-                                price?: number;
-                                pricing_period_months?: number;
-                                stars_price?: number;
-                                valid_from?: string | null;
-                                valid_from_text?: string | null;
-                                valid_until?: string | null;
-                                valid_until_text?: string | null;
-                            };
-                            id?: string;
-                            is_default_tariff?: boolean;
-                            monthly_gb?: number | null;
-                            months?: number;
-                            price?: number;
-                            proration_ratio?: number;
-                            sale_mode?: string;
-                            squad_uuids?: string[];
-                            stars_price?: number;
-                            subtitle?: string;
-                            tariff_key?: string;
-                            tariff_name?: string;
-                            title?: string;
-                            traffic_gb?: number;
-                            valid_from?: string | null;
-                            valid_from_text?: string | null;
-                            valid_until?: string | null;
-                            valid_until_text?: string | null;
-                        }[];
-                        premium_baseline_bytes?: number;
-                        premium_bonus_bytes?: number;
-                        premium_is_limited?: boolean;
-                        premium_limit_bytes?: number;
-                        premium_node_labels?: string[];
-                        premium_squad_labels?: string[];
-                        premium_title?: string;
-                        premium_topup_balance_bytes?: number;
-                        premium_topup_used_bytes?: number;
-                        premium_traffic_percent?: number;
-                        premium_unlimited_override?: boolean;
-                        premium_used_bytes?: number;
-                        renewal_available?: boolean;
-                        renewal_recommended_count?: number;
-                        tariff_key?: string;
-                        tariff_name?: string;
-                        topup_kind?: string;
-                        traffic_percent?: number;
-                        warning_levels?: number[];
-                    };
-                };
-            };
-        };
-    };
-    delete_tenant_delete_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    get_tenant_cornllm_key_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        api_key?: string;
-                        budget_duration?: string;
-                        key_id?: string;
-                        max_budget?: number;
-                        /** @constant */
-                        ok: true;
-                        spent?: number | null;
-                        tenant_id?: string;
-                    };
-                };
-            };
-        };
-    };
-    get_tenant_logs_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        logs: string;
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    post_tenant_logs_refresh_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    get_tenant_quota_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        budget_duration?: string | null;
-                        max_budget?: number | null;
-                        /** @constant */
-                        ok: true;
-                        remaining?: number | null;
-                        spent?: number | null;
-                        tenant_id?: string;
-                    };
-                };
-            };
-        };
-    };
-    post_tenant_recreate_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    post_tenant_restart_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    post_tenant_suspend_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        ok: true;
-                    };
-                };
-            };
-        };
-    };
-    post_activate_trial_route: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAppTrialActivatePayload"];
-            };
-        };
-        responses: {
-            /** @description JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        activated: boolean;
-                        config_link: string | null;
-                        connect_url: string | null;
-                        days: number;
-                        end_date: string | null;
-                        end_date_text: string | null;
-                        /** @constant */
-                        ok: true;
-                        traffic_gb: number | null;
-                    };
-                };
-            };
-        };
-    };
+  get_account_avatar_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "image/jpeg": string;
+        };
+      };
+    };
+  };
+  put_account_bot_token_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppBotTokenPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            bot_username: string;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_account_email_request_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            already_linked?: boolean;
+            code?: string;
+            email_code?: string;
+            /** @constant */
+            ok: true;
+            retry_after?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_account_email_verify_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailCodePayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            account_merge?: {
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
+            };
+            csrf_token: string;
+            /** @constant */
+            ok: true;
+            telegram_id?: number | null;
+            token: string;
+            user_id?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_account_language_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppLanguagePayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            language: string;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_account_password_confirm_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppSetPasswordPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            password_auth_enabled: boolean;
+          };
+        };
+      };
+    };
+  };
+  post_account_password_request_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            retry_after?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_account_telegram_link_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppTelegramAuthPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            account_merge?: {
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
+            };
+            csrf_token: string;
+            /** @constant */
+            ok: true;
+            telegram_id?: number | null;
+            token: string;
+            user_id?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_account_telegram_notifications_probe_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            telegram_notifications: {
+              enabled: boolean;
+              ok: boolean;
+              start_link: string | null;
+              status: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  get_admin_ads_list_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminAdsListOut"];
+        };
+      };
+    };
+  };
+  post_admin_ad_create_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdCreateBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            campaign: components["schemas"]["AdOut"];
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  delete_admin_ad_delete_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_ad_toggle_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdToggleBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_appearance_favicon_upload_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          url: string;
+        } & {
+          [key: string]: unknown;
+        };
+        "multipart/form-data": {
+          /** Format: binary */
+          file: string;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            favicon_url?: string;
+            /** @constant */
+            ok: true;
+            persisted: boolean;
+          };
+        };
+      };
+    };
+  };
+  post_admin_appearance_logo_upload_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          url: string;
+        } & {
+          [key: string]: unknown;
+        };
+        "multipart/form-data": {
+          /** Format: binary */
+          file: string;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            favicon_url?: string;
+            logo_url: string;
+            /** @constant */
+            ok: true;
+            persisted: boolean;
+          };
+        };
+      };
+    };
+  };
+  get_admin_backups_list_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            archives: {
+              [key: string]: unknown;
+            }[];
+            backup_dir: string;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_backups_create_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            archive: {
+              [key: string]: unknown;
+            };
+            /** @constant */
+            ok: true;
+            result: {
+              [key: string]: unknown;
+            };
+          };
+        };
+      };
+    };
+  };
+  post_admin_backups_restore_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminBackupRestoreBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            result: {
+              [key: string]: unknown;
+            };
+          };
+        };
+      };
+    };
+  };
+  post_admin_backups_upload_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": {
+          /** Format: binary */
+          file: string;
+        };
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            archive: {
+              [key: string]: unknown;
+            };
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_broadcast_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminBroadcastBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            failed: number;
+            /** @constant */
+            ok: true;
+            queued: number;
+            target: string;
+          };
+        };
+      };
+    };
+  };
+  get_admin_broadcast_audience_counts_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            counts: {
+              [key: string]: unknown;
+            };
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  get_admin_health_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminHealthOut"];
+        };
+      };
+    };
+  };
+  get_admin_logs_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminLogsListOut"];
+        };
+      };
+    };
+  };
+  get_admin_me_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminMeOut"];
+        };
+      };
+    };
+  };
+  get_admin_panel_internal_squads_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            squads: {
+              [key: string]: unknown;
+            }[];
+          };
+        };
+      };
+    };
+  };
+  get_admin_payments_list_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminPaymentsListOut"];
+        };
+      };
+    };
+  };
+  get_admin_payments_export_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/csv": string;
+        };
+      };
+    };
+  };
+  get_admin_payment_detail_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        payment_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            payment: components["schemas"]["PaymentDetailOut"];
+          };
+        };
+      };
+    };
+  };
+  get_admin_promos_list_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            page: number;
+            page_size: number;
+            promos: components["schemas"]["PromoOut"][];
+            total: number;
+          };
+        };
+      };
+    };
+  };
+  post_admin_promo_create_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PromoCreateBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            promo: components["schemas"]["PromoOut"];
+          };
+        };
+      };
+    };
+  };
+  delete_admin_promo_delete_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        promo_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  patch_admin_promo_update_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        promo_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PromoUpdateBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            promo: components["schemas"]["PromoOut"];
+          };
+        };
+      };
+    };
+  };
+  get_admin_promo_activations_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        promo_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            activations: components["schemas"]["PromoActivationOut"][];
+            /** @constant */
+            ok: true;
+            page: number;
+            page_size: number;
+            total: number;
+          };
+        };
+      };
+    };
+  };
+  get_admin_settings_get_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            features: string[];
+            /** @constant */
+            ok: true;
+            sections: {
+              [key: string]: unknown;
+            }[];
+          };
+        };
+      };
+    };
+  };
+  patch_admin_settings_patch_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminSettingsPatchBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            applied: number;
+            /** @constant */
+            ok: true;
+            reverted: number;
+          };
+        };
+      };
+    };
+  };
+  get_admin_stats_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminStatsOut"];
+        };
+      };
+    };
+  };
+  get_admin_support_stats_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            stats: components["schemas"]["AdminSupportStatsOut"];
+          };
+        };
+      };
+    };
+  };
+  get_admin_support_tickets_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            tickets: components["schemas"]["AdminSupportTicketOut"][];
+          };
+        };
+      };
+    };
+  };
+  get_admin_support_ticket_detail_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            messages: components["schemas"]["AdminSupportMessageOut"][];
+            /** @constant */
+            ok: true;
+            ticket: components["schemas"]["AdminSupportTicketOut"];
+            user_snapshot:
+              | components["schemas"]["AdminSupportUserSnapshotOut"]
+              | components["schemas"]["EmptyObjectOut"];
+          };
+        };
+      };
+    };
+  };
+  patch_admin_support_ticket_patch_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminTicketPatchPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            ticket: components["schemas"]["SupportTicketOut"];
+          };
+        };
+      };
+    };
+  };
+  post_admin_support_ticket_reply_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminTicketReplyPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            message: components["schemas"]["AdminSupportMessageOut"];
+            /** @constant */
+            ok: true;
+            ticket: components["schemas"]["SupportTicketOut"];
+          };
+        };
+      };
+    };
+  };
+  post_admin_support_ticket_read_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_sync_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            result: {
+              [key: string]: unknown;
+            };
+          };
+        };
+      };
+    };
+  };
+  get_admin_tariffs_get_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            catalog: {
+              [key: string]: unknown;
+            };
+            exists: boolean;
+            /** @constant */
+            ok: true;
+            path: string;
+            provider_currency_support: {
+              [key: string]: unknown;
+            }[];
+          };
+        };
+      };
+    };
+  };
+  put_admin_tariffs_save_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TariffsSaveBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            catalog: {
+              [key: string]: unknown;
+            };
+            exists: boolean;
+            /** @constant */
+            ok: true;
+            path: string;
+            provider_currency_support: {
+              [key: string]: unknown;
+            }[];
+          };
+        };
+      };
+    };
+  };
+  get_admin_themes_get_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            catalog: {
+              [key: string]: unknown;
+            };
+            exists: boolean;
+            /** @constant */
+            ok: true;
+            themes_dir: string;
+          };
+        };
+      };
+    };
+  };
+  put_admin_themes_save_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ThemesSaveBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            catalog: {
+              [key: string]: unknown;
+            };
+            exists: boolean;
+            /** @constant */
+            ok: true;
+            themes_dir: string;
+          };
+        };
+      };
+    };
+  };
+  get_admin_translations_get_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            groups: {
+              [key: string]: unknown;
+            }[];
+            languages: {
+              [key: string]: unknown;
+            }[];
+            /** @constant */
+            ok: true;
+            override_count: number;
+            path: string;
+          };
+        };
+      };
+    };
+  };
+  patch_admin_translations_patch_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminTranslationsPatchBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            applied: number;
+            file_written: boolean;
+            /** @constant */
+            ok: true;
+            reverted: number;
+          };
+        };
+      };
+    };
+  };
+  get_admin_users_list_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            page: number;
+            page_size: number;
+            total: number;
+            users: (components["schemas"]["AdminUserWithAvatarOut"] & {
+              cornllm: {
+                budget_duration?: string | null;
+                max_budget?: number | null;
+                remaining?: number | null;
+                spent?: number | null;
+                /** @enum {string} */
+                state: "none" | "ok" | "unreachable";
+              };
+              invited_users_count: number;
+              panel_status: string | null;
+              panel_status_expired_at?: string | null;
+              payments_count: number;
+              payments_currency: string | null;
+              payments_total_amount: number;
+              premium_traffic: {
+                [key: string]: unknown;
+              };
+              subscription_expires_at: string | null;
+            })[];
+          };
+        };
+      };
+    };
+  };
+  get_admin_user_detail_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            active_subscription: components["schemas"]["AdminSubscriptionOut"] | null;
+            cornllm: {
+              budget_duration?: string | null;
+              max_budget?: number | null;
+              remaining?: number | null;
+              spent?: number | null;
+              /** @enum {string} */
+              state: "none" | "ok" | "unreachable";
+            };
+            last_vpn_connected_at: string | null;
+            log_count: number;
+            /** @constant */
+            ok: true;
+            recent_payments: components["schemas"]["PaymentOut"][];
+            referral: {
+              bot_link: string | null;
+              code: string | null;
+              invitees_total: number;
+              inviter: components["schemas"]["AdminUserWithAvatarOut"] | null;
+              webapp_link: string | null;
+            };
+            subscription_url: string | null;
+            subscriptions: components["schemas"]["AdminSubscriptionOut"][];
+            total_paid: number;
+            trial: components["schemas"]["AdminUserTrialOut"];
+            user: components["schemas"]["AdminUserWithAvatarOut"];
+            vpn_connection_status: string;
+          };
+        };
+      };
+    };
+  };
+  delete_admin_user_delete_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  get_admin_user_avatar_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "image/jpeg": string;
+        };
+      };
+    };
+  };
+  post_admin_user_ban_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserBanBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            user: components["schemas"]["AdminUserOut"];
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_extend_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserExtendBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            subscription?: components["schemas"]["AdminSubscriptionOut"];
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_hwid_device_limit_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserHwidDeviceLimitBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            subscription?: components["schemas"]["AdminSubscriptionOut"];
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_message_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserMessageBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_message_preview_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserMessageBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_premium_override_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserPremiumOverrideBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            subscription?: components["schemas"]["AdminSubscriptionOut"];
+          };
+        };
+      };
+    };
+  };
+  get_admin_user_referrals_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            invitees: components["schemas"]["AdminUserWithAvatarOut"][];
+            inviter: components["schemas"]["AdminUserWithAvatarOut"] | null;
+            /** @constant */
+            ok: true;
+            page: number;
+            page_size: number;
+            total: number;
+            user: components["schemas"]["AdminUserWithAvatarOut"];
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_regular_traffic_override_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserRegularTrafficOverrideBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            subscription?: components["schemas"]["AdminSubscriptionOut"];
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_reset_trial_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_tariff_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserTariffBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            subscription?: components["schemas"]["AdminSubscriptionOut"];
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_telegram_profile_link_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            queued: boolean;
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_traffic_grant_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserTrafficGrantBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            grant: {
+              granted_bytes: number;
+              granted_gb: number;
+              kind: string;
+            };
+            /** @constant */
+            ok: true;
+            subscription?: components["schemas"]["AdminSubscriptionOut"] | null;
+          };
+        };
+      };
+    };
+  };
+  post_email_auth_magic_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailMagicAuthPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            account_merge?: {
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
+            };
+            csrf_token: string;
+            /** @constant */
+            ok: true;
+            telegram_id?: number | null;
+            token: string;
+            user_id?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_email_password_auth_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailPasswordPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            account_merge?: {
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
+            };
+            csrf_token: string;
+            /** @constant */
+            ok: true;
+            telegram_id?: number | null;
+            token: string;
+            user_id?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_email_auth_request_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailRequestPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            code?: string;
+            email_code?: string;
+            /** @constant */
+            ok: true;
+            retry_after?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_email_auth_verify_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEmailCodeAuthPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            account_merge?: {
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
+            };
+            csrf_token: string;
+            /** @constant */
+            ok: true;
+            telegram_id?: number | null;
+            token: string;
+            user_id?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_logout_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_telegram_oauth_nonce_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            client_id: string;
+            nonce: string;
+            /** @constant */
+            ok: true;
+            request_access: string;
+          };
+        };
+      };
+    };
+  };
+  post_auth_token_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppTelegramAuthPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            account_merge?: {
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
+            };
+            csrf_token: string;
+            /** @constant */
+            ok: true;
+            telegram_id?: number | null;
+            token: string;
+            user_id?: number | null;
+          };
+        };
+      };
+    };
+  };
+  get_bootstrap_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @description Runtime Mini App config assembled from settings and theme catalog. */
+            config: {
+              [key: string]: unknown;
+            };
+            /** @description Locale dictionary keyed by language and translation key. */
+            i18n: {
+              [key: string]: unknown;
+            };
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_cornllm_topup_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppCornllmTopupPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            confirmation_url?: string | null;
+            /** @constant */
+            ok: true;
+            paid?: boolean;
+            /** @description Provider-specific payment payload returned by the selected integration. */
+            payment?: {
+              [key: string]: unknown;
+            };
+            payment_id?: number;
+            payment_url?: string | null;
+            status?: string;
+          };
+        };
+      };
+    };
+  };
+  get_devices_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            current_devices?: number;
+            devices?: components["schemas"]["WebAppDeviceOut"][];
+            enabled?: boolean;
+            max_devices?: number | null;
+            max_devices_label?: string | null;
+            /** @constant */
+            ok: true;
+            subscription_active?: boolean;
+          };
+        };
+      };
+    };
+  };
+  post_disconnect_device_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppDeviceDisconnectPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  get_device_topup_options_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            current_limit?: number | null;
+            extra_hwid_devices?: number;
+            extra_hwid_devices_valid_until?: string | null;
+            extra_hwid_devices_valid_until_text?: string | null;
+            /** @constant */
+            ok: true;
+            plans?: {
+              billing_model?: string;
+              currency?: string;
+              description?: string;
+              device_count?: number;
+              hwid_device_limit?: number | null;
+              hwid_device_packages?: {
+                billing_model?: string;
+                currency?: string;
+                device_count?: number;
+                id?: string;
+                months?: number;
+                price?: number;
+                sale_mode?: string;
+                stars_price?: number;
+                subtitle?: string;
+                tariff_key?: string;
+                tariff_name?: string;
+                title?: string;
+              }[];
+              hwid_renewal?: {
+                active_until?: string | null;
+                active_until_text?: string | null;
+                available?: boolean;
+                currency?: string;
+                device_count?: number;
+                price?: number;
+                pricing_period_months?: number;
+                stars_price?: number;
+                valid_from?: string | null;
+                valid_from_text?: string | null;
+                valid_until?: string | null;
+                valid_until_text?: string | null;
+              };
+              id?: string;
+              is_default_tariff?: boolean;
+              monthly_gb?: number | null;
+              months?: number;
+              price?: number;
+              proration_ratio?: number;
+              sale_mode?: string;
+              squad_uuids?: string[];
+              stars_price?: number;
+              subtitle?: string;
+              tariff_key?: string;
+              tariff_name?: string;
+              title?: string;
+              traffic_gb?: number;
+              valid_from?: string | null;
+              valid_from_text?: string | null;
+              valid_until?: string | null;
+              valid_until_text?: string | null;
+            }[];
+            premium_baseline_bytes?: number;
+            premium_bonus_bytes?: number;
+            premium_is_limited?: boolean;
+            premium_limit_bytes?: number;
+            premium_node_labels?: string[];
+            premium_squad_labels?: string[];
+            premium_title?: string;
+            premium_topup_balance_bytes?: number;
+            premium_topup_used_bytes?: number;
+            premium_traffic_percent?: number;
+            premium_unlimited_override?: boolean;
+            premium_used_bytes?: number;
+            renewal_available?: boolean;
+            renewal_recommended_count?: number;
+            tariff_key?: string;
+            tariff_name?: string;
+            topup_kind?: string;
+            traffic_percent?: number;
+            warning_levels?: number[];
+          };
+        };
+      };
+    };
+  };
+  get_env_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            env_content: string | null;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  put_env_update_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppEnvUpdatePayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  get_i18n_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @description Locale dictionary keyed by language and translation key. */
+            i18n: {
+              [key: string]: unknown;
+            };
+            /** @constant */
+            ok: true;
+            scope: string;
+          };
+        };
+      };
+    };
+  };
+  get_me_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            payment_methods: {
+              currency?: string;
+              icon?: string;
+              id?: string;
+              min_amount?: number;
+              minimum_amount?: number;
+              minimum_amount_text?: string;
+              name?: string;
+            }[];
+            plans: {
+              billing_model?: string;
+              currency?: string;
+              description?: string;
+              device_count?: number;
+              hwid_device_limit?: number | null;
+              hwid_device_packages?: {
+                billing_model?: string;
+                currency?: string;
+                device_count?: number;
+                id?: string;
+                months?: number;
+                price?: number;
+                sale_mode?: string;
+                stars_price?: number;
+                subtitle?: string;
+                tariff_key?: string;
+                tariff_name?: string;
+                title?: string;
+              }[];
+              hwid_renewal?: {
+                active_until?: string | null;
+                active_until_text?: string | null;
+                available?: boolean;
+                currency?: string;
+                device_count?: number;
+                price?: number;
+                pricing_period_months?: number;
+                stars_price?: number;
+                valid_from?: string | null;
+                valid_from_text?: string | null;
+                valid_until?: string | null;
+                valid_until_text?: string | null;
+              };
+              id?: string;
+              is_default_tariff?: boolean;
+              monthly_gb?: number | null;
+              months?: number;
+              price?: number;
+              proration_ratio?: number;
+              sale_mode?: string;
+              squad_uuids?: string[];
+              stars_price?: number;
+              subtitle?: string;
+              tariff_key?: string;
+              tariff_name?: string;
+              title?: string;
+              traffic_gb?: number;
+              valid_from?: string | null;
+              valid_from_text?: string | null;
+              valid_until?: string | null;
+              valid_until_text?: string | null;
+            }[];
+            referral: {
+              bonus_details?: {
+                details?: {
+                  [key: string]: unknown;
+                }[];
+                friend_days?: number;
+                friend_max_days?: number;
+                friend_min_days?: number;
+                id?: string;
+                inviter_days?: number;
+                inviter_max_days?: number;
+                inviter_min_days?: number;
+                months?: number;
+                tariff_key?: string;
+                tariff_name?: string;
+                title?: string;
+                type?: string;
+              }[];
+              bot_link?: string | null;
+              code?: string | null;
+              invited_count?: number;
+              one_bonus_per_referee?: boolean;
+              purchased_count?: number;
+              webapp_link?: string | null;
+              welcome_bonus_block_reason?: string | null;
+              welcome_bonus_days?: number;
+              welcome_bonus_requires_telegram?: boolean;
+              welcome_bonus_without_telegram_enabled?: boolean;
+            };
+            settings: {
+              email_auth_enabled?: boolean;
+              has_bot_token?: boolean;
+              my_devices_enabled?: boolean;
+              panel_write_mode?: string;
+              server_status_url?: string | null;
+              subscription_guides_enabled?: boolean;
+              subscription_purchase_description?: string;
+              support_ticket_max_body_length?: number;
+              support_ticket_max_subject_length?: number;
+              support_tickets_enabled?: boolean;
+              support_url?: string | null;
+              traffic_mode?: boolean;
+              trial_available?: boolean;
+              trial_block_reason?: string | null;
+              trial_duration_days?: number;
+              trial_enabled?: boolean;
+              trial_requires_telegram?: boolean;
+              trial_traffic_limit_gb?: number;
+              trial_traffic_strategy?: string;
+              trial_without_telegram_enabled?: boolean;
+              user_hwid_device_limit?: number | null;
+            };
+            subscription: {
+              active?: boolean;
+              auto_renew_available?: boolean;
+              auto_renew_can_enable?: boolean;
+              auto_renew_enabled?: boolean;
+              auto_renew_provider_label?: string | null;
+              base_hwid_device_limit?: number | null;
+              billing_model?: string | null;
+              bot_username?: string | null;
+              can_topup_devices?: boolean;
+              can_topup_premium_traffic?: boolean;
+              can_topup_regular_traffic?: boolean;
+              can_topup_traffic?: boolean;
+              config_link?: string | null;
+              connect_url?: string | null;
+              days_left?: number;
+              device_topup_renewal_available?: boolean;
+              end_date?: string | null;
+              end_date_text?: string | null;
+              extra_hwid_devices?: number;
+              extra_hwid_devices_next_valid_from?: string | null;
+              extra_hwid_devices_valid_until?: string | null;
+              extra_hwid_devices_valid_until_text?: string | null;
+              install_share_token?: string | null;
+              install_share_url?: string | null;
+              is_throttled?: boolean;
+              max_devices?: number | null;
+              panel_short_uuid?: string | null;
+              period_start_at?: string | null;
+              premium_baseline_bytes?: number | null;
+              premium_bonus_bytes?: number;
+              premium_is_limited?: boolean;
+              premium_limit?: string;
+              premium_limit_bytes?: number | null;
+              premium_node_labels?: string[];
+              premium_squad_labels?: string[];
+              premium_title?: string | null;
+              premium_topup_balance_bytes?: number | null;
+              premium_topup_used_bytes?: number | null;
+              premium_unlimited_override?: boolean;
+              premium_used?: string;
+              premium_used_bytes?: number | null;
+              provider?: string | null;
+              regular_bonus_bytes?: number;
+              regular_unlimited_override?: boolean;
+              remaining_text?: string;
+              status?: string;
+              tariff_description?: string | null;
+              tariff_key?: string | null;
+              tariff_name?: string | null;
+              tenant_actual_state?: string | null;
+              tenant_desired_state?: string | null;
+              tenant_id?: string | null;
+              tenant_last_state_change?: string | null;
+              tenant_status?: string | null;
+              tier_baseline_bytes?: number | null;
+              topup_balance_bytes?: number | null;
+              traffic_limit?: string;
+              traffic_limit_bytes?: number | null;
+              traffic_limit_strategy?: string;
+              traffic_used?: string;
+              traffic_used_bytes?: number | null;
+            };
+            support_unread_count: number;
+            themes_catalog: {
+              default_theme?: string;
+              themes?: ({
+                default?: boolean;
+                enabled?: boolean;
+                key?: string;
+                label?: string;
+              } & {
+                [key: string]: unknown;
+              })[];
+            } & {
+              [key: string]: unknown;
+            };
+            user: {
+              email?: string | null;
+              email_verified?: boolean;
+              first_name?: string | null;
+              id?: number;
+              is_admin?: boolean;
+              language_code?: string;
+              password_auth_enabled?: boolean;
+              telegram_id?: number | null;
+              telegram_linked?: boolean;
+              telegram_notifications_enabled?: boolean;
+              telegram_notifications_need_prompt?: boolean;
+              telegram_notifications_start_link?: string | null;
+              telegram_notifications_status?: string;
+              telegram_photo_url?: string;
+              username?: string | null;
+            };
+          };
+        };
+      };
+    };
+  };
+  post_create_payment_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppPaymentCreatePayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            confirmation_url?: string | null;
+            /** @constant */
+            ok: true;
+            paid?: boolean;
+            /** @description Provider-specific payment payload returned by the selected integration. */
+            payment?: {
+              [key: string]: unknown;
+            };
+            payment_id?: number;
+            payment_url?: string | null;
+            status?: string;
+          };
+        };
+      };
+    };
+  };
+  get_payment_status_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        payment_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            confirmation_url?: string | null;
+            /** @constant */
+            ok: true;
+            paid?: boolean;
+            /** @description Provider-specific payment payload returned by the selected integration. */
+            payment?: {
+              [key: string]: unknown;
+            };
+            payment_id?: number;
+            payment_url?: string | null;
+            status?: string;
+          };
+        };
+      };
+    };
+  };
+  post_apply_promo_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppPromoApplyPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            applies_to?: string;
+            code?: string;
+            effect_summary?: string;
+            end_date?: string | null;
+            end_date_text?: string | null;
+            min_subscription_months?: number | null;
+            min_traffic_gb?: number | null;
+            /** @constant */
+            ok: true;
+            requires_checkout?: boolean;
+          };
+        };
+      };
+    };
+  };
+  post_referral_welcome_bonus_claim_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            claimed: boolean;
+            end_date: string | null;
+            end_date_text: string | null;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  get_subscription_guides_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @description Resolved subscription guide config from admin override or panel. */
+            config?: {
+              [key: string]: unknown;
+            };
+            enabled: boolean;
+            /** @constant */
+            ok: true;
+            source?: string | null;
+          };
+        };
+      };
+    };
+  };
+  get_public_subscription_guides_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        share_token: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @description Resolved subscription guide config from admin override or panel. */
+            config?: {
+              [key: string]: unknown;
+            };
+            enabled: boolean;
+            /** @constant */
+            ok: true;
+            source?: string | null;
+            /** @description Public install subscription context resolved by share token. */
+            subscription?: {
+              [key: string]: unknown;
+            };
+          };
+        };
+      };
+    };
+  };
+  post_subscription_auto_renew_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppAutoRenewPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            auto_renew_enabled: boolean;
+            /** @constant */
+            ok: true;
+            provider: string;
+            provider_label: string;
+          };
+        };
+      };
+    };
+  };
+  post_quote_promo_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppPromoQuotePayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            applies_to?: string;
+            base_amount?: number;
+            base_stars?: number | null;
+            code?: string;
+            currency?: string;
+            discount_amount?: number;
+            discount_percent?: number;
+            effect_summary?: string;
+            effective_amount?: number;
+            effective_stars?: number | null;
+            min_subscription_months?: number | null;
+            min_traffic_gb?: number | null;
+            /** @constant */
+            ok: true;
+            payable?: boolean;
+            promo_code_id?: number;
+            reason?: string | null;
+            reason_key?: string | null;
+            valid: boolean;
+          };
+        };
+      };
+    };
+  };
+  get_support_tickets_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            counts: components["schemas"]["SupportCountsOut"];
+            /** @constant */
+            ok: true;
+            tickets: components["schemas"]["SupportTicketOut"][];
+          };
+        };
+      };
+    };
+  };
+  post_support_create_ticket_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateTicketPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            ticket: components["schemas"]["SupportTicketOut"];
+          };
+        };
+      };
+    };
+  };
+  get_support_ticket_detail_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            messages: components["schemas"]["SupportMessageOut"][];
+            /** @constant */
+            ok: true;
+            ticket: components["schemas"]["SupportTicketOut"];
+          };
+        };
+      };
+    };
+  };
+  post_support_ticket_reply_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TicketReplyPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            message: components["schemas"]["SupportMessageOut"];
+            /** @constant */
+            ok: true;
+            ticket: components["schemas"]["SupportTicketOut"];
+          };
+        };
+      };
+    };
+  };
+  post_support_ticket_read_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  get_support_unread_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            unread: number;
+          };
+        };
+      };
+    };
+  };
+  post_tariff_change_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppTariffChangePayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            subscription_id: number;
+            tariff_key: string;
+          };
+        };
+      };
+    };
+  };
+  get_tariff_change_options_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            current: {
+              billing_model: string;
+              description: string;
+              tariff_key: string;
+              title: string;
+            };
+            /** @constant */
+            ok: true;
+            targets: {
+              actions: {
+                converted_gb?: number;
+                converted_hwid_days?: number;
+                converted_hwid_gb?: number;
+                converted_hwid_value_rub?: number;
+                currency?: string;
+                days_after?: number;
+                kind?: string;
+                mode?: string;
+                months?: number;
+                price?: number;
+                remaining_days?: number;
+                title?: string;
+                traffic_gb?: number;
+              }[];
+              billing_model: string;
+              description: string;
+              monthly_gb?: number | null;
+              /** @description Raw switch calculation details from the subscription service. */
+              options?: {
+                [key: string]: unknown;
+              };
+              tariff_key: string;
+              title: string;
+            }[];
+          };
+        };
+      };
+    };
+  };
+  post_tariff_change_payment_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppPaymentCreatePayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            confirmation_url?: string | null;
+            /** @constant */
+            ok: true;
+            paid?: boolean;
+            /** @description Provider-specific payment payload returned by the selected integration. */
+            payment?: {
+              [key: string]: unknown;
+            };
+            payment_id?: number;
+            payment_url?: string | null;
+            status?: string;
+          };
+        };
+      };
+    };
+  };
+  get_tariff_topup_options_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            current_limit?: number | null;
+            extra_hwid_devices?: number;
+            extra_hwid_devices_valid_until?: string | null;
+            extra_hwid_devices_valid_until_text?: string | null;
+            /** @constant */
+            ok: true;
+            plans?: {
+              billing_model?: string;
+              currency?: string;
+              description?: string;
+              device_count?: number;
+              hwid_device_limit?: number | null;
+              hwid_device_packages?: {
+                billing_model?: string;
+                currency?: string;
+                device_count?: number;
+                id?: string;
+                months?: number;
+                price?: number;
+                sale_mode?: string;
+                stars_price?: number;
+                subtitle?: string;
+                tariff_key?: string;
+                tariff_name?: string;
+                title?: string;
+              }[];
+              hwid_renewal?: {
+                active_until?: string | null;
+                active_until_text?: string | null;
+                available?: boolean;
+                currency?: string;
+                device_count?: number;
+                price?: number;
+                pricing_period_months?: number;
+                stars_price?: number;
+                valid_from?: string | null;
+                valid_from_text?: string | null;
+                valid_until?: string | null;
+                valid_until_text?: string | null;
+              };
+              id?: string;
+              is_default_tariff?: boolean;
+              monthly_gb?: number | null;
+              months?: number;
+              price?: number;
+              proration_ratio?: number;
+              sale_mode?: string;
+              squad_uuids?: string[];
+              stars_price?: number;
+              subtitle?: string;
+              tariff_key?: string;
+              tariff_name?: string;
+              title?: string;
+              traffic_gb?: number;
+              valid_from?: string | null;
+              valid_from_text?: string | null;
+              valid_until?: string | null;
+              valid_until_text?: string | null;
+            }[];
+            premium_baseline_bytes?: number;
+            premium_bonus_bytes?: number;
+            premium_is_limited?: boolean;
+            premium_limit_bytes?: number;
+            premium_node_labels?: string[];
+            premium_squad_labels?: string[];
+            premium_title?: string;
+            premium_topup_balance_bytes?: number;
+            premium_topup_used_bytes?: number;
+            premium_traffic_percent?: number;
+            premium_unlimited_override?: boolean;
+            premium_used_bytes?: number;
+            renewal_available?: boolean;
+            renewal_recommended_count?: number;
+            tariff_key?: string;
+            tariff_name?: string;
+            topup_kind?: string;
+            traffic_percent?: number;
+            warning_levels?: number[];
+          };
+        };
+      };
+    };
+  };
+  delete_tenant_delete_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  get_tenant_cornllm_key_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            api_key?: string;
+            budget_duration?: string;
+            key_id?: string;
+            max_budget?: number;
+            /** @constant */
+            ok: true;
+            spent?: number | null;
+            tenant_id?: string;
+          };
+        };
+      };
+    };
+  };
+  get_tenant_logs_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            logs: string;
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_tenant_logs_refresh_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  get_tenant_quota_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            budget_duration?: string | null;
+            max_budget?: number | null;
+            /** @constant */
+            ok: true;
+            remaining?: number | null;
+            spent?: number | null;
+            tenant_id?: string;
+          };
+        };
+      };
+    };
+  };
+  post_tenant_recreate_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_tenant_restart_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_tenant_suspend_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_activate_trial_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppTrialActivatePayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            activated: boolean;
+            config_link: string | null;
+            connect_url: string | null;
+            days: number;
+            end_date: string | null;
+            end_date_text: string | null;
+            /** @constant */
+            ok: true;
+            traffic_gb: number | null;
+          };
+        };
+      };
+    };
+  };
 }

@@ -8,10 +8,7 @@ from typing import Any, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.utils.mini_app_url import (
-    subscription_mini_app_install_url,
-    subscription_public_install_url,
-)
+from bot.utils.mini_app_url import subscription_mini_app_install_url
 from config.settings import Settings
 from config.subscription_guides_config import subscription_guides_available
 from db.dal import subscription_dal
@@ -21,6 +18,25 @@ from db.dal import subscription_dal
 class InstallGuideLinks:
     personal_url: Optional[str] = None
     public_share_url: Optional[str] = None
+
+
+def _is_hermes_mode(settings: Settings) -> bool:
+    # ponytail: hosted Hermes tenants are linked from the customer's Telegram
+    # bot via the bot token they already have. Public /s/{token} install
+    # guides still exist for the proxy shop, but the share-link UX was
+    # confusing on the host-agent side (we redirect to a bot that the
+    # visitor doesn't own). Suppress share-link generation in Hermes mode
+    # so the UI never has a button to render.
+    try:
+        return (
+            str(
+                getattr(getattr(settings, "panel_settings", None), "write_mode", "")
+                or ""
+            ).lower()
+            == "hermes"
+        )
+    except Exception:
+        return False
 
 
 def bot_install_guides_enabled(settings: Settings) -> bool:
@@ -49,6 +65,9 @@ async def ensure_user_install_guide_links(
     if not personal_url:
         return InstallGuideLinks()
 
+    if _is_hermes_mode(settings):
+        return InstallGuideLinks(personal_url=personal_url)
+
     public_share_url = None
     try:
         local_sub = (
@@ -62,6 +81,8 @@ async def ensure_user_install_guide_links(
         )
         if local_sub is not None:
             share_token = await subscription_dal.ensure_install_share_token(session, local_sub)
+            from bot.utils.mini_app_url import subscription_public_install_url
+
             public_share_url = subscription_public_install_url(settings, share_token)
     except Exception:
         logging.exception("Failed to resolve install guide share link for user %s.", user_id)
