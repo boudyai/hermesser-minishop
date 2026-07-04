@@ -295,3 +295,31 @@
     max-width: 100%;
   }
 }
+
+.admin-cornllm-section {
+  margin: 16px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-border-muted, rgba(255, 255, 255, 0.08));
+  border-radius: 10px;
+  background: var(--admin-surface-1, rgba(255, 255, 255, 0.02));
+}
+.admin-cornllm-section .admin-subsection-title {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.admin-user-stat[data-admin-stat="cornllm"] {
+  flex: 1 1 200px;
+}
+.admin-user-stat-muted {
+  color: var(--admin-text-muted, rgba(255, 255, 255, 0.5));
+  font-weight: 400;
+}
+.admin-user-stat-warning {
+  color: var(--warning, #f5b84b);
+  font-weight: 600;
+}
+.admin-user-stat-strong {
+  color: var(--admin-text, #fff);
+  font-weight: 600;
+}

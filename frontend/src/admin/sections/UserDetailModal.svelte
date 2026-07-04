@@ -543,6 +543,36 @@
               <span>{at("user_label_logs", {}, "Логов")}</span>
               <strong>{openedUserDetail.log_count}</strong>
             </div>
+            {#if hermesMode}
+              <div
+                class="admin-user-stat"
+                data-admin-stat="cornllm"
+                title={at(
+                  "aria_label_cornllm",
+                  {},
+                  "CornLLM (LiteLLM) budget"
+                )}
+              >
+                <span>{at("admin_cornllm_balance", {}, "CornLLM")}</span>
+                <strong>
+                  {#if !cornllmValue || cornllmValue.state === "none"}
+                    <span class="admin-user-stat-muted"
+                      >{at("admin_cornllm_balance_no_key", {}, "—")}</span
+                    >
+                  {:else if cornllmValue.state === "unreachable"}
+                    <span class="admin-user-stat-warning"
+                      >{at(
+                        "admin_cornllm_balance_unreachable",
+                        {},
+                        "n/a"
+                      )}</span
+                    >
+                  {:else}
+                    <span class="admin-user-stat-strong">{cornllmStateLabel}</span>
+                  {/if}
+                </strong>
+              </div>
+            {/if}
           </div>
 
           <div class="admin-subsection-title">{at("user_section_profile", {}, "Профиль")}</div>
@@ -726,6 +756,49 @@
                 >{at("user_tab_actions", {}, "Действия")}</Tabs.Trigger
               >
             </Tabs.List>
+
+            {#if hermesMode}
+              <div
+                class="admin-cornllm-section"
+                data-admin-section="cornllm"
+              >
+                <div class="admin-subsection-title"
+                  >{at("admin_cornllm_balance", {}, "CornLLM")}</div
+                >
+                <ul class="admin-meta-list">
+                  <li>
+                    <span
+                      >{at(
+                        "admin_cornllm_remaining",
+                        {},
+                        "Осталось"
+                      )}</span
+                    ><strong>{cornllmStateLabel}</strong>
+                  </li>
+                  {#if cornllmValue && cornllmValue.state === "ok"}
+                    <li>
+                      <span>{at("admin_cornllm_spent", {}, "Израсходовано")}</span
+                      ><strong>{cornllmSpentLabel}</strong>
+                    </li>
+                    <li>
+                      <span>{at("admin_cornllm_limit", {}, "Лимит")}</span
+                      ><strong>{cornllmMaxLabel}</strong>
+                    </li>
+                    {#if cornllmValue.budget_duration}
+                      <li>
+                        <span
+                          >{at(
+                            "admin_cornllm_budget_duration",
+                            {},
+                            "Период"
+                          )}</span
+                        ><strong>{cornllmValue.budget_duration}</strong>
+                      </li>
+                    {/if}
+                  {/if}
+                </ul>
+              </div>
+            {/if}
 
             <Tabs.Content value="subscription" class="admin-tabs-content">
               {#if openedUserDetail.active_subscription}
