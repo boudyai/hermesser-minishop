@@ -101,27 +101,26 @@ async def my_subscription_command_handler(
         session, _event_user_id(event)
     )
 
-    # ponytail: in hermes mode, also fetch the LLM budget for the card.
-    # The proxy subscription details have no concept of LLM budget.
+    # ponytail: in hermes mode, also fetch the tenant lifecycle
+    # state so the bot card's "Контейнер:" line reflects the
+    # real core state (active / provisioning / suspended /
+    # deleted / …) instead of always falling through to
+    # "неизвестно". The Mini App serializer does the same
+    # fetch via _tenant_runtime_fields(tenant_state); the bot
+    # path historically didn't, so /status showed a wrong label
+    # for tenants in the `deleting` state.
+    #
+    # We deliberately do NOT fetch /quota here anymore — the
+    # LiteLLM budget is a separate concept from the
+    # subscription card, showing it in the bot status
+    # alongside a "Restart"/"Delete" menu invited support
+    # tickets about a metric the user can't top up from this
+    # surface. CornLLM top-up lives in the Mini App Settings
+    # card and the admin user detail.
     hermes_mode_precheck = (
         str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
     )
     if hermes_mode_precheck and active and active.get("user_id"):
-        try:
-            quota = await panel_service.get_tenant_quota(str(active["user_id"]))
-            if isinstance(quota, dict):
-                active["llm_spent"] = quota.get("spent")
-                active["llm_max_budget"] = quota.get("max_budget")
-        except Exception as exc:
-            logging.debug("get_tenant_quota failed for bot status card: %s", exc)
-        # ponytail: also fetch the tenant lifecycle state so the
-        # bot card's "Контейнер:" line reflects the real core
-        # state (active / provisioning / suspended / deleted / …)
-        # instead of always falling through to "неизвестно".
-        # The Mini App serializer does the same fetch via
-        # _tenant_runtime_fields(tenant_state); the bot path
-        # historically didn't, so /status showed a wrong label
-        # for tenants in the `deleting` state.
         try:
             tenant_state = await panel_service.get_tenant_state(str(active["user_id"]))
             if isinstance(tenant_state, dict):
@@ -234,7 +233,6 @@ async def my_subscription_command_handler(
         if hermes_mode:
             bot_username = str(active.get("bot_username") or "").strip()
             bot_username_display = bot_username or get_text("my_hermes_bot_username_unknown")
-            llm_budget_display = _format_hermes_llm_budget(active, get_text)
             container_status = _format_hermes_container_status(active, get_text)
             text = get_text(
                 "my_hermes_subscription_details",
@@ -242,7 +240,6 @@ async def my_subscription_command_handler(
                 end_date=end_date.strftime("%Y-%m-%d") if end_date else "N/A",
                 days_left=max(0, days_left),
                 bot_username=bot_username_display,
-                llm_budget=llm_budget_display,
                 container_status=container_status,
             )
         else:
@@ -727,31 +724,3 @@ def _format_hermes_container_status(active: dict[str, Any], get_text: Any) -> st
     if status in ("deleting", "deleted", "archived"):
         return get_text("my_hermes_container_status_deleted")
     return get_text("my_hermes_container_status_unknown")
-
-
-def _format_hermes_llm_budget(active: dict[str, Any], get_text: Any) -> str:
-    """Render a one-line CornLLM budget summary in rubles, best-effort.
-
-    The data comes from QuotaResponse fields (max_budget / spent) and is
-    only present when get_tenant_quota was called. LiteLLM stores the
-    budget in USD; the user-facing copy is rubles (1 USD = 100 RUB) with
-    kopecks when fractional — see bot.utils.currency_format for the
-    single source of truth used by the Mini App.
-    """
-    from bot.utils.currency_format import format_rub, format_rub_pair
-
-    spent = active.get("llm_spent")
-    max_budget = active.get("llm_max_budget")
-    if spent is None and max_budget is None:
-        return get_text("my_hermes_llm_budget_unavailable")
-    if max_budget:
-        try:
-            max_f = float(max_budget)
-            if max_f > 0:
-                return format_rub_pair(spent, max_budget)
-        except (TypeError, ValueError):
-            pass
-    return get_text(
-        "my_hermes_llm_budget_used",
-        spent=format_rub(spent, default="—"),
-    )

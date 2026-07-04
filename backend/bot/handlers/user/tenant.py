@@ -238,28 +238,22 @@ async def _render_status(
         )
         return
 
-    quota = await panel_service.get_tenant_quota(tenant_id)
-    quota_text = ""
-    if quota:
-        from bot.utils.currency_format import format_rub, format_rub_pair
-
-        max_b = quota.get("max_budget")
-        spent = quota.get("spent")
-        remaining = quota.get("remaining")
-        if max_b is not None and spent is not None and remaining is not None:
-            quota_text = (
-                f"\n{_('budget_label', default='Budget')}: "
-                f"{format_rub_pair(spent, max_b, default='—')} "
-                f"({_('remaining_label', default='remaining')} "
-                f"{format_rub(remaining, default='—')})"
-            )
-
+    # ponytail: bot /status used to fetch the LiteLLM quota and
+    # append a "Budget: spent / max (remaining X)" line. That
+    # confused users — the quota is for the underlying LLM
+    # spend, not a money balance the customer manages, and
+    # showing it in the status card alongside a "Restart" /
+    # "Delete" menu invited support tickets about a metric
+    # they can't top up from this surface. CornLLM top-up
+    # lives in the Mini App Settings card and the admin
+    # user detail; the bot status card just shows bot-level
+    # actions.
     text = (
         _(
             "tg_hermes_status_active",
             default="Bot is active",
         )
-        + f"{quota_text}\n"
+        + "\n"
         + _(
             "tg_hermes_status_actions_hint",
             default="Use the buttons below to manage:",
@@ -629,10 +623,7 @@ async def token_input(
                     await message.answer(
                         _(
                             "tg_hermes_token_rejected",
-                            default=(
-                                "Telegram rejected this token. "
-                                "Double-check with @BotFather."
-                            ),
+                            default=("Telegram rejected this token. Double-check with @BotFather."),
                         )
                     )
                     return
@@ -736,18 +727,14 @@ async def token_input(
     if created_via_bot:
         text = _(
             "tg_hermes_bot_creating_named",
-            default=(
-                "Your bot @{username} is being created "
-                "and will start in ~30 seconds."
-            ),
+            default=("Your bot @{username} is being created and will start in ~30 seconds."),
             username=bot_username,
         )
     elif applied_to_tenant:
         text = _(
             "tg_hermes_token_updated",
             default=(
-                "Token saved! Your bot @{username} was updated "
-                "and is restarting (~30 seconds)."
+                "Token saved! Your bot @{username} was updated and is restarting (~30 seconds)."
             ),
             username=bot_username,
         )
@@ -764,10 +751,7 @@ async def token_input(
     else:
         text = _(
             "tg_hermes_token_saved_pending",
-            default=(
-                "Token saved! Your bot @{username} "
-                "will start once you activate."
-            ),
+            default=("Token saved! Your bot @{username} will start once you activate."),
             username=bot_username,
         )
     markup = types.InlineKeyboardMarkup(
@@ -1054,16 +1038,13 @@ async def delete_command(
     current_lang = (i18n_data or {}).get("current_language", "ru")
     _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
     await state.set_state(DeleteFSM.waiting_for_confirmation)
-    text = (
-        _("tg_hermes_delete_confirm_body", default="Delete the bot?\n\n")
-        + _(
-            "tg_hermes_delete_confirm_typed_footer",
-            default=(
-                "The container will stop and be deleted. "
-                "Backups are kept for 30 days.\n\n"
-                "Type <code>DELETE</code> to confirm."
-            ),
-        )
+    text = _("tg_hermes_delete_confirm_body", default="Delete the bot?\n\n") + _(
+        "tg_hermes_delete_confirm_typed_footer",
+        default=(
+            "The container will stop and be deleted. "
+            "Backups are kept for 30 days.\n\n"
+            "Type <code>DELETE</code> to confirm."
+        ),
     )
     markup = types.InlineKeyboardMarkup(
         inline_keyboard=[
