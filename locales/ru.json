@@ -592,6 +592,7 @@
   "tg_hermes_status_no_tenant": "Бот не запущен. Откройте Личный кабинет для активации.",
   "tg_hermes_status_deleted": "Бот удалён. Откройте Личный кабинет, чтобы создать нового.",
   "tg_hermes_status_suspended": "Бот приостановлен. Возобновите подписку, чтобы снова запустить.",
+  "tg_hermes_status_subscription_expired": "Подписка истекла. Возобновите подписку, чтобы снова запустить бота.",
   "tg_hermes_status_provisioning": "Бот запускается… Это занимает ~30 секунд.\nПовторите /status через минуту.",
   "tg_hermes_status_active": "Бот активен",
   "tg_hermes_status_actions_hint": "Используйте кнопки ниже для управления:",

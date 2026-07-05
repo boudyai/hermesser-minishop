@@ -592,6 +592,7 @@
   "tg_hermes_status_no_tenant": "Bot is not running. Open the Mini App to activate.",
   "tg_hermes_status_deleted": "Bot deleted. Open the Mini App to create a new one.",
   "tg_hermes_status_suspended": "Bot suspended. Renew your subscription to start it again.",
+  "tg_hermes_status_subscription_expired": "Subscription expired. Renew your subscription to start the bot again.",
   "tg_hermes_status_provisioning": "Starting your bot… takes ~30 seconds.\nRepeat /status in a minute.",
   "tg_hermes_status_active": "Bot is active",
   "tg_hermes_status_actions_hint": "Use the buttons below to manage:",

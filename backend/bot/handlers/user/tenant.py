@@ -7,6 +7,7 @@ Feature parity with Mini App for hermes mode. Uses aiogram's auto-injection
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 
 import aiohttp
 from aiogram import F, Router, types
@@ -54,10 +55,50 @@ async def _get_hermes_panel(subscription_service: SubscriptionService):
 async def _get_tenant_id(
     subscription_service: SubscriptionService, session: AsyncSession, user_id: int
 ) -> str | None:
-    active = await subscription_service.get_active_subscription_details(session, user_id)
+    active = await _get_active_subscription_for_status(
+        subscription_service, session, user_id
+    )
     if not active:
         return None
     return str(active.get("user_id") or "").strip() or None
+
+
+# ponytail: /status cares about *subscription* state more than container state.
+# get_active_subscription_details returns {end_date, status_from_panel, ...}
+# in both hermes (local Subscription.end_date is truth) and non-hermes (panel
+# status is truth) modes. Surfacing it here lets the bot say "subscription
+# expired → renew" even when the tenant container is still happily running,
+# which used to mislead users into thinking their bot was healthy until the
+# LLM calls silently started failing.
+async def _get_active_subscription_for_status(
+    subscription_service: SubscriptionService, session: AsyncSession, user_id: int
+) -> dict | None:
+    return await subscription_service.get_active_subscription_details(
+        session, user_id
+    )
+
+
+def _subscription_is_expired(active: dict | None) -> bool:
+    """True if the active subscription dict represents an expired sub.
+
+    In hermes mode `panel_end_date == local Subscription.end_date`. In
+    non-hermes mode `status_from_panel == "ACTIVE"` and `end_date > now`
+    is the truth. The panel surface also uses DISABLED/LIMITED for
+    admin-disabled or traffic-exhausted subs, which the user reads as
+    "expired" — surface them here too, otherwise the bot shows
+    "Bot is active" while every LLM call is rejected upstream.
+    """
+    if not active:
+        return False
+    panel_status = str(active.get("status_from_panel") or "").upper()
+    if panel_status in ("EXPIRED", "DISABLED", "LIMITED"):
+        return True
+    end_date = active.get("end_date")
+    if end_date is None:
+        return False
+    if end_date.tzinfo is None:
+        end_date = end_date.replace(tzinfo=UTC)
+    return end_date <= datetime.now(UTC)
 
 
 async def _safe_delete_message(message: types.Message) -> None:
@@ -129,7 +170,16 @@ async def _render_status(
 ) -> None:
     if target_message is None:
         return
-    tenant_id = await _get_tenant_id(subscription_service, session, user_id)
+    # ponytail: fetch the active subscription dict ONCE here — both
+    # tenant_id and the panel_status / end_date / status_from_panel
+    # fields come from the same call, and the panel-side lookup it
+    # triggers (remnawave /key/info or users/get) is the slow part.
+    active = await _get_active_subscription_for_status(
+        subscription_service, session, user_id
+    )
+    tenant_id = (
+        str((active or {}).get("user_id") or "").strip() or None
+    )
     panel_service = await _get_hermes_panel(subscription_service)
     i18n = (i18n_data or {}).get("i18n_instance")
     current_lang = (i18n_data or {}).get("current_language", "ru")
@@ -159,6 +209,41 @@ async def _render_status(
 
     tenant_state = await panel_service.get_tenant_state(tenant_id) or {}
     tenant_status = str(tenant_state.get("status") or "active").lower()
+
+    # ponytail: subscription state gates container state. A user whose
+    # remnawave sub expired but whose tenant container is still happily
+    # running gets the suspended copy with a Renew button. Without this
+    # we showed "Bot is active", which misled the user about why their
+    # LLM calls were failing. We reuse the existing suspended state —
+    # block + Renew CTA are the same for both an operator-initiated
+    # suspension and an automatic subscription-driven one.
+    if _subscription_is_expired(active):
+        text = _(
+            "tg_hermes_status_subscription_expired",
+            default="Subscription expired. Renew your subscription to start the bot again.",
+        )
+        await _reply_or_edit(
+            target_message,
+            text,
+            types.InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(
+                            text=_("renew", default="Renew"),
+                            callback_data="main_action:my_subscription",
+                        )
+                    ],
+                    [
+                        types.InlineKeyboardButton(
+                            text=_("back_to_menu", default="Menu"),
+                            callback_data="main_action:back_to_main",
+                        )
+                    ],
+                ]
+            ),
+            edit=edit,
+        )
+        return
 
     if tenant_status in ("deleting", "deleted", "archived"):
         text = _(
