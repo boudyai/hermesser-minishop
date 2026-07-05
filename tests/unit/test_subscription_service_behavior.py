@@ -1797,6 +1797,80 @@ class HermesBotUsernameInPayloadTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result["bot_username"], "pending_user")
 
+    async def test_hermes_mode_handles_no_local_subscription(self):
+        """Regression for the live bug where /api/me and the bot's
+        `status` callback crashed with
+        `UnboundLocalError: cannot access local variable 'hermes_mode'`
+        when the user had a `panel_user_uuid` but no local subscription
+        row. The variable was assigned inside `if local_active_sub:`,
+        but referenced outside it on the `panel_expire_at` branch.
+        With no subscription the bot menu and the Mini App both 500'd
+        and the user couldn't check status.
+
+        ponytail: this is the *first-ever* /status call shape for a
+        freshly-registered user in hermes mode — `panel_user_uuid` is
+        set, but no `Subscription` row exists yet (write_mode=hermes
+        means we don't gate on remnawave subscription lifecycle, only
+        on provisioning-core tenant lifecycle)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(), tmpdir, PANEL_WRITE_MODE="hermes")
+            service = _make_service(settings)
+            service.panel_service.get_user_by_uuid_lookup = AsyncMock(
+                return_value={
+                    "ok": True,
+                    "user": {
+                        "uuid": "panel-user",
+                        "shortUuid": "short-uuid",
+                        "status": "ACTIVE",
+                        "expireAt": "",
+                        "subscriptionUrl": "https://panel.example.test/sub/short-uuid",
+                        "trafficLimitBytes": 1000,
+                        "trafficLimitStrategy": "MONTH",
+                        "userTraffic": {
+                            "usedTrafficBytes": 100,
+                            "lifetimeUsedTrafficBytes": 100,
+                        },
+                    },
+                }
+            )
+            service.premium_access_for_tariff = AsyncMock(
+                return_value={"squad_uuids": [], "squad_labels": [], "node_labels": []}
+            )
+            session = AsyncMock()
+            db_user = SimpleNamespace(
+                user_id=42,
+                panel_user_uuid="panel-user",
+                username="alice",
+                language_code="en",
+                lifetime_used_traffic_bytes=100,
+            )
+            # local_active_sub is None — the case that triggered the bug.
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_details.user_dal.get_user_by_id",
+                    AsyncMock(return_value=db_user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_details.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=None),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_details.tariff_dal.get_hwid_device_entitlement_summary",
+                    AsyncMock(return_value={}),
+                ),
+            ):
+                # Before the fix this raised UnboundLocalError on
+                # hermes_mode. After the fix it returns a dict with
+                # is_panel_data=True.
+                result = await service.get_active_subscription_details(session, user_id=42)
+
+        self.assertIsNotNone(result)
+        self.assertTrue(result["is_panel_data"])
+        # end_date is None because there's no local subscription in
+        # hermes mode and the panel's expireAt is empty.
+        self.assertIsNone(result["end_date"])
+
 
 if __name__ == "__main__":
     unittest.main()

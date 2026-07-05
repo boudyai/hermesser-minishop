@@ -69,12 +69,19 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                 {"lifetime_used_traffic_bytes": panel_lifetime_used},
             )
 
+        # ponytail: hermes_mode is read on line ~146 outside the
+        # `if local_active_sub:` block below — compute it once here so
+        # it's always defined, even when the user has no local
+        # subscription (first-ever /status check from a fresh
+        # Mini-App open, or a user whose panel_user_uuid is registered
+        # but no subscription row exists yet).
+        hermes_mode = (
+            str(getattr(self.settings.panel_settings, "write_mode", "") or "").lower()
+            == "hermes"
+        )
+
         if local_active_sub:
             update_payload_local = {}
-            hermes_mode = (
-                str(getattr(self.settings.panel_settings, "write_mode", "") or "").lower()
-                == "hermes"
-            )
             panel_status = panel_user_data.get("status", "UNKNOWN").upper()
             panel_expire_at_str = panel_user_data.get("expireAt")
             panel_traffic_used, panel_traffic_limit, _ = self._extract_panel_traffic_details(
