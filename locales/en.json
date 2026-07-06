@@ -2926,5 +2926,7 @@
   "tg_admin_promo_failed_generate": "Code #{index} (could not generate a unique code)",
   "tg_admin_promo_failed_code": "Code #{index} ({error})",
   "admin_yes_emoji": "✅ Yes",
-  "admin_no_emoji": "❌ No"
+  "admin_no_emoji": "❌ No",
+  "tg_admin_yes_emoji": "✅ Yes",
+  "tg_admin_no_emoji": "❌ No"
 }
