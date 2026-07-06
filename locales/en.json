@@ -2939,6 +2939,7 @@
   "wa_hermes_bot_inactive": "Your AI bot is not active",
   "wa_home_bot_active": "Bot is active",
   "wa_home_set_token_first_title": "Set the bot token",
+  "wa_home_set_token_first_hint": "Go to Settings → Bot token and paste a token from @BotFather",
   "wa_settings_bot_token_steps_title": "How do I get a token?",
   "wa_settings_env_title": "Bot Configuration",
   "wa_settings_env_hint": "Environment variables for your bot (.env)",

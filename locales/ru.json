@@ -2939,6 +2939,7 @@
   "wa_hermes_bot_inactive": "Ваш AI-бот не активен",
   "wa_home_bot_active": "Бот активен",
   "wa_home_set_token_first_title": "Укажите токен бота",
+  "wa_home_set_token_first_hint": "Перейдите в Настройки → Токен бота и вставьте токен из @BotFather",
   "wa_settings_bot_token_steps_title": "Как получить токен?",
   "wa_settings_env_title": "Бот Конфигурация",
   "wa_settings_env_hint": "Переменные окружения для вашего бота (.env)",
