@@ -3605,5 +3605,6 @@
   "support_remaining": "Осталось",
   "support_user_context": "User",
   "support_open_user": "Карточка",
-  "support_close_ticket": "Закрыть тикет"
+  "support_close_ticket": "Закрыть тикет",
+  "wa_subscription_not_active": "Subscription is not active"
 }
