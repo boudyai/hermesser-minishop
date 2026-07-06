@@ -158,8 +158,12 @@
   // ponytail: in hermes mode the InstallGuideScreen has no proxy
   // config links to show, so "Открыть бота" should open the bot's
   // Telegram chat directly instead of rendering an empty page.
+  // ponytail: appSettings never carries bot_username — the backend
+  // exposes it only on subscription (sourced from provisioning-core via
+  // /shop/tenants/{uuid} in lifecycle_details.py). Reading it from
+  // appSettings was speculative and always evaluated to undefined.
   const hermesBotUsername = $derived(
-    String(subscription?.bot_username || appSettings?.bot_username || "").trim()
+    String(subscription?.bot_username || "").trim()
   );
   const hermesTMeUrl = $derived(hermesBotUsername ? `https://t.me/${hermesBotUsername}` : "");
   // ponytail: track tenant lifecycle to show a "Bot deleted" card

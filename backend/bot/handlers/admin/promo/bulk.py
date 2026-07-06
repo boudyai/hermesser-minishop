@@ -394,8 +394,8 @@ async def create_bulk_promo_codes_final(
         # Create CSV file with promo codes if any were created
         csv_file = None
         if created_codes:
-            success_lines.append(f"\n🎟 <b>Создано {len(created_codes)} промокодов</b>")
-            success_lines.append("📄 CSV файл с промокодами отправлен отдельным сообщением")
+            success_lines.append(_("tg_admin_bulk_promo_created_count", count=len(created_codes)))
+            success_lines.append(_("tg_admin_bulk_promo_csv_sent_note"))
 
             # Create CSV file
             output = io.StringIO()
@@ -404,12 +404,12 @@ async def create_bulk_promo_codes_final(
             # CSV headers
             writer.writerow(
                 [
-                    "Промокод",
-                    "Бонусные дни",
-                    "Макс. активации",
-                    "Действителен до",
-                    "Команда для старта",
-                    "Ссылка для активации",
+                    _("admin_promo_csv_code"),
+                    _("tg_admin_promo_csv_bonus_days"),
+                    _("tg_admin_promo_csv_max_activations"),
+                    _("tg_admin_promo_csv_validity"),
+                    _("tg_admin_promo_csv_start_command"),
+                    _("tg_admin_promo_csv_activation_link"),
                 ]
             )
 
@@ -433,7 +433,7 @@ async def create_bulk_promo_codes_final(
                         datetime.now(timezone.utc) + timedelta(days=data["validity_days"])
                     ).strftime("%Y-%m-%d %H:%M:%S")
                 else:
-                    valid_until = "Без ограничений"
+                    valid_until = _("admin_promo_unlimited")
 
                 start_command = f"/start promo_{code}"
                 telegram_link = f"https://t.me/{bot_username}?start=promo_{code}"
@@ -459,11 +459,18 @@ async def create_bulk_promo_codes_final(
             )
 
         if failed_codes:
-            success_lines.append(f"\n❌ <b>Ошибки ({len(failed_codes)}):</b>")
+            success_lines.append(
+                _(
+                    "tg_admin_bulk_promo_errors_header",
+                    count=len(failed_codes),
+                )
+            )
             for error in failed_codes[:5]:  # Show first 5 errors
                 success_lines.append(error)
             if len(failed_codes) > 5:
-                success_lines.append(f"... и еще {len(failed_codes) - 5} ошибок")
+                success_lines.append(
+                    _("tg_admin_bulk_promo_more_errors", count=len(failed_codes) - 5)
+                )
 
         success_text = "\n".join(success_lines)
 
@@ -492,7 +499,11 @@ async def create_bulk_promo_codes_final(
 
         # Send CSV file if created
         if csv_file:
-            csv_caption = f"📄 Промокоды для массового создания\n💫 Всего: {len(created_codes)} промокодов\n🎁 Бонус: {data['bonus_days']} дней каждый"  # noqa: E501
+            csv_caption = _(
+                "tg_admin_bulk_promo_csv_caption",
+                count=len(created_codes),
+                days=data["bonus_days"],
+            )
             await message_obj.answer_document(csv_file, caption=csv_caption)
 
         await state.clear()

@@ -7,6 +7,7 @@ from aiohttp import web
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
+    get_i18n,
     get_session_factory,
     get_subscription_service,
 )
@@ -226,10 +227,18 @@ async def tenant_recreate_route(request: web.Request) -> web.Response:
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or not db_user.panel_user_uuid or not db_user.pending_bot_token:
+            i18n_instance = get_i18n(request)
+            user_lang = getattr(db_user, "language_code", None) if db_user else None
+            lang = user_lang or "ru"
+            token_message = (
+                i18n_instance.gettext(lang, "tg_no_bot_token_error")
+                if i18n_instance
+                else "Нет сохранённого токена бота. Сначала добавьте токен в настройках."
+            )
             return _json_error(
                 400,
                 "no_tenant_or_token",
-                "Нет сохранённого токена бота. Сначала добавьте токен в настройках.",
+                token_message,
             )
         panel_user_uuid = str(db_user.panel_user_uuid)
         bot_token = str(db_user.pending_bot_token)

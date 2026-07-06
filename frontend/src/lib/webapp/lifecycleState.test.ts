@@ -166,33 +166,44 @@ describe("deriveLifecycleView", () => {
 describe("formatElapsed", () => {
   const now = Date.parse("2026-07-02T12:00:00Z");
 
+  // ponytail: ru-locale t() stand-in for tests; production uses the
+  // real i18n() from createI18n(). Format matches en.json/ru.json.
+  const t = (key: string, params: Record<string, unknown> = {}): string => {
+    const count = Number(params.count ?? 0);
+    if (key === "wa_elapsed_seconds") return `${count} сек назад`;
+    if (key === "wa_elapsed_minutes") return `${count} мин назад`;
+    if (key === "wa_elapsed_hours") return `${count} ч назад`;
+    if (key === "wa_elapsed_days") return `${count} дн назад`;
+    return key;
+  };
+
   it("returns empty string for invalid input", () => {
-    expect(formatElapsed(now, "")).toBe("");
-    expect(formatElapsed(now, "not-a-date")).toBe("");
+    expect(formatElapsed(now, "", t)).toBe("");
+    expect(formatElapsed(now, "not-a-date", t)).toBe("");
   });
 
   it("formats sub-minute deltas as seconds", () => {
-    const t = new Date(now - 30 * 1000).toISOString();
-    expect(formatElapsed(now, t)).toBe("30 сек назад");
+    const iso = new Date(now - 30 * 1000).toISOString();
+    expect(formatElapsed(now, iso, t)).toBe("30 сек назад");
   });
 
   it("formats sub-hour deltas as minutes", () => {
-    const t = new Date(now - 5 * 60 * 1000).toISOString();
-    expect(formatElapsed(now, t)).toBe("5 мин назад");
+    const iso = new Date(now - 5 * 60 * 1000).toISOString();
+    expect(formatElapsed(now, iso, t)).toBe("5 мин назад");
   });
 
   it("formats sub-day deltas as hours", () => {
-    const t = new Date(now - 3 * 60 * 60 * 1000).toISOString();
-    expect(formatElapsed(now, t)).toBe("3 ч назад");
+    const iso = new Date(now - 3 * 60 * 60 * 1000).toISOString();
+    expect(formatElapsed(now, iso, t)).toBe("3 ч назад");
   });
 
   it("formats multi-day deltas as days", () => {
-    const t = new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString();
-    expect(formatElapsed(now, t)).toBe("2 дн назад");
+    const iso = new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString();
+    expect(formatElapsed(now, iso, t)).toBe("2 дн назад");
   });
 
   it("clamps negative deltas to zero (clock skew safety)", () => {
-    const t = new Date(now + 5 * 1000).toISOString();
-    expect(formatElapsed(now, t)).toBe("0 сек назад");
+    const iso = new Date(now + 5 * 1000).toISOString();
+    expect(formatElapsed(now, iso, t)).toBe("0 сек назад");
   });
 });

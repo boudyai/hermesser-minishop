@@ -59,7 +59,7 @@ async def process_subscription_days_handler(
     target_user_id = data.get("target_user_id")
     tariff_key = data.get("subscription_tariff_key")
     if not target_user_id:
-        await message.answer("Error: target user not found in state")
+        await message.answer(_("tg_admin_target_user_missing_state"))
         await state.clear()
         return
     tariff_key, tariff_error = _resolve_admin_period_tariff_key(settings, tariff_key)
@@ -155,7 +155,7 @@ async def process_direct_message_handler(
     data = await state.get_data()
     target_user_id = data.get("target_user_id")
     if not target_user_id:
-        await message.answer("Error: target user not found in state")
+        await message.answer(_("tg_admin_target_user_missing_state"))
         await state.clear()
         return
 
@@ -169,7 +169,7 @@ async def process_direct_message_handler(
         # Get target user
         target_user = await user_dal.get_user_by_id(session, target_user_id)
         if not target_user:
-            await message.answer("Target user not found")
+            await message.answer(_("tg_admin_target_user_not_found"))
             await state.clear()
             return
 

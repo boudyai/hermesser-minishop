@@ -76,8 +76,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
         # Mini-App open, or a user whose panel_user_uuid is registered
         # but no subscription row exists yet).
         hermes_mode = (
-            str(getattr(self.settings.panel_settings, "write_mode", "") or "").lower()
-            == "hermes"
+            str(getattr(self.settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
         )
 
         if local_active_sub:

@@ -217,15 +217,18 @@ async def admin_user_telegram_profile_link_route(request: web.Request) -> web.Re
         telegram_id=telegram_id,
     )
     if message_text == "admin_user_profile_link_message":
+        prompt_text = translate("tg_admin_open_profile_prompt")
+        if prompt_text == "tg_admin_open_profile_prompt":
+            prompt_text = "Нажмите кнопку ниже, чтобы открыть профиль в Telegram."
         message_text = (
             f"Профиль пользователя: <b>{html_escape(target_name)}</b>\n"
             f"User ID: <code>{target_user.user_id}</code>\n"
             f"Telegram ID: <code>{telegram_id}</code>\n\n"
-            "Нажмите кнопку ниже, чтобы открыть профиль в Telegram."
+            f"{prompt_text}"
         )
 
-    button_text = translate("user_card_open_profile_button")
-    if button_text == "user_card_open_profile_button":
+    button_text = translate("tg_admin_open_profile_button")
+    if button_text == "tg_admin_open_profile_button":
         button_text = "👤 Открыть профиль"
 
     markup = InlineKeyboardMarkup(

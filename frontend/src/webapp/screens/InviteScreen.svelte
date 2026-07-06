@@ -170,7 +170,7 @@
         <Tooltip.Root open={Boolean(promoFieldError)}>
           <Input
             value={promoCode}
-            placeholder="PROMO2026"
+            placeholder={t("wa_activate_promo_placeholder", {}, "PROMO2026")}
             readonly={Boolean(promoEffectStatus)}
             class={[
               "promo-code-input",

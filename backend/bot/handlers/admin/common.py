@@ -42,13 +42,13 @@ async def admin_panel_command_handler(
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
     if not i18n:
         logging.error("i18n missing in admin_panel_command_handler")
-        await message.answer("Language service error.")
+        await message.answer(_("tg_admin_language_service_error"))
         return
 
     await state.clear()
-    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
     await message.answer(
         _(key="admin_panel_title"),
         reply_markup=get_admin_panel_keyboard(i18n, current_lang, settings),
@@ -257,7 +257,7 @@ async def show_queue_status_handler(callback: types.CallbackQuery, i18n_data: di
         from aiogram.utils.keyboard import InlineKeyboardBuilder
 
         await callback_message(callback).edit_text(
-            "❌ Система очередей не инициализирована",
+            _("admin_error_queue_unavailable"),
             reply_markup=InlineKeyboardBuilder()
             .button(text=_("back_to_admin_panel_button"), callback_data="admin_action:main")
             .as_markup(),
@@ -289,4 +289,4 @@ async def show_queue_status_handler(callback: types.CallbackQuery, i18n_data: di
 
     except Exception as e:
         logging.error(f"Error getting queue status: {e}")
-        await callback.answer("❌ Ошибка получения статуса очередей", show_alert=True)
+        await callback.answer(_("tg_admin_queue_status_error"), show_alert=True)

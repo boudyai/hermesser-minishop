@@ -332,7 +332,7 @@ async def create_promo_code_final(
         valid_until_str = (
             _("admin_promo_unlimited")
             if not data.get("validity_days")
-            else f"{data['validity_days']} дней"
+            else _("tg_admin_promo_validity_days", days=data["validity_days"])
         )
         success_text = _(
             "admin_promo_created_success",

@@ -57,8 +57,7 @@ async def admin_me_route(request: web.Request) -> web.Response:
     user_id = _require_admin_user_id(request)
     settings: Settings = get_settings(request)
     write_mode = str(
-        getattr(getattr(settings, "panel_settings", None), "write_mode", "")
-        or "remnawave"
+        getattr(getattr(settings, "panel_settings", None), "write_mode", "") or "remnawave"
     ).lower()
     return _ok(
         AdminMeOut(

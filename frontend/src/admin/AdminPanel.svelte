@@ -883,7 +883,7 @@
         href={appRepositoryUrl}
         target="_blank"
         rel="noopener noreferrer"
-        title="Documentation"
+        title={at("admin_documentation_tooltip", {}, "Documentation")}
       >
         <span>remnawave-minishop</span>
         <span>{appVersion || "dev+local"}</span>
@@ -983,8 +983,8 @@
   {paymentStatusVariant}
   {panelWriteMode}
   {resolvedAvatarUrl}
-  {trafficLeftLabel}
-  {trafficOfLabel}
+  trafficLeftLabel={(used, limit) => trafficLeftLabel(used, limit, at)}
+  trafficOfLabel={(used, limit) => trafficOfLabel(used, limit, at)}
   {trafficPercentValue}
   {userDisplayName}
   {userInitials}

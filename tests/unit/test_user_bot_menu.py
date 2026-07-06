@@ -298,7 +298,13 @@ class UserBotMenuTests(unittest.TestCase):
             "premium_limit_bytes": 26 * gib,
         }
 
-        text = _format_premium_usage_limit(active)
+        def get_text(key: str, **kwargs: object) -> str:
+            assert key == "tg_premium_usage_limit_format"
+            used = kwargs.get("used", "")
+            limit = kwargs.get("limit", "")
+            return f"{used} из {limit}"
+
+        text = _format_premium_usage_limit(active, get_text)
 
         self.assertEqual(text, "1.25 GB из 26.00 GB")
         self.assertNotIn("None", text)

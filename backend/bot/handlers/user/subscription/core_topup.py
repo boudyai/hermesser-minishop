@@ -1,3 +1,5 @@
+from typing import Optional
+
 from aiogram import F, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -62,14 +64,24 @@ async def tariff_topup_list_callback(
     for package in currency_packages:
         builder.row(
             InlineKeyboardButton(
-                text=f"Обычный трафик +{package.gb:g} GB — {package.price:g} {currency}",
+                text=get_text(
+                    "tg_topup_traffic_button_regular",
+                    gb=package.gb,
+                    price=package.price,
+                    currency=currency,
+                ),
                 callback_data=f"tariff:package:{tariff.key}:{package.gb:g}",
             )
         )
     for package in premium_packages:
         builder.row(
             InlineKeyboardButton(
-                text=f"Premium-серверы +{package.gb:g} GB — {package.price:g} {currency}",
+                text=get_text(
+                    "tg_topup_traffic_button_premium",
+                    gb=package.gb,
+                    price=package.price,
+                    currency=currency,
+                ),
                 callback_data=f"tariff:premium_package:{tariff.key}:{package.gb:g}",
             )
         )
@@ -82,9 +94,7 @@ async def tariff_topup_list_callback(
     premium_lines = []
     carryover_lines = []
     if currency_packages or premium_packages:
-        carryover_lines.append(
-            "Докупленный трафик не сгорает: сначала расходуется месячный лимит, затем докупленный остаток."  # noqa: E501
-        )
+        carryover_lines.append(get_text("tg_topup_carried_over_note"))
     if int(active.get("premium_limit_bytes") or 0) > 0:
         premium_left = max(
             0,
@@ -94,12 +104,18 @@ async def tariff_topup_list_callback(
         labels = active.get("premium_node_labels") or active.get("premium_squad_labels") or []
         if labels:
             visible = [str(label) for label in labels[:8]]
-            premium_lines.append("Premium-лимит действует на:")
+            premium_lines.append(get_text("tg_topup_premium_limit_applies"))
             premium_lines.extend(f"• {label}" for label in visible)
             if len(labels) > len(visible):
-                premium_lines.append(f"• ... еще {len(labels) - len(visible)}")
+                premium_lines.append(
+                    get_text("tg_topup_more_items_ellipsis", count=len(labels) - len(visible))
+                )
         premium_lines.append(
-            f"Premium использовано: {_format_premium_usage_limit(active)}. Осталось: {premium_left / 2**30:.2f} GB."  # noqa: E501
+            get_text(
+                "tg_topup_premium_used_left",
+                used=_format_premium_usage_limit(active, get_text),
+                left=f"{premium_left / 2**30:.2f}",
+            )
         )
     text = get_text("choose_payment_method_traffic")
     if carryover_lines:
@@ -304,11 +320,13 @@ async def tariff_change_list_callback(
         session, callback.from_user.id
     )
     if not config or not active or not callback.message:
-        await callback.answer("Error", show_alert=True)
+        await callback.answer(
+            i18n.gettext(current_lang, "error_occurred_try_again"), show_alert=True
+        )
         return
     if len(config.enabled_tariffs) <= 1:
         await callback.answer(
-            "Смена тарифа недоступна: сейчас включен только один тариф.", show_alert=True
+            i18n.gettext(current_lang, "tg_tariff_change_only_one_available"), show_alert=True
         )
         return
     rows = []
@@ -332,7 +350,8 @@ async def tariff_change_list_callback(
         ]
     )
     await callback_message(callback).edit_text(
-        "Выберите тариф", reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
+        i18n.gettext(current_lang, "tg_select_tariff"),
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
     )
     await callback.answer()
 
@@ -349,7 +368,9 @@ async def tariff_change_select_callback(
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     config = settings.tariffs_config
     if not config or not callback.message:
-        await callback.answer("Error", show_alert=True)
+        await callback.answer(
+            i18n.gettext(current_lang, "error_occurred_try_again"), show_alert=True
+        )
         return
     tariff_key = callback_data(callback).split(":", 2)[2]
     target = config.require(tariff_key)
@@ -357,7 +378,9 @@ async def tariff_change_select_callback(
         session, callback.from_user.id
     )
     if not db_sub:
-        await callback.answer("Error", show_alert=True)
+        await callback.answer(
+            i18n.gettext(current_lang, "error_occurred_try_again"), show_alert=True
+        )
         return
     options = await subscription_service.calculate_tariff_switch_options_with_hwid(
         session, db_sub, target
@@ -369,7 +392,11 @@ async def tariff_change_select_callback(
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=f"Без доплаты, дней станет {options['recalc_days']}",
+                    text=i18n.gettext(
+                        current_lang,
+                        "tg_tariff_change_recalc_button",
+                        days=options["recalc_days"],
+                    ),
                     callback_data=f"tariff_change:confirm_apply:{target.key}:recalc_days",
                 )
             ]
@@ -378,7 +405,12 @@ async def tariff_change_select_callback(
             rows.append(
                 [
                     InlineKeyboardButton(
-                        text=f"Доплатить {options['paid_diff_rub']} {currency_code}",
+                        text=i18n.gettext(
+                            current_lang,
+                            "tg_tariff_change_topup_button",
+                            amount=options["paid_diff_rub"],
+                            currency=currency_code,
+                        ),
                         callback_data=f"tariff_change:confirm_pay:{target.key}:{options['paid_diff_rub']}",
                     )
                 ]
@@ -387,7 +419,11 @@ async def tariff_change_select_callback(
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=f"Перейти без доплаты, получить {options['converted_gb']} GB",
+                    text=i18n.gettext(
+                        current_lang,
+                        "tg_tariff_change_convert_button",
+                        gb=options["converted_gb"],
+                    ),
                     callback_data=f"tariff_change:confirm_apply:{target.key}:convert_days_to_gb",
                 )
             ]
@@ -396,7 +432,13 @@ async def tariff_change_select_callback(
             rows.append(
                 [
                     InlineKeyboardButton(
-                        text=f"+ {package.gb:g} GB за {package.price:g} {currency_code}",
+                        text=i18n.gettext(
+                            current_lang,
+                            "tg_topup_package_button",
+                            gb=package.gb,
+                            price=package.price,
+                            currency=currency_code,
+                        ),
                         callback_data=f"tariff:package:{target.key}:{package.gb:g}",
                     )
                 ]
@@ -408,7 +450,13 @@ async def tariff_change_select_callback(
                 rows.append(
                     [
                         InlineKeyboardButton(
-                            text=f"{months} мес. за {price:g} {currency_code}",
+                            text=i18n.gettext(
+                                current_lang,
+                                "tg_tariff_period_button",
+                                months=months,
+                                price=price,
+                                currency=currency_code,
+                            ),
                             callback_data=f"tariff:period:{target.key}:{months}",
                         )
                     ]
@@ -440,7 +488,9 @@ async def tariff_change_confirm_apply_callback(
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     config = settings.tariffs_config
     if not config or not callback.message:
-        await callback.answer("Error", show_alert=True)
+        await callback.answer(
+            i18n.gettext(current_lang, "error_occurred_try_again"), show_alert=True
+        )
         return
     _, _, tariff_key, mode = callback_data(callback).split(":", 3)
     target = config.require(tariff_key)
@@ -448,21 +498,32 @@ async def tariff_change_confirm_apply_callback(
         session, callback.from_user.id
     )
     if not db_sub:
-        await callback.answer("Error", show_alert=True)
+        await callback.answer(
+            i18n.gettext(current_lang, "error_occurred_try_again"), show_alert=True
+        )
         return
     options = await subscription_service.calculate_tariff_switch_options_with_hwid(
         session, db_sub, target
     )
     if mode == "recalc_days":
-        action_text = f"после перехода останется {options.get('recalc_days', 0)} дн."
+        action_text = i18n.gettext(
+            current_lang,
+            "tg_tariff_change_recalc_action",
+            days=options.get("recalc_days", 0),
+        )
     elif mode == "convert_days_to_gb":
-        action_text = f"будет начислено {options.get('converted_gb', 0)} GB трафика"
+        action_text = i18n.gettext(
+            current_lang,
+            "tg_tariff_change_convert_action",
+            gb=options.get("converted_gb", 0),
+        )
     else:
-        action_text = "тариф будет изменен без доплаты"
+        action_text = i18n.gettext(current_lang, "tg_tariff_change_noop_action")
     rows = [
         [
             InlineKeyboardButton(
-                text="✅ Подтвердить", callback_data=f"tariff_change:apply:{target.key}:{mode}"
+                text=i18n.gettext(current_lang, "wa_confirm"),
+                callback_data=f"tariff_change:apply:{target.key}:{mode}",
             )
         ],
         [
@@ -473,7 +534,12 @@ async def tariff_change_confirm_apply_callback(
         ],
     ]
     await callback_message(callback).edit_text(
-        f"Подтвердите смену тарифа\n\nНовый тариф: {target.name(current_lang)}\nИзменение: {action_text}",  # noqa: E501
+        i18n.gettext(
+            current_lang,
+            "tg_tariff_change_confirm_apply_text",
+            name=target.name(current_lang),
+            action=action_text,
+        ),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
     )
     await callback.answer()
@@ -487,7 +553,9 @@ async def tariff_change_confirm_pay_callback(
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     config = settings.tariffs_config
     if not config or not callback.message:
-        await callback.answer("Error", show_alert=True)
+        await callback.answer(
+            i18n.gettext(current_lang, "error_occurred_try_again"), show_alert=True
+        )
         return
     _, _, tariff_key, amount_raw = callback_data(callback).split(":", 3)
     target = config.require(tariff_key)
@@ -495,7 +563,7 @@ async def tariff_change_confirm_pay_callback(
     rows = [
         [
             InlineKeyboardButton(
-                text="✅ Подтвердить и оплатить",
+                text=i18n.gettext(current_lang, "wa_confirm_and_pay"),
                 callback_data=f"tariff_change:pay:{target.key}:{amount_raw}",
             )
         ],
@@ -507,7 +575,13 @@ async def tariff_change_confirm_pay_callback(
         ],
     ]
     await callback_message(callback).edit_text(
-        f"Подтвердите смену тарифа\n\nНовый тариф: {target.name(current_lang)}\nБудет создана оплата на {amount_raw} {currency_code}.",  # noqa: E501
+        i18n.gettext(
+            current_lang,
+            "tg_tariff_change_confirm_pay_text",
+            name=target.name(current_lang),
+            amount=amount_raw,
+            currency=currency_code,
+        ),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
     )
     await callback.answer()
@@ -521,13 +595,16 @@ async def tariff_change_apply_callback(
     subscription_service: SubscriptionService,
     session: AsyncSession,
 ) -> None:
+    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
+    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
     _, _, tariff_key, mode = callback_data(callback).split(":", 3)
     result = await subscription_service.switch_tariff_without_payment(
         session, callback.from_user.id, tariff_key, mode
     )
     if result:
         await session.commit()
-        await callback.answer("Готово", show_alert=True)
+        await callback.answer(get_text("admin_done"), show_alert=True)
         await my_subscription_command_handler(
             callback,
             i18n_data,
@@ -538,7 +615,9 @@ async def tariff_change_apply_callback(
             callback_bot(callback),
         )
     else:
-        await callback.answer("Error", show_alert=True)
+        await callback.answer(
+            get_text("error_occurred_try_again"), show_alert=True
+        )
 
 
 @router.callback_query(F.data.startswith("tariff_change:pay:"))
@@ -546,7 +625,8 @@ async def tariff_change_pay_callback(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: JsonI18n = i18n_data.get("i18n_instance")
+    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
     _, _, tariff_key, amount_raw = callback_data(callback).split(":", 3)
     amount = float(amount_raw)
     currency_code = default_payment_currency_code_for_settings(settings)
@@ -562,5 +642,7 @@ async def tariff_change_pay_callback(
         back_callback=f"tariff_change:confirm_pay:{tariff_key}:{amount_raw}",
         user_id=callback.from_user.id,
     )
-    await callback_message(callback).edit_text("Выберите способ оплаты", reply_markup=markup)
+    await callback_message(callback).edit_text(
+        get_text("choose_payment_method"), reply_markup=markup
+    )
     await callback.answer()

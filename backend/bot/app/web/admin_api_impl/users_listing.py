@@ -199,10 +199,7 @@ def _is_hermes_mode(settings: Settings) -> bool:
     is the panel backend)."""
     try:
         return (
-            str(
-                getattr(getattr(settings, "panel_settings", None), "write_mode", "")
-                or ""
-            ).lower()
+            str(getattr(getattr(settings, "panel_settings", None), "write_mode", "") or "").lower()
             == "hermes"
         )
     except Exception:

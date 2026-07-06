@@ -224,8 +224,8 @@
 
   function premiumTrafficBadgeText(pt: TrafficBadge): string {
     if (!pt || pt.state === "none") return "";
-    if (pt.state === "unlimited") return trafficOfLabel(pt.used_bytes, 0);
-    return trafficOfLabel(pt.used_bytes, pt.limit_bytes);
+    if (pt.state === "unlimited") return trafficOfLabel(pt.used_bytes, 0, at);
+    return trafficOfLabel(pt.used_bytes, pt.limit_bytes, at);
   }
 
   // ponytail: CornLLM balance formatter. We render whole rubles (1 USD = 100 RUB,

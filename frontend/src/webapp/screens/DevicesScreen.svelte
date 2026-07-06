@@ -64,7 +64,7 @@
   const deviceList = $derived(Array.isArray(devicesData?.devices) ? devicesData.devices : []);
   const hasDevices = $derived(deviceList.length > 0);
   const subscriptionNotActiveError = $derived(
-    devicesErrorCode === "subscription_not_active" || devicesStatus === "Subscription is not active"
+    devicesErrorCode === "subscription_not_active" || devicesStatus === t("wa_subscription_not_active")
   );
   const hideDevicesSummary = $derived(!subscription?.active && !hasDevices);
   const showInactiveDevicesNotice = $derived(
@@ -165,13 +165,13 @@
             {/if}
             {#if device.hwid_short}
               <div>
-                <span>HWID</span>
+                <span>{t("wa_devices_hwid_label")}</span>
                 <code>{device.hwid_short}</code>
               </div>
             {/if}
             {#if device.user_agent}
               <div class="device-user-agent">
-                <span>User Agent</span>
+                <span>{t("wa_devices_user_agent_label")}</span>
                 <small>{device.user_agent}</small>
               </div>
             {/if}

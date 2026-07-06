@@ -163,10 +163,11 @@ class NotificationSupportMixin:
         ticket_path = (
             f"/admin/support/{ticket.ticket_id}" if admin else f"/support/{ticket.ticket_id}"
         )
+        admin_lang = getattr(user, "language_code", None) or self.settings.DEFAULT_LANGUAGE
         rows = [
             [
                 self._support_mini_app_button(
-                    text="Открыть тикет",
+                    text=self._support_text(admin_lang, "wa_support_open_ticket", "Открыть тикет"),
                     path=ticket_path,
                     fallback_url=self._support_ticket_url(ticket.ticket_id, admin=admin),
                     web_app_button=web_app_buttons,
@@ -177,13 +178,18 @@ class NotificationSupportMixin:
             profile_row = []
             if getattr(user, "user_id", 0) and int(user.user_id) > 0:
                 profile_row.append(
-                    InlineKeyboardButton(text="Профиль", url=f"tg://user?id={user.user_id}")
+                    InlineKeyboardButton(
+                        text=self._support_text(admin_lang, "tg_support_profile_button", "Профиль"),
+                        url=f"tg://user?id={user.user_id}",
+                    )
                 )
             user_card_path = f"/admin/users/{user.user_id}"
             if self._support_webapp_url(user_card_path):
                 profile_row.append(
                     self._support_mini_app_button(
-                        text="Карточка пользователя",
+                        text=self._support_text(
+                            admin_lang, "tg_support_user_card_button", "Карточка пользователя"
+                        ),
                         path=user_card_path,
                         fallback_url=self._support_ticket_url(ticket.ticket_id, admin=True),
                         web_app_button=web_app_buttons,
@@ -279,16 +285,28 @@ class NotificationSupportMixin:
         )
         preview = self._support_preview(first_message)
         user_display = self._support_user_display(user)
+        admin_lang = self.settings.DEFAULT_LANGUAGE
+        _t = lambda key, **kw: self.i18n.gettext(admin_lang, key, **kw) if self.i18n else key
+        end_date = hd.quote(str(snapshot.get("end_date") or "—"))
+        remaining = hd.quote(str(snapshot.get("remaining") or "—"))
+        panel_status = hd.quote(str(snapshot.get("panel_status") or "—"))
+        tariff = hd.quote(str(snapshot.get("tariff") or "—"))
         message = (
-            f"🆘 <b>Новый тикет #{ticket.ticket_id}</b>\n"
-            f"{priority_emoji} <b>{hd.quote(ticket.priority)}</b> · {hd.quote(ticket.category)}\n\n"
-            f"<b>Пользователь</b>\n{hd.quote(user_display)}\nID: <code>{user.user_id}</code>\n\n"
-            f"<b>Подписка</b>\n"
-            f"{hd.quote(str(snapshot.get('tariff') or '—'))}, "
-            f"до {hd.quote(str(snapshot.get('end_date') or '—'))}, "
-            f"осталось {hd.quote(str(snapshot.get('remaining') or '—'))}\n"
-            f"статус: {hd.quote(str(snapshot.get('panel_status') or '—'))}\n\n"
-            f"<b>Текст обращения</b>\n{hd.quote(preview)}"
+            _t("tg_admin_new_ticket_notification", ticket_id=ticket.ticket_id)
+            + (
+                f"{priority_emoji} <b>{hd.quote(ticket.priority)}</b> · "
+                f"{hd.quote(ticket.category)}\n\n"
+            )
+            + _t("tg_admin_ticket_user")
+            + f"{hd.quote(user_display)}\nID: <code>{user.user_id}</code>\n\n"
+            + _t("tg_admin_ticket_subscription")
+            + f"{tariff}, "
+            + _t("tg_admin_ticket_until", date=end_date)
+            + _t("tg_admin_ticket_remaining", remaining=remaining)
+            + _t("tg_admin_ticket_status", status=panel_status)
+            + "\n"
+            + _t("tg_admin_ticket_text")
+            + f"{hd.quote(preview)}"
         )
         admin_keyboard = self._support_keyboard(ticket, user, admin=True)
         log_keyboard = self._support_keyboard(ticket, user, admin=True, web_app_buttons=False)
@@ -327,9 +345,11 @@ class NotificationSupportMixin:
             if unread_count is not None and int(unread_count or 0) > 1
             else ""
         )
+        admin_lang = self.settings.DEFAULT_LANGUAGE
+        _t = lambda key, **kw: self.i18n.gettext(admin_lang, key, **kw) if self.i18n else key
         text = (
-            f"💬 <b>Ответ пользователя в тикете #{ticket.ticket_id}</b>\n"
-            f"{hd.quote(user_display)}{unread_line}\n\n{hd.quote(preview)}"
+            _t("tg_user_ticket_reply_admin", ticket_id=ticket.ticket_id)
+            + f"{hd.quote(user_display)}{unread_line}\n\n{hd.quote(preview)}"
         )
         if send_telegram and getattr(self.settings, "LOG_SUPPORT", True):
             admin_keyboard = self._support_keyboard(ticket, user, admin=True)
@@ -355,7 +375,9 @@ class NotificationSupportMixin:
     ) -> None:
         preview = self._support_preview(message.body, limit=500)
         url = self._support_ticket_url(ticket.ticket_id, admin=False)
-        text = f"💬 <b>Новый ответ по тикету #{ticket.ticket_id}</b>\n\n{hd.quote(preview)}"
+        user_lang = getattr(user, "language_code", None) or self.settings.DEFAULT_LANGUAGE
+        _t = lambda key, **kw: self.i18n.gettext(user_lang, key, **kw) if self.i18n else key
+        text = _t("tg_user_ticket_reply_user", ticket_id=ticket.ticket_id) + hd.quote(preview)
         keyboard = self._support_user_keyboard(ticket, user)
         if int(user.user_id) > 0:
             queue_manager = get_queue_manager()
@@ -392,7 +414,11 @@ class NotificationSupportMixin:
         self, ticket: SupportTicket, user: User, closing_admin: User | None
     ) -> None:
         url = self._support_ticket_url(ticket.ticket_id, admin=False)
-        text = f"✅ <b>Тикет #{ticket.ticket_id} закрыт</b>\n\n{hd.quote(ticket.subject)}"
+        user_lang = getattr(user, "language_code", None) or self.settings.DEFAULT_LANGUAGE
+        _t = lambda key, **kw: self.i18n.gettext(user_lang, key, **kw) if self.i18n else key
+        text = _t("tg_user_ticket_closed_user", ticket_id=ticket.ticket_id) + hd.quote(
+            ticket.subject
+        )
         keyboard = self._support_user_keyboard(ticket, user)
         if int(user.user_id) > 0:
             queue_manager = get_queue_manager()

@@ -97,7 +97,7 @@ async def users_list_handler(
 
     except Exception as e:
         logging.error(f"Error displaying user list: {e}")
-        await callback.answer("Ошибка отображения списка пользователей", show_alert=True)
+        await callback.answer(_("tg_admin_user_list_render_error"), show_alert=True)
 
 
 async def user_search_prompt_handler(

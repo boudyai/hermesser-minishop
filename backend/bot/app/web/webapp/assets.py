@@ -653,10 +653,7 @@ async def share_link_redirect_route(request: web.Request) -> web.Response:
     look up the customer's bot: the share token itself is unused now.
     """
     settings: Settings = get_settings(request)
-    target = (
-        str(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", "") or "").strip()
-        or "/install"
-    )
+    target = str(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", "") or "").strip() or "/install"
     raise web.HTTPFound(location=target)
 
 

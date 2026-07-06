@@ -83,12 +83,22 @@ def _support_admin_notification_decision(
     return AdminNotificationDecision(send_telegram=send_telegram, send_email=send_email)
 
 
-def _format_support_remaining(seconds: int, lang: str) -> str:
+def _format_support_remaining(seconds: int, lang: str, i18n: Optional[JsonI18n] = None) -> str:
     if seconds <= 0:
+        if i18n:
+            return i18n.gettext(lang, "tg_support_remaining_subscription_inactive")
         return "Subscription inactive" if lang == "en" else "Подписка не активна"
     days, rem = divmod(seconds, 86400)
     hours, rem = divmod(rem, 3600)
     minutes = rem // 60
+    if i18n:
+        if days > 0:
+            return i18n.gettext(lang, "tg_support_remaining_days_hours", days=days, hours=hours)
+        if hours > 0:
+            return i18n.gettext(
+                lang, "tg_support_remaining_hours_minutes", hours=hours, minutes=minutes
+            )
+        return i18n.gettext(lang, "tg_support_remaining_minutes", minutes=max(1, minutes))
     if lang == "en":
         if days > 0:
             return f"{days} d. {hours} h."
@@ -434,7 +444,7 @@ class SupportService:
                 "subscription_active": bool(sub),
                 "panel_status": getattr(sub, "status_from_panel", None) if sub else None,
                 "end_date": end_date.isoformat() if end_date else None,
-                "remaining": _format_support_remaining(seconds_left, lang),
+                "remaining": _format_support_remaining(seconds_left, lang, self.i18n),
                 "tariff": tariff_name or (getattr(sub, "tariff_key", None) if sub else ""),
                 "traffic_regular": self._traffic_snapshot(
                     getattr(sub, "traffic_used_bytes", 0) if sub else 0,

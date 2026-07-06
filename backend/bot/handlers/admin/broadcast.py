@@ -268,7 +268,7 @@ async def confirm_broadcast_callback_handler(
         queue_manager = get_queue_manager()
         if not queue_manager:
             await callback_message(callback).edit_text(
-                "❌ Ошибка: система очередей не инициализирована", reply_markup=None
+                _("admin_error_queue_unavailable"), reply_markup=None
             )
             return
 

@@ -97,15 +97,19 @@ function emptyView(state: LifecycleState): LifecycleView {
 
 // "X ago" formatter used in the provisioning / error / grace cards.
 // Pure function (no Date.now) so tests can pin the clock.
-export function formatElapsed(now: number, iso: string): string {
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return "";
-  const seconds = Math.max(0, Math.floor((now - t) / 1000));
-  if (seconds < 60) return `${seconds} сек назад`;
+export function formatElapsed(
+  now: number,
+  iso: string,
+  t: (key: string, params?: Record<string, unknown>) => string
+): string {
+  const parsed = Date.parse(iso);
+  if (!Number.isFinite(parsed)) return "";
+  const seconds = Math.max(0, Math.floor((now - parsed) / 1000));
+  if (seconds < 60) return t("wa_elapsed_seconds", { count: seconds });
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} мин назад`;
+  if (minutes < 60) return t("wa_elapsed_minutes", { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} ч назад`;
+  if (hours < 24) return t("wa_elapsed_hours", { count: hours });
   const days = Math.floor(hours / 24);
-  return `${days} дн назад`;
+  return t("wa_elapsed_days", { count: days });
 }

@@ -12,11 +12,13 @@ tenant's ``litellm_keys.max_budget`` via provisioning-core.
 from __future__ import annotations
 
 import logging
+from typing import Any, Optional
 
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
+    get_i18n,
     get_session_factory,
     get_settings,
 )
@@ -31,7 +33,11 @@ from db.dal import user_dal
 logger = logging.getLogger(__name__)
 
 
-def _cornllm_topup_description(lang: str, amount_rub: float) -> str:
+def _cornllm_topup_description(
+    lang: str, amount_rub: float, i18n_instance: Optional[Any] = None
+) -> str:
+    if i18n_instance:
+        return i18n_instance.gettext(lang, "tg_cornllm_topup_description", amount=amount_rub)
     if lang == "en":
         return f"CornLLM budget top-up +{amount_rub:.0f} RUB"
     return f"Пополнение CornLLM +{amount_rub:.0f} ₽"
@@ -66,6 +72,7 @@ async def cornllm_topup_route(request: web.Request) -> web.Response:
 
     currency_code = default_payment_currency_code_for_settings(settings)
     amount_rub = float(payload.amount_rub)
+    i18n_instance = get_i18n(request)
 
     provider_spec = get_provider_spec(method)
     if not provider_spec or not provider_spec.create_webapp_payment:
@@ -92,7 +99,7 @@ async def cornllm_topup_route(request: web.Request) -> web.Response:
         price=amount_rub,
         stars_price=None,
         currency=currency_code,
-        description=_cornllm_topup_description(lang, amount_rub),
+        description=_cornllm_topup_description(lang, amount_rub, i18n_instance),
         sale_mode="cornllm_topup",
         traffic_gb=None,
     )

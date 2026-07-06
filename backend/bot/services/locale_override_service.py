@@ -435,6 +435,7 @@ INTERNAL_LOCALE_KEY_PREFIXES = (
     "notifications_",
     "panel_",
     "sync_",
+    "tg_admin_",
 )
 
 

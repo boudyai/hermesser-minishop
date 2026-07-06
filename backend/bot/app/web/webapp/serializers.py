@@ -577,9 +577,7 @@ def _serialize_subscription(
     # The token still gets persisted on the subscription row when other
     # flows (proxy shop) generate it, but we never expose it on the wire.
     serialized_share_token = (
-        None
-        if hermes_mode
-        else subscription_dal.normalize_install_share_token(share_token) or None
+        None if hermes_mode else subscription_dal.normalize_install_share_token(share_token) or None
     )
     serialized_share_url = (
         None if hermes_mode else _build_install_share_link(request, settings, share_token)

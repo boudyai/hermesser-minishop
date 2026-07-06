@@ -12,6 +12,7 @@ See initial-docs/minishop-integration-map.md §1/§3 for the full method map.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from typing import Any, Dict, List, Optional
@@ -29,6 +30,40 @@ except ImportError:
     from config.settings import Settings  # type: ignore[no-redef]
 
 log = logging.getLogger(__name__)
+
+
+def _localize_core_error(settings: Any, status_code: int, body: str) -> Dict[str, Any]:
+    """Translate a provisioning-core error response via the minishop i18n catalog.
+
+    The provisioning-core API returns ``{"detail": {"error_code": ..., "params": ...}}``
+    on HTTPException. We look up the ``error_code`` in the same locale catalog the
+    bot uses, fall back to the English ``message`` field the core shipped, and
+    fall back further to ``body[:500]`` when the body isn't parseable JSON.
+    """
+    try:
+        data = json.loads(body)
+    except (json.JSONDecodeError, ValueError):
+        return {"error": True, "status_code": status_code, "message": body[:500]}
+    detail = data.get("detail") if isinstance(data, dict) else None
+    if not isinstance(detail, dict):
+        return {"error": True, "status_code": status_code, "message": body[:500]}
+    error_code = detail.get("error_code")
+    if not error_code:
+        message = detail.get("message") if isinstance(detail, str) else body[:500]
+        return {"error": True, "status_code": status_code, "message": message}
+    from bot.middlewares.i18n import get_i18n_instance
+
+    i18n = get_i18n_instance()
+    lang = getattr(settings, "DEFAULT_LANGUAGE", "en") or "en"
+    raw_params = detail.get("params")
+    params: Dict[str, Any] = raw_params if isinstance(raw_params, dict) else {}
+    message = i18n.gettext(lang, str(error_code), **params)
+    return {
+        "error": True,
+        "status_code": status_code,
+        "message": message,
+        "error_code": error_code,
+    }
 
 
 class HermesProvisioningService(PanelApiService):
@@ -168,7 +203,7 @@ class HermesProvisioningService(PanelApiService):
                 }
             body = await resp.text()
             log.error("provisioning-core POST /shop/tenants failed: %s %s", resp.status, body[:200])
-            return {"error": True, "status_code": resp.status, "message": body[:500]}
+            return _localize_core_error(self.settings, resp.status, body)
 
     async def update_user_details_on_panel(
         self, user_uuid: str, update_payload: Dict[str, Any], log_response: bool = False
@@ -500,9 +535,7 @@ class HermesProvisioningService(PanelApiService):
             )
             return None
 
-    async def get_tenant_cornllm_key(
-        self, tenant_id: str
-    ) -> Optional[Dict[str, Any]]:
+    async def get_tenant_cornllm_key(self, tenant_id: str) -> Optional[Dict[str, Any]]:
         """Fetch the tenant's CornLLM virtual key for the user-facing
         Settings UI. Returns None on 404 (no active key) or 5xx; the
         caller renders the appropriate copy.

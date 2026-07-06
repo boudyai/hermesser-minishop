@@ -75,6 +75,7 @@ def get_tariff_catalog_keyboard(
     builder = InlineKeyboardBuilder()
     callback_context = callback_context or callback_context_from_back_callback(back_callback)
     default_currency = default_currency_key_for_settings(settings) if settings else "rub"
+    _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     for tariff in tariffs:
         label = tariff.name(lang)
         if tariff.billing_model == "period":
@@ -85,7 +86,7 @@ def get_tariff_catalog_keyboard(
             else:
                 min_price = None
             if min_price is not None:
-                label = f"{label} от {min_price:g}"
+                label = _("tg_tariff_button_from_price", label=label, price=min_price)
         else:
             if hasattr(tariff, "min_traffic_package"):
                 package = tariff.min_traffic_package(default_currency)
@@ -94,7 +95,7 @@ def get_tariff_catalog_keyboard(
             else:
                 package = None
             if package:
-                label = f"{label} от {package.price:g} / {package.gb:g} GB"
+                label = _("tg_tariff_button_from_price", label=label, price=package.price)
         builder.row(
             InlineKeyboardButton(
                 text=label,
@@ -102,7 +103,6 @@ def get_tariff_catalog_keyboard(
                 f"{callback_suffix_for_context(callback_context)}",
             )
         )
-    _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder.row(
         InlineKeyboardButton(text=_(key="back_to_main_menu_button"), callback_data=back_callback)
     )

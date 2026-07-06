@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
+    get_i18n,
     get_session_factory,
     get_settings,
     get_subscription_service,
@@ -764,12 +765,15 @@ async def _create_subscription_payment(
     sale_mode = str(sale_mode or "subscription")
     traffic_sale = _sale_mode_is_traffic(sale_mode)
     hwid_devices_sale = _sale_mode_is_hwid_devices(sale_mode)
+    i18n_instance = get_i18n(request)
     description = (
-        _traffic_payment_description(float(traffic_gb if traffic_gb is not None else months), lang)
+        _traffic_payment_description(
+            float(traffic_gb if traffic_gb is not None else months), lang, i18n_instance
+        )
         if traffic_sale
-        else _hwid_devices_payment_description(int(float(months)), lang)
+        else _hwid_devices_payment_description(int(float(months)), lang, i18n_instance)
         if hwid_devices_sale
-        else _payment_description(int(months), lang)
+        else _payment_description(int(months), lang, i18n_instance)
     )
 
     from bot.payment_providers import WebAppPaymentContext, get_provider_spec

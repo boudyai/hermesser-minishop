@@ -633,10 +633,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
     # (see users_listing.py) so the wire shape matches the list endpoint.
     cornllm_payload: Dict[str, Any] = {"state": "none"}
     hermes_mode = (
-        str(
-            getattr(getattr(settings, "panel_settings", None), "write_mode", "")
-            or ""
-        ).lower()
+        str(getattr(getattr(settings, "panel_settings", None), "write_mode", "") or "").lower()
         == "hermes"
     )
     if hermes_mode and panel_uuid:
@@ -656,9 +653,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
                 # quota falsy = no key yet; leave "none" so the UI shows
                 # "no key" instead of a misleading 0.
             except Exception as exc_quota:  # pragma: no cover — best-effort
-                logger.debug(
-                    "CornLLM quota fetch failed for user %s: %s", target_id, exc_quota
-                )
+                logger.debug("CornLLM quota fetch failed for user %s: %s", target_id, exc_quota)
                 cornllm_payload = {"state": "unreachable"}
 
     return _ok(

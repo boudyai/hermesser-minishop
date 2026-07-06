@@ -199,7 +199,7 @@
         />
         {#if customParsed !== null}
           <span style="color: var(--muted); font-size: 11px;">
-            {submitAmountValid ? "→" : "✗"} {submitAmount} ₽{#if !submitAmountValid} (минимум {MIN_RUB} ₽){/if}
+            {submitAmountValid ? "→" : "✗"} {submitAmount} ₽{#if !submitAmountValid} {t("wa_topup_below_minimum_hint", { minimum: MIN_RUB })} {/if}
           </span>
         {/if}
       </label>

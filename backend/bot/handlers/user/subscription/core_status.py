@@ -277,24 +277,32 @@ async def my_subscription_command_handler(
         premium_used = int(active.get("premium_used_bytes") or 0)
         premium_left = max(0, premium_limit - premium_used)
         premium_balance = int(active.get("premium_topup_balance_bytes") or 0)
-        premium_status = "ограничен" if active.get("premium_is_limited") else "активен"
+        premium_status = (
+            get_text("tg_premium_status_limited")
+            if active.get("premium_is_limited")
+            else get_text("tg_premium_status_active")
+        )
         labels = active.get("premium_node_labels") or active.get("premium_squad_labels") or []
         if labels:
             visible = [html.escape(str(label)) for label in labels[:8]]
             label_block = "\n".join(f"• {label}" for label in visible)
             if len(labels) > len(visible):
-                label_block += f"\n• ... еще {len(labels) - len(visible)}"
+                label_block += "\n" + get_text(
+                    "tg_topup_more_items_ellipsis", count=len(labels) - len(visible)
+                )
         else:
-            label_block = "• premium-серверы тарифа"
+            label_block = "• " + get_text("tg_premium_default_servers_label")
+        premium_usage = _format_premium_usage_limit(active, get_text)
         text += (
-            "\n\n🚀 <b>Premium-серверы</b>\n"
-            f"Статус: <b>{premium_status}</b>\n"
-            f"Лимит: <b>{_format_premium_usage_limit(active)}</b>\n"
-            f"Осталось: <b>{premium_left / 2**30:.2f} GB</b>\n"
-            f"Докупленный остаток: <b>{premium_balance / 2**30:.2f} GB</b>\n"
-            "Отдельный лимит действует на:\n"
-            f"{label_block}\n\n"
-            "Premium-докупка не сгорает: сначала расходуется месячный лимит premium-серверов, затем докупленный premium-трафик."  # noqa: E501
+            "\n\n"
+            + get_text("tg_premium_section_title")
+            + get_text("tg_premium_status_label", status=premium_status)
+            + get_text("tg_premium_limit_label", limit=premium_usage)
+            + get_text("tg_premium_left_label", left=f"{premium_left / 2**30:.2f}")
+            + get_text("tg_premium_balance_label", balance=f"{premium_balance / 2**30:.2f}")
+            + get_text("tg_premium_limit_scope_label")
+            + f"{label_block}\n\n"
+            + get_text("tg_premium_topup_carried_note")
         )
 
     base_markup = get_back_to_main_menu_markup(
@@ -490,7 +498,10 @@ async def my_subscription_command_handler(
             tariff_actions = []
             if _has_multiple_enabled_tariffs(settings):
                 tariff_actions.append(
-                    InlineKeyboardButton(text="Сменить тариф", callback_data="tariff_change:list")
+                    InlineKeyboardButton(
+                        text=get_text("wa_change_tariff"),
+                        callback_data="tariff_change:list",
+                    )
                 )
             try:
                 tariff = settings.tariffs_config.require(local_sub.tariff_key)
@@ -503,7 +514,10 @@ async def my_subscription_command_handler(
                 has_topup_packages = False
             if has_topup_packages:
                 tariff_actions.append(
-                    InlineKeyboardButton(text="Докупить трафик", callback_data="tariff_topup:list")
+                    InlineKeyboardButton(
+                        text=get_text("wa_topup_traffic"),
+                        callback_data="tariff_topup:list",
+                    )
                 )
             if tariff_actions:
                 prepend_rows.append(tariff_actions)

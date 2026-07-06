@@ -1,8 +1,8 @@
 export { structuredCloneSafe } from "../safeClone.js";
 
-export function pretty(value) {
+export function pretty(value, at) {
   if (value === null || value === undefined) return "—";
-  if (typeof value === "boolean") return value ? "Да" : "Нет";
+  if (typeof value === "boolean") return at ? (value ? at("admin_yes_label") : at("admin_no_label")) : value ? "Да" : "Нет";
   return String(value);
 }
 
@@ -45,15 +45,18 @@ export function trafficPercentValue(used, limit) {
   return Math.max(0, Math.min(100, Math.round((usedBytes / limitBytes) * 100)));
 }
 
-export function trafficLeftLabel(used, limit) {
+export function trafficLeftLabel(used, limit, at) {
   const limitBytes = Number(limit || 0);
-  if (!limitBytes || limitBytes <= 0) return "Без лимита";
+  if (!limitBytes || limitBytes <= 0) return at ? at("admin_no_limit") : "Без лимита";
   return fmtTrafficBytes(Math.max(0, limitBytes - Number(used || 0)));
 }
 
-export function trafficOfLabel(used, limit) {
+export function trafficOfLabel(used, limit, at) {
   const limitBytes = Number(limit || 0);
-  if (!limitBytes || limitBytes <= 0) return `${fmtTrafficBytes(used)} / без лимита`;
+  if (!limitBytes || limitBytes <= 0) {
+    const unlimited = at ? at("admin_limit_unlimited") : "без лимита";
+    return `${fmtTrafficBytes(used)} / ${unlimited}`;
+  }
   return `${fmtTrafficBytes(used)} / ${fmtTrafficBytes(limit)}`;
 }
 

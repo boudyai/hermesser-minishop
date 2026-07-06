@@ -115,10 +115,10 @@ async def sync_status_command_handler(
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
     if not i18n:
-        await message.answer("Language error.")
+        await message.answer(_("tg_admin_language_error"))
         return
-    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     status_record_model = await panel_sync_dal.get_panel_sync_status(session)
     response_text = ""

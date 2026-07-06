@@ -15,7 +15,7 @@
   async function submitToken() {
     const token = tokenDraft.trim();
     if (!token || !token.includes(":") || !token.split(":", 1)[0].match(/^\d+$/)) {
-      error = "Token must look like 123456789:ABCdef...";
+      error = t("wa_bot_token_invalid_format");
       return;
     }
     busy = true;
@@ -27,14 +27,17 @@
       });
       if (data.ok === false) {
         const code = String(data.error || "update_failed");
-        const messages: Record<string, string> = {
-          invalid_bot_token: "Telegram rejected this token. Check @BotFather.",
-          telegram_check_failed: "Could not reach Telegram. Try again.",
-          api_unavailable: "API client is not ready. Reload the app.",
-          access_denied: "Session expired. Reload the app.",
-          unauthorized: "Session expired. Reload the app.",
+        const keyByCode: Record<string, string> = {
+          invalid_bot_token: "wa_bot_token_invalid_token_error",
+          telegram_check_failed: "wa_bot_token_telegram_check_failed",
+          api_unavailable: "wa_bot_token_api_unavailable",
+          access_denied: "wa_bot_token_access_denied",
+          unauthorized: "wa_bot_token_unauthorized",
         };
-        error = messages[code] || `Failed: ${code}`;
+        const i18nKey = keyByCode[code];
+        error = i18nKey
+          ? t(i18nKey)
+          : t("wa_bot_token_generic_failure", { code });
         return;
       }
       tokenDraft = "";
@@ -42,7 +45,7 @@
       // the freshly-saved has_bot_token and show the right CTA.
       window.location.assign("/home");
     } catch (e) {
-      error = e instanceof Error ? e.message : "Network error";
+      error = e instanceof Error ? e.message : t("wa_bot_token_network_error");
     } finally {
       busy = false;
     }

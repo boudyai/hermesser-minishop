@@ -594,10 +594,12 @@
                 >{fmtDate(openedUser.registration_date)}</strong
               >
             </li>
+            {#if !hermesMode}
             <li>
               <span>{at("user_label_vpn_last_connected", {}, "Последнее VPN-подключение")}</span
               ><strong>{vpnLastConnectionLabel(openedUserDetail)}</strong>
             </li>
+            {/if}
             <li>
               <span>{at("user_label_ref_code", {}, "Реф. код")}</span><strong
                 >{openedUserDetail.referral?.code ||

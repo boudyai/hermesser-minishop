@@ -262,7 +262,7 @@
                   FONT_OPTIONS,
                   tokenTextValue("font_sans", defaultTokens)
                 )}
-                placeholder="System"
+                placeholder={at("admin_theme_placeholder_system", {}, "System")}
                 onValueChange={defaultFontSelectHandler("font_sans")}
               />
             </label>
@@ -282,7 +282,7 @@
                   FONT_OPTIONS,
                   tokenTextValue("font_logo", defaultTokens)
                 )}
-                placeholder="System"
+                placeholder={at("admin_theme_placeholder_system", {}, "System")}
                 onValueChange={defaultFontSelectHandler("font_logo")}
               />
             </label>
@@ -302,7 +302,7 @@
                   MONO_FONT_OPTIONS,
                   tokenTextValue("font_mono", defaultTokens)
                 )}
-                placeholder="Default mono"
+                placeholder={at("admin_theme_placeholder_default_mono", {}, "Default mono")}
                 onValueChange={defaultFontSelectHandler("font_mono")}
               />
             </label>

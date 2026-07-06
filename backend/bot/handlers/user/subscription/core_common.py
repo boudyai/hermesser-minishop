@@ -1,5 +1,5 @@
 import hashlib
-from typing import Any, Optional, Protocol, cast
+from typing import Any, Callable, Optional, Protocol, cast
 
 from aiogram import Router, types
 from aiogram.types import InlineKeyboardMarkup
@@ -161,7 +161,7 @@ def _event_user_id(event: types.Message | types.CallbackQuery) -> int:
     return int(message_from_user(event).id)
 
 
-def _format_premium_usage_limit(active: dict[str, object]) -> str:
+def _format_premium_usage_limit(active: dict[str, object], get_text: Callable[..., str]) -> str:
     used = _format_premium_bytes(active.get("premium_used_bytes"))
     limit = _format_premium_bytes(active.get("premium_limit_bytes"))
-    return f"{used} из {limit}"
+    return get_text("tg_premium_usage_limit_format", used=used, limit=limit)

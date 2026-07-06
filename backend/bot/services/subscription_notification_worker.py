@@ -259,19 +259,13 @@ class SubscriptionNotificationWorker:
             # suspension. We still skip them in legacy mode where the row is a
             # short-lived VPN trial.
             panel_write_mode = (
-                str(
-                    getattr(
-                        getattr(self.settings, "panel_settings", None), "write_mode", ""
-                    )
-                    or ""
-                )
+                str(getattr(getattr(self.settings, "panel_settings", None), "write_mode", "") or "")
                 .strip()
                 .lower()
             )
             is_hermes_mode = panel_write_mode == "hermes"
-            if (
-                not is_hermes_mode
-                and bool(getattr(sub, "suppress_early_expiry_notifications", False))
+            if not is_hermes_mode and bool(
+                getattr(sub, "suppress_early_expiry_notifications", False)
             ):
                 return None
 

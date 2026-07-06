@@ -55,9 +55,7 @@ async def _get_hermes_panel(subscription_service: SubscriptionService):
 async def _get_tenant_id(
     subscription_service: SubscriptionService, session: AsyncSession, user_id: int
 ) -> str | None:
-    active = await _get_active_subscription_for_status(
-        subscription_service, session, user_id
-    )
+    active = await _get_active_subscription_for_status(subscription_service, session, user_id)
     if not active:
         return None
     return str(active.get("user_id") or "").strip() or None
@@ -73,9 +71,7 @@ async def _get_tenant_id(
 async def _get_active_subscription_for_status(
     subscription_service: SubscriptionService, session: AsyncSession, user_id: int
 ) -> dict | None:
-    return await subscription_service.get_active_subscription_details(
-        session, user_id
-    )
+    return await subscription_service.get_active_subscription_details(session, user_id)
 
 
 def _subscription_is_expired(active: dict | None) -> bool:
@@ -174,12 +170,8 @@ async def _render_status(
     # tenant_id and the panel_status / end_date / status_from_panel
     # fields come from the same call, and the panel-side lookup it
     # triggers (remnawave /key/info or users/get) is the slow part.
-    active = await _get_active_subscription_for_status(
-        subscription_service, session, user_id
-    )
-    tenant_id = (
-        str((active or {}).get("user_id") or "").strip() or None
-    )
+    active = await _get_active_subscription_for_status(subscription_service, session, user_id)
+    tenant_id = str((active or {}).get("user_id") or "").strip() or None
     panel_service = await _get_hermes_panel(subscription_service)
     i18n = (i18n_data or {}).get("i18n_instance")
     current_lang = (i18n_data or {}).get("current_language", "ru")
@@ -552,7 +544,7 @@ async def ensure_bot_creation_entrypoint(
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if db_user is None or db_user.is_banned:
-            await callback.answer("Доступ запрещён", show_alert=True)
+            await callback.answer(_("tg_access_forbidden"), show_alert=True)
             return
 
         # ponytail: if we already have a token and a deleted/missing
