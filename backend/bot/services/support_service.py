@@ -12,7 +12,7 @@ from sqlalchemy.orm import sessionmaker
 
 from bot.infra import events
 from bot.infra.event_payloads import SupportTicketCreatedPayload
-from bot.middlewares.i18n import JsonI18n
+from bot.middlewares.i18n import JsonI18n, get_i18n_instance
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.notification_service import NotificationService
 from config.settings import Settings
@@ -84,32 +84,46 @@ def _support_admin_notification_decision(
 
 
 def _format_support_remaining(seconds: int, lang: str, i18n: Optional[JsonI18n] = None) -> str:
+    i18n = i18n or get_i18n_instance()
+
+    def _t(key: str, en: str, ru: str, **kwargs: object) -> str:
+        try:
+            text = i18n.gettext(lang, key, **kwargs)
+            if text and text != key:
+                return text
+        except Exception:
+            pass
+        template = en if lang == "en" else ru
+        try:
+            return template.format(**kwargs)
+        except (KeyError, IndexError):
+            return template
+
     if seconds <= 0:
-        if i18n:
-            return i18n.gettext(lang, "tg_support_remaining_subscription_inactive")
-        return "Subscription inactive" if lang == "en" else "Подписка не активна"
+        return _t(
+            "tg_support_remaining_subscription_inactive",
+            "Subscription inactive", "Подписка не активна",
+        )
     days, rem = divmod(seconds, 86400)
     hours, rem = divmod(rem, 3600)
     minutes = rem // 60
-    if i18n:
-        if days > 0:
-            return i18n.gettext(lang, "tg_support_remaining_days_hours", days=days, hours=hours)
-        if hours > 0:
-            return i18n.gettext(
-                lang, "tg_support_remaining_hours_minutes", hours=hours, minutes=minutes
-            )
-        return i18n.gettext(lang, "tg_support_remaining_minutes", minutes=max(1, minutes))
-    if lang == "en":
-        if days > 0:
-            return f"{days} d. {hours} h."
-        if hours > 0:
-            return f"{hours} h. {minutes} min."
-        return f"{max(1, minutes)} min."
     if days > 0:
-        return f"{days} д. {hours} ч."
+        return _t(
+            "tg_support_remaining_days_hours",
+            f"{days} d. {hours} h.", f"{days} д. {hours} ч.",
+            days=days, hours=hours,
+        )
     if hours > 0:
-        return f"{hours} ч. {minutes} мин."
-    return f"{max(1, minutes)} мин."
+        return _t(
+            "tg_support_remaining_hours_minutes",
+            f"{hours} h. {minutes} min.", f"{hours} ч. {minutes} мин.",
+            hours=hours, minutes=minutes,
+        )
+    return _t(
+        "tg_support_remaining_minutes",
+        f"{max(1, minutes)} min.", f"{max(1, minutes)} мин.",
+        minutes=max(1, minutes),
+    )
 
 
 class TicketForbidden(PermissionError):

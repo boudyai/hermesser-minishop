@@ -19,6 +19,7 @@ from bot.app.web.webapp.cache_helpers import (
 )
 from bot.middlewares.i18n import (
     JsonI18n,
+    get_i18n_instance,
     is_valid_locale_language_code,
     normalize_locale_language_code,
 )
@@ -35,6 +36,38 @@ from ._runtime import (
 )
 
 BodyModelT = TypeVar("BodyModelT", bound=BaseModel)
+
+
+def _i18n_or_hardcoded(
+    i18n_instance: JsonI18n,
+    lang: str,
+    key: str,
+    fallback_en: str,
+    fallback_ru: str,
+    **kwargs: Any,
+) -> str:
+    """Return i18n translation if key is loaded, else hardcoded RU/EN fallback.
+
+    Keeps every user-facing string available in both languages even when
+    the i18n catalog is unreachable (tests, misconfigured deploy, missing
+    key after a refactor). Single helper, called from every format
+    function below.
+    """
+    try:
+        text = i18n_instance.gettext(lang, key, **kwargs)
+        if text and text != key:
+            return text
+    except Exception:
+        pass
+    if lang == "en":
+        try:
+            return fallback_en.format(**kwargs)
+        except (KeyError, IndexError):
+            return fallback_en
+    try:
+        return fallback_ru.format(**kwargs)
+    except (KeyError, IndexError):
+        return fallback_ru
 
 
 def _json_error(status: int, code: str, message: str) -> web.Response:
@@ -295,34 +328,36 @@ async def _ensure_cached_telegram_avatar(
 
 
 def _format_remaining(seconds: int, lang: str, i18n_instance: Optional[JsonI18n] = None) -> str:
+    i18n_instance = i18n_instance or get_i18n_instance()
     if seconds <= 0:
-        if i18n_instance:
-            return i18n_instance.gettext(lang, "tg_support_remaining_subscription_inactive")
-        if lang == "en":
-            return "Subscription inactive"
-        return "Подписка не активна"
+        return _i18n_or_hardcoded(
+            i18n_instance, lang,
+            "tg_support_remaining_subscription_inactive",
+            "Subscription inactive", "Подписка не активна",
+        )
     days, rem = divmod(seconds, 86400)
     hours, rem = divmod(rem, 3600)
     minutes = rem // 60
-    if i18n_instance:
-        if days > 0:
-            return i18n_instance.gettext(lang, "tg_format_remaining_days", days=days, hours=hours)
-        if hours > 0:
-            return i18n_instance.gettext(
-                lang, "tg_format_remaining_hours", hours=hours, minutes=minutes
-            )
-        return i18n_instance.gettext(lang, "tg_format_remaining_minutes", minutes=max(1, minutes))
-    if lang == "en":
-        if days > 0:
-            return f"{days} d. {hours} h."
-        if hours > 0:
-            return f"{hours} h. {minutes} min."
-        return f"{max(1, minutes)} min."
     if days > 0:
-        return f"{days} д. {hours} ч."
+        return _i18n_or_hardcoded(
+            i18n_instance, lang,
+            "tg_format_remaining_days",
+            f"{days} d. {hours} h.", f"{days} д. {hours} ч.",
+            days=days, hours=hours,
+        )
     if hours > 0:
-        return f"{hours} ч. {minutes} мин."
-    return f"{max(1, minutes)} мин."
+        return _i18n_or_hardcoded(
+            i18n_instance, lang,
+            "tg_format_remaining_hours",
+            f"{hours} h. {minutes} min.", f"{hours} ч. {minutes} мин.",
+            hours=hours, minutes=minutes,
+        )
+    return _i18n_or_hardcoded(
+        i18n_instance, lang,
+        "tg_format_remaining_minutes",
+        f"{max(1, minutes)} min.", f"{max(1, minutes)} мин.",
+        minutes=max(1, minutes),
+    )
 
 
 def _coerce_int_or_none(value: Optional[Any]) -> Optional[int]:
@@ -354,16 +389,25 @@ def _format_bytes(value: Optional[Any], *, zero_as_unlimited: bool = False) -> s
 
 
 def _format_months_title(months: int, lang: str, i18n_instance: Optional[JsonI18n] = None) -> str:
-    if i18n_instance:
-        if months == 1:
-            return i18n_instance.gettext(lang, "tg_payment_description_month_1")
-        return i18n_instance.gettext(lang, "tg_payment_description_months", months=months)
-    if lang == "en":
-        if months == 1:
-            return "1 month"
-        return f"{months} months"
+    i18n_instance = i18n_instance or get_i18n_instance()
     if months == 1:
-        return "1 месяц"
+        return _i18n_or_hardcoded(
+            i18n_instance, lang,
+            "tg_payment_description_month_1",
+            "1 month", "1 месяц",
+        )
+    if lang == "ru":
+        return _ru_months_declension(months)
+    return _i18n_or_hardcoded(
+        i18n_instance, lang,
+        "tg_payment_description_months",
+        f"{months} months", _ru_months_declension(months),
+        months=months,
+    )
+
+
+def _ru_months_declension(months: int) -> str:
+    """Russian months plural form: 1=месяц, 2-4=месяца, 5+=месяцев."""
     if 2 <= months <= 4:
         return f"{months} месяца"
     return f"{months} месяцев"
@@ -381,25 +425,26 @@ def _format_traffic_title(traffic_gb: float, lang: str) -> str:
 def _traffic_payment_description(
     traffic_gb: float, lang: str, i18n_instance: Optional[JsonI18n] = None
 ) -> str:
-    if i18n_instance:
-        return i18n_instance.gettext(
-            lang,
-            "tg_payment_description_traffic",
-            title=_format_traffic_title(traffic_gb, lang),
-        )
-    if lang == "en":
-        return f"Traffic package {_format_traffic_title(traffic_gb, lang)}"
-    return f"Пакет трафика {_format_traffic_title(traffic_gb, lang)}"
+    i18n_instance = i18n_instance or get_i18n_instance()
+    title = _format_traffic_title(traffic_gb, lang)
+    return _i18n_or_hardcoded(
+        i18n_instance, lang,
+        "tg_payment_description_traffic",
+        f"Traffic package {title}", f"Пакет трафика {title}",
+        title=title,
+    )
 
 
 def _hwid_devices_payment_description(
     device_count: int, lang: str, i18n_instance: Optional[JsonI18n] = None
 ) -> str:
-    if i18n_instance:
-        return i18n_instance.gettext(lang, "tg_payment_description_hwid", count=device_count)
-    if lang == "en":
-        return f"HWID device package +{device_count}"
-    return f"Докупка устройств HWID +{device_count}"
+    i18n_instance = i18n_instance or get_i18n_instance()
+    return _i18n_or_hardcoded(
+        i18n_instance, lang,
+        "tg_payment_description_hwid",
+        f"HWID device package +{device_count}", f"Докупка устройств HWID +{device_count}",
+        count=device_count,
+    )
 
 
 def _resolve_numeric_option_key(options: Dict[Any, Any], target: float) -> Optional[Any]:
@@ -413,18 +458,11 @@ def _resolve_numeric_option_key(options: Dict[Any, Any], target: float) -> Optio
 
 
 def _payment_description(months: int, lang: str, i18n_instance: Optional[JsonI18n] = None) -> str:
-    if i18n_instance:
-        if months == 1:
-            return i18n_instance.gettext(
-                lang,
-                "tg_payment_description_subscription",
-                title=i18n_instance.gettext(lang, "tg_payment_description_month_1"),
-            )
-        return i18n_instance.gettext(
-            lang,
-            "tg_payment_description_subscription",
-            title=i18n_instance.gettext(lang, "tg_payment_description_months", months=months),
-        )
-    if lang == "en":
-        return f"Subscription for {_format_months_title(months, lang)}"
-    return f"Подписка на {_format_months_title(months, lang)}"
+    i18n_instance = i18n_instance or get_i18n_instance()
+    title = _format_months_title(months, lang, i18n_instance)
+    return _i18n_or_hardcoded(
+        i18n_instance, lang,
+        "tg_payment_description_subscription",
+        f"Subscription for {title}", f"Подписка на {title}",
+        title=title,
+    )

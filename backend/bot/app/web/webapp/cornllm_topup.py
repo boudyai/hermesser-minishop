@@ -25,6 +25,7 @@ from bot.app.web.context import (
 from bot.app.web.webapp.auth import _require_user_id
 from bot.app.web.webapp.common import _json_error, _parse_model_payload
 from bot.app.web.webapp.payloads import WebAppCornllmTopupPayload
+from bot.middlewares.i18n import get_i18n_instance
 from bot.payment_providers import WebAppPaymentContext, get_provider_spec
 from config.settings import Settings
 from config.tariffs_config import default_payment_currency_code_for_settings
@@ -36,11 +37,8 @@ logger = logging.getLogger(__name__)
 def _cornllm_topup_description(
     lang: str, amount_rub: float, i18n_instance: Optional[Any] = None
 ) -> str:
-    if i18n_instance:
-        return i18n_instance.gettext(lang, "tg_cornllm_topup_description", amount=amount_rub)
-    if lang == "en":
-        return f"CornLLM budget top-up +{amount_rub:.0f} RUB"
-    return f"Пополнение CornLLM +{amount_rub:.0f} ₽"
+    i18n_instance = i18n_instance or get_i18n_instance()
+    return i18n_instance.gettext(lang, "tg_cornllm_topup_description", amount=amount_rub)
 
 
 async def cornllm_topup_route(request: web.Request) -> web.Response:

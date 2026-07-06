@@ -236,7 +236,7 @@
   "admin_promo_list_page_info": "Страница {current}/{total} ({count} промокодов)",
   "admin_queue_status_button": "📊 Статус очередей",
   "admin_queue_status_title": "📊 Статус очередей сообщений",
-  "admin_queue_status_info": "📤 <b>Очереди сообщений:</b>\n\n👥 <b>Пользователи (25 сообщ/сек):</b>\n   📋 В очереди: {user_queue_size}\n   🔄 Обрабатывается: {user_processing}\n   📈 Отправлено за минуту: {user_recent}\n\n📢 <b>Группы/каналы (15 сообщ/мин):</b>\n   📋 В очереди: {group_queue_size}\n   🔄 Обрабатывается: {group_processing}\n   📈 Отправлено за минуту: {group_recent}",
+  "admin_queue_status_info": "Очередь пользователей: {user_queue_size} ({user_processing}, недавно: {user_recent})\nОчередь групп: {group_queue_size} ({group_processing}, недавно: {group_recent})",
   "admin_active_promos_list_header": "Активные промокоды:",
   "admin_no_active_promos": "Нет активных промокодов.",
   "admin_promo_valid_indefinitely": "бессрочно",
@@ -2837,8 +2837,8 @@
   "tg_support_remaining_minutes": "{minutes} мин.",
   "tg_admin_open_profile_prompt": "Нажмите кнопку ниже, чтобы открыть профиль в Telegram.",
   "tg_admin_open_profile_button": "👤 Открыть профиль",
-  "tg_payment_description_month_1": "Подписка на 1 месяц",
-  "tg_payment_description_months": "Подписка на {months} мес.",
+  "tg_payment_description_month_1": "1 месяц",
+  "tg_payment_description_months": "{months} мес.",
   "tg_payment_description_traffic": "Пакет трафика {title}",
   "tg_payment_description_hwid": "Докупка устройств HWID +{count}",
   "tg_payment_description_subscription": "Подписка на {title}",
@@ -2922,5 +2922,9 @@
   "prov_write_env_volume_missing": "write_env: podman volume {volume} не найден на хосте.",
   "prov_write_env_restart_failed": "write_env restart провалился для {container}: {stderr}",
   "prov_update_secrets_restart_failed": "update_secrets restart провалился для {container}: {error}",
-  "prov_volume_create_failed": "Volume create провалился для {name}: {stderr}"
+  "prov_volume_create_failed": "Volume create провалился для {name}: {stderr}",
+  "tg_admin_promo_failed_generate": "Код #{index} (не удалось сгенерировать уникальный код)",
+  "tg_admin_promo_failed_code": "Код #{index} ({error})",
+  "admin_yes_emoji": "✅ Да",
+  "admin_no_emoji": "❌ Нет"
 }

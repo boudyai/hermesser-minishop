@@ -268,13 +268,23 @@ async def show_queue_status_handler(callback: types.CallbackQuery, i18n_data: di
     try:
         stats = queue_manager.get_queue_stats()
 
+        user_processing = _(
+            "admin_yes_emoji"
+            if stats["user_queue_processing"]
+            else "admin_no_emoji"
+        )
+        group_processing = _(
+            "admin_yes_emoji"
+            if stats["group_queue_processing"]
+            else "admin_no_emoji"
+        )
         message_text = _(
             "admin_queue_status_info",
             user_queue_size=stats["user_queue_size"],
-            user_processing="✅ Да" if stats["user_queue_processing"] else "❌ Нет",
+            user_processing=user_processing,
             user_recent=stats["user_recent_sends"],
             group_queue_size=stats["group_queue_size"],
-            group_processing="✅ Да" if stats["group_queue_processing"] else "❌ Нет",
+            group_processing=group_processing,
             group_recent=stats["group_recent_sends"],
         )
 

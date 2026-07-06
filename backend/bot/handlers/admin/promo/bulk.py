@@ -338,7 +338,7 @@ async def create_bulk_promo_codes_final(
                     attempts += 1
 
                 if attempts >= 10:
-                    failed_codes.append(f"Код #{i + 1} (не удалось сгенерировать уникальный)")
+                    failed_codes.append(_("tg_admin_promo_failed_generate", index=i + 1))
                     continue
 
                 # Prepare promo code data
@@ -367,7 +367,7 @@ async def create_bulk_promo_codes_final(
 
             except Exception as e:
                 logging.error(f"Error creating bulk promo code #{i + 1}: {e}")
-                failed_codes.append(f"Код #{i + 1} ({str(e)[:50]})")
+                failed_codes.append(_("tg_admin_promo_failed_code", index=i + 1, error=str(e)[:50]))
 
         await session.commit()
 
@@ -378,7 +378,7 @@ async def create_bulk_promo_codes_final(
         ]
 
         if data.get("validity_days"):
-            validity_text = f"{data['validity_days']} дней"
+            validity_text = _("tg_admin_promo_validity_days", days=data["validity_days"])
         else:
             validity_text = _("admin_promo_unlimited")
 

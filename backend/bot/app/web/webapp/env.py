@@ -16,6 +16,7 @@ from bot.app.web.webapp.common import (
     _require_user_id,
 )
 from bot.app.web.webapp.response_helpers import json_response
+from bot.middlewares.i18n import get_i18n_instance
 from bot.services.hermes_provisioning_service import HermesProvisioningService
 from bot.services.subscription_service_impl.core import SubscriptionService
 
@@ -227,14 +228,10 @@ async def tenant_recreate_route(request: web.Request) -> web.Response:
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or not db_user.panel_user_uuid or not db_user.pending_bot_token:
-            i18n_instance = get_i18n(request)
+            i18n_instance = get_i18n(request) or get_i18n_instance()
             user_lang = getattr(db_user, "language_code", None) if db_user else None
             lang = user_lang or "ru"
-            token_message = (
-                i18n_instance.gettext(lang, "tg_no_bot_token_error")
-                if i18n_instance
-                else "Нет сохранённого токена бота. Сначала добавьте токен в настройках."
-            )
+            token_message = i18n_instance.gettext(lang, "tg_no_bot_token_error")
             return _json_error(
                 400,
                 "no_tenant_or_token",

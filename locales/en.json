@@ -224,7 +224,7 @@
   "admin_promo_list_page_info": "Page {current}/{total} ({count} promo codes)",
   "admin_queue_status_button": "📊 Queue Status",
   "admin_queue_status_title": "📊 Message Queue Status",
-  "admin_queue_status_info": "📤 <b>Message Queues:</b>\n\n👥 <b>Users (25 msg/sec):</b>\n   📋 In queue: {user_queue_size}\n   🔄 Processing: {user_processing}\n   📈 Sent per minute: {user_recent}\n\n📢 <b>Groups/channels (15 msg/min):</b>\n   📋 In queue: {group_queue_size}\n   🔄 Processing: {group_processing}\n   📈 Sent per minute: {group_recent}",
+  "admin_queue_status_info": "User queue: {user_queue_size} ({user_processing}, recent: {user_recent})\nGroup queue: {group_queue_size} ({group_processing}, recent: {group_recent})",
   "admin_active_promos_list_header": "Active Promo Codes:",
   "admin_no_active_promos": "No active promo codes.",
   "admin_promo_valid_indefinitely": "indefinite",
@@ -2837,8 +2837,8 @@
   "tg_support_remaining_minutes": "{minutes} min.",
   "tg_admin_open_profile_prompt": "Click the button below to open the profile in Telegram.",
   "tg_admin_open_profile_button": "👤 Open profile",
-  "tg_payment_description_month_1": "Subscription for 1 month",
-  "tg_payment_description_months": "Subscription for {months} months",
+  "tg_payment_description_month_1": "1 month",
+  "tg_payment_description_months": "{months} months",
   "tg_payment_description_traffic": "Traffic package {title}",
   "tg_payment_description_hwid": "HWID device package +{count}",
   "tg_payment_description_subscription": "Subscription for {title}",
@@ -2922,5 +2922,9 @@
   "prov_write_env_volume_missing": "write_env: podman volume {volume} not found on host.",
   "prov_write_env_restart_failed": "write_env restart failed for {container}: {stderr}",
   "prov_update_secrets_restart_failed": "update_secrets restart failed for {container}: {error}",
-  "prov_volume_create_failed": "Volume create failed for {name}: {stderr}"
+  "prov_volume_create_failed": "Volume create failed for {name}: {stderr}",
+  "tg_admin_promo_failed_generate": "Code #{index} (could not generate a unique code)",
+  "tg_admin_promo_failed_code": "Code #{index} ({error})",
+  "admin_yes_emoji": "✅ Yes",
+  "admin_no_emoji": "❌ No"
 }

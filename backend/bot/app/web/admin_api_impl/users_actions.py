@@ -14,6 +14,7 @@ from bot.app.web.context import (
     get_settings,
 )
 from bot.app.web.request_parsing import parse_body_or_400
+from bot.middlewares.i18n import get_i18n_instance
 from bot.utils import MessageContent, send_message_via_queue
 from bot.utils.message_queue import get_queue_manager
 from config.settings import Settings
@@ -201,12 +202,8 @@ async def admin_user_telegram_profile_link_route(request: web.Request) -> web.Re
         )
         await session.commit()
 
-    i18n_instance = get_i18n(request)
-    translate = (
-        (lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs))
-        if i18n_instance is not None
-        else (lambda key, **kwargs: key.format(**kwargs) if kwargs else key)
-    )
+    i18n_instance = get_i18n(request) or get_i18n_instance()
+    translate = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     target_name = _admin_user_display_name_for_message(target_user)
     telegram_id = int(target_user.telegram_id)
     profile_url = f"tg://user?id={telegram_id}"
@@ -218,8 +215,6 @@ async def admin_user_telegram_profile_link_route(request: web.Request) -> web.Re
     )
     if message_text == "admin_user_profile_link_message":
         prompt_text = translate("tg_admin_open_profile_prompt")
-        if prompt_text == "tg_admin_open_profile_prompt":
-            prompt_text = "Нажмите кнопку ниже, чтобы открыть профиль в Telegram."
         message_text = (
             f"Профиль пользователя: <b>{html_escape(target_name)}</b>\n"
             f"User ID: <code>{target_user.user_id}</code>\n"
@@ -228,8 +223,6 @@ async def admin_user_telegram_profile_link_route(request: web.Request) -> web.Re
         )
 
     button_text = translate("tg_admin_open_profile_button")
-    if button_text == "tg_admin_open_profile_button":
-        button_text = "👤 Открыть профиль"
 
     markup = InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text=button_text, url=profile_url)]]
