@@ -97,6 +97,24 @@ class SubscriptionLifecyclePanelMixin(SubscriptionServiceMixinContract):
         panel_update_result: Optional[Dict[str, Any]],
         expected_expire_at: datetime,
     ) -> bool:
+        # ponytail: in hermes mode, the core doesn't track subscription
+        # expiry — only tenant lifecycle (last_state_change on the
+        # tenant row). `update_user_details_on_panel` is a no-op success
+        # there, and any follow-up `get_user_by_uuid` returns the
+        # lifecycle timestamp, NOT the subscription end_date. Trying to
+        # reconcile those two values against `expected_expire_at` would
+        # always fail and roll back the local bonus. Trust the result
+        # for hermes; the local Subscription.end_date is the source of
+        # truth, updated atomically with the bonus in lifecycle_activation.
+        try:
+            from bot.services.hermes_provisioning_service import HermesProvisioningService
+            if isinstance(self.panel_service, HermesProvisioningService):
+                if not panel_update_result or not isinstance(panel_update_result, dict):
+                    return False
+                return not bool(panel_update_result.get("error"))
+        except ImportError:
+            pass
+
         if not panel_update_result:
             return False
         if isinstance(panel_update_result, dict):
