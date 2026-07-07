@@ -2133,6 +2133,13 @@ export interface components {
     };
     /** AdminStatsOut */
     AdminStatsOut: {
+      /**
+       * Cornllm
+       * @default null
+       */
+      cornllm: {
+        [key: string]: unknown;
+      } | null;
       /** Currency Symbol */
       currency_symbol: string;
       /** Financial */

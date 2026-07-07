@@ -513,6 +513,11 @@
             "title": "Admin Ids",
             "type": "array"
           },
+          "panel_write_mode": {
+            "default": "remnawave",
+            "title": "Panel Write Mode",
+            "type": "string"
+          },
           "user_id": {
             "title": "User Id",
             "type": "integer"
@@ -1080,6 +1085,19 @@
       },
       "AdminStatsOut": {
         "properties": {
+          "cornllm": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cornllm"
+          },
           "currency_symbol": {
             "title": "Currency Symbol",
             "type": "string"
@@ -5007,9 +5025,26 @@
             ],
             "default": null
           },
+          "included_cornllm_balance_rub": {
+            "default": 0.0,
+            "title": "Included Cornllm Balance Rub",
+            "type": "number"
+          },
           "key": {
             "title": "Key",
             "type": "string"
+          },
+          "memory_gb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Gb"
           },
           "monthly_gb": {
             "anyOf": [
@@ -5143,6 +5178,18 @@
               }
             ],
             "default": null
+          },
+          "vcpu": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Vcpu"
           }
         },
         "required": [
@@ -5956,6 +6003,40 @@
         "title": "WebAppAutoRenewPayload",
         "type": "object"
       },
+      "WebAppBotTokenPayload": {
+        "properties": {
+          "bot_token": {
+            "maxLength": 256,
+            "minLength": 10,
+            "title": "Bot Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bot_token"
+        ],
+        "title": "WebAppBotTokenPayload",
+        "type": "object"
+      },
+      "WebAppCornllmTopupPayload": {
+        "description": "Payload for a paid CornLLM (LiteLLM) budget topup.\n\nThe amount is in rubles; the shop converts to USD (1 USD = 100 RUB)\nand provisioning-core adds the delta to the tenant's active\nLitellmKey max_budget. Minimum is 100 RUB to keep payment / quota\nmeaningful.",
+        "properties": {
+          "amount_rub": {
+            "title": "Amount Rub",
+            "type": "number"
+          },
+          "method": {
+            "default": "",
+            "title": "Method",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount_rub"
+        ],
+        "title": "WebAppCornllmTopupPayload",
+        "type": "object"
+      },
       "WebAppDeviceDisconnectPayload": {
         "properties": {
           "token": {
@@ -6225,6 +6306,17 @@
           "email"
         ],
         "title": "WebAppEmailRequestPayload",
+        "type": "object"
+      },
+      "WebAppEnvUpdatePayload": {
+        "properties": {
+          "env_content": {
+            "default": "",
+            "title": "Env Content",
+            "type": "string"
+          }
+        },
+        "title": "WebAppEnvUpdatePayload",
         "type": "object"
       },
       "WebAppLanguagePayload": {
@@ -6573,6 +6665,26 @@
           }
         },
         "title": "WebAppTelegramAuthPayload",
+        "type": "object"
+      },
+      "WebAppTrialActivatePayload": {
+        "properties": {
+          "bot_token": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bot Token"
+          }
+        },
+        "title": "WebAppTrialActivatePayload",
         "type": "object"
       },
       "WebappBootstrapConfigOut": {
@@ -6975,6 +7087,59 @@
           }
         ],
         "summary": "Account Avatar",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/bot_token": {
+      "put": {
+        "operationId": "put_account_bot_token_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppBotTokenPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "bot_username": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "bot_username"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Bot Token",
         "tags": [
           "account"
         ]
@@ -9665,6 +9830,46 @@
                           },
                           {
                             "properties": {
+                              "cornllm": {
+                                "properties": {
+                                  "budget_duration": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "max_budget": {
+                                    "type": [
+                                      "number",
+                                      "null"
+                                    ]
+                                  },
+                                  "remaining": {
+                                    "type": [
+                                      "number",
+                                      "null"
+                                    ]
+                                  },
+                                  "spent": {
+                                    "type": [
+                                      "number",
+                                      "null"
+                                    ]
+                                  },
+                                  "state": {
+                                    "enum": [
+                                      "none",
+                                      "ok",
+                                      "unreachable"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "state"
+                                ],
+                                "type": "object"
+                              },
                               "invited_users_count": {
                                 "type": "integer"
                               },
@@ -9707,6 +9912,7 @@
                               "panel_status",
                               "subscription_expires_at",
                               "premium_traffic",
+                              "cornllm",
                               "payments_total_amount",
                               "payments_count",
                               "payments_currency",
@@ -9824,6 +10030,46 @@
                         }
                       ]
                     },
+                    "cornllm": {
+                      "properties": {
+                        "budget_duration": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "max_budget": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "remaining": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "spent": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "state": {
+                          "enum": [
+                            "none",
+                            "ok",
+                            "unreachable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "state"
+                      ],
+                      "type": "object"
+                    },
                     "install_share_url": {
                       "type": [
                         "string",
@@ -9931,6 +10177,7 @@
                     "install_share_url",
                     "last_vpn_connected_at",
                     "vpn_connection_status",
+                    "cornllm",
                     "referral"
                   ],
                   "type": "object"
@@ -11377,6 +11624,81 @@
         ]
       }
     },
+    "/api/cornllm/topup": {
+      "post": {
+        "operationId": "post_cornllm_topup_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppCornllmTopupPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "confirmation_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "paid": {
+                      "type": "boolean"
+                    },
+                    "payment": {
+                      "additionalProperties": true,
+                      "description": "Provider-specific payment payload returned by the selected integration.",
+                      "type": "object"
+                    },
+                    "payment_id": {
+                      "type": "integer"
+                    },
+                    "payment_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Cornllm Topup",
+        "tags": [
+          "cornllm"
+        ]
+      }
+    },
     "/api/devices": {
       "get": {
         "operationId": "get_devices_route",
@@ -11822,6 +12144,99 @@
         ]
       }
     },
+    "/api/env": {
+      "get": {
+        "operationId": "get_env_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "env_content": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "env_content"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Env",
+        "tags": [
+          "env"
+        ]
+      },
+      "put": {
+        "operationId": "put_env_update_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppEnvUpdatePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Env Update",
+        "tags": [
+          "env"
+        ]
+      }
+    },
     "/api/i18n": {
       "get": {
         "operationId": "get_i18n_route",
@@ -12214,8 +12629,14 @@
                         "email_auth_enabled": {
                           "type": "boolean"
                         },
+                        "has_bot_token": {
+                          "type": "boolean"
+                        },
                         "my_devices_enabled": {
                           "type": "boolean"
+                        },
+                        "panel_write_mode": {
+                          "type": "string"
                         },
                         "server_status_url": {
                           "type": [
@@ -12311,6 +12732,12 @@
                           ]
                         },
                         "billing_model": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "bot_username": {
                           "type": [
                             "string",
                             "null"
@@ -12509,6 +12936,36 @@
                           ]
                         },
                         "tariff_name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "tenant_actual_state": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "tenant_desired_state": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "tenant_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "tenant_last_state_change": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "tenant_status": {
                           "type": [
                             "string",
                             "null"
@@ -14187,9 +14644,383 @@
         ]
       }
     },
+    "/api/tenant": {
+      "delete": {
+        "operationId": "delete_tenant_delete_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Tenant Delete",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/tenant/cornllm-key": {
+      "get": {
+        "operationId": "get_tenant_cornllm_key_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "api_key": {
+                      "type": "string"
+                    },
+                    "budget_duration": {
+                      "type": "string"
+                    },
+                    "key_id": {
+                      "type": "string"
+                    },
+                    "max_budget": {
+                      "type": "number"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "spent": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "tenant_id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Tenant Cornllm Key",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/tenant/logs": {
+      "get": {
+        "operationId": "get_tenant_logs_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "logs": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "logs"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Tenant Logs",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/tenant/logs/refresh": {
+      "post": {
+        "operationId": "post_tenant_logs_refresh_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Tenant Logs Refresh",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/tenant/quota": {
+      "get": {
+        "operationId": "get_tenant_quota_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "budget_duration": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "max_budget": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "remaining": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "spent": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "tenant_id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Tenant Quota",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/tenant/recreate": {
+      "post": {
+        "operationId": "post_tenant_recreate_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Tenant Recreate",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/tenant/restart": {
+      "post": {
+        "operationId": "post_tenant_restart_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Tenant Restart",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/tenant/suspend": {
+      "post": {
+        "operationId": "post_tenant_suspend_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Tenant Suspend",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
     "/api/trial/activate": {
       "post": {
         "operationId": "post_activate_trial_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppTrialActivatePayload"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {

@@ -832,6 +832,7 @@ class AdminStatsOut(HttpResponseModel):
     currency_symbol: str
     panel: dict[str, Any] | None = None
     queue: dict[str, Any] | None = None
+    cornllm: dict[str, Any] | None = None
 
 
 class AdminHealthOut(HttpResponseModel):

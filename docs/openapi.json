@@ -1085,6 +1085,19 @@
       },
       "AdminStatsOut": {
         "properties": {
+          "cornllm": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cornllm"
+          },
           "currency_symbol": {
             "title": "Currency Symbol",
             "type": "string"

@@ -30,6 +30,15 @@ export function adminFallbackResponse(
     filterSupportTickets,
   } = fixtures;
 
+  if (path === "/admin/me") {
+    return {
+      ok: true,
+      user_id: 100200300,
+      admin_ids: [100200300],
+      panel_write_mode: "hermes",
+    };
+  }
+
   if (path === "/admin/stats") {
     return {
       ok: true,
@@ -45,6 +54,16 @@ export function adminFallbackResponse(
         expired_subscription_users: 31,
         banned_users: 3,
         referral_users: 34,
+      },
+      cornllm: {
+        state: "ok",
+        linked_users: 3,
+        ok_users: 2,
+        unreachable_users: 0,
+        no_key_users: 1,
+        total_max_budget: 12.5,
+        total_spent: 4.8,
+        total_remaining: 7.7,
       },
       financial: {
         today_revenue: 1240,

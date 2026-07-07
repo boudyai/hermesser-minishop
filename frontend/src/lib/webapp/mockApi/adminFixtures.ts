@@ -48,6 +48,13 @@ export function buildAdminDemoFixtures(): AdminDemoFixtures {
           percent: 16,
         },
         panel_status: "active",
+        cornllm: {
+          state: "ok",
+          max_budget: 8.0,
+          spent: 2.1,
+          remaining: 5.9,
+          budget_duration: "monthly",
+        },
       },
       {
         user_id: 100200301,
@@ -67,6 +74,13 @@ export function buildAdminDemoFixtures(): AdminDemoFixtures {
           percent: 88,
         },
         panel_status: "active",
+        cornllm: {
+          state: "ok",
+          max_budget: 4.5,
+          spent: 2.7,
+          remaining: 1.8,
+          budget_duration: "monthly",
+        },
       },
       {
         user_id: 100200302,
@@ -80,6 +94,7 @@ export function buildAdminDemoFixtures(): AdminDemoFixtures {
         is_banned: true,
         premium_traffic: { state: "none" },
         panel_status: "bot_only",
+        cornllm: { state: "none" },
       },
     ].map(withDemoAdminUserMetrics)
   );

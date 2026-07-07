@@ -19,6 +19,7 @@ from config.tariffs_config import default_payment_currency_code_for_settings
 from datetime import datetime, timedelta, timezone, UTC
 from db.dal import panel_sync_dal, payment_dal, user_dal
 from .schemas import AdminMeOut, AdminPanelSyncOut, AdminStatsOut, PaymentOut
+from .users_listing import _bulk_cornllm_balance_for_users
 from sqlalchemy.orm import sessionmaker
 from typing import Any
 import logging
@@ -81,6 +82,11 @@ async def admin_stats_route(request: web.Request) -> web.Response:
     is_hermes = str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
     if panel_service is not None and not is_hermes:
         payload["panel"] = await _load_admin_panel_stats(request, settings, panel_service)
+    if is_hermes:
+        payload["cornllm"] = await _load_admin_cornllm_stats(
+            async_session_factory,
+            panel_service,
+        )
 
     queue_manager = get_queue_manager()
     if queue_manager:
@@ -122,6 +128,52 @@ async def _load_admin_db_stats_uncached(async_session_factory: sessionmaker) -> 
         "panel_sync": AdminPanelSyncOut.from_sync_status(sync_status).model_dump(mode="json"),
         "recent_payments": [_serialize_payment(p) for p in recent_payments],
     }
+
+
+def _float_or_zero(value: Any) -> float:
+    try:
+        number = float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+    return number if number >= 0 else 0.0
+
+
+async def _load_admin_cornllm_stats(
+    async_session_factory: sessionmaker,
+    panel_service: Any | None,
+) -> dict[str, Any]:
+    async with async_session_factory() as session:
+        users = await user_dal.get_all_users_with_panel_uuid(session)
+
+    balances = await _bulk_cornllm_balance_for_users(panel_service, users)
+    summary: dict[str, Any] = {
+        "state": "none",
+        "linked_users": len(users),
+        "ok_users": 0,
+        "unreachable_users": 0,
+        "no_key_users": 0,
+        "total_max_budget": 0.0,
+        "total_spent": 0.0,
+        "total_remaining": 0.0,
+    }
+    for user in users:
+        balance = balances.get(int(user.user_id)) or {"state": "none"}
+        state = str(balance.get("state") or "none").lower()
+        if state == "ok":
+            summary["ok_users"] += 1
+            summary["total_max_budget"] += _float_or_zero(balance.get("max_budget"))
+            summary["total_spent"] += _float_or_zero(balance.get("spent"))
+            summary["total_remaining"] += _float_or_zero(balance.get("remaining"))
+        elif state == "unreachable":
+            summary["unreachable_users"] += 1
+        else:
+            summary["no_key_users"] += 1
+
+    if summary["unreachable_users"]:
+        summary["state"] = "unreachable"
+    elif summary["ok_users"]:
+        summary["state"] = "ok"
+    return summary
 
 
 def _admin_db_stats_cache(settings: Settings) -> AsyncTTLCache | None:

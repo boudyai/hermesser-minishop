@@ -3623,5 +3623,9 @@
   "support_user_context": "User",
   "support_open_user": "Карточка",
   "support_close_ticket": "Закрыть тикет",
-  "wa_subscription_not_active": "Subscription is not active"
+  "wa_subscription_not_active": "Subscription is not active",
+  "admin_stats_label_api_balance": "API balance",
+  "admin_stats_api_balance_keys": "{count} keys",
+  "admin_stats_api_balance_spent": "Spent: {spent} / {budget}",
+  "admin_stats_api_balance_linked": "Linked: {linked} · no key: {missing} · unreachable: {unreachable}"
 }

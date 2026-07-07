@@ -42,7 +42,32 @@ export function demoApiResponse(
   const method = String(options.method || "GET").toUpperCase();
   const params = queryParams(path);
 
-  if (cleanPath === "/admin/stats") return clone(DATASET.stats);
+  if (cleanPath === "/admin/me") {
+    return {
+      ok: true,
+      user_id: 100200300,
+      admin_ids: [100200300],
+      panel_write_mode: "hermes",
+    };
+  }
+
+  if (cleanPath === "/admin/stats") {
+    const stats = clone(DATASET.stats || {}) as DemoRecord;
+    return {
+      ...stats,
+      panel: null,
+      cornllm: {
+        state: "ok",
+        linked_users: 3,
+        ok_users: 2,
+        unreachable_users: 0,
+        no_key_users: 1,
+        total_max_budget: 12.5,
+        total_spent: 4.8,
+        total_remaining: 7.7,
+      },
+    };
+  }
   if (cleanPath === "/admin/broadcast/audience-counts") {
     return {
       ok: true,

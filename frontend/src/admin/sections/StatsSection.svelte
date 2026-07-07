@@ -34,6 +34,7 @@
     parsePanelSystem,
     paymentDescriptionDisplay,
     type AdminStats,
+    type CornllmStats,
     type CustomRangeApply,
     type PanelNodeTraffic,
     type PanelStats,
@@ -58,6 +59,7 @@
     fmtDate = (value) => String(value ?? ""),
     fmtDateShort = (value) => String(value ?? ""),
     fmtMoney = (value) => String(value ?? ""),
+    hermesMode = false,
     paymentStatusVariant = () => "muted",
     onOpenUserCard = () => {},
   }: {
@@ -65,6 +67,7 @@
     fmtDate?: DateFormatterFn;
     fmtDateShort?: DateFormatterFn;
     fmtMoney?: FormatterFn;
+    hermesMode?: boolean;
     paymentStatusVariant?: (status: unknown) => AdminBadgeVariant;
     onOpenUserCard?: (userId: unknown) => void;
   } = $props();
@@ -81,6 +84,7 @@
   const currency = $derived(stats?.currency_symbol || "RUB");
   const fin: AdminStats["financial"] = $derived(stats?.financial || {});
   const users: AdminStats["users"] = $derived(stats?.users || {});
+  const cornllmStats: CornllmStats | null = $derived(stats?.cornllm ?? null);
   const panelPayload: PanelStats | null = $derived(stats?.panel ?? null);
   const panelMetrics: PanelSystemMetrics | null = $derived(
     panelPayload && !panelPayload.error ? parsePanelSystem(panelPayload) : null
@@ -131,6 +135,22 @@
   const chartRangeSum = $derived(
     revenueChartSeries.reduce((a, p) => a + (Number(p.amount) || 0), 0)
   );
+
+  function numberOrNull(value: unknown): number | null {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+
+  function rubFromUsd(value: unknown): string {
+    const usd = numberOrNull(value);
+    if (usd === null) return "—";
+    return `${(usd * 100).toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ₽`;
+  }
+
+  function countValue(value: unknown): number {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : 0;
+  }
 
   function loadRevenueChart(): void {
     if (AdminRevenueChartComponent) return;
@@ -252,6 +272,45 @@
           </div>
         </Card.Footer>
       </Card.Root>
+
+      {#if hermesMode && cornllmStats}
+        <Card.Root>
+          <Card.Header>
+            <Card.Description>{at("stats_label_api_balance", {}, "API balance")}</Card.Description>
+            <Card.Title>{rubFromUsd(cornllmStats.total_remaining)}</Card.Title>
+            <Card.Action>
+              <Badge
+                variant={countValue(cornllmStats.unreachable_users) > 0 ? "destructive" : "outline"}
+              >
+                {at("stats_api_balance_keys", { count: countValue(cornllmStats.ok_users) }, "")}
+              </Badge>
+            </Card.Action>
+          </Card.Header>
+          <Card.Footer class="admin-cn-card-footer--stack">
+            <div class="admin-cn-card-footer-primary">
+              {at(
+                "stats_api_balance_spent",
+                {
+                  spent: rubFromUsd(cornllmStats.total_spent),
+                  budget: rubFromUsd(cornllmStats.total_max_budget),
+                },
+                ""
+              )}
+            </div>
+            <div class="admin-cn-card-footer-muted">
+              {at(
+                "stats_api_balance_linked",
+                {
+                  linked: countValue(cornllmStats.linked_users),
+                  missing: countValue(cornllmStats.no_key_users),
+                  unreachable: countValue(cornllmStats.unreachable_users),
+                },
+                ""
+              )}
+            </div>
+          </Card.Footer>
+        </Card.Root>
+      {/if}
 
       <Card.Root>
         <Card.Header>
