@@ -15,12 +15,8 @@
     ],
     "allowlist": [
       "backend/bot/app/web/templates/*.js",
-      "backend/db/migrator.py",
-      "frontend/src/admin/sections/PromosSection.svelte",
       "frontend/src/lib/api/openapi.generated.ts",
-      "frontend/src/lib/webapp/demoDataset.js",
-      "frontend/src/lib/webapp/mockApi.js",
-      "frontend/src/lib/webapp/previewMock.js"
+      "frontend/src/lib/webapp/demoDataset.js"
     ]
   },
   "type_ignore": {
@@ -29,10 +25,7 @@
       "backend/config"
     ],
     "allowlist": {
-      "backend/config/settings.py": 1,
-      "backend/config/webapp_themes_config.py": 1,
-      "backend/bot/app/controllers/dispatcher_controller.py": 1,
-      "backend/bot/services/panel_api_service.py": 1
+      "backend/config/settings.py": 1
     }
   },
   "raw_json_response": {
@@ -50,72 +43,7 @@
       "backend/bot/app/web/admin_api_impl",
       "backend/bot/app/web/webapp"
     ],
-    "allowlist": {
-      "backend/bot/app/web/admin_api_impl/backups.py": {
-        "loose_object_schema": [
-          "Backup command result is a filesystem operation payload shared with CLI internals.",
-          "Uploaded archive metadata preserves backend-specific fields until backup schemas are split.",
-          "Created archive metadata preserves backend-specific fields until backup schemas are split.",
-          "Restore result is an operational report with backend-specific details."
-        ],
-        "loose_array_schema": [
-          "Archive list items mirror backend backup inventory payloads."
-        ]
-      },
-      "backend/bot/app/web/admin_api_impl/broadcast.py": {
-        "loose_object_schema": [
-          "Audience count keys are derived from runtime targeting dimensions."
-        ]
-      },
-      "backend/bot/app/web/admin_api_impl/panel.py": {
-        "loose_array_schema": [
-          "Panel squad objects are provider payloads passed through for admin selection."
-        ]
-      },
-      "backend/bot/app/web/admin_api_impl/settings.py": {
-        "loose_array_schema": [
-          "Settings sections are generated from the settings manifest."
-        ]
-      },
-      "backend/bot/app/web/admin_api_impl/sync.py": {
-        "loose_object_schema": [
-          "Sync queue result is a small runtime status payload."
-        ]
-      },
-      "backend/bot/app/web/admin_api_impl/tariffs.py": {
-        "loose_object_schema": [
-          "Tariff catalog is admin-authored config JSON."
-        ],
-        "loose_array_schema": [
-          "Provider currency support comes from payment provider registry."
-        ]
-      },
-      "backend/bot/app/web/admin_api_impl/themes.py": {
-        "loose_object_schema": [
-          "Theme catalog is admin-authored config JSON."
-        ]
-      },
-      "backend/bot/app/web/admin_api_impl/translations.py": {
-        "loose_array_schema": [
-          "Language summaries are generated from locale files.",
-          "Translation group summaries are generated from locale keys."
-        ]
-      },
-      "backend/bot/app/web/webapp/assets_contracts.py": {
-        "loose_object_schema": [
-          "Bootstrap config is assembled from runtime settings and theme catalog.",
-          "Bootstrap i18n is a locale dictionary keyed by language and translation key.",
-          "I18n endpoint returns the same dynamic locale dictionary by requested scope."
-        ]
-      },
-      "backend/bot/app/web/webapp/guides_contracts.py": {
-        "loose_object_schema": [
-          "Authenticated guide config can come from admin JSON override or panel payload.",
-          "Public guide config can come from admin JSON override or panel payload.",
-          "Public guide subscription context is resolved from panel/share-token data."
-        ]
-      }
-    }
+    "allowlist": {}
   },
   "frontend_weak_typing": {
     "scopes": [
@@ -127,19 +55,21 @@
       ".svelte"
     ],
     "allowlist": [],
-    "allowed_counts": {
-      "frontend/src/App.svelte": 33,
-      "frontend/src/lib/components/patterns/webapp/PaymentMethodGrid.svelte": 7,
-      "frontend/src/webapp/AppModeContent.svelte": 18,
-      "frontend/src/webapp/AuthenticatedDialogs.svelte": 9,
-      "frontend/src/webapp/AuthenticatedScreens.svelte": 13,
-      "frontend/src/webapp/PaymentDialogs.svelte": 33,
-      "frontend/src/webapp/TariffDialogs.svelte": 24,
-      "frontend/src/webapp/screens/HomeScreen.svelte": 23,
-      "frontend/src/webapp/screens/InstallGuideScreen.svelte": 8,
-      "frontend/src/webapp/screens/SettingsScreen.svelte": 3,
-      "frontend/src/webapp/screens/TrialActivationScreen.svelte": 6
-    }
+    "allowed_counts": {}
+  },
+  "first_party_js": {
+    "scopes": [
+      "frontend/src"
+    ],
+    "allowlist": [
+      "frontend/src/lib/webapp/demoDataset.js"
+    ]
+  },
+  "svelte_lang_ts": {
+    "scopes": [
+      "frontend/src"
+    ],
+    "allowlist": []
   },
   "frontend_api_calls": {
     "scopes": [

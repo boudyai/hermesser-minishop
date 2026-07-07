@@ -1,6 +1,7 @@
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import datetime
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any
 
 from aiogram import types
 from aiogram.exceptions import TelegramBadRequest
@@ -11,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.middlewares.i18n import JsonI18n
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.utils.install_links import ensure_user_install_guide_share_url
 from bot.utils.telegram_markup import (
     is_profile_link_error,
     remove_profile_link_buttons,
@@ -31,9 +33,11 @@ from .user_management_common import (
     _format_used_with_period,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def get_user_card_keyboard(
-    user_id: int, i18n_instance: JsonI18n, lang: str, referrer_id: Optional[int] = None
+    user_id: int, i18n_instance: JsonI18n, lang: str, referrer_id: int | None = None
 ) -> InlineKeyboardBuilder:
     """Generate keyboard for user management actions"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -125,12 +129,12 @@ async def _send_with_profile_link_fallback(
     sender: Callable[..., Awaitable[Any]],
     *,
     text: str,
-    markup: Optional[types.InlineKeyboardMarkup],
+    markup: types.InlineKeyboardMarkup | None,
     user_id: int,
-    parse_mode: Optional[str] = "HTML",
+    parse_mode: str | None = "HTML",
 ) -> None:
     """Send text with markup and fallback if Telegram rejects tg://user buttons."""
-    send_kwargs: Dict[str, Any] = {"text": text, "reply_markup": markup}
+    send_kwargs: dict[str, Any] = {"text": text, "reply_markup": markup}
     if parse_mode is not None:
         send_kwargs["parse_mode"] = parse_mode
 
@@ -140,7 +144,7 @@ async def _send_with_profile_link_fallback(
         if not is_profile_link_error(exc):
             raise
 
-        logging.warning(
+        logger.warning(
             "Telegram rejected profile buttons for user %s: %s. Retrying without tg:// links.",
             user_id,
             getattr(exc, "message", "") or str(exc),
@@ -156,10 +160,10 @@ async def format_user_card(
     subscription_service: SubscriptionService,
     i18n_instance: JsonI18n,
     lang: str,
-    referral_service: Optional[ReferralService] = None,
+    referral_service: ReferralService | None = None,
     *,
-    settings: Optional[Settings] = None,
-    bot_username: Optional[str] = None,
+    settings: Settings | None = None,
+    bot_username: str | None = None,
 ) -> str:
     """Format user information as a detailed card"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -293,7 +297,7 @@ async def format_user_card(
                 f"{_('admin_user_subscription_label')} {hcode(_('admin_user_subscription_none'))}"
             )
     except Exception as e:
-        logging.error(f"Error getting subscription details for user {user.user_id}: {e}")
+        logger.error("Error getting subscription details for user %s: %s", user.user_id, e)
         card_parts.append(
             f"{_('admin_user_subscription_label')} {hcode(_('admin_user_subscription_error'))}"
         )
@@ -330,8 +334,8 @@ async def format_user_card(
             referral_revenue_text = hcode(f"{referral_revenue:.2f} {currency}")
             card_parts.append(f"{_('admin_user_referral_revenue_label')} {referral_revenue_text}")
         except Exception as e_fin:
-            logging.error(
-                f"Failed to build financial analytics for admin card {user.user_id}: {e_fin}"
+            logger.error(
+                "Failed to build financial analytics for admin card %s: %s", user.user_id, e_fin
             )
 
         # Referral stats
@@ -347,14 +351,14 @@ async def format_user_card(
                     f"{_('admin_user_ref_purchased_label')} {hcode(str(purchased_count))}"
                 )
             except Exception as e_rs:
-                logging.error(
-                    f"Failed to build referral stats for admin card {user.user_id}: {e_rs}"
+                logger.error(
+                    "Failed to build referral stats for admin card %s: %s", user.user_id, e_rs
                 )
 
     except Exception as e:
-        logging.error(f"Error getting user statistics for {user.user_id}: {e}")
+        logger.error("Error getting user statistics for %s: %s", user.user_id, e)
 
-    # Links section: subscription page + both referral links.
+    # Links section: subscription page + install guide + both referral links.
     link_lines: list[str] = []
 
     # Subscription URL — the user's panel-issued config link.
@@ -367,8 +371,24 @@ async def format_user_card(
             if sub_url:
                 link_lines.append(f"{_('admin_user_subscription_url_label')} {sub_url}")
         except Exception as exc_sub:
-            logging.warning(
-                "Failed to fetch subscriptionUrl for user %s: %s", user.user_id, exc_sub
+            logger.warning("Failed to fetch subscriptionUrl for user %s: %s", user.user_id, exc_sub)
+
+    # Install guide public share link from the Mini App.
+    if settings is not None:
+        try:
+            install_share_url = await ensure_user_install_guide_share_url(
+                session,
+                settings,
+                user.user_id,
+                user.panel_user_uuid,
+            )
+            if install_share_url:
+                link_lines.append(f"{_('admin_user_install_share_link_label')} {install_share_url}")
+        except Exception as exc_install:
+            logger.warning(
+                "Failed to build install guide share link for user %s: %s",
+                user.user_id,
+                exc_install,
             )
 
     # Referral links — bot deep-link + webapp deep-link.
@@ -380,7 +400,7 @@ async def format_user_card(
             if bot_ref_link:
                 link_lines.append(f"{_('admin_user_ref_bot_link_label')} {bot_ref_link}")
         except Exception as exc_bot_ref:
-            logging.warning(
+            logger.warning(
                 "Failed to build bot referral link for %s: %s", user.user_id, exc_bot_ref
             )
 
@@ -406,7 +426,7 @@ async def format_user_card(
                     )
                     link_lines.append(f"{_('admin_user_ref_webapp_link_label')} {webapp_ref_link}")
             except Exception as exc_web_ref:
-                logging.warning(
+                logger.warning(
                     "Failed to build webapp referral link for %s: %s", user.user_id, exc_web_ref
                 )
 

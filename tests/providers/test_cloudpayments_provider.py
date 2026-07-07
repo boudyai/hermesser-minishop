@@ -211,7 +211,7 @@ def test_create_order_surfaces_api_error(monkeypatch):
         AsyncMock(return_value=_capture_session(captured, response=response)),
     )
 
-    success, data = asyncio.run(
+    success, _data = asyncio.run(
         service.create_order(
             payment_db_id=1, user_id=1, amount=10.0, currency="RUB", description="x"
         )
@@ -242,7 +242,7 @@ def test_signature_accepts_valid_base64_hmac():
 
 def test_signature_accepts_url_decoded_hmac_variant():
     service = _make_service()
-    body = "InvoiceId=1&Description=Auto+renewal+%D1%82%D0%B5%D1%81%D1%82".encode("utf-8")
+    body = b"InvoiceId=1&Description=Auto+renewal+%D1%82%D0%B5%D1%81%D1%82"
     decoded = unquote_plus(body.decode("utf-8")).encode("utf-8")
 
     assert service.verify_signature(body, _hmac_b64(decoded, "api-secret"))
@@ -299,18 +299,18 @@ def _webhook_service(session, payment, monkeypatch, **overrides):
 
 
 def _payment(**overrides):
-    base = dict(
-        payment_id=88,
-        user_id=42,
-        status="pending_cloudpayments",
-        sale_mode="subscription",
-        purchased_hwid_devices=None,
-        purchased_gb=None,
-        subscription_duration_months=1,
-        amount=150.0,
-        currency="RUB",
-        user=None,
-    )
+    base = {
+        "payment_id": 88,
+        "user_id": 42,
+        "status": "pending_cloudpayments",
+        "sale_mode": "subscription",
+        "purchased_hwid_devices": None,
+        "purchased_gb": None,
+        "subscription_duration_months": 1,
+        "amount": 150.0,
+        "currency": "RUB",
+        "user": None,
+    }
     base.update(overrides)
     return SimpleNamespace(**base)
 

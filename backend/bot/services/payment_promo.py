@@ -56,7 +56,7 @@ async def consume_payment_promo(
     granted_days: int | None = None,
     granted_gb: float | None = None,
 ) -> bool:
-    promo_code_id = int(getattr(promo_model, "promo_code_id"))
+    promo_code_id = int(promo_model.promo_code_id)
     existing = await promo_code_dal.get_user_activation_for_promo(
         session,
         promo_code_id,

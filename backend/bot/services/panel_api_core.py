@@ -1,9 +1,10 @@
 import asyncio
+import contextlib
 import json
 import logging
 import time
 from types import TracebackType
-from typing import Any, Dict, Optional
+from typing import Any
 from urllib.parse import urlencode
 
 import aiohttp
@@ -11,6 +12,8 @@ import aiohttp
 from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
 from config.settings_models import PanelSettings
+
+logger = logging.getLogger(__name__)
 
 # Static endpoint prefixes used as log/metric labels instead of the raw request
 # path. Endpoints embed user identifiers (telegram id, username, email, uuids),
@@ -69,7 +72,7 @@ class PanelApiCoreMixin:
         self.base_url = self.panel_settings.api_url
         self.api_key = self.panel_settings.api_key
         self.api_cookie = self.panel_settings.api_cookie
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self.default_client_ip = "127.0.0.1"
         # Cache slow-changing reference data fetched from the panel. Errors and
         # None responses are not cached, so transient failures self-heal.
@@ -165,13 +168,13 @@ class PanelApiCoreMixin:
         if self._session and not self._session.closed:
             await self._session.close()
             self._session = None
-            logging.debug("Panel API service HTTP session closed.")
+            logger.debug("Panel API service HTTP session closed.")
 
     async def close(self) -> None:
         """Alias for close_session for API consistency."""
         await self.close_session()
 
-    async def _prepare_headers(self) -> Dict[str, str]:
+    async def _prepare_headers(self) -> dict[str, str]:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
@@ -185,7 +188,7 @@ class PanelApiCoreMixin:
             headers["Cookie"] = str(self.api_cookie).strip()
         return headers
 
-    def _is_transient_error(self, result: Optional[Dict[str, Any]]) -> bool:
+    def _is_transient_error(self, result: dict[str, Any] | None) -> bool:
         if not isinstance(result, dict) or not result.get("error"):
             return False
         code = result.get("status_code")
@@ -195,15 +198,15 @@ class PanelApiCoreMixin:
 
     async def _request(
         self, method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         # Retry safe (idempotent) methods once on transient failures to absorb
         # network blips and short panel restarts without surfacing errors.
         max_attempts = 2 if method.upper() in self._SAFE_METHODS else 1
-        result: Optional[Dict[str, Any]] = None
+        result: dict[str, Any] | None = None
         for attempt in range(max_attempts):
             result = await self._request_once(method, endpoint, log_full_response, **kwargs)
             if attempt + 1 < max_attempts and self._is_transient_error(result):
-                logging.warning(
+                logger.warning(
                     "Retrying transient Panel API request method=%s endpoint=%s "
                     "attempt=%s/%s status_code=%s",
                     method.upper(),
@@ -219,9 +222,9 @@ class PanelApiCoreMixin:
 
     async def _request_once(
         self, method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         if not self.base_url:
-            logging.error("Panel API URL (PANEL_API_URL) not configured in settings.")
+            logger.error("Panel API URL (PANEL_API_URL) not configured in settings.")
             return {"error": True, "status_code": 0, "message": "Panel API URL not configured."}
 
         aiohttp_session = await self._get_session()
@@ -233,10 +236,8 @@ class PanelApiCoreMixin:
         current_params = kwargs.get("params")
         url_with_params_for_log = url_for_request
         if current_params:
-            try:
+            with contextlib.suppress(Exception):
                 url_with_params_for_log += "?" + urlencode(current_params)
-            except Exception:
-                pass
 
         json_payload_for_log = (
             kwargs.get("json") if method.upper() in ["POST", "PATCH", "PUT"] else None
@@ -257,7 +258,7 @@ class PanelApiCoreMixin:
             ) as response:
                 response_status = response.status
                 response_text = await response.text()
-                logging.info(
+                logger.info(
                     "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=%s",
                     time.monotonic() - started,
                     method.upper(),
@@ -273,16 +274,27 @@ class PanelApiCoreMixin:
                         pretty_response_text = json.dumps(
                             parsed_json_for_log, indent=2, ensure_ascii=False
                         )
-                        logging.info(
-                            f"{log_prefix} {log_suffix} | Full Response Body:\n{pretty_response_text}"  # noqa: E501
+                        logger.info(
+                            "%s %s | Full Response Body:\n%s",
+                            log_prefix,
+                            log_suffix,
+                            pretty_response_text,
                         )
                     except json.JSONDecodeError:
-                        logging.info(
-                            f"{log_prefix} {log_suffix} | Full Response Text (not JSON):\n{response_text[:2000]}{'...' if len(response_text) > 2000 else ''}"  # noqa: E501
+                        logger.info(
+                            "%s %s | Full Response Text (not JSON):\n%s%s",
+                            log_prefix,
+                            log_suffix,
+                            response_text[:2000],
+                            "..." if len(response_text) > 2000 else "",
                         )
                 else:
-                    logging.debug(
-                        f"{log_prefix} {log_suffix} | OK. Response Body Preview: {response_text[:200]}{'...' if len(response_text) > 200 else ''}"  # noqa: E501
+                    logger.debug(
+                        "%s %s | OK. Response Body Preview: %s%s",
+                        log_prefix,
+                        log_suffix,
+                        response_text[:200],
+                        "..." if len(response_text) > 200 else "",
                     )
 
                 if 200 <= response_status < 300:
@@ -299,8 +311,11 @@ class PanelApiCoreMixin:
                                 "data_text": response_text,
                             }
                     except json.JSONDecodeError as e_json_ok:
-                        logging.error(
-                            f"{log_prefix} {log_suffix} | OK but JSON Parse Error. Error: {e_json_ok}. Body was logged above."  # noqa: E501
+                        logger.error(
+                            "%s %s | OK but JSON Parse Error. Error: %s. Body was logged above.",
+                            log_prefix,
+                            log_suffix,
+                            e_json_ok,
                         )
                         return {
                             "status": "success_parse_error",
@@ -323,66 +338,65 @@ class PanelApiCoreMixin:
                     return {"error": True, "status_code": response_status, "details": error_details}
 
         except aiohttp.ClientConnectorError as e:
-            logging.info(
+            logger.info(
                 "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=connect_error",
                 time.monotonic() - started,
                 method.upper(),
                 endpoint_label,
             )
-            logging.error(
+            logger.error(
                 "Panel API ClientConnectorError method=%s endpoint=%s: %s",
                 method.upper(),
                 endpoint_label,
                 e,
             )
-            return {"error": True, "status_code": -1, "message": f"Connection error: {str(e)}"}
+            return {"error": True, "status_code": -1, "message": f"Connection error: {e!s}"}
         except aiohttp.ServerTimeoutError as e:
-            logging.info(
+            logger.info(
                 "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=timeout",
                 time.monotonic() - started,
                 method.upper(),
                 endpoint_label,
             )
-            logging.warning(
+            logger.warning(
                 "Panel API timeout method=%s endpoint=%s: %s", method.upper(), endpoint_label, e
             )
-            return {"error": True, "status_code": -3, "message": f"Request timed out: {str(e)}"}
+            return {"error": True, "status_code": -3, "message": f"Request timed out: {e!s}"}
         except aiohttp.ClientError as e:
-            logging.info(
+            logger.info(
                 "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=client_error",
                 time.monotonic() - started,
                 method.upper(),
                 endpoint_label,
             )
-            logging.exception(
+            logger.exception(
                 "Panel API ClientError method=%s endpoint=%s.", method.upper(), endpoint_label
             )
-            return {"error": True, "status_code": -2, "message": f"Client error: {str(e)}"}
-        except asyncio.TimeoutError:
-            logging.info(
+            return {"error": True, "status_code": -2, "message": f"Client error: {e!s}"}
+        except TimeoutError:
+            logger.info(
                 "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=timeout",
                 time.monotonic() - started,
                 method.upper(),
                 endpoint_label,
             )
-            logging.error(
+            logger.error(
                 "Panel API request timed out method=%s endpoint=%s.",
                 method.upper(),
                 endpoint_label,
             )
             return {"error": True, "status_code": -3, "message": "Request timed out"}
         except Exception as e:
-            logging.info(
+            logger.info(
                 "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=unexpected_error",
                 time.monotonic() - started,
                 method.upper(),
                 endpoint_label,
             )
-            logging.error(
+            logger.exception(
                 "Unexpected Panel API request error method=%s endpoint=%s: %s",
                 method.upper(),
                 endpoint_label,
                 e,
-                exc_info=True,
             )
-            return {"error": True, "status_code": -4, "message": f"Unexpected error: {str(e)}"}
+            return {"error": True, "status_code": -4, "message": f"Unexpected error: {e!s}"}

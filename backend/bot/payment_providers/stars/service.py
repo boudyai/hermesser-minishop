@@ -1,5 +1,6 @@
+import contextlib
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot, F, Router, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
@@ -9,13 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.user_keyboards import payment_methods_back_callback
 from bot.middlewares.i18n import JsonI18n
-
-if TYPE_CHECKING:
-    from bot.services.referral_service import ReferralService
-    from bot.services.subscription_service_impl.core import SubscriptionService
-else:
-    ReferralService = object
-    SubscriptionService = object
 from bot.utils.callback_answer import callback_message_or_none
 from config.settings import Settings
 from db.dal import payment_dal
@@ -49,6 +43,15 @@ from ..shared import (
 )
 from ..shared.app_context import app_required
 
+if TYPE_CHECKING:
+    from bot.services.referral_service import ReferralService
+    from bot.services.subscription_service_impl.core import SubscriptionService
+else:
+    ReferralService = object
+    SubscriptionService = object
+
+logger = logging.getLogger(__name__)
+
 
 class StarsPresentation(ProviderEnvConfig):
     model_config = SettingsConfigDict(
@@ -58,12 +61,12 @@ class StarsPresentation(ProviderEnvConfig):
         extra="ignore",
     )
 
-    WEBAPP_LABEL_RU: Optional[str] = None
-    WEBAPP_LABEL_EN: Optional[str] = None
-    WEBAPP_ICON: Optional[str] = None
-    TELEGRAM_LABEL_RU: Optional[str] = None
-    TELEGRAM_LABEL_EN: Optional[str] = None
-    TELEGRAM_EMOJI: Optional[str] = None
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None
+    TELEGRAM_LABEL_RU: str | None = None
+    TELEGRAM_LABEL_EN: str | None = None
+    TELEGRAM_EMOJI: str | None = None
 
 
 class StarsService:
@@ -89,8 +92,8 @@ class StarsService:
         stars_price: int,
         description: str,
         sale_mode: str = "subscription",
-        hwid_quote: Optional[dict[str, Any]] = None,
-    ) -> Optional[int]:
+        hwid_quote: dict[str, Any] | None = None,
+    ) -> int | None:
         amounts = payment_record_amounts(
             months=months,
             sale_mode=sale_mode,
@@ -124,7 +127,7 @@ class StarsService:
             await session.commit()
         except Exception:
             await session.rollback()
-            logging.exception("Failed to create stars payment record")
+            logger.exception("Failed to create stars payment record")
             return None
 
         payload = f"{db_payment_record.payment_id}:{months}:{sale_mode}"
@@ -142,7 +145,7 @@ class StarsService:
             )
             return int(db_payment_record.payment_id)
         except Exception:
-            logging.exception("Failed to send Telegram Stars invoice")
+            logger.exception("Failed to send Telegram Stars invoice")
             return None
 
     async def process_successful_payment(
@@ -157,14 +160,14 @@ class StarsService:
     ) -> None:
         payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)
         if not payment:
-            logging.error("Stars: payment %s not found.", payment_db_id)
+            logger.error("Stars: payment %s not found.", payment_db_id)
             return
         if payment.status == "succeeded":
-            logging.info("Stars: payment %s already succeeded.", payment_db_id)
+            logger.info("Stars: payment %s already succeeded.", payment_db_id)
             return
         successful_payment = message.successful_payment
         if successful_payment is None:
-            logging.error(
+            logger.error(
                 "Stars: successful payment payload is missing for payment %s.",
                 payment_db_id,
             )
@@ -180,7 +183,7 @@ class StarsService:
             await session.commit()
         except Exception:
             await session.rollback()
-            logging.exception("Failed to update stars payment record %s", payment_db_id)
+            logger.exception("Failed to update stars payment record %s", payment_db_id)
             return
 
         target_user_id = (
@@ -224,7 +227,7 @@ async def pay_stars_callback_handler(
     stars_service: StarsService,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     translator = make_translator(i18n, current_lang)
 
     if not i18n or not callback.message:
@@ -301,7 +304,7 @@ async def pay_stars_callback_handler(
                 reply_markup=markup,
             )
         except Exception:
-            logging.warning("Stars payment: failed to show invoice info message")
+            logger.warning("Stars payment: failed to show invoice info message")
         await safe_callback_answer(callback)
         return
 
@@ -310,11 +313,9 @@ async def pay_stars_callback_handler(
 
 @router.pre_checkout_query()
 async def handle_pre_checkout_query(query: types.PreCheckoutQuery) -> None:
-    try:
+    # Nothing else to do here; Telegram will show an error if not answered.
+    with contextlib.suppress(Exception):
         await query.answer(ok=True)
-    except Exception:
-        # Nothing else to do here; Telegram will show an error if not answered
-        pass
 
 
 @router.message(F.successful_payment)
@@ -417,7 +418,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
         )
     except Exception:
         await ctx.session.rollback()
-        logging.exception("Stars WebApp payment failed")
+        logger.exception("Stars WebApp payment failed")
         return payment_failed("Failed to create invoice")
 
 

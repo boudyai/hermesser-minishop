@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from typing import Any, Awaitable, Callable, Optional, cast
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from typing import Any, cast
 
 from aiohttp import web
 
@@ -26,7 +26,7 @@ def _changed_setting_keys(
     updates: Mapping[str, Any] | None = None,
     deletes: Sequence[Any] | None = None,
 ) -> set[str]:
-    keys = {str(key) for key in (updates or {}).keys()}
+    keys = {str(key) for key in (updates or {})}
     keys.update(str(key) for key in (deletes or []) if key is not None)
     return keys
 
@@ -91,7 +91,7 @@ def _webapp_user_payload_cache(
     settings: Settings,
     namespace: str,
     ttl_seconds: int,
-) -> Optional[AsyncTTLCache]:
+) -> AsyncTTLCache | None:
     ttl = max(0, int(ttl_seconds or 0))
     if ttl <= 0:
         return None
@@ -133,12 +133,12 @@ def invalidate_local_webapp_user_payload(
 
 def invalidate_all_local_webapp_user_payloads(
     settings: Settings,
-    namespace: Optional[str] = None,
+    namespace: str | None = None,
     *,
-    include_devices: Optional[bool] = None,
+    include_devices: bool | None = None,
 ) -> None:
     if include_devices is not None:
-        namespaces: Optional[set[str]] = set(_payload_namespaces(include_devices))
+        namespaces: set[str] | None = set(_payload_namespaces(include_devices))
     elif namespace is not None:
         namespaces = {namespace}
     else:
@@ -154,8 +154,9 @@ def invalidate_all_local_webapp_user_payloads(
 
 async def invalidate_webapp_user_caches(
     settings: Settings,
-    *user_ids: Optional[int],
+    *user_ids: int | None,
     include_devices: bool = False,
+    include_me: bool = True,
 ) -> None:
     keys: list[str] = []
     seen: set[int] = set()
@@ -169,8 +170,9 @@ async def invalidate_webapp_user_caches(
         if user_id in seen:
             continue
         seen.add(user_id)
-        keys.append(redis_key(settings, "cache", "webapp", "me", user_id))
-        invalidate_local_webapp_user_payload(settings, "me", user_id)
+        if include_me:
+            keys.append(redis_key(settings, "cache", "webapp", "me", user_id))
+            invalidate_local_webapp_user_payload(settings, "me", user_id)
         if include_devices:
             keys.append(redis_key(settings, "cache", "webapp", "devices", user_id))
             invalidate_local_webapp_user_payload(settings, "devices", user_id)
@@ -235,11 +237,11 @@ async def refresh_webapp_runtime_after_settings_change(
 
 
 __all__ = [
-    "reset_webapp_settings_cache",
-    "reset_subscription_guides_cache",
+    "invalidate_all_webapp_user_caches",
     "invalidate_all_webapp_user_payloads",
     "invalidate_webapp_user_caches",
-    "invalidate_all_webapp_user_caches",
-    "webapp_cached_user_payload",
     "refresh_webapp_runtime_after_settings_change",
+    "reset_subscription_guides_cache",
+    "reset_webapp_settings_cache",
+    "webapp_cached_user_payload",
 ]

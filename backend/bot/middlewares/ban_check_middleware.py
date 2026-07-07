@@ -1,5 +1,6 @@
 import logging
-from typing import Any, Awaitable, Callable, Dict, Optional, Union, cast
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 from aiogram import BaseMiddleware, Bot
 from aiogram.exceptions import (
@@ -16,6 +17,8 @@ from db.dal import user_dal
 
 from .i18n import JsonI18n
 
+logger = logging.getLogger(__name__)
+
 
 class BanCheckMiddleware(BaseMiddleware):
     def __init__(self, settings: Settings, i18n_instance: JsonI18n):
@@ -25,14 +28,14 @@ class BanCheckMiddleware(BaseMiddleware):
 
     async def __call__(
         self,
-        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
         event: TelegramObject,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> Any:
         update = cast(Update, event)
 
         session: AsyncSession = data["session"]
-        event_user: Optional[User] = data.get("event_from_user")
+        event_user: User | None = data.get("event_from_user")
         bot_instance: Bot = data["bot"]
 
         if not event_user:
@@ -44,26 +47,28 @@ class BanCheckMiddleware(BaseMiddleware):
         try:
             db_user_model = await user_dal.get_user_by_id(session, event_user.id)
         except Exception as e_db:
-            logging.error(
-                f"BanCheckMiddleware: DB error fetching user {event_user.id}: {e_db}", exc_info=True
+            logger.exception(
+                "BanCheckMiddleware: DB error fetching user %s: %s", event_user.id, e_db
             )
             return await handler(event, data)
 
         if db_user_model and db_user_model.is_banned:
-            logging.info(
-                f"User {event_user.id} ({event_user.username or 'NoUsername'}) is banned. Blocking access."  # noqa: E501
+            logger.info(
+                "User %s (%s) is banned. Blocking access.",
+                event_user.id,
+                event_user.username or "NoUsername",
             )
 
             i18n_data_from_event = data.get("i18n_data", {})
             current_lang = i18n_data_from_event.get(
                 "current_language", self.settings.DEFAULT_LANGUAGE
             )
-            i18n_to_use: Optional[JsonI18n] = i18n_data_from_event.get(
+            i18n_to_use: JsonI18n | None = i18n_data_from_event.get(
                 "i18n_instance", self.i18n_main_instance
             )
 
             ban_message_text = "You are banned. Please contact support."
-            keyboard: Optional[InlineKeyboardMarkup] = None
+            keyboard: InlineKeyboardMarkup | None = None
             support_link = self.settings.support_settings.link
 
             if i18n_to_use:
@@ -77,7 +82,7 @@ class BanCheckMiddleware(BaseMiddleware):
                 builder.button(text="Support", url=support_link)
                 keyboard = builder.as_markup()
 
-            actual_event_object: Optional[Union[Message, CallbackQuery]] = None
+            actual_event_object: Message | CallbackQuery | None = None
             if update.message:
                 actual_event_object = update.message
             elif update.callback_query:
@@ -109,13 +114,15 @@ class BanCheckMiddleware(BaseMiddleware):
                     await bot_instance.send_message(
                         event_user.id, ban_message_text, reply_markup=keyboard
                     )
-                logging.info(f"Ban notification sent to user {event_user.id}.")
+                logger.info("Ban notification sent to user %s.", event_user.id)
             except TelegramForbiddenError:
-                logging.warning(f"BanCheck: Bot is blocked by user {event_user.id}.")
+                logger.warning("BanCheck: Bot is blocked by user %s.", event_user.id)
             except Exception as e_send:
-                logging.error(
-                    f"BanCheck: Failed to notify banned user {event_user.id}: {type(e_send).__name__} - {e_send}",  # noqa: E501
-                    exc_info=True,
+                logger.exception(
+                    "BanCheck: Failed to notify banned user %s: %s - %s",
+                    event_user.id,
+                    type(e_send).__name__,
+                    e_send,
                 )
 
             return

@@ -1,5 +1,15 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
+
+  type Props = {
+    title?: string;
+    value?: string;
+    left?: string;
+    percent?: number;
+    warning?: boolean;
+    premium?: boolean;
+    label?: string;
+  };
 
   let {
     title = "",
@@ -9,7 +19,7 @@
     warning = false,
     premium = false,
     label = "",
-  } = $props();
+  }: Props = $props();
 
   const clamped = $derived(Math.max(0, Math.min(100, Number(percent) || 0)));
 </script>

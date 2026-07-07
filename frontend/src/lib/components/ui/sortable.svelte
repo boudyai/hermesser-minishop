@@ -1,10 +1,36 @@
-<script>
+<script lang="ts">
   import { draggable } from "@neodrag/svelte";
   import { flip } from "svelte/animate";
   import { cubicOut } from "svelte/easing";
   import { prefersReducedMotion } from "svelte/motion";
+  import type { Snippet } from "svelte";
+  import type { HTMLAttributes } from "svelte/elements";
   import { cn } from "$lib/utils.js";
   import { GripVertical } from "./icons.js";
+
+  type SortableKey = string | number;
+  type DragData = {
+    event: PointerEvent;
+    rootNode: Element;
+  };
+  type TransformData = {
+    offsetY: number;
+    rootNode: Element;
+  };
+  type RowRect = {
+    index: number;
+    midY: number;
+  };
+  type Props = Omit<HTMLAttributes<HTMLDivElement>, "class" | "children"> & {
+    items?: unknown[];
+    onReorder?: (from: number, to: number) => void;
+    getKey?: (item: never, index: number) => SortableKey;
+    handleLabel?: string;
+    disabled?: boolean;
+    class?: string;
+    containerClass?: string;
+    children?: Snippet<[never, number, boolean]>;
+  };
 
   // Reusable drag-to-reorder list. bits-ui / shadcn-svelte have no sortable
   // primitive, so this layers @neodrag pointer gestures over a grip handle.
@@ -15,53 +41,53 @@
   let {
     items = [],
     onReorder = () => {},
-    getKey = (item) => item,
+    getKey = (_item, index) => index,
     handleLabel = "Drag to reorder",
     disabled = false,
     class: className = "",
     containerClass = "",
     children,
-  } = $props();
+  }: Props = $props();
 
-  let containerEl = $state();
-  let dragIndex = $state(null);
-  let dropSlot = $state(null);
-  let dropIndex = $state(null);
+  let containerEl = $state<HTMLElement | null>(null);
+  let dragIndex = $state<number | null>(null);
+  let dropSlot = $state<number | null>(null);
+  let dropIndex = $state<number | null>(null);
   let dragResetToken = $state(0);
-  let rowRects = $state([]);
+  let rowRects = $state<RowRect[]>([]);
   const dragActive = $derived(dragIndex !== null);
   const dragDisabled = $derived(disabled || !items?.length || items.length < 2);
 
   const flipConfig = {
-    duration(distance) {
+    duration(distance: number) {
       if (prefersReducedMotion.current) return 0;
       return Math.min(220, 110 + distance * 0.35);
     },
     easing: cubicOut,
   };
 
-  function dragOptions(index) {
+  function dragOptions(index: number) {
     return {
-      axis: "y",
+      axis: "y" as const,
       disabled: dragDisabled,
       position: dragActive ? undefined : { x: 0, y: 0 },
       threshold: { distance: 5 },
       defaultClass: "ui-sortable-neodrag",
       defaultClassDragging: "ui-sortable-neodragging",
       defaultClassDragged: "ui-sortable-neodragged",
-      transform: ({ offsetY, rootNode }) => {
+      transform: ({ offsetY, rootNode }: TransformData) => {
         const row = rowForNode(rootNode);
         if (!row) return;
         row.style.transform =
           dragIndex === index ? `translate3d(0, ${offsetY}px, 0) scale(0.992)` : "";
       },
-      onDragStart: (data) => startPointerDrag(index, data),
+      onDragStart: (data: DragData) => startPointerDrag(index, data),
       onDrag: updatePointerDrag,
       onDragEnd: finishPointerDrag,
     };
   }
 
-  function snapshotRows() {
+  function snapshotRows(): void {
     rowRects = Array.from(containerEl?.querySelectorAll(".ui-sortable-item") || []).map(
       (node, index) => {
         const rect = node.getBoundingClientRect();
@@ -73,26 +99,26 @@
     );
   }
 
-  function slotFromPointer(clientY) {
+  function slotFromPointer(clientY: number): number {
     if (!rowRects.length) return dragIndex ?? 0;
     const target = rowRects.find((row) => clientY < row.midY);
     return target ? target.index : rowRects.length;
   }
 
-  function targetIndexFromSlot(slot) {
+  function targetIndexFromSlot(slot: number): number | null {
     if (dragIndex === null || !rowRects.length) return null;
     const nextIndex = slot > dragIndex ? slot - 1 : slot;
     return Math.min(Math.max(nextIndex, 0), rowRects.length - 1);
   }
 
-  function updateDropTarget(clientY) {
+  function updateDropTarget(clientY: number): void {
     const nextSlot = slotFromPointer(clientY);
     const nextIndex = targetIndexFromSlot(nextSlot);
     if (dropSlot !== nextSlot) dropSlot = nextSlot;
     if (dropIndex !== nextIndex) dropIndex = nextIndex;
   }
 
-  function startPointerDrag(index, data) {
+  function startPointerDrag(index: number, data: DragData): void {
     if (dragDisabled) return;
     dragIndex = index;
     dropSlot = index;
@@ -103,23 +129,23 @@
     if (row) row.style.zIndex = "2";
   }
 
-  function updatePointerDrag(data) {
+  function updatePointerDrag(data: DragData): void {
     if (dragIndex === null) return;
     updateDropTarget(data.event.clientY);
   }
 
-  function rowForNode(node) {
-    return node?.closest?.(".ui-sortable-item") || null;
+  function rowForNode(node: unknown): HTMLElement | null {
+    return node instanceof Element ? node.closest<HTMLElement>(".ui-sortable-item") : null;
   }
 
-  function clearDraggedNode(node) {
+  function clearDraggedNode(node: unknown): void {
     const row = rowForNode(node);
     if (!row) return;
     row.style.transform = "";
     row.style.zIndex = "";
   }
 
-  function finishPointerDrag(data) {
+  function finishPointerDrag(data: DragData): void {
     const from = dragIndex;
     const to = dropIndex;
     clearDraggedNode(data.rootNode);
@@ -130,7 +156,7 @@
     }
   }
 
-  function handleHandleKeydown(event, index) {
+  function handleHandleKeydown(event: KeyboardEvent, index: number): void {
     if (dragDisabled) return;
     const direction = event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
     if (!direction) return;
@@ -139,7 +165,7 @@
     if (nextIndex !== index) onReorder(index, nextIndex);
   }
 
-  function reset({ remount = false } = {}) {
+  function reset({ remount = false }: { remount?: boolean } = {}): void {
     dragIndex = null;
     dropSlot = null;
     dropIndex = null;
@@ -147,17 +173,17 @@
     if (remount) dragResetToken += 1;
   }
 
-  function cancelPointerDrag(event) {
+  function cancelPointerDrag(event: PointerEvent): void {
     clearDraggedNode(event.currentTarget);
     reset({ remount: true });
   }
 
-  function isDropSlot(index) {
+  function isDropSlot(index: number): boolean {
     if (dragIndex === null || dropIndex === null || dropIndex === dragIndex) return false;
     return dropSlot === index || (dropSlot === items.length && index === items.length - 1);
   }
 
-  function isDropAfter(index) {
+  function isDropAfter(index: number): boolean {
     return isDropSlot(index) && dropSlot === items.length && index === items.length - 1;
   }
 </script>
@@ -168,7 +194,7 @@
   class:is-drag-active={dragActive}
   role="list"
 >
-  {#each items as item, index (getKey(item, index))}
+  {#each items as item, index (getKey(item as never, index))}
     <div
       class={cn("ui-sortable-item", className)}
       class:is-dragging={dragIndex === index}
@@ -192,7 +218,7 @@
           <GripVertical size={14} />
         </button>
       {/key}
-      {@render children?.(item, index, dragIndex === index)}
+      {@render children?.(item as never, index, dragIndex === index)}
     </div>
   {/each}
 </div>

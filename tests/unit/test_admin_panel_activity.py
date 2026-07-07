@@ -1,6 +1,6 @@
 import json
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -44,8 +44,8 @@ def _active_subscription(panel_user_uuid="panel-from-sub"):
         subscription_id=10,
         panel_user_uuid=panel_user_uuid,
         panel_subscription_uuid=None,
-        start_date=datetime(2026, 6, 1, tzinfo=timezone.utc),
-        end_date=datetime(2026, 7, 1, tzinfo=timezone.utc),
+        start_date=datetime(2026, 6, 1, tzinfo=UTC),
+        end_date=datetime(2026, 7, 1, tzinfo=UTC),
         duration_months=1,
         is_active=True,
         status_from_panel="ACTIVE",
@@ -168,7 +168,7 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
             email=None,
             language_code="ru",
             is_banned=False,
-            registration_date=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            registration_date=datetime(2026, 6, 1, tzinfo=UTC),
             panel_user_uuid=None,
             referral_code=None,
             referred_by_id=None,
@@ -183,6 +183,7 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
                 }
             )
         )
+        install_links = AsyncMock(return_value="https://app.example/s/share")
         request = SimpleNamespace(
             app={
                 "settings": SimpleNamespace(SUBSCRIPTION_MINI_APP_URL=None),
@@ -226,15 +227,19 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
                 "ensure_referral_code",
                 AsyncMock(return_value="REF"),
             ),
+            patch.object(users_detail, "ensure_user_install_guide_share_url", install_links),
         ):
             response = await users_module.admin_user_detail_route(request)
 
         payload = json.loads(response.text)
         self.assertEqual(response.status, 200)
         self.assertEqual(payload["subscription_url"], "https://panel.example/sub/short")
+        self.assertEqual(payload["install_share_url"], "https://app.example/s/share")
         self.assertEqual(payload["vpn_connection_status"], "connected")
         self.assertEqual(payload["last_vpn_connected_at"], "2026-06-05T12:00:00+00:00")
         panel_service.get_user_by_uuid.assert_awaited_once_with("panel-from-sub")
+        install_links.assert_awaited_once()
+        self.assertIs(install_links.await_args.kwargs["local_subscription"], active_sub)
 
 
 if __name__ == "__main__":

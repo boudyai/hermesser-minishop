@@ -12,7 +12,7 @@ tenant's ``litellm_keys.max_budget`` via provisioning-core.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 def _cornllm_topup_description(
-    lang: str, amount_rub: float, i18n_instance: Optional[Any] = None
+    lang: str, amount_rub: float, i18n_instance: Any | None = None
 ) -> str:
     i18n_instance = i18n_instance or get_i18n_instance()
     return i18n_instance.gettext(lang, "tg_cornllm_topup_description", amount=amount_rub)

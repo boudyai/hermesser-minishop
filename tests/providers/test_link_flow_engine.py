@@ -34,22 +34,22 @@ class _FakeService:
 
 
 def _descriptor(**overrides):
-    base = dict(
-        spec=SimpleNamespace(
+    base = {
+        "spec": SimpleNamespace(
             is_available_to_user=lambda *a, **k: True,
             callback_prefix="pay_fake",
         ),
-        provider_key="fake",
-        pending_status="pending_fake",
-        display_name="Fake",
-        log_prefix="fake",
-        service_app_key="fake_service",
-        service_type=_FakeService,
-        create=AsyncMock(return_value=(True, {"url": "https://pay/x", "id": "pid-1"})),
-        reuse=AsyncMock(return_value=None),
-        extract_url=lambda r: r.get("url"),
-        extract_provider_id=lambda r: r.get("id"),
-    )
+        "provider_key": "fake",
+        "pending_status": "pending_fake",
+        "display_name": "Fake",
+        "log_prefix": "fake",
+        "service_app_key": "fake_service",
+        "service_type": _FakeService,
+        "create": AsyncMock(return_value=(True, {"url": "https://pay/x", "id": "pid-1"})),
+        "reuse": AsyncMock(return_value=None),
+        "extract_url": lambda r: r.get("url"),
+        "extract_provider_id": lambda r: r.get("id"),
+    }
     base.update(overrides)
     return LinkPaymentDescriptor(**base)
 
@@ -124,11 +124,13 @@ def test_callback_create_path_calls_create_and_renders(monkeypatch):
     assert called_service is service
     assert isinstance(req, CreatePaymentRequest)
     assert req.payment is payment and req.user_id == 123 and req.amount == 100.0
+    assert req.months == 1 and req.sale_mode == "subscription"
     # the link was rendered with the descriptor's extracted url/id
     link_flow.render_link_or_fail.assert_awaited_once()
     kwargs = link_flow.render_link_or_fail.await_args.kwargs
     assert kwargs["payment_url"] == "https://pay/x"
     assert kwargs["provider_payment_id"] == "pid-1"
+    assert kwargs["lead_text"] is None
     assert kwargs["log_prefix"] == "fake"
 
 
@@ -153,6 +155,164 @@ def test_callback_reuse_hit_short_circuits(monkeypatch):
     # no new record created, no create() call on a reuse hit
     fake_dal.create_payment_record.assert_not_awaited()
     desc.create.assert_not_awaited()
+
+
+def test_callback_reuse_lookup_uses_descriptor_ttl(monkeypatch):
+    _patch_common(monkeypatch)
+    fake_dal = SimpleNamespace(
+        find_recent_pending_provider_payment=AsyncMock(return_value=None),
+        create_payment_record=AsyncMock(return_value=SimpleNamespace(payment_id=42)),
+    )
+    monkeypatch.setattr(link_flow, "payment_dal", fake_dal)
+
+    desc = _descriptor(callback_reuse_since_minutes=lambda service, context: 17)
+    asyncio.run(
+        run_callback_payment(
+            desc, _callback(), _settings(), {"i18n_instance": object()}, _FakeService(), _session()
+        )
+    )
+
+    assert fake_dal.find_recent_pending_provider_payment.await_args.kwargs["since_minutes"] == 17
+
+
+def test_callback_can_disable_reuse_lookup(monkeypatch):
+    _patch_common(monkeypatch)
+    fake_dal = SimpleNamespace(
+        find_recent_pending_provider_payment=AsyncMock(),
+        create_payment_record=AsyncMock(return_value=SimpleNamespace(payment_id=42)),
+    )
+    monkeypatch.setattr(link_flow, "payment_dal", fake_dal)
+
+    desc = _descriptor(callback_reuse_enabled=False)
+    asyncio.run(
+        run_callback_payment(
+            desc, _callback(), _settings(), {"i18n_instance": object()}, _FakeService(), _session()
+        )
+    )
+
+    fake_dal.find_recent_pending_provider_payment.assert_not_awaited()
+    fake_dal.create_payment_record.assert_awaited_once()
+
+
+def test_callback_payment_guard_blocks_before_record(monkeypatch):
+    _patch_common(monkeypatch)
+    fake_dal = SimpleNamespace(
+        find_recent_pending_provider_payment=AsyncMock(),
+        create_payment_record=AsyncMock(),
+    )
+    monkeypatch.setattr(link_flow, "payment_dal", fake_dal)
+
+    desc = _descriptor(
+        callback_payment_allowed=lambda service, settings, user_id, amount, currency: False
+    )
+    asyncio.run(
+        run_callback_payment(
+            desc, _callback(), _settings(), {"i18n_instance": object()}, _FakeService(), _session()
+        )
+    )
+
+    link_flow.notify_service_unavailable.assert_awaited_once()
+    fake_dal.create_payment_record.assert_not_awaited()
+    desc.create.assert_not_awaited()
+
+
+def test_callback_lead_text_is_passed_to_renderer(monkeypatch):
+    _patch_common(monkeypatch)
+    payment = SimpleNamespace(payment_id=42, status="pending_fake")
+    fake_dal = SimpleNamespace(
+        find_recent_pending_provider_payment=AsyncMock(return_value=None),
+        create_payment_record=AsyncMock(return_value=payment),
+    )
+    monkeypatch.setattr(link_flow, "payment_dal", fake_dal)
+
+    desc = _descriptor(callback_lead_text=lambda req, response, translator: "Order #1")
+    asyncio.run(
+        run_callback_payment(
+            desc, _callback(), _settings(), {"i18n_instance": object()}, _FakeService(), _session()
+        )
+    )
+
+    kwargs = link_flow.render_link_or_fail.await_args.kwargs
+    assert kwargs["lead_text"] == "Order #1"
+
+
+def test_callback_before_create_hook_runs_after_record_creation(monkeypatch):
+    _patch_common(monkeypatch)
+    payment = SimpleNamespace(payment_id=42, status="pending_fake")
+    events: list[str] = []
+    fake_dal = SimpleNamespace(
+        find_recent_pending_provider_payment=AsyncMock(return_value=None),
+        create_payment_record=AsyncMock(
+            side_effect=lambda session, payload: events.append("record") or payment
+        ),
+    )
+    monkeypatch.setattr(link_flow, "payment_dal", fake_dal)
+
+    async def before_create(callback):
+        assert callback is not None
+        events.append("answer")
+
+    async def create(service, request):
+        events.append("create")
+        return True, {"url": "https://pay/x", "id": "pid-1"}
+
+    desc = _descriptor(
+        callback_before_create=before_create,
+        create=AsyncMock(side_effect=create),
+    )
+    asyncio.run(
+        run_callback_payment(
+            desc, _callback(), _settings(), {"i18n_instance": object()}, _FakeService(), _session()
+        )
+    )
+
+    assert events == ["record", "answer", "create"]
+
+
+def test_callback_context_is_passed_to_create_request(monkeypatch):
+    _patch_common(monkeypatch)
+    payment = SimpleNamespace(payment_id=42, status="pending_fake")
+    fake_dal = SimpleNamespace(
+        find_recent_pending_provider_payment=AsyncMock(return_value=None),
+        create_payment_record=AsyncMock(return_value=payment),
+    )
+    monkeypatch.setattr(link_flow, "payment_dal", fake_dal)
+
+    desc = _descriptor(callback_context=lambda callback, parts, service: {"variant": "sbp"})
+    asyncio.run(
+        run_callback_payment(
+            desc, _callback(), _settings(), {"i18n_instance": object()}, _FakeService(), _session()
+        )
+    )
+
+    _service, request = desc.create.await_args.args
+    assert request.provider_context == {"variant": "sbp"}
+
+
+def test_callback_reuse_validator_skips_stale_payment(monkeypatch):
+    _patch_common(monkeypatch)
+    existing = SimpleNamespace(payment_id=7)
+    created = SimpleNamespace(payment_id=42, status="pending_fake")
+    fake_dal = SimpleNamespace(
+        find_recent_pending_provider_payment=AsyncMock(return_value=existing),
+        create_payment_record=AsyncMock(return_value=created),
+    )
+    monkeypatch.setattr(link_flow, "payment_dal", fake_dal)
+
+    desc = _descriptor(
+        callback_context=lambda callback, parts, service: {"variant": "sbp"},
+        reuse=AsyncMock(return_value="https://pay/reused"),
+        reuse_payment_allowed=lambda payment, context: False,
+    )
+    asyncio.run(
+        run_callback_payment(
+            desc, _callback(), _settings(), {"i18n_instance": object()}, _FakeService(), _session()
+        )
+    )
+
+    desc.reuse.assert_not_awaited()
+    fake_dal.create_payment_record.assert_awaited_once()
+    desc.create.assert_awaited_once()
 
 
 def test_callback_unconfigured_service_notifies(monkeypatch):
@@ -182,6 +342,8 @@ def _webapp_ctx(service, configured_settings=True):
         price=100.0,
         currency="RUB",
         description="webapp desc",
+        months=1,
+        sale_mode="subscription",
     )
 
 
@@ -198,6 +360,7 @@ def test_webapp_payment_success_finalizes(monkeypatch):
     desc.create.assert_awaited_once()
     _svc, req = desc.create.await_args.args
     assert req.user_id == 555 and req.description == "webapp desc"
+    assert req.months == 1 and req.sale_mode == "subscription"
     fin = link_flow.finalize_webapp_link_payment.await_args.kwargs
     assert fin["payment_url"] == "https://pay/x"
     assert fin["provider_payment_id"] == "pid-1"
@@ -210,6 +373,20 @@ def test_webapp_payment_unconfigured_returns_unavailable(monkeypatch):
     desc = _descriptor()
     result = asyncio.run(run_webapp_payment(desc, _webapp_ctx(_FakeService(configured=False))))
     assert result is sentinel
+
+
+def test_webapp_currency_resolver_receives_service(monkeypatch):
+    payment = SimpleNamespace(payment_id=99, status="pending_fake")
+    monkeypatch.setattr(link_flow, "create_webapp_payment_record", AsyncMock(return_value=payment))
+    monkeypatch.setattr(link_flow, "finalize_webapp_link_payment", AsyncMock(return_value="OK"))
+
+    service = _FakeService()
+    desc = _descriptor(webapp_currency=lambda ctx, settings, resolved_service: "USD")
+    asyncio.run(run_webapp_payment(desc, _webapp_ctx(service)))
+
+    _svc, req = desc.create.await_args.args
+    assert _svc is service
+    assert req.currency == "USD"
 
 
 def test_reuse_webapp_delegates_to_descriptor(monkeypatch):

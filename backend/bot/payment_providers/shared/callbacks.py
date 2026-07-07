@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from aiogram import types
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,6 +30,8 @@ from .common import (
     sale_mode_tariff_key,
 )
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True)
 class PaymentCallbackParts:
@@ -52,7 +55,7 @@ def _short_repr(value: Any, *, max_length: int = 2000) -> str:
     return text[: max_length - 3] + "..."
 
 
-def parse_payment_callback(callback_data: str) -> Optional[PaymentCallbackParts]:
+def parse_payment_callback(callback_data: str) -> PaymentCallbackParts | None:
     """Parse the ``<prefix>:<value>:<price>:<sale_mode>`` payload all providers use.
 
     Returns ``None`` if the payload doesn't have the expected shape — callers
@@ -71,7 +74,7 @@ def parse_payment_callback(callback_data: str) -> Optional[PaymentCallbackParts]
 
 async def safe_callback_answer(
     callback: types.CallbackQuery,
-    text: Optional[str] = None,
+    text: str | None = None,
     *,
     show_alert: bool = False,
 ) -> None:
@@ -105,15 +108,13 @@ async def edit_or_answer(
         )
         return
     except Exception as exc:
-        logging.warning("%s: failed to edit message (%s), sending new one.", log_prefix, exc)
-    try:
+        logger.warning("%s: failed to edit message (%s), sending new one.", log_prefix, exc)
+    with contextlib.suppress(Exception):
         await message.answer(
             text,
             reply_markup=reply_markup,
             disable_web_page_preview=disable_web_page_preview,
         )
-    except Exception:
-        pass
 
 
 def describe_payment(translator: Translator, parts: PaymentCallbackParts) -> str:
@@ -133,7 +134,7 @@ async def quote_hwid_callback_parts(
     parts: PaymentCallbackParts,
     subscription_service: Any,
     currency: str = "rub",
-) -> tuple[Optional[PaymentCallbackParts], Optional[dict[str, Any]]]:
+) -> tuple[PaymentCallbackParts | None, dict[str, Any] | None]:
     base = sale_mode_base(parts.sale_mode)
     if base == "subscription" and sale_mode_has_token(parts.sale_mode, HWID_RENEWAL_TOKEN):
         try:
@@ -182,7 +183,7 @@ def payment_link_message_text(
     translator: Translator,
     parts: PaymentCallbackParts,
     *,
-    lead_text: Optional[str] = None,
+    lead_text: str | None = None,
 ) -> str:
     """Build the ``payment_link_message`` text (with optional lead block)."""
     traffic_like = sale_mode_base(parts.sale_mode) in {
@@ -207,10 +208,10 @@ async def render_payment_link(
     *,
     translator: Translator,
     current_lang: str,
-    i18n: Optional[JsonI18n],
+    i18n: JsonI18n | None,
     parts: PaymentCallbackParts,
     payment_url: str,
-    lead_text: Optional[str] = None,
+    lead_text: str | None = None,
     back_text_key: str = "back_to_payment_methods_button",
     log_prefix: str = "payment_providers",
 ) -> None:
@@ -246,10 +247,8 @@ async def notify_service_unavailable(
     )
     message = callback_message_or_none(callback)
     if message is not None:
-        try:
+        with contextlib.suppress(Exception):
             await message.edit_text(translator("payment_service_unavailable"))
-        except Exception:
-            pass
 
 
 async def notify_callback_parse_error(
@@ -267,10 +266,8 @@ async def notify_payment_record_failure(
     """Both error_creating_payment_record + error_try_again shown after DB failure."""
     message = callback_message_or_none(callback)
     if message is not None:
-        try:
+        with contextlib.suppress(Exception):
             await message.edit_text(translator("error_creating_payment_record"))
-        except Exception:
-            pass
     await safe_callback_answer(callback, translator("error_try_again"), show_alert=True)
 
 
@@ -281,10 +278,8 @@ async def notify_payment_gateway_failure(
     """``error_payment_gateway`` shown both inline and as alert."""
     message = callback_message_or_none(callback)
     if message is not None:
-        try:
+        with contextlib.suppress(Exception):
             await message.edit_text(translator("error_payment_gateway"))
-        except Exception:
-            pass
     await safe_callback_answer(
         callback,
         translator("error_payment_gateway"),
@@ -297,8 +292,8 @@ async def safe_store_provider_payment_id(
     payment: Payment,
     *,
     provider_payment_id: str,
-    provider_payment_url: Optional[str] = None,
-    new_status: Optional[str] = None,
+    provider_payment_url: str | None = None,
+    new_status: str | None = None,
     log_prefix: str,
 ) -> bool:
     """Persist ``(provider_payment_id, status)`` on the payment with rollback-on-fail.
@@ -319,7 +314,7 @@ async def safe_store_provider_payment_id(
         return True
     except Exception:
         await session.rollback()
-        logging.exception(
+        logger.exception(
             "%s: failed to store provider payment id for payment %s.",
             log_prefix,
             payment.payment_id,
@@ -338,7 +333,7 @@ async def safe_mark_failed_creation(
         await mark_payment_failed_creation(session, payment.payment_id)
     except Exception:
         await session.rollback()
-        logging.exception(
+        logger.exception(
             "%s: failed to mark payment %s as failed_creation.",
             log_prefix,
             payment.payment_id,
@@ -350,16 +345,16 @@ async def render_link_or_fail(
     *,
     translator: Translator,
     current_lang: str,
-    i18n: Optional[JsonI18n],
-    parts: "PaymentCallbackParts",
+    i18n: JsonI18n | None,
+    parts: PaymentCallbackParts,
     session: AsyncSession,
     payment: Payment,
     api_success: bool,
-    payment_url: Optional[str],
-    provider_payment_id: Optional[str] = None,
-    provider_response: Optional[Any] = None,
-    new_status: Optional[str] = None,
-    lead_text: Optional[str] = None,
+    payment_url: str | None,
+    provider_payment_id: str | None = None,
+    provider_response: Any | None = None,
+    new_status: str | None = None,
+    lead_text: str | None = None,
     log_prefix: str,
 ) -> None:
     """Finalize the link-based callback flow after the provider API responded.
@@ -392,7 +387,7 @@ async def render_link_or_fail(
         )
         return
 
-    logging.error(
+    logger.error(
         "%s: payment creation failed for payment %s "
         "(user_id=%s, api_success=%s, has_payment_url=%s, "
         "has_provider_payment_id=%s, provider_response=%s).",

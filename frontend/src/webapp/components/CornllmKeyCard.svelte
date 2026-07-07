@@ -3,7 +3,7 @@
   import Card from "$components/ui/card.svelte";
   import { Copy, Eye, EyeOff, Key } from "$components/ui/icons.js";
 
-  type AnyRecord = Record<string, any>;
+  type UnknownRecord = Record<string, unknown>;
   type ApiUnchecked = (
     path: string,
     options?: Parameters<typeof fetch>[1]
@@ -13,12 +13,12 @@
     subscription = {},
     appSettings = {},
     apiUnchecked,
-    t = (key: string, _params?: AnyRecord, fallback?: string) => fallback || key,
+    t = (key: string, _params?: UnknownRecord, fallback?: string) => fallback || key,
   }: {
-    subscription?: AnyRecord;
-    appSettings?: AnyRecord;
+    subscription?: UnknownRecord;
+    appSettings?: UnknownRecord;
     apiUnchecked?: ApiUnchecked;
-    t?: (key: string, params?: AnyRecord, fallback?: string) => string;
+    t?: (key: string, params?: UnknownRecord, fallback?: string) => string;
   } = $props();
 
   const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");

@@ -20,9 +20,9 @@ These tests pin the surface contract:
 import json
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import bot.app.web.subscription_webapp  # noqa: F401 — populates webapp._runtime
 from bot.app.web.webapp.serializers import _serialize_subscription
@@ -53,7 +53,7 @@ def _tariffs_payload() -> dict:
 def _make_settings(tmpdir: str, **overrides: Any) -> Settings:
     config_path = Path(tmpdir) / "tariffs.json"
     config_path.write_text(json.dumps(_tariffs_payload()), encoding="utf-8")
-    values: Dict[str, Any] = {
+    values: dict[str, Any] = {
         "_env_file": None,
         "BOT_TOKEN": "token",
         "POSTGRES_USER": "u",
@@ -64,11 +64,11 @@ def _make_settings(tmpdir: str, **overrides: Any) -> Settings:
     return Settings(**values)
 
 
-def _active(**overrides: Any) -> Dict[str, Any]:
-    base: Dict[str, Any] = {
+def _active(**overrides: Any) -> dict[str, Any]:
+    base: dict[str, Any] = {
         "tariff_key": "standard",
         "status_from_panel": "ACTIVE",
-        "end_date": datetime.now(timezone.utc) + timedelta(days=30),
+        "end_date": datetime.now(UTC) + timedelta(days=30),
         "traffic_limit_bytes": 0,
         "traffic_used_bytes": 0,
         "premium_baseline_bytes": 0,

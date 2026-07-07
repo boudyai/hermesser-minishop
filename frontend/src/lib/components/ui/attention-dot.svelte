@@ -1,7 +1,13 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
+  import type { HTMLAttributes } from "svelte/elements";
 
-  let { position = "absolute", class: className = "", ...rest } = $props();
+  type Props = Omit<HTMLAttributes<HTMLSpanElement>, "class"> & {
+    class?: string;
+    position?: "absolute" | "inline";
+  };
+
+  let { position = "absolute", class: className = "", ...rest }: Props = $props();
 </script>
 
 <span

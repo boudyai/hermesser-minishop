@@ -1,7 +1,8 @@
 import logging
 import time
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, Protocol
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
@@ -17,20 +18,15 @@ from config.settings import Settings
 from db.dal import tariff_dal
 from db.models import Subscription
 
-PREMIUM_WARNING_LEVEL_OFFSET = 1000
-# Single warning per premium billing period when usage reached or exceeded the quota.
-PREMIUM_WARNING_DEPLETED_LEVEL = PREMIUM_WARNING_LEVEL_OFFSET + 100
+from .tariff_worker_shared import (
+    PREMIUM_WARNING_DEPLETED_LEVEL,
+    PREMIUM_WARNING_LEVEL_OFFSET,
+    TARIFF_WORKER_SQUAD_CONFIRMATION_CACHE_TTL_SECONDS,
+    deliver_traffic_warning,
+    fmt_bytes,
+)
 
-# Process active subscriptions in chunks and prefetch panel data concurrently
-# to avoid an N+1 serial chain to the Remnawave panel each tick.
-TARIFF_WORKER_BATCH_SIZE = 50
-TARIFF_WORKER_PANEL_CONCURRENCY = 10
-TARIFF_WORKER_BULK_PANEL_FETCH_THRESHOLD = 50
-TARIFF_WORKER_SQUAD_CONFIRMATION_CACHE_TTL_SECONDS = 900
-TARIFF_WORKER_DB_RETRY_ATTEMPTS = 3
-TARIFF_WORKER_DB_RETRY_BASE_SLEEP_SECONDS = 0.5
-POSTGRES_RETRYABLE_SQLSTATES = {"40001", "40P01"}
-POSTGRES_RETRYABLE_ERROR_NAMES = {"DeadlockDetectedError", "SerializationError"}
+logger = logging.getLogger(__name__)
 
 
 class _PremiumTariff(Protocol):
@@ -45,12 +41,12 @@ class TariffWorkerPremiumMixin:
     settings: Settings
     panel_service: PanelApiService
     subscription_service: SubscriptionService
-    bot: Optional[Bot]
-    i18n: Optional[JsonI18n]
+    bot: Bot | None
+    i18n: JsonI18n | None
     _premium_nodes_cache: dict[tuple[str, ...], dict[str, Any]]
     _premium_node_usage_tick_cache: dict[
         tuple[str, str, str],
-        Optional[dict[str, dict[Any, int]]],
+        dict[str, dict[Any, int]] | None,
     ]
     _premium_squad_match_cache: dict[tuple[str, tuple[str, ...]], float]
 
@@ -65,13 +61,20 @@ class TariffWorkerPremiumMixin:
             translate: Callable[..., str],
             *,
             kind: str,
-            period_start_at: Optional[datetime],
+            period_start_at: datetime | None,
             reset_available_bytes: int,
             user_lang: str,
+            next_reset_at: datetime | None = None,
         ) -> str: ...
+        def _panel_next_traffic_reset_at(
+            self,
+            panel_user_data: dict[str, Any] | None,
+            *,
+            now: datetime | None = None,
+        ) -> datetime | None: ...
         def _traffic_topup_markup(
             self, user_lang: str, kind: str
-        ) -> Optional[InlineKeyboardMarkup]: ...
+        ) -> InlineKeyboardMarkup | None: ...
         async def _send_traffic_warning_email(
             self,
             session: AsyncSession,
@@ -106,8 +109,8 @@ class TariffWorkerPremiumMixin:
         tariff: _PremiumTariff,
         now: datetime,
         *,
-        panel_username: Optional[str] = None,
-        panel_user_dict: Optional[dict[str, Any]] = None,
+        panel_username: str | None = None,
+        panel_user_dict: dict[str, Any] | None = None,
         panel_view: str = "unknown",
     ) -> None:
         if not getattr(tariff, "premium_squad_uuids", None):
@@ -167,7 +170,7 @@ class TariffWorkerPremiumMixin:
 
         node_uuids = await self._premium_node_uuids_for_tariff(tariff)
         if not node_uuids:
-            logging.warning("Premium squads for tariff %s have no accessible nodes", tariff.key)
+            logger.warning("Premium squads for tariff %s have no accessible nodes", tariff.key)
             return
 
         start_date = premium_period_start.date().isoformat()
@@ -181,6 +184,8 @@ class TariffWorkerPremiumMixin:
         )
         if premium_used is None:
             return
+
+        panel_next_reset_at = self._panel_next_traffic_reset_at(panel_user_dict, now=now)
 
         # Consume paid top-up balance only for overflow beyond baseline+bonus.
         # Admin-granted bonus is "spent" against usage first along with baseline,
@@ -196,10 +201,7 @@ class TariffWorkerPremiumMixin:
                 premium_baseline + premium_topup_balance + premium_topup_used + premium_bonus
             )
 
-        if premium_unlimited_override:
-            should_limit = False
-        else:
-            should_limit = premium_used >= premium_limit
+        should_limit = False if premium_unlimited_override else premium_used >= premium_limit
         access_state_changed = bool(sub.premium_is_limited) != should_limit
         desired_squads = self.subscription_service._panel_squads_for_tariff(
             tariff,
@@ -267,6 +269,7 @@ class TariffWorkerPremiumMixin:
                 premium_used,
                 premium_limit,
                 premium_period_start,
+                next_reset_at=panel_next_reset_at,
             )
         if not panel_needs_update:
             if not premium_unlimited_override and not is_trial_premium_tariff:
@@ -307,7 +310,7 @@ class TariffWorkerPremiumMixin:
                     period_start_at=premium_period_start,
                     previous_period_start=previous_premium_period_start,
                 )
-        logging.info(
+        logger.info(
             "Premium squad access %s for user %s tariff %s: %s/%s bytes",
             "limited" if should_limit else "restored",
             sub.user_id,
@@ -325,7 +328,7 @@ class TariffWorkerPremiumMixin:
         used: int,
         limit: int,
         period_start_at: datetime,
-        previous_period_start: Optional[datetime],
+        previous_period_start: datetime | None,
     ) -> None:
         if self._period_tariff_traffic_strategy() == "NO_RESET":
             return
@@ -415,7 +418,7 @@ class TariffWorkerPremiumMixin:
     async def _get_full_panel_user_for_squad_confirmation(
         self,
         panel_user_uuid: str,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         try:
             panel_user = await self.panel_service.get_user_by_uuid(
                 panel_user_uuid,
@@ -423,14 +426,14 @@ class TariffWorkerPremiumMixin:
             )
             return panel_user if isinstance(panel_user, dict) else None
         except Exception:
-            logging.exception(
+            logger.exception(
                 "TariffTrafficWorker: failed to confirm panel squads for user %s",
                 panel_user_uuid,
             )
             return None
 
     @staticmethod
-    def _same_premium_period(value: Optional[datetime], premium_period_start: datetime) -> bool:
+    def _same_premium_period(value: datetime | None, premium_period_start: datetime) -> bool:
         if value is None:
             return False
         try:
@@ -464,7 +467,7 @@ class TariffWorkerPremiumMixin:
             return premium_topup_balance
 
         repaired_bytes = ledger_total - tracked_total
-        logging.warning(
+        logger.warning(
             "Premium top-up balance repaired from ledger for user %s subscription %s: "
             "tracked=%s ledger=%s repaired=%s",
             getattr(sub, "user_id", None),
@@ -480,7 +483,7 @@ class TariffWorkerPremiumMixin:
         session: AsyncSession,
         subscription_id: int,
         premium_period_start: datetime,
-    ) -> Optional[int]:
+    ) -> int | None:
         if not subscription_id or not isinstance(session, AsyncSession):
             return None
         try:
@@ -492,7 +495,7 @@ class TariffWorkerPremiumMixin:
             )
             return int(total) if total is not None else None
         except Exception:
-            logging.exception(
+            logger.exception(
                 "TariffTrafficWorker: failed to read premium top-up ledger for subscription %s",
                 subscription_id,
             )
@@ -519,13 +522,13 @@ class TariffWorkerPremiumMixin:
     @classmethod
     def _panel_active_squad_uuid_set(
         cls,
-        panel_user_dict: Optional[dict],
+        panel_user_dict: dict | None,
     ) -> tuple[bool, set[str]]:
         current_known, current_raw = cls._panel_active_squads_raw(panel_user_dict)
         return current_known, cls._internal_squad_uuid_set(current_raw)
 
     @staticmethod
-    def _panel_active_squads_raw(panel_user_dict: Optional[dict]) -> tuple[bool, Any]:
+    def _panel_active_squads_raw(panel_user_dict: dict | None) -> tuple[bool, Any]:
         if not isinstance(panel_user_dict, dict):
             return False, None
         for key in (
@@ -544,14 +547,14 @@ class TariffWorkerPremiumMixin:
         sub: Subscription,
         panel_uuid: str,
         update_payload: dict[str, Any],
-        current_panel_user: Optional[dict],
+        current_panel_user: dict | None,
         reasons: list[str],
         panel_view: str,
     ) -> None:
         current_known, current_set = self._panel_active_squad_uuid_set(current_panel_user)
         desired_set = self._internal_squad_uuid_set(update_payload.get("activeInternalSquads"))
         fields = "none" if current_known and current_set == desired_set else "activeInternalSquads"
-        logging.info(
+        logger.info(
             "Sync panel PATCH: source=%s user_id=%s telegram_id=%s panel_uuid=%s "
             "panel_view=%s reasons=%s fields=%s payload_fields=%s changes=%s",
             "premium_squad_limit",
@@ -562,11 +565,9 @@ class TariffWorkerPremiumMixin:
             ",".join(reasons),
             fields,
             "activeInternalSquads",
-            "activeInternalSquads:%s->%s"
-            % (
-                self._format_squad_uuid_set(current_set if current_known else None),
-                self._format_squad_uuid_set(desired_set),
-            ),
+            "activeInternalSquads:"
+            f"{self._format_squad_uuid_set(current_set if current_known else None)}"
+            f"->{self._format_squad_uuid_set(desired_set)}",
         )
 
     @staticmethod
@@ -592,7 +593,7 @@ class TariffWorkerPremiumMixin:
         return out
 
     @staticmethod
-    def _format_squad_uuid_set(value: Optional[set[str]]) -> str:
+    def _format_squad_uuid_set(value: set[str] | None) -> str:
         if value is None:
             return "missing"
         values = sorted(str(item) for item in value)
@@ -614,14 +615,7 @@ class TariffWorkerPremiumMixin:
         bonus = int(getattr(sub, "premium_bonus_bytes", 0) or 0)
         return max(0, baseline) + max(0, topup_balance) + max(0, bonus)
 
-    @staticmethod
-    def _fmt_bytes(value: int) -> str:
-        size = float(max(0, int(value or 0)))
-        for unit in ("B", "KB", "MB", "GB", "TB"):
-            if size < 1024 or unit == "TB":
-                return f"{size:.1f} {unit}" if unit != "B" else f"{int(size)} B"
-            size /= 1024
-        return f"{size:.1f} TB"
+    _fmt_bytes = staticmethod(fmt_bytes)
 
     async def _maybe_warn_premium_squad_limit(
         self,
@@ -631,6 +625,8 @@ class TariffWorkerPremiumMixin:
         used: int,
         limit: int,
         period_start_at: datetime,
+        *,
+        next_reset_at: datetime | None = None,
     ) -> None:
         if limit <= 0:
             return
@@ -658,20 +654,11 @@ class TariffWorkerPremiumMixin:
             )
             user_lang = await self._user_lang(session, sub.user_id)
             _ = (
-                (lambda k, **kw: self.i18n.gettext(user_lang, k, **kw))
+                (lambda k, _user_lang=user_lang, **kw: self.i18n.gettext(_user_lang, k, **kw))
                 if self.i18n
                 else (lambda k, **kw: k)
             )
-            access = await self.subscription_service.premium_access_for_tariff(tariff)
-            labels = access.get("node_labels") or access.get("squad_labels") or []
-            if labels:
-                visible = [hd.quote(str(x)) for x in labels[:8]]
-                servers = "\n".join(f"• {label}" for label in visible)
-                if len(labels) > len(visible):
-                    more = len(labels) - len(visible)
-                    servers += "\n" + _("traffic_warning_premium_servers_more", count=more)
-            else:
-                servers = _("traffic_warning_premium_generic_servers")
+            servers = await self._premium_servers_text(tariff, _)
             usage = self._usage_placeholders(used_val, limit_val)
             reset_note = self._traffic_next_reset_note(
                 _,
@@ -679,6 +666,7 @@ class TariffWorkerPremiumMixin:
                 period_start_at=period_start_at,
                 reset_available_bytes=self._premium_next_period_available_bytes(sub, tariff),
                 user_lang=user_lang,
+                next_reset_at=next_reset_at,
             )
             text = _(
                 "traffic_warning_premium_depleted",
@@ -693,35 +681,23 @@ class TariffWorkerPremiumMixin:
                 f"kind=premium warning_key={warning_key} "
                 f"used_bytes={used_val} limit_bytes={limit_val}"
             )
-            if self.bot:
-                try:
-                    markup = self._traffic_topup_markup(user_lang, "premium")
-                    await self.bot.send_message(
-                        sub.user_id,
-                        text,
-                        reply_markup=markup,
-                        parse_mode="HTML",
-                    )
-                    await log_user_message_delivery(
-                        session,
-                        target_user_id=sub.user_id,
-                        event_type="telegram_traffic_warning_sent",
-                        channel="telegram",
-                        recipient=str(sub.user_id),
-                        content=audit_content,
-                    )
-                except Exception:
-                    logging.exception(
-                        "Failed to send premium traffic depleted warning to user %s", sub.user_id
-                    )
-            await self._send_traffic_warning_email(
+            markup = self._traffic_topup_markup(user_lang, "premium") if self.bot else None
+            await deliver_traffic_warning(
                 session,
                 user_id=sub.user_id,
+                bot=self.bot,
+                text=text,
+                markup=markup,
+                audit_content=audit_content,
+                audit_logger=log_user_message_delivery,
+                email_sender=self._send_traffic_warning_email,
                 subject_key="email_traffic_warning_premium_depleted_subject",
-                message_text=text,
                 kind="premium",
                 warning_key=warning_key,
-                audit_content=audit_content,
+                logger=logger,
+                telegram_failure_message=(
+                    "Failed to send premium traffic depleted warning to user %s"
+                ),
             )
             return
 
@@ -748,20 +724,11 @@ class TariffWorkerPremiumMixin:
             )
             user_lang = await self._user_lang(session, sub.user_id)
             _ = (
-                (lambda k, **kw: self.i18n.gettext(user_lang, k, **kw))
+                (lambda k, _user_lang=user_lang, **kw: self.i18n.gettext(_user_lang, k, **kw))
                 if self.i18n
                 else (lambda k, **kw: k)
             )
-            access = await self.subscription_service.premium_access_for_tariff(tariff)
-            labels = access.get("node_labels") or access.get("squad_labels") or []
-            if labels:
-                visible = [hd.quote(str(x)) for x in labels[:8]]
-                servers = "\n".join(f"• {label}" for label in visible)
-                if len(labels) > len(visible):
-                    more = len(labels) - len(visible)
-                    servers += "\n" + _("traffic_warning_premium_servers_more", count=more)
-            else:
-                servers = _("traffic_warning_premium_generic_servers")
+            servers = await self._premium_servers_text(tariff, _)
             left_pct = max(0, 100 - int(level))
             usage = self._usage_placeholders(used_val, limit_val)
             reset_note = self._traffic_next_reset_note(
@@ -770,6 +737,7 @@ class TariffWorkerPremiumMixin:
                 period_start_at=period_start_at,
                 reset_available_bytes=self._premium_next_period_available_bytes(sub, tariff),
                 user_lang=user_lang,
+                next_reset_at=next_reset_at,
             )
             text = _(
                 "traffic_warning_premium_almost",
@@ -785,41 +753,27 @@ class TariffWorkerPremiumMixin:
                 f"kind=premium warning_key={warning_key} level={int(level)} "
                 f"used_bytes={used_val} limit_bytes={limit_val}"
             )
-            if self.bot:
-                try:
-                    markup = self._traffic_topup_markup(user_lang, "premium")
-                    await self.bot.send_message(
-                        sub.user_id,
-                        text,
-                        reply_markup=markup,
-                        parse_mode="HTML",
-                    )
-                    await log_user_message_delivery(
-                        session,
-                        target_user_id=sub.user_id,
-                        event_type="telegram_traffic_warning_sent",
-                        channel="telegram",
-                        recipient=str(sub.user_id),
-                        content=audit_content,
-                    )
-                except Exception:
-                    logging.exception(
-                        "Failed to send premium traffic warning to user %s", sub.user_id
-                    )
-            await self._send_traffic_warning_email(
+            markup = self._traffic_topup_markup(user_lang, "premium") if self.bot else None
+            await deliver_traffic_warning(
                 session,
                 user_id=sub.user_id,
+                bot=self.bot,
+                text=text,
+                markup=markup,
+                audit_content=audit_content,
+                audit_logger=log_user_message_delivery,
+                email_sender=self._send_traffic_warning_email,
                 subject_key="email_traffic_warning_premium_almost_subject",
-                message_text=text,
                 kind="premium",
                 warning_key=warning_key,
-                audit_content=audit_content,
+                logger=logger,
+                telegram_failure_message="Failed to send premium traffic warning to user %s",
             )
 
     async def _premium_node_uuids_for_tariff(self, tariff: _PremiumTariff) -> list[str]:
         cache_key = tuple(sorted(tariff.premium_squad_uuids or []))
         cached = self._premium_nodes_cache.get(cache_key)
-        now_ts = datetime.now(timezone.utc).timestamp()
+        now_ts = datetime.now(UTC).timestamp()
         cached_nodes = cached.get("nodes") if cached else None
         cached_ts = cached.get("ts") if cached else None
         if cached and cached_nodes is not None and now_ts - float(cached_ts or 0) < 600:
@@ -847,8 +801,8 @@ class TariffWorkerPremiumMixin:
         start_date: str,
         end_date: str,
         *,
-        panel_username: Optional[str] = None,
-    ) -> Optional[int]:
+        panel_username: str | None = None,
+    ) -> int | None:
         total = 0
         found = False
         username = (panel_username or "").strip() or None
@@ -886,7 +840,7 @@ class TariffWorkerPremiumMixin:
         node_uuid: str,
         start_date: str,
         end_date: str,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         stats_cache_key = (node_uuid, start_date, end_date)
         if stats_cache_key not in self._premium_node_usage_tick_cache:
             stats = await self.panel_service.get_node_users_bandwidth_stats(
@@ -900,7 +854,7 @@ class TariffWorkerPremiumMixin:
         return self._premium_node_usage_tick_cache.get(stats_cache_key)
 
     @staticmethod
-    def _build_premium_usage_lookup(stats: Optional[dict]) -> Optional[dict]:
+    def _build_premium_usage_lookup(stats: dict | None) -> dict | None:
         if not isinstance(stats, dict):
             return None
         entries = stats.get("topUsers") or stats.get("usersStats") or stats.get("users") or []

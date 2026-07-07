@@ -1,24 +1,27 @@
-<script>
+<script lang="ts">
   import { X } from "$components/ui/icons.js";
   import { cn } from "$lib/utils.js";
+  import type { Snippet } from "svelte";
   import { cubicOut } from "svelte/easing";
   import { prefersReducedMotion } from "svelte/motion";
   import { fade, fly } from "svelte/transition";
   import Button from "./button.svelte";
   import ScrollArea from "./scroll-area.svelte";
 
-  /**
-   * @type {{
-   *   open?: boolean;
-   *   title?: string;
-   *   description?: string;
-   *   closeLabel?: string;
-   *   onclose?: () => void;
-   *   class?: string;
-   *   titleIcon?: import("svelte").Snippet;
-   *   children?: import("svelte").Snippet;
-   * }}
-   */
+  type FadeParams = Parameters<typeof fade>[1];
+  type FlyParams = Parameters<typeof fly>[1];
+
+  type Props = {
+    open?: boolean;
+    title?: string;
+    description?: string;
+    closeLabel?: string;
+    onclose?: () => void;
+    class?: string;
+    titleIcon?: Snippet;
+    children?: Snippet;
+  };
+
   let {
     open = false,
     title = "",
@@ -28,36 +31,36 @@
     class: className = "",
     titleIcon,
     children,
-  } = $props();
+  }: Props = $props();
 
-  function backdropTransition() {
+  function backdropTransition(): FadeParams {
     return prefersReducedMotion.current ? { duration: 0 } : { duration: 200 };
   }
 
-  function cardIn() {
+  function cardIn(): FlyParams {
     return prefersReducedMotion.current
       ? { duration: 0, y: 0 }
       : { duration: 260, y: 16, easing: cubicOut };
   }
 
-  function cardOut() {
+  function cardOut(): FlyParams {
     return prefersReducedMotion.current
       ? { duration: 0, y: 0 }
       : { duration: 200, y: 10, easing: cubicOut };
   }
 
-  function stopScrollPropagation(event) {
+  function stopScrollPropagation(event: WheelEvent | TouchEvent) {
     event.stopPropagation();
     if (event.target instanceof Element && event.target.closest(".dialog-body-scroll")) return;
     event.preventDefault();
   }
 
-  function readScrollLockCount(body) {
+  function readScrollLockCount(body: HTMLElement): number {
     const count = Number(body.dataset.dialogScrollLockCount || "0");
     return Number.isFinite(count) ? count : 0;
   }
 
-  function lockBodyScroll() {
+  function lockBodyScroll(): () => void {
     if (typeof document === "undefined") return () => {};
     const { body } = document;
     const count = readScrollLockCount(body);

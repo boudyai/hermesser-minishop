@@ -12,7 +12,7 @@ These tests pin the contract end-to-end.
 
 import unittest
 from types import SimpleNamespace
-from typing import List
+from typing import ClassVar
 from unittest.mock import patch
 
 from bot.services.subscription_service_impl import payments as payments_module
@@ -60,12 +60,12 @@ class _FakeUser(SimpleNamespace):
 
 
 class _FakeEmailService:
-    instances: List["_FakeEmailService"] = []
+    instances: ClassVar[list["_FakeEmailService"]] = []
 
     def __init__(self, settings, i18n=None):
         self.settings = settings
         self.i18n = i18n
-        self.sent: List[dict] = []
+        self.sent: list[dict] = []
         _FakeEmailService.instances.append(self)
 
     async def send_rendered_email(self, *, email, content):

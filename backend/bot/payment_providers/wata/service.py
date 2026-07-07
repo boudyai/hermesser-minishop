@@ -1,8 +1,9 @@
 import base64
 import json
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
+from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot
 from aiohttp import web
@@ -13,14 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
-
-if TYPE_CHECKING:
-    from bot.services.referral_service import ReferralService
-    from bot.services.subscription_service_impl.core import SubscriptionService
-else:
-    ReferralService = object
-    SubscriptionService = object
-from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
 from db.dal import payment_dal
 
@@ -31,6 +24,7 @@ from ..shared import (
     PAYMENT_STATUS_PENDING_FINALIZATION,
     HttpClientMixin,
     PaymentSuccessRequest,
+    check_webhook_source_ip,
     decimal_amounts_equal,
     finalize_successful_payment,
     first_value,
@@ -56,6 +50,15 @@ from .config import (
     _wata_transaction_id,
 )
 
+if TYPE_CHECKING:
+    from bot.services.referral_service import ReferralService
+    from bot.services.subscription_service_impl.core import SubscriptionService
+else:
+    ReferralService = object
+    SubscriptionService = object
+
+logger = logging.getLogger(__name__)
+
 
 class WataService(HttpClientMixin):
     def __init__(
@@ -78,11 +81,11 @@ class WataService(HttpClientMixin):
         self.subscription_service = subscription_service
         self.referral_service = referral_service
         self._default_return_url = default_return_url
-        self._cached_public_key_pem: Dict[str, Optional[str]] = {}
+        self._cached_public_key_pem: dict[str, str | None] = {}
 
         self._init_http_client(total_timeout=lambda: self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
         if not self.configured:
-            logging.warning("WataService initialized but not fully configured. Payments disabled.")
+            logger.warning("WataService initialized but not fully configured. Payments disabled.")
 
     @property
     def configured(self) -> bool:
@@ -104,8 +107,8 @@ class WataService(HttpClientMixin):
             return self.config.crypto_runtime_enabled
         return self.config.fiat_runtime_enabled
 
-    def iter_enabled_profiles(self) -> Tuple[WataTerminalProfile, ...]:
-        profiles: List[WataTerminalProfile] = []
+    def iter_enabled_profiles(self) -> tuple[WataTerminalProfile, ...]:
+        profiles: list[WataTerminalProfile] = []
         for provider in (WATA_PROVIDER, WATA_CRYPTO_PROVIDER):
             profile = self.profile_for_method(provider)
             if self.profile_enabled(provider):
@@ -115,7 +118,7 @@ class WataService(HttpClientMixin):
     def profile_for_terminal_public_id(
         self,
         terminal_public_id: Any,
-    ) -> Optional[WataTerminalProfile]:
+    ) -> WataTerminalProfile | None:
         normalized = _normalize_terminal_public_id(terminal_public_id)
         if not normalized:
             return None
@@ -145,7 +148,7 @@ class WataService(HttpClientMixin):
         return self.config.WEBHOOK_VERIFY_SIGNATURE
 
     @property
-    def _public_key_pem(self) -> Optional[str]:
+    def _public_key_pem(self) -> str | None:
         profile = self.profile_for_method(WATA_PROVIDER)
         return profile.public_key or self._cached_public_key_pem.get(profile.provider)
 
@@ -161,8 +164,8 @@ class WataService(HttpClientMixin):
 
     def _auth_headers(
         self,
-        profile: Optional[WataTerminalProfile] = None,
-    ) -> Dict[str, str]:
+        profile: WataTerminalProfile | None = None,
+    ) -> dict[str, str]:
         resolved = profile or self.profile_for_method(WATA_PROVIDER)
         return {
             "Authorization": f"Bearer {resolved.api_token}",
@@ -174,13 +177,13 @@ class WataService(HttpClientMixin):
         *,
         payment_db_id: int,
         amount: float,
-        currency: Optional[str],
+        currency: str | None,
         description: str,
         method: Any = WATA_PROVIDER,
-    ) -> Tuple[bool, Dict[str, Any]]:
+    ) -> tuple[bool, dict[str, Any]]:
         profile = self.profile_for_method(method)
         if not self.profile_enabled(profile.provider):
-            logging.error(
+            logger.error(
                 "%s service profile is not configured. Cannot create payment link.",
                 profile.log_label,
             )
@@ -197,10 +200,10 @@ class WataService(HttpClientMixin):
             }
 
         session = await self._get_session()
-        expires_at = (
-            datetime.now(timezone.utc) + timedelta(minutes=profile.link_ttl_minutes)
-        ).replace(microsecond=0)
-        body: Dict[str, Any] = {
+        expires_at = (datetime.now(UTC) + timedelta(minutes=profile.link_ttl_minutes)).replace(
+            microsecond=0
+        )
+        body: dict[str, Any] = {
             "amount": float(format_decimal_amount(amount)),
             "currency": currency_code,
             "description": description,
@@ -222,13 +225,13 @@ class WataService(HttpClientMixin):
         self,
         url: str,
         *,
-        params: Optional[Mapping[str, Any]] = None,
+        params: Mapping[str, Any] | None = None,
         log_prefix: str,
-        profile: Optional[WataTerminalProfile] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        profile: WataTerminalProfile | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         resolved_profile = profile or self.profile_for_method(WATA_PROVIDER)
         if not self.profile_enabled(resolved_profile.provider):
-            logging.error(
+            logger.error(
                 "%s service profile is not configured. Cannot fetch provider state.",
                 resolved_profile.log_label,
             )
@@ -245,14 +248,14 @@ class WataService(HttpClientMixin):
                 try:
                     response_data = json.loads(response_text) if response_text else {}
                 except json.JSONDecodeError:
-                    logging.error("%s: invalid JSON response: %s", log_prefix, response_text)
+                    logger.error("%s: invalid JSON response: %s", log_prefix, response_text)
                     return False, {
                         "status": response.status,
                         "message": "invalid_json",
                         "raw": response_text,
                     }
                 if not _wata_success_status(response.status, response_data):
-                    logging.error(
+                    logger.error(
                         "%s: API returned error (status=%s, body=%s)",
                         log_prefix,
                         response.status,
@@ -261,22 +264,22 @@ class WataService(HttpClientMixin):
                     return False, {"status": response.status, "message": response_data}
                 return True, response_data
         except Exception as exc:
-            logging.exception("%s: request failed.", log_prefix)
+            logger.exception("%s: request failed.", log_prefix)
             return False, {"message": str(exc)}
 
     async def get_payment_link(
         self,
         payment_link_id: str,
         *,
-        profile: Optional[WataTerminalProfile] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        profile: WataTerminalProfile | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         return await self._get_json(
             f"{self.base_url}/links/{payment_link_id}",
             log_prefix="Wata get_payment_link",
             profile=profile,
         )
 
-    async def try_reuse_pending_link(self, payment: Any) -> Optional[str]:
+    async def try_reuse_pending_link(self, payment: Any) -> str | None:
         """Return the existing payment link URL if it's still usable; else None.
 
         Used to avoid creating duplicate Wata links each time a user re-clicks
@@ -316,12 +319,12 @@ class WataService(HttpClientMixin):
         if expiration_raw:
             exp_dt = _parse_wata_datetime(expiration_raw)
             if exp_dt is None:
-                logging.warning(
+                logger.warning(
                     "Wata try_reuse_pending_link: unparseable expirationDateTime %r",
                     expiration_raw,
                 )
                 return None
-            if exp_dt <= datetime.now(timezone.utc):
+            if exp_dt <= datetime.now(UTC):
                 return None
 
         return first_value(data, "url", "paymentUrl", "payment_url")
@@ -330,8 +333,8 @@ class WataService(HttpClientMixin):
         self,
         transaction_id: str,
         *,
-        profile: Optional[WataTerminalProfile] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        profile: WataTerminalProfile | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         return await self._get_json(
             f"{self.base_url}/transactions/{transaction_id}",
             log_prefix="Wata get_transaction",
@@ -341,13 +344,13 @@ class WataService(HttpClientMixin):
     async def search_transactions(
         self,
         *,
-        order_id: Optional[str] = None,
-        payment_link_id: Optional[str] = None,
-        status: Optional[str] = None,
+        order_id: str | None = None,
+        payment_link_id: str | None = None,
+        status: str | None = None,
         limit: int = 5,
-        profile: Optional[WataTerminalProfile] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
-        params: Dict[str, Any] = {
+        profile: WataTerminalProfile | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
+        params: dict[str, Any] = {
             "skipCount": 0,
             "maxResultCount": max(1, min(int(limit or 5), 1000)),
         }
@@ -366,8 +369,8 @@ class WataService(HttpClientMixin):
 
     async def _get_public_key_pem(
         self,
-        profile: Optional[WataTerminalProfile] = None,
-    ) -> Optional[str]:
+        profile: WataTerminalProfile | None = None,
+    ) -> str | None:
         resolved_profile = profile or self.profile_for_method(WATA_PROVIDER)
         if resolved_profile.public_key:
             value = resolved_profile.public_key
@@ -385,7 +388,7 @@ class WataService(HttpClientMixin):
                 headers=self._auth_headers(resolved_profile),
             ) as response:
                 if response.status != 200:
-                    logging.error("Wata public key request failed with status %s", response.status)
+                    logger.error("Wata public key request failed with status %s", response.status)
                     return None
                 data = await response.json()
                 fetched_value: Any = data.get("value") if isinstance(data, dict) else None
@@ -393,7 +396,7 @@ class WataService(HttpClientMixin):
                     self._cached_public_key_pem[resolved_profile.provider] = fetched_value
                     return fetched_value.replace("\\n", "\n")
         except Exception:
-            logging.exception("Wata public key request failed.")
+            logger.exception("Wata public key request failed.")
         return None
 
     async def _verify_signature_with_profile(
@@ -410,16 +413,16 @@ class WataService(HttpClientMixin):
         try:
             public_key = serialization.load_pem_public_key(public_key_pem.encode("utf-8"))
             if not isinstance(public_key, rsa.RSAPublicKey):
-                logging.warning("Wata webhook: public key is not an RSA key.")
+                logger.warning("Wata webhook: public key is not an RSA key.")
                 return False
             signature = base64.b64decode(signature_header)
             public_key.verify(signature, raw_body, padding.PKCS1v15(), hashes.SHA512())
             return True
         except (InvalidSignature, ValueError, TypeError):
-            logging.warning("Wata webhook: invalid signature.")
+            logger.warning("Wata webhook: invalid signature.")
             return False
         except Exception:
-            logging.exception("Wata webhook: signature verification failed.")
+            logger.exception("Wata webhook: signature verification failed.")
             return False
 
     async def _verify_signature(
@@ -427,7 +430,7 @@ class WataService(HttpClientMixin):
         raw_body: bytes,
         signature_header: str,
         *,
-        profile: Optional[WataTerminalProfile] = None,
+        profile: WataTerminalProfile | None = None,
     ) -> bool:
         if not signature_header:
             return False
@@ -452,7 +455,7 @@ class WataService(HttpClientMixin):
                 return True
         return False
 
-    def _profile_hint_from_raw_body(self, raw_body: bytes) -> Optional[WataTerminalProfile]:
+    def _profile_hint_from_raw_body(self, raw_body: bytes) -> WataTerminalProfile | None:
         try:
             payload = json.loads(raw_body.decode("utf-8"))
         except Exception:
@@ -469,7 +472,7 @@ class WataService(HttpClientMixin):
         terminal_public_id = _normalize_terminal_public_id(payload.get("terminalPublicId"))
         expected_public_id = _normalize_terminal_public_id(profile.terminal_public_id)
         if expected_public_id and terminal_public_id and terminal_public_id != expected_public_id:
-            logging.warning(
+            logger.warning(
                 "Wata webhook terminal mismatch: provider=%s expected_public_id=%s got=%s",
                 profile.provider,
                 profile.terminal_public_id,
@@ -483,7 +486,7 @@ class WataService(HttpClientMixin):
         payload: Mapping[str, Any],
         payment: Any,
         *,
-        provider_payment_id: Optional[str],
+        provider_payment_id: str | None,
     ) -> bool:
         order_id = str(payload.get("orderId") or "").strip()
         if order_id and order_id == str(payment.payment_id):
@@ -494,17 +497,16 @@ class WataService(HttpClientMixin):
             return True
 
         transaction_id = _wata_transaction_id(payload)
-        if transaction_id and provider_payment_id and transaction_id == provider_payment_id:
-            return True
-
-        return False
+        return bool(
+            transaction_id and provider_payment_id and transaction_id == provider_payment_id
+        )
 
     async def _find_transaction_for_payment(
         self,
         payment: Any,
         *,
         status: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         profile = self.profile_for_payment(payment)
         if not self.profile_enabled(profile.provider):
             return None
@@ -537,7 +539,7 @@ class WataService(HttpClientMixin):
         payload: Mapping[str, Any],
         *,
         log_prefix: str,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         current = await payment_dal.get_payment_by_db_id(session, payment.payment_id)
         if current:
             payment = current
@@ -551,7 +553,7 @@ class WataService(HttpClientMixin):
         if amount_raw is not None:
             try:
                 if not decimal_amounts_equal(amount_raw, payment.amount):
-                    logging.warning(
+                    logger.warning(
                         "%s: amount mismatch for payment %s (expected %s, got %s)",
                         log_prefix,
                         payment.payment_id,
@@ -559,7 +561,7 @@ class WataService(HttpClientMixin):
                         format_decimal_amount(amount_raw),
                     )
             except Exception as exc:
-                logging.warning(
+                logger.warning(
                     "%s: failed to compare amounts for %s: %s",
                     log_prefix,
                     payment.payment_id,
@@ -576,7 +578,7 @@ class WataService(HttpClientMixin):
             await session.commit()
         except Exception:
             await session.rollback()
-            logging.exception(
+            logger.exception(
                 "%s: failed to mark payment %s as succeeded.",
                 log_prefix,
                 transaction_id,
@@ -620,7 +622,7 @@ class WataService(HttpClientMixin):
         *,
         log_prefix: str,
         notify_user: bool,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         transaction_id = _wata_transaction_id(payload) or str(payment.payment_id)
         try:
             await payment_dal.update_provider_payment_and_status(
@@ -632,7 +634,7 @@ class WataService(HttpClientMixin):
             await session.commit()
         except Exception:
             await session.rollback()
-            logging.exception(
+            logger.exception(
                 "%s: failed to mark payment %s as failed.",
                 log_prefix,
                 transaction_id,
@@ -652,21 +654,21 @@ class WataService(HttpClientMixin):
     def _local_payment_link_ttl_expired(self, payment: Any) -> bool:
         profile = self.profile_for_payment(payment)
         created_at = getattr(payment, "created_at", None)
-        created_dt: Optional[datetime]
+        created_dt: datetime | None
         if isinstance(created_at, datetime):
             created_dt = (
-                created_at.replace(tzinfo=timezone.utc)
+                created_at.replace(tzinfo=UTC)
                 if created_at.tzinfo is None
-                else created_at.astimezone(timezone.utc)
+                else created_at.astimezone(UTC)
             )
         else:
             created_dt = _parse_wata_datetime(created_at)
         if created_dt is None:
             return False
         expires_at = created_dt + timedelta(minutes=profile.link_ttl_minutes)
-        return expires_at <= datetime.now(timezone.utc)
+        return expires_at <= datetime.now(UTC)
 
-    async def _expired_link_payload_for_payment(self, payment: Any) -> Optional[Mapping[str, Any]]:
+    async def _expired_link_payload_for_payment(self, payment: Any) -> Mapping[str, Any] | None:
         profile = self.profile_for_payment(payment)
         if not self.profile_enabled(profile.provider):
             return None
@@ -685,7 +687,7 @@ class WataService(HttpClientMixin):
         expiration_dt = _parse_wata_datetime(expiration_raw)
         if expiration_dt is None:
             return None
-        if expiration_dt > datetime.now(timezone.utc):
+        if expiration_dt > datetime.now(UTC):
             return None
         return data
 
@@ -696,7 +698,7 @@ class WataService(HttpClientMixin):
         payload: Mapping[str, Any],
         *,
         log_prefix: str,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         provider_payment_id = (
             first_value(payload, "id", "paymentLinkId", "payment_link_id")
             or getattr(payment, "provider_payment_id", None)
@@ -712,7 +714,7 @@ class WataService(HttpClientMixin):
             await session.commit()
         except Exception:
             await session.rollback()
-            logging.exception(
+            logger.exception(
                 "%s: failed to mark expired payment link %s as canceled.",
                 log_prefix,
                 provider_payment_id,
@@ -773,13 +775,18 @@ class WataService(HttpClientMixin):
         if not self.configured:
             return web.Response(status=503, text="wata_disabled")
 
-        client_ip = request_client_ip(request, trusted_proxies=self.settings.trusted_proxies)
         trusted = self.config.trusted_ips_list
-        if trusted and not ip_in_allowlist(client_ip, trusted):
-            logging.warning(
+        ip_check = check_webhook_source_ip(
+            request,
+            trusted_ips=trusted,
+            trusted_proxies=self.settings.trusted_proxies,
+            allow_empty=True,
+        )
+        if not ip_check.allowed:
+            logger.warning(
                 "Wata webhook denied from unauthorized IP source "
                 "(client_ip=%s remote=%s x_forwarded_for=%s).",
-                client_ip,
+                ip_check.client_ip,
                 request.remote,
                 request.headers.get("X-Forwarded-For"),
             )
@@ -795,7 +802,7 @@ class WataService(HttpClientMixin):
         try:
             payload = json.loads(raw_body.decode("utf-8"))
         except Exception:
-            logging.exception("Wata webhook: failed to parse JSON.")
+            logger.exception("Wata webhook: failed to parse JSON.")
             return web.Response(status=400, text="bad_request")
 
         transaction_id = str(payload.get("transactionId") or "").strip()
@@ -804,7 +811,7 @@ class WataService(HttpClientMixin):
         order_id_raw = payload.get("orderId")
 
         if not status or not (transaction_id or order_id_raw or payment_link_id):
-            logging.error("Wata webhook: missing transaction status or ids: %s", payload)
+            logger.error("Wata webhook: missing transaction status or ids: %s", payload)
             return web.Response(status=400, text="missing_fields")
 
         async with self.async_session_factory() as session:
@@ -819,7 +826,7 @@ class WataService(HttpClientMixin):
                     provider_payment_id=payment_link_id,
                 )
             if not payment:
-                logging.error(
+                logger.error(
                     "Wata webhook: payment not found "
                     "(order_id=%s, transaction_id=%s, payment_link_id=%s)",
                     order_id_raw,
@@ -830,7 +837,7 @@ class WataService(HttpClientMixin):
 
             profile = self.profile_for_payment(payment)
             if profile_hint and profile_hint.provider != profile.provider:
-                logging.warning(
+                logger.warning(
                     "Wata webhook profile mismatch: payment_provider=%s terminal_provider=%s",
                     profile.provider,
                     profile_hint.provider,
@@ -858,7 +865,7 @@ class WataService(HttpClientMixin):
                         await session.commit()
                     except Exception:
                         await session.rollback()
-                        logging.exception(
+                        logger.exception(
                             "Wata webhook: failed to persist transaction id %s for payment %s.",
                             transaction_id,
                             payment.payment_id,
@@ -887,7 +894,7 @@ class WataService(HttpClientMixin):
                     return web.Response(status=500, text="processing_error")
                 return web.Response(text="ok")
 
-            logging.warning(
+            logger.warning(
                 "Wata webhook: unhandled status '%s' for transaction %s",
                 status,
                 transaction_id,

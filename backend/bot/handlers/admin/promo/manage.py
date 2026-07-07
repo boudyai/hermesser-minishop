@@ -1,303 +1,63 @@
+"""Promo code list/detail, toggle, activations and CSV export handlers.
+
+Shared formatting lives in ``manage_format``; the edit-flow FSM in
+``manage_edit``. Both are re-exported here for compatibility.
+"""
+
 import csv
 import io
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
 
 from aiogram import F, Router, types
-from aiogram.filters import StateFilter
-from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.admin_keyboards import get_back_to_admin_panel_keyboard
 from bot.middlewares.i18n import JsonI18n
 from bot.services.promo_effects import (
-    ALLOWED_PROMO_SCOPES,
     PromoEffects,
     summarize_effects,
-    validate_effects,
 )
-from bot.states.admin_states import AdminStates
 from bot.utils.callback_answer import callback_data, callback_message
 from config.settings import Settings
 from db.dal import promo_code_dal
-from db.models import PromoCode
+
+from .manage_edit import (  # noqa: F401
+    process_promo_edit_details,
+    promo_edit_field_handler,
+    promo_edit_select_handler,
+)
+from .manage_edit import (
+    router as _edit_router,
+)
+from .manage_format import (  # noqa: F401
+    PROMO_EDIT_FIELD_LABELS,
+    PROMO_EFFECT_FIELDS,
+    _activation_effect_text,
+    _activation_grant_text,
+    _activation_line,
+    _active_promo_list_line,
+    _money_text,
+    _none_like,
+    _number_text,
+    _optional_float,
+    _optional_int,
+    _promo_effects_for_update,
+    _single_effect_update,
+    _threshold_text,
+    get_promo_detail_text_and_keyboard,
+    get_promo_status_emoji_and_text,
+)
 
 router = Router(name="promo_manage_router")
-
-PROMO_EDIT_FIELD_LABELS = {
-    "bonus_days": "Bonus days",
-    "discount_percent": "Discount %",
-    "duration_multiplier": "Duration multiplier",
-    "traffic_multiplier": "Traffic multiplier",
-    "applies_to": "Scope",
-    "min_subscription_months": "Min months",
-    "min_traffic_gb": "Min GB",
-    "max_activations": "Max uses",
-    "valid_until": "Validity days",
-}
-PROMO_EFFECT_FIELDS = {
-    "bonus_days",
-    "discount_percent",
-    "duration_multiplier",
-    "traffic_multiplier",
-}
-
-
-def _none_like(value: str) -> bool:
-    return value.strip().lower() in {"", "0", "none", "null", "unlimited", "forever", "indefinite"}
-
-
-def _optional_float(value: str) -> float | None:
-    if _none_like(value):
-        return None
-    return float(value)
-
-
-def _optional_int(value: str) -> int | None:
-    if _none_like(value):
-        return None
-    return int(value)
-
-
-def _number_text(value: Any) -> str:
-    if value is None:
-        return "-"
-    number = float(value)
-    if number.is_integer():
-        return str(int(number))
-    return f"{number:g}"
-
-
-def _money_text(amount: Any, currency: str | None) -> str:
-    if amount is None:
-        return "-"
-    suffix = f" {currency}" if currency else ""
-    return f"{float(amount):.2f}{suffix}"
-
-
-def _promo_effects_for_update(promo: PromoCode, update_data: dict[str, Any]) -> PromoEffects:
-    payload = {
-        "bonus_days": promo.bonus_days,
-        "discount_percent": promo.discount_percent,
-        "duration_multiplier": promo.duration_multiplier,
-        "traffic_multiplier": promo.traffic_multiplier,
-        "applies_to": promo.applies_to,
-        "min_subscription_months": promo.min_subscription_months,
-        "min_traffic_gb": promo.min_traffic_gb,
-    }
-    payload.update(update_data)
-    effects = PromoEffects.from_payload(payload)
-    validate_effects(effects)
-    return effects
-
-
-def _single_effect_update(field: str, update_data: dict[str, Any]) -> None:
-    if field not in PROMO_EFFECT_FIELDS:
-        return
-    if field == "bonus_days" and int(update_data.get("bonus_days") or 0) > 0:
-        update_data.update(
-            {
-                "discount_percent": None,
-                "duration_multiplier": None,
-                "traffic_multiplier": None,
-            }
-        )
-    elif field == "discount_percent" and float(update_data.get("discount_percent") or 0) > 0:
-        update_data.update(
-            {
-                "bonus_days": 0,
-                "duration_multiplier": None,
-                "traffic_multiplier": None,
-            }
-        )
-    elif field == "duration_multiplier" and float(update_data.get("duration_multiplier") or 1) > 1:
-        update_data.update(
-            {
-                "bonus_days": 0,
-                "discount_percent": None,
-                "traffic_multiplier": None,
-            }
-        )
-    elif field == "traffic_multiplier" and float(update_data.get("traffic_multiplier") or 1) > 1:
-        update_data.update(
-            {
-                "bonus_days": 0,
-                "discount_percent": None,
-                "duration_multiplier": None,
-            }
-        )
-
-
-def _threshold_text(effects: PromoEffects) -> str:
-    parts: list[str] = []
-    if effects.min_subscription_months:
-        parts.append(f"from {effects.min_subscription_months} months")
-    if effects.min_traffic_gb:
-        parts.append(f"from {effects.min_traffic_gb:g} GB")
-    return ", ".join(parts) or "-"
-
-
-def _activation_effect_text(activation: Any) -> str:
-    if activation.effect_summary:
-        return str(activation.effect_summary)
-    effects = PromoEffects.from_model(activation)
-    return summarize_effects(effects)
-
-
-def _activation_grant_text(activation: Any) -> str:
-    parts: list[str] = []
-    if activation.granted_days:
-        parts.append(f"+{activation.granted_days} days")
-    if activation.granted_gb is not None:
-        if activation.charged_gb is not None:
-            charged = _number_text(activation.charged_gb)
-            granted = _number_text(activation.granted_gb)
-            parts.append(f"{charged} -> {granted} GB")
-        else:
-            parts.append(f"{_number_text(activation.granted_gb)} GB")
-    return ", ".join(parts) or "-"
-
-
-def _activation_line(activation: Any) -> str:
-    payment = getattr(activation, "payment", None)
-    payment_id = activation.payment_id or getattr(payment, "payment_id", None)
-    payment_status = getattr(payment, "status", None)
-    payment_provider = getattr(payment, "provider", None)
-    currency = getattr(payment, "currency", None)
-    amount = getattr(payment, "amount", None)
-    base_amount = activation.base_amount
-    discount_amount = activation.discount_amount
-    if base_amount is None:
-        base_amount = getattr(payment, "checkout_base_amount", None)
-    if discount_amount is None:
-        discount_amount = getattr(payment, "checkout_discount_amount", None)
-    payment_text = f"payment #{payment_id}" if payment_id else "standalone"
-    if payment_status:
-        payment_text = f"{payment_text} {payment_status}"
-    if payment_provider:
-        payment_text = f"{payment_text}/{payment_provider}"
-    return " | ".join(
-        [
-            f"User {activation.user_id}",
-            activation.activated_at.strftime("%d.%m.%Y %H:%M"),
-            payment_text,
-            f"amount {_money_text(amount, currency)}",
-            f"base {_money_text(base_amount, currency)}",
-            f"discount {_money_text(discount_amount, currency)}",
-            f"grant {_activation_grant_text(activation)}",
-            f"effect {_activation_effect_text(activation)}",
-        ]
-    )
-
-
-def _active_promo_list_line(
-    promo: PromoCode,
-    i18n: JsonI18n,
-    current_lang: str,
-    gettext: Any,
-) -> str:
-    status = get_promo_status_emoji_and_text(promo, i18n, current_lang)[0]
-    validity = (
-        promo.valid_until.strftime("%d.%m.%Y")
-        if promo.valid_until
-        else gettext("admin_promo_valid_indefinitely")
-    )
-    effects = summarize_effects(PromoEffects.from_model(promo))
-    return (
-        f"{status} <code>{promo.code}</code> | {effects} | "
-        f"{promo.current_activations}/{promo.max_activations} | {validity}"
-    )
-
-
-def get_promo_status_emoji_and_text(
-    promo: PromoCode, i18n: JsonI18n, current_lang: str
-) -> tuple[str, str]:
-    """Determine promo code status and return emoji + text"""
-    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
-
-    if promo.valid_until and promo.valid_until < datetime.now(timezone.utc):
-        return "⏰", _("admin_promo_status_expired")
-    elif promo.current_activations >= promo.max_activations:
-        return "🔄", _("admin_promo_status_used_up")
-    elif promo.is_active:
-        return "✅", _("admin_promo_status_active")
-    else:
-        return "🚫", _("admin_promo_status_inactive")
-
-
-async def get_promo_detail_text_and_keyboard(
-    promo_id: int, session: AsyncSession, i18n: JsonI18n, current_lang: str
-) -> tuple[Optional[str], Optional[types.InlineKeyboardMarkup]]:
-    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
-    promo = await promo_code_dal.get_promo_code_by_id(session, promo_id)
-    if not promo:
-        return None, None
-
-    status_emoji, status = get_promo_status_emoji_and_text(promo, i18n, current_lang)
-
-    validity = _("admin_promo_valid_indefinitely")
-    if promo.valid_until:
-        validity = promo.valid_until.strftime("%d.%m.%Y %H:%M")
-
-    created = promo.created_at.strftime("%d.%m.%Y %H:%M") if promo.created_at else "N/A"
-    effects = PromoEffects.from_model(promo)
-
-    text = "\n".join(
-        [
-            _("admin_promo_card_title", code=promo.code),
-            _("admin_promo_card_bonus_days", days=promo.bonus_days),
-            f"Effect: {summarize_effects(effects)}",
-            f"Scope: {effects.applies_to}",
-            f"Eligibility: {_threshold_text(effects)}",
-            _(
-                "admin_promo_card_activations",
-                current=promo.current_activations,
-                max=promo.max_activations,
-            ),
-            _("admin_promo_card_validity", validity=validity),
-            _("admin_promo_card_status", status=status),
-            _("admin_promo_card_created", created=created),
-            _("admin_promo_card_created_by", creator=promo.created_by_admin_id),
-        ]
-    )
-
-    builder = InlineKeyboardBuilder()
-    builder.row(
-        InlineKeyboardButton(
-            text=_("admin_promo_edit_button"), callback_data=f"promo_edit_select:{promo_id}"
-        )
-    )
-    builder.row(
-        InlineKeyboardButton(
-            text=_("admin_promo_toggle_status_button"), callback_data=f"promo_toggle:{promo_id}"
-        )
-    )
-    builder.row(
-        InlineKeyboardButton(
-            text=_("admin_promo_view_activations_button"),
-            callback_data=f"promo_activations:{promo_id}:0",
-        )
-    )
-    builder.row(
-        InlineKeyboardButton(
-            text=_("admin_promo_delete_button"), callback_data=f"promo_delete:{promo_id}"
-        )
-    )
-    builder.row(
-        InlineKeyboardButton(
-            text=_("admin_promo_back_to_list_button"), callback_data="admin_action:promo_management"
-        )
-    )
-
-    return text, builder.as_markup()
+router.include_router(_edit_router)
 
 
 async def view_promo_codes_handler(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error processing request.", show_alert=True)
         return
@@ -327,7 +87,7 @@ async def promo_management_handler(
     page: int = 0,
 ) -> None:
     current_lang = i18n_data.get("current_language", "ru")
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error processing request.", show_alert=True)
         return
@@ -354,7 +114,7 @@ async def promo_management_handler(
 
     builder = InlineKeyboardBuilder()
     for promo in promo_models:
-        status_emoji, status_text = get_promo_status_emoji_and_text(promo, i18n, current_lang)
+        status_emoji, _status_text = get_promo_status_emoji_and_text(promo, i18n, current_lang)
         button_text = (
             f"{status_emoji} {promo.code} ({promo.current_activations}/{promo.max_activations})"
         )
@@ -421,7 +181,7 @@ async def promo_management_pagination_handler(
 async def promo_detail_handler(
     callback: types.CallbackQuery, i18n_data: dict, session: AsyncSession
 ) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
         await callback.answer("Error processing request.", show_alert=True)
@@ -449,7 +209,7 @@ async def promo_detail_handler(
 async def promo_toggle_handler(
     callback: types.CallbackQuery, i18n_data: dict, session: AsyncSession
 ) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
         await callback.answer("Language service error.", show_alert=True)
@@ -492,7 +252,7 @@ async def promo_toggle_handler(
 async def promo_activations_handler(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
 ) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
         await callback.answer("Error processing request.", show_alert=True)
@@ -564,7 +324,7 @@ async def promo_activations_handler(
 async def promo_export_activations_handler(
     callback: types.CallbackQuery, i18n_data: dict, session: AsyncSession
 ) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
         await callback.answer("Error processing request.", show_alert=True)
@@ -647,7 +407,7 @@ async def promo_export_activations_handler(
 async def promo_export_all_handler(
     callback: types.CallbackQuery, i18n_data: dict, session: AsyncSession
 ) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
         await callback.answer("Error processing request.", show_alert=True)
@@ -692,7 +452,7 @@ async def promo_export_all_handler(
 
         for promo in all_promos:
             # Определяем статус
-            status_emoji, status_text = get_promo_status_emoji_and_text(promo, i18n, export_lang)
+            _status_emoji, status_text = get_promo_status_emoji_and_text(promo, i18n, export_lang)
             effects = PromoEffects.from_model(promo)
 
             # Формируем данные для CSV
@@ -723,7 +483,7 @@ async def promo_export_all_handler(
         output.seek(0)
 
         # Создаем файл для отправки
-        filename = f"promo_codes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        filename = f"promo_codes_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.csv"
         file = types.BufferedInputFile(
             output.getvalue().encode("utf-8-sig"),  # BOM для корректного отображения в Excel
             filename=filename,
@@ -733,14 +493,14 @@ async def promo_export_all_handler(
         await callback_message(callback).answer_document(file, caption=caption)
 
     except Exception as e:
-        await callback.answer(f"❌ Export error: {str(e)}", show_alert=True)
+        await callback.answer(f"❌ Export error: {e!s}", show_alert=True)
 
 
 @router.callback_query(F.data.startswith("promo_delete:"))
 async def promo_delete_handler(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
 ) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
         await callback.answer("Language service error.", show_alert=True)
@@ -760,200 +520,6 @@ async def promo_delete_handler(
             await callback.answer(_("admin_promo_not_found"), show_alert=True)
     except (ValueError, IndexError):
         await callback.answer(_("admin_promo_not_found"), show_alert=True)
-
-
-# --- Promo Edit Handlers ---
-@router.callback_query(F.data.startswith("promo_edit_select:"))
-async def promo_edit_select_handler(
-    callback: types.CallbackQuery, i18n_data: dict, session: AsyncSession
-) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
-    current_lang = i18n_data.get("current_language")
-    if not i18n or not callback.message or not current_lang:
-        return
-    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
-    promo_id = int(callback_data(callback).split(":")[1])
-
-    builder = InlineKeyboardBuilder()
-    builder.row(
-        InlineKeyboardButton(
-            text=_("admin_promo_edit_bonus_days"),
-            callback_data=f"promo_edit_field:bonus_days:{promo_id}",
-        )
-    )
-    builder.row(
-        InlineKeyboardButton(
-            text="Discount %",
-            callback_data=f"promo_edit_field:discount_percent:{promo_id}",
-        )
-    )
-    builder.row(
-        InlineKeyboardButton(
-            text="Duration x",
-            callback_data=f"promo_edit_field:duration_multiplier:{promo_id}",
-        ),
-        InlineKeyboardButton(
-            text="Traffic x",
-            callback_data=f"promo_edit_field:traffic_multiplier:{promo_id}",
-        ),
-    )
-    builder.row(
-        InlineKeyboardButton(
-            text="Scope",
-            callback_data=f"promo_edit_field:applies_to:{promo_id}",
-        )
-    )
-    builder.row(
-        InlineKeyboardButton(
-            text="Min months",
-            callback_data=f"promo_edit_field:min_subscription_months:{promo_id}",
-        ),
-        InlineKeyboardButton(
-            text="Min GB",
-            callback_data=f"promo_edit_field:min_traffic_gb:{promo_id}",
-        ),
-    )
-    builder.row(
-        InlineKeyboardButton(
-            text=_("admin_promo_edit_max_activations"),
-            callback_data=f"promo_edit_field:max_activations:{promo_id}",
-        )
-    )
-    builder.row(
-        InlineKeyboardButton(
-            text=_("admin_promo_edit_validity"),
-            callback_data=f"promo_edit_field:valid_until:{promo_id}",
-        )
-    )
-    builder.row(
-        InlineKeyboardButton(
-            text=_("admin_promo_back_to_detail_button"), callback_data=f"promo_detail:{promo_id}"
-        )
-    )
-
-    await callback_message(callback).edit_text(
-        _("admin_promo_edit_select_field"), reply_markup=builder.as_markup()
-    )
-    await callback.answer()
-
-
-@router.callback_query(F.data.startswith("promo_edit_field:"))
-async def promo_edit_field_handler(
-    callback: types.CallbackQuery, state: FSMContext, i18n_data: dict, session: AsyncSession
-) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
-    current_lang = i18n_data.get("current_language")
-    if not i18n or not callback.message or not current_lang:
-        return
-    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
-
-    action, field, promo_id_str = callback_data(callback).split(":")
-    await state.update_data(promo_id=int(promo_id_str), field_to_edit=field)
-
-    prompts = {
-        "bonus_days": "admin_promo_prompt_bonus_days",
-        "max_activations": "admin_promo_prompt_max_activations",
-        "valid_until": "admin_promo_prompt_validity_days",
-    }
-    prompt = (
-        _(prompts[field])
-        if field in prompts
-        else f"Send new value for {PROMO_EDIT_FIELD_LABELS.get(field, field)}"
-    )
-    if field == "applies_to":
-        prompt += f"\nAllowed: {', '.join(sorted(ALLOWED_PROMO_SCOPES))}"
-    elif field in {"discount_percent", "min_subscription_months", "min_traffic_gb"}:
-        prompt += "\nUse 0 or none to clear."
-    elif field in {"duration_multiplier", "traffic_multiplier"}:
-        prompt += "\nUse 1 or none to reset."
-    await state.set_state(AdminStates.waiting_for_promo_edit_details)
-    await callback_message(callback).edit_text(prompt)
-    await callback.answer()
-
-
-@router.message(StateFilter(AdminStates.waiting_for_promo_edit_details))
-async def process_promo_edit_details(
-    message: types.Message, state: FSMContext, session: AsyncSession, i18n_data: dict
-) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
-    current_lang = i18n_data.get("current_language")
-    if not i18n or not message or not current_lang:
-        return
-    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
-
-    data = await state.get_data()
-    promo_id_raw = data.get("promo_id")
-    field = str(data.get("field_to_edit") or "")
-    if promo_id_raw is None:
-        await message.answer(_("error_occurred_try_again"))
-        await state.clear()
-        return
-    promo_id = int(promo_id_raw)
-
-    try:
-        value = (message.text or "").strip()
-        update_data: dict[str, Any] = {}
-        promo = await promo_code_dal.get_promo_code_by_id(session, promo_id)
-        if not promo:
-            await message.answer(_("admin_promo_not_found"))
-            await state.clear()
-            return
-
-        if field == "bonus_days":
-            update_data["bonus_days"] = int(value)
-            if update_data["bonus_days"] < 0:
-                raise ValueError
-        elif field == "discount_percent":
-            update_data["discount_percent"] = _optional_float(value)
-        elif field == "duration_multiplier":
-            update_data["duration_multiplier"] = _optional_float(value)
-        elif field == "traffic_multiplier":
-            update_data["traffic_multiplier"] = _optional_float(value)
-        elif field == "applies_to":
-            scope = value.lower()
-            if scope not in ALLOWED_PROMO_SCOPES:
-                raise ValueError
-            update_data["applies_to"] = scope
-        elif field == "min_subscription_months":
-            update_data["min_subscription_months"] = _optional_int(value)
-        elif field == "min_traffic_gb":
-            update_data["min_traffic_gb"] = _optional_float(value)
-        elif field == "max_activations":
-            update_data["max_activations"] = int(value)
-            if update_data["max_activations"] < int(promo.current_activations or 0):
-                raise ValueError
-        elif field == "valid_until":
-            if _none_like(value):
-                update_data["valid_until"] = None
-            else:
-                days = int(value)
-                if days <= 0:
-                    raise ValueError
-                update_data["valid_until"] = datetime.now(timezone.utc) + timedelta(days=days)
-        else:
-            raise ValueError
-
-        _single_effect_update(field, update_data)
-        _promo_effects_for_update(promo, update_data)
-
-        if await promo_code_dal.update_promo_code(session, promo_id, update_data):
-            await session.commit()
-            await message.answer(_("admin_promo_edit_success"))
-
-            # Reset state and show updated details
-            await state.clear()
-            text, keyboard = await get_promo_detail_text_and_keyboard(
-                promo_id, session, i18n, current_lang
-            )
-            if text:
-                await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
-        else:
-            await message.answer(_("error_occurred_try_again"))
-            await state.clear()
-
-    except (ValueError, TypeError):
-        await message.answer(_("admin_promo_invalid_input"))
-        # Don't clear state, let them try again
 
 
 async def manage_promo_codes_handler(

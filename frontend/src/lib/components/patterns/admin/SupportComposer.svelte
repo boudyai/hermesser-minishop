@@ -1,8 +1,18 @@
-<script>
+<script lang="ts">
   import { Lock, Send } from "$components/ui/icons.js";
   import { Spinner, Textarea } from "$components/ui/index.js";
   import { Switch } from "$components/ui/primitives.js";
   import { AdminButton } from "$components/patterns/admin/index.js";
+  import type { TranslateFn } from "./types";
+
+  type Props = {
+    value?: string;
+    internal?: boolean;
+    sending?: boolean;
+    at?: TranslateFn;
+    onToggleInternal?: (checked: boolean) => void;
+    onSend?: (body: string) => void;
+  };
 
   let {
     value = $bindable(""),
@@ -11,7 +21,7 @@
     at = (key) => key,
     onToggleInternal = () => {},
     onSend = () => {},
-  } = $props();
+  }: Props = $props();
 
   function submit() {
     if (sending || !value.trim()) return;

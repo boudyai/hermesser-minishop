@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from aiogram import Bot, F, types
 from aiogram.fsm.context import FSMContext
@@ -56,6 +55,8 @@ from .user_management_subscription import (
     handle_traffic_grant_prompt,
 )
 
+logger = logging.getLogger(__name__)
+
 
 async def users_list_handler(
     callback: types.CallbackQuery,
@@ -66,7 +67,7 @@ async def users_list_handler(
 ) -> None:
     """Display paginated list of all users"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error preparing user list.", show_alert=True)
         return
@@ -96,7 +97,7 @@ async def users_list_handler(
         await callback.answer()
 
     except Exception as e:
-        logging.error(f"Error displaying user list: {e}")
+        logger.error("Error displaying user list: %s", e)
         await callback.answer(_("tg_admin_user_list_render_error"), show_alert=True)
 
 
@@ -109,7 +110,7 @@ async def user_search_prompt_handler(
 ) -> None:
     """Display search prompt for user management"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error preparing search.", show_alert=True)
         return
@@ -122,7 +123,7 @@ async def user_search_prompt_handler(
             prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
         )
     except Exception as e:
-        logging.warning(f"Could not edit message for user management: {e}. Sending new.")
+        logger.warning("Could not edit message for user management: %s. Sending new.", e)
         await callback_message(callback).answer(
             prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
         )
@@ -142,7 +143,7 @@ async def process_user_search_handler(
 ) -> None:
     """Process user search input and display user card"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -187,7 +188,7 @@ async def process_user_search_handler(
             parse_mode="HTML",
         )
     except Exception as e:
-        logging.error(f"Error displaying user card for {user_model.user_id}: {e}")
+        logger.error("Error displaying user card for %s: %s", user_model.user_id, e)
         await message.answer(_("admin_user_card_error"))
 
 
@@ -212,7 +213,7 @@ async def user_action_handler(
         return
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await callback.answer("Language service error.", show_alert=True)
         return

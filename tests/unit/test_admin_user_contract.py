@@ -24,7 +24,8 @@ def _user(**overrides):
         "email": "b@example.test",
         "language_code": "ru",
         "is_banned": False,
-        "registration_date": datetime(2026, 1, 1, 12, 0, 0),
+        # Admin JSON contracts serialize legacy naive DB datetimes without offsets.
+        "registration_date": datetime(2026, 1, 1, 12, 0, 0),  # noqa: DTZ001
         "panel_user_uuid": "puuid",
         "referral_code": "ref1",
         "referred_by_id": 7,
@@ -77,12 +78,19 @@ def test_serialize_admin_user_with_avatar_without_cached_avatar():
 
 
 def test_serialize_trial_summary_matches_legacy_contract():
-    user = SimpleNamespace(trial_eligibility_reset_at=datetime(2026, 3, 1, 0, 0, 0))
+    # Admin trial summary preserves the legacy naive datetime wire shape.
+    user = SimpleNamespace(
+        trial_eligibility_reset_at=datetime(2026, 3, 1, 0, 0, 0)  # noqa: DTZ001
+    )
     sub1 = SimpleNamespace(
-        start_date=datetime(2026, 1, 1), end_date=datetime(2026, 1, 8), is_active=False
+        start_date=datetime(2026, 1, 1),  # noqa: DTZ001
+        end_date=datetime(2026, 1, 8),  # noqa: DTZ001
+        is_active=False,
     )
     sub2 = SimpleNamespace(
-        start_date=datetime(2026, 2, 1), end_date=datetime(2026, 2, 8), is_active=True
+        start_date=datetime(2026, 2, 1),  # noqa: DTZ001
+        end_date=datetime(2026, 2, 8),  # noqa: DTZ001
+        is_active=True,
     )
     result = _serialize_trial_summary(user, [sub1, sub2])
     expected = {

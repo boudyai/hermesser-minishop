@@ -1,5 +1,5 @@
+import contextlib
 import logging
-from typing import Optional
 
 from aiogram import F, Router, types
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +13,8 @@ from bot.middlewares.i18n import JsonI18n
 from bot.utils.callback_answer import callback_data, callback_message
 from config.settings import Settings
 
+logger = logging.getLogger(__name__)
+
 router = Router(name="user_subscription_payments_selection_router")
 
 
@@ -24,14 +26,12 @@ async def select_subscription_period_callback_handler(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     if not i18n or not callback.message:
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
 
     traffic_packages = settings.traffic_packages or {}
@@ -42,11 +42,9 @@ async def select_subscription_period_callback_handler(
     try:
         months = float(parts[1])
     except (ValueError, IndexError):
-        logging.error(f"Invalid subscription period in callback_data: {callback.data}")
-        try:
+        logger.error("Invalid subscription period in callback_data: %s", callback.data)
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
 
     price_source = traffic_packages if traffic_mode else settings.subscription_options
@@ -72,25 +70,23 @@ async def select_subscription_period_callback_handler(
                 for spec in iter_provider_specs()
             )
             if currency_methods_enabled:
-                logging.error(
+                logger.error(
                     "Currency price missing for traffic option %s while fiat providers are enabled.",  # noqa: E501
                     months,
                 )
-                try:
+                with contextlib.suppress(Exception):
                     await callback.answer(get_text("error_try_again"), show_alert=True)
-                except Exception:
-                    pass
                 return
             price_rub = 0.0
             currency_symbol_val = "⭐"
         else:
-            logging.error(
-                f"Price not found for option {months} using {'traffic_packages' if traffic_mode else 'subscription_options'}."  # noqa: E501
+            logger.error(
+                "Price not found for option %s using %s.",
+                months,
+                "traffic_packages" if traffic_mode else "subscription_options",
             )
-            try:
+            with contextlib.suppress(Exception):
                 await callback.answer(get_text("error_try_again"), show_alert=True)
-            except Exception:
-                pass
             return
 
     text_content = (
@@ -116,11 +112,9 @@ async def select_subscription_period_callback_handler(
     try:
         await callback_message(callback).edit_text(text_content, reply_markup=reply_markup)
     except Exception as e_edit:
-        logging.warning(
-            f"Edit message for payment method selection failed: {e_edit}. Sending new one."
+        logger.warning(
+            "Edit message for payment method selection failed: %s. Sending new one.", e_edit
         )
         await callback_message(callback).answer(text_content, reply_markup=reply_markup)
-    try:
+    with contextlib.suppress(Exception):
         await callback.answer()
-    except Exception:
-        pass

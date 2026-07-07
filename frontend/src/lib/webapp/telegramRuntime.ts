@@ -1,5 +1,5 @@
 import { createTelegramLaunch } from "./telegramLaunch.js";
-import { createTelegramSdk } from "./telegramSdk.js";
+import { createTelegramSdk } from "./telegramSdk";
 import { shellState } from "./shellState.svelte";
 
 export type TelegramWebApp = Record<string, unknown> & {
@@ -12,14 +12,21 @@ export type TelegramWebApp = Record<string, unknown> & {
   expand?: () => void;
 };
 
+export type TelegramMiniAppAuthTimeout = {
+  signal?: AbortSignal;
+  promise: Promise<unknown>;
+  clear(): void;
+  timedOut: boolean;
+};
+
 type TelegramSdkLike<Tg> = {
   initData: string;
   refresh(): Tg;
   hasLaunchParams(): boolean;
   load(timeoutMs?: number): Promise<Tg>;
   readInitDataFromLocation(): string;
-  ensureForAction?: () => Promise<Tg>;
-  createMiniAppAuthTimeout?: () => unknown;
+  ensureForAction: () => Promise<Tg>;
+  createMiniAppAuthTimeout: () => TelegramMiniAppAuthTimeout;
 };
 
 type CreateTelegramSdk<Tg> = (options: {

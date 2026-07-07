@@ -2,7 +2,8 @@ import asyncio
 import functools
 import hmac
 import logging
-from typing import Any, Awaitable, Callable, Optional, cast
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 from aiogram import Bot, Dispatcher
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
@@ -16,6 +17,11 @@ from bot.app.web.context import (
     set_core_context,
     set_service_context,
 )
+from bot.infra.observability import (
+    ERROR_REPORTER_SERVICE_KEY,
+    METRICS_SERVICE_KEY,
+    observability_error_middleware,
+)
 from bot.payment_providers import iter_provider_specs, iter_service_keys
 from bot.plugins import (
     WEB_SCOPE_WEBAPP,
@@ -25,6 +31,8 @@ from bot.plugins import (
 )
 from bot.utils.request_security import request_client_ip
 from config.settings import Settings
+
+logger = logging.getLogger(__name__)
 
 
 class SecureSimpleRequestHandler(SimpleRequestHandler):
@@ -94,17 +102,24 @@ def _inject_shared_instances(
         set_service_context(app, key, service)
 
 
+def _inject_observability_instances(app: web.Application, ctx: PluginContext) -> None:
+    set_service_context(app, ERROR_REPORTER_SERVICE_KEY, ctx.error_reporter)
+    set_service_context(app, METRICS_SERVICE_KEY, ctx.metrics)
+
+
 async def build_and_start_web_app(
     dp: Dispatcher,
     bot: Bot,
     settings: Settings,
     async_session_factory: sessionmaker,
     *,
-    after_webhooks_started: Optional[Callable[[], Awaitable[None]]] = None,
-    plugin_context: Optional[PluginContext] = None,
+    after_webhooks_started: Callable[[], Awaitable[None]] | None = None,
+    plugin_context: PluginContext | None = None,
 ) -> None:
-    app = web.Application()
+    app = web.Application(middlewares=[observability_error_middleware])
     _inject_shared_instances(app, dp, bot, settings, async_session_factory)
+    if plugin_context is not None:
+        _inject_observability_instances(app, plugin_context)
 
     async def _healthcheck(request: web.Request) -> web.Response:
         payload: dict[str, Any] = {"status": "ok"}
@@ -120,7 +135,7 @@ async def build_and_start_web_app(
                     "overflow": pool.overflow(),
                 }
         except Exception:
-            logging.exception("Failed to collect DB pool health metrics")
+            logger.exception("Failed to collect DB pool health metrics")
         return web.json_response(payload)
 
     app.router.add_get("/healthz", _healthcheck)
@@ -137,9 +152,12 @@ async def build_and_start_web_app(
             bot=bot,
             secret_token=settings.WEBHOOK_SECRET_TOKEN,
         ).register(app, path=telegram_webhook_path)
-        logging.info(
-            f"Telegram webhook route configured at: [POST] {telegram_webhook_path} (relative to base URL)"  # noqa: E501
+        logger.info(
+            "Telegram webhook route configured at: [POST] %s (relative to base URL)",
+            telegram_webhook_path,
         )
+
+    from bot.services.panel_webhook_service import panel_webhook_route
 
     registered_webhook_paths: set[str] = set()
     for spec in iter_provider_specs():
@@ -153,9 +171,13 @@ async def build_and_start_web_app(
             continue
         registered_webhook_paths.add(path)
         app.router.add_post(path, webhook_route)
-        logging.info("%s webhook route configured at: [POST] %s", spec.label, path)
+        logger.info("%s webhook route configured at: [POST] %s", spec.label, path)
 
-    # Panel webhook removed — Remnawave callbacks no longer apply in hermes mode.
+    panel_write_mode = str(getattr(settings.panel_settings, "write_mode", "") or "").lower()
+    panel_path = settings.panel_webhook_path
+    if panel_write_mode != "hermes" and panel_path.startswith("/"):
+        app.router.add_post(panel_path, panel_webhook_route)
+        logger.info("Panel webhook route configured at: [POST] %s", panel_path)
 
     if plugin_context is not None:
         setup_web_plugins(plugin_context, app, scope=WEB_SCOPE_WEBHOOKS)
@@ -172,12 +194,14 @@ async def build_and_start_web_app(
     )
 
     await site.start()
-    logging.info(
-        f"AIOHTTP server started on http://{settings.WEB_SERVER_HOST}:{settings.WEB_SERVER_PORT}"
+    logger.info(
+        "AIOHTTP server started on http://%s:%s", settings.WEB_SERVER_HOST, settings.WEB_SERVER_PORT
     )
-    if after_webhooks_started is not None:
-        await after_webhooks_started()
 
+    # The webapp listener must open before after_webhooks_started: webhook
+    # configuration talks to the Telegram API with unbounded retries, and while
+    # it runs the container already reports healthy (the /healthz port is up),
+    # so a late webapp port shows up as "bot works, webapp is down".
     webapp_settings = settings.webapp_settings
     if webapp_settings.enabled:
         from bot.app.web.webapp.application import create_subscription_webapp_application
@@ -189,6 +213,7 @@ async def build_and_start_web_app(
             async_session_factory,
         )
         if plugin_context is not None:
+            _inject_observability_instances(subscription_app, plugin_context)
             setup_web_plugins(plugin_context, subscription_app, scope=WEB_SCOPE_WEBAPP)
         subscription_runner = web.AppRunner(
             subscription_app,
@@ -202,11 +227,14 @@ async def build_and_start_web_app(
             port=webapp_settings.server_port,
         )
         await subscription_site.start()
-        logging.info(
+        logger.info(
             "Subscription WebApp server started on http://%s:%s",
             webapp_settings.server_host,
             webapp_settings.server_port,
         )
+
+    if after_webhooks_started is not None:
+        await after_webhooks_started()
 
     try:
         await asyncio.Event().wait()
@@ -215,4 +243,4 @@ async def build_and_start_web_app(
             try:
                 await runner.cleanup()
             except Exception as cleanup_error:
-                logging.warning("Failed to cleanup aiohttp runner: %s", cleanup_error)
+                logger.warning("Failed to cleanup aiohttp runner: %s", cleanup_error)

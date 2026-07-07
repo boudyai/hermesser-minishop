@@ -1,10 +1,17 @@
-<script>
+<script lang="ts">
   import Skeleton from "$components/ui/skeleton.svelte";
   import AdminTable from "./AdminTable.svelte";
 
-  let { headers = [], rows = 6, actionColumn = false, widths = [] } = $props();
+  type Props = {
+    headers?: string[];
+    rows?: number;
+    actionColumn?: boolean;
+    widths?: string[];
+  };
 
-  function widthFor(index) {
+  let { headers = [], rows = 6, actionColumn = false, widths = [] }: Props = $props();
+
+  function widthFor(index: number): string {
     if (widths[index]) return widths[index];
     if (actionColumn && index === headers.length - 1) return "92px";
     if (index === 0) return "48px";

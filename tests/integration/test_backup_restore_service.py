@@ -168,7 +168,7 @@ def test_backup_restore_service_runs_pg_restore_for_dump(tmp_path):
         restored_payloads.append(dump_path.read_bytes())
 
     service._run_pg_restore = fake_pg_restore
-    service._run_post_restore_migrations = lambda: []
+    service._run_post_restore_migrations = list
 
     result = asyncio.run(
         service.restore_archive(
@@ -236,7 +236,7 @@ def test_backup_restore_service_accepts_archive_from_another_instance(tmp_path):
         restored_payloads.append(dump_path.read_bytes())
 
     service._run_pg_restore = fake_pg_restore
-    service._run_post_restore_migrations = lambda: []
+    service._run_post_restore_migrations = list
 
     result = service.restore_archive_sync(
         archive_path.name,

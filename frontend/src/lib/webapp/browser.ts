@@ -1,0 +1,75 @@
+export { structuredCloneSafe } from "../safeClone.js";
+
+type BrandInput = {
+  title?: unknown;
+  logoUrl?: unknown;
+  faviconUrl?: unknown;
+};
+
+export function readJsonScript(id: string): unknown {
+  const node = document.getElementById(id);
+  if (!node || !node.textContent) return null;
+  try {
+    return JSON.parse(node.textContent);
+  } catch (error) {
+    console.warn(`Failed to parse JSON config from #${id}`, error);
+    return null;
+  }
+}
+
+export function escapeHtml(value: unknown): string {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+// Default project logo, served by the backend when no custom logo is set.
+export const DEFAULT_BRAND_TITLE = "Subscription";
+export const DEFAULT_LOGO_URL = "/webapp-default-logo.webp";
+
+export function normalizeBrand(brand: BrandInput = {}): { title: string; logoUrl: string } {
+  return {
+    title: String(brand.title || DEFAULT_BRAND_TITLE).trim() || DEFAULT_BRAND_TITLE,
+    logoUrl: String(brand.logoUrl || "").trim() || DEFAULT_LOGO_URL,
+  };
+}
+
+export function brandFaviconHref(brand: BrandInput = {}): string {
+  return String(brand.faviconUrl || "").trim() || normalizeBrand(brand).logoUrl;
+}
+
+export function applyFavicon(brand: BrandInput = {}): void {
+  if (typeof document === "undefined") return;
+
+  const href = brandFaviconHref(brand);
+  const links = [
+    document.getElementById("app-favicon"),
+    document.getElementById("app-apple-touch-icon"),
+    ...document.querySelectorAll(
+      'link[rel="icon"], link[rel="apple-touch-icon"], link[rel="apple-touch-icon-precomposed"]'
+    ),
+  ].filter((node): node is Element => Boolean(node));
+
+  for (const favicon of new Set(links)) {
+    favicon.setAttribute("href", href);
+    if (href.endsWith(".gif")) {
+      favicon.setAttribute("type", "image/gif");
+    } else if (href.endsWith(".png")) {
+      favicon.setAttribute("type", "image/png");
+    } else if (href.endsWith(".webp")) {
+      favicon.setAttribute("type", "image/webp");
+    } else {
+      favicon.removeAttribute("type");
+    }
+  }
+}
+
+export function applyDocumentTitle(title: unknown): void {
+  if (typeof document === "undefined") return;
+  const nextTitle = String(title || "").trim();
+  if (!nextTitle || document.title === nextTitle) return;
+  document.title = nextTitle;
+}

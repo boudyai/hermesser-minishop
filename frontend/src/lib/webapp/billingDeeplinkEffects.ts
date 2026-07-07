@@ -5,8 +5,7 @@ import {
 } from "./billingDeeplinks.js";
 import { buildTariffCatalog } from "./tariffs.js";
 import type { BillingPlan } from "./tariffs.js";
-
-type WebappRecord = Record<string, unknown>;
+import type { SubscriptionView } from "./types";
 
 type BillingDeeplinkStore = {
   applyCheckoutPromo?: () => Promise<void>;
@@ -14,7 +13,7 @@ type BillingDeeplinkStore = {
     tariffMode: boolean,
     singleTariffMode: boolean,
     tariffCatalog: RenewalPaymentConfig["tariffCatalog"],
-    subscription: WebappRecord,
+    subscription: SubscriptionView,
     plans: BillingPlan[],
     defaultMethod: string,
     options: RenewalPaymentConfig["options"]
@@ -37,7 +36,7 @@ export type ApplyPostLoadBillingDeeplinksInput = {
   defaultMethod: string;
   plans: BillingPlan[];
   search: string;
-  subscription: WebappRecord;
+  subscription: SubscriptionView;
 };
 
 export function createBillingDeeplinkEffects({

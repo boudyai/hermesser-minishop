@@ -45,7 +45,19 @@ export type PanelSystemMetrics = {
   memPct: number | null;
   cpuPct: number | null;
 };
+export type CornllmStats = DynamicRecord & {
+  state?: unknown;
+  linked_users?: unknown;
+  ok_users?: unknown;
+  unreachable_users?: unknown;
+  no_key_users?: unknown;
+  total_max_budget?: unknown;
+  total_spent?: unknown;
+  total_remaining?: unknown;
+};
+
 export type AdminStats = NonNullable<StatsState["stats"]> & {
+  cornllm?: CornllmStats | null;
   financial: DynamicRecord & {
     daily_series?: RevenuePoint[];
     today_payments_count?: unknown;

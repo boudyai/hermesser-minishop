@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 import math
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,14 +14,16 @@ from db.models import Subscription
 
 from ._typing import SubscriptionServiceMixinContract
 
+logger = logging.getLogger(__name__)
+
 
 class HwidDeviceMixin(SubscriptionServiceMixinContract):
     @staticmethod
-    def _as_aware_utc(value: Optional[datetime]) -> Optional[datetime]:
+    def _as_aware_utc(value: datetime | None) -> datetime | None:
         if value is None:
             return None
         if value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
+            return value.replace(tzinfo=UTC)
         return value
 
     async def _active_hwid_extra_devices_for_sub(
@@ -29,17 +31,17 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         session: AsyncSession,
         sub: Subscription,
         *,
-        at: Optional[datetime] = None,
+        at: datetime | None = None,
     ) -> int:
         try:
             active_devices = await tariff_dal.sum_active_hwid_devices(
                 session,
                 subscription_id=sub.subscription_id,
-                at=at or datetime.now(timezone.utc),
+                at=at or datetime.now(UTC),
             )
             return int(active_devices)
         except Exception:
-            logging.exception(
+            logger.exception(
                 "Failed to recalculate active HWID devices for subscription %s",
                 getattr(sub, "subscription_id", None),
             )
@@ -49,7 +51,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         self,
         session: AsyncSession,
         user_id: int,
-    ) -> Optional[int]:
+    ) -> int | None:
         """Push the current local HWID device limit override to the panel."""
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or not db_user.panel_user_uuid:
@@ -85,7 +87,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
                 db_user.panel_user_uuid, panel_payload
             )
         except Exception:
-            logging.exception("sync_hwid_device_limit_to_panel failed for user %s", user_id)
+            logger.exception("sync_hwid_device_limit_to_panel failed for user %s", user_id)
         return int(effective_hwid_limit)
 
     async def _hwid_topup_validity_window(
@@ -95,7 +97,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         *,
         renewal: bool,
         now: datetime,
-    ) -> Optional[Tuple[datetime, datetime, Dict[str, Any]]]:
+    ) -> tuple[datetime, datetime, dict[str, Any]] | None:
         valid_until = self._as_aware_utc(getattr(sub, "end_date", None))
         if not valid_until or valid_until <= now:
             return None
@@ -123,7 +125,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         return math.ceil(float(value) * 100) / 100
 
     @staticmethod
-    def _find_hwid_package(tariff: Tariff, device_count: int, currency: str) -> Optional[Any]:
+    def _find_hwid_package(tariff: Tariff, device_count: int, currency: str) -> Any | None:
         package_set = tariff.hwid_device_packages
         if not package_set:
             return None
@@ -137,7 +139,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         device_count: int,
         period_months: int,
         currency: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         package_set = tariff.hwid_device_packages
         if not package_set:
             return None
@@ -157,9 +159,9 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         if not packages:
             return None
 
-        best: Dict[int, tuple[float, List[Any]]] = {0: (0.0, [])}
+        best: dict[int, tuple[float, list[Any]]] = {0: (0.0, [])}
         for count in range(1, target_count + 1):
-            best_for_count: Optional[tuple[float, List[Any]]] = None
+            best_for_count: tuple[float, list[Any]] | None = None
             for package in packages:
                 package_count = int(package.count)
                 previous = best.get(count - package_count)
@@ -178,7 +180,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         full_price, selected_packages = resolved
         rounded_price = HwidDeviceMixin._round_hwid_price(full_price, currency=currency)
         if currency == "stars":
-            rounded_price = float(int(math.ceil(rounded_price)))
+            rounded_price = float(math.ceil(rounded_price))
         return {
             "price": rounded_price,
             "full_price": float(full_price),
@@ -197,7 +199,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         valid_until: datetime,
         now: datetime,
         currency: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         period_months = max(1, int(getattr(sub, "duration_months", None) or 1))
         full_price = float(package.price_for_period(period_months))
         basis_seconds = max(1.0, float(period_months * 30 * 24 * 60 * 60))
@@ -210,7 +212,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         if raw_price > 0 and min_price is not None:
             price = max(price, self._round_hwid_price(float(min_price), currency=currency))
         if currency == "stars":
-            price = float(int(math.ceil(price)))
+            price = float(math.ceil(price))
 
         return {
             "price": price,
@@ -230,11 +232,11 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         *,
         user_id: int,
         device_count: int,
-        tariff_key: Optional[str] = None,
+        tariff_key: str | None = None,
         renewal: bool = False,
         currency: str = "rub",
-        now: Optional[datetime] = None,
-    ) -> Optional[Dict[str, Any]]:
+        now: datetime | None = None,
+    ) -> dict[str, Any] | None:
         try:
             purchased_devices = int(device_count)
         except (TypeError, ValueError):
@@ -266,7 +268,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         if not package:
             return None
 
-        now = now or datetime.now(timezone.utc)
+        now = now or datetime.now(UTC)
         window = await self._hwid_topup_validity_window(
             session,
             sub,
@@ -304,8 +306,8 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         target_tariff_key: str,
         months: int,
         currency: str = "rub",
-        now: Optional[datetime] = None,
-    ) -> Optional[Dict[str, Any]]:
+        now: datetime | None = None,
+    ) -> dict[str, Any] | None:
         try:
             period_months = int(months)
         except (TypeError, ValueError):
@@ -322,7 +324,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         if not sub or not sub.end_date:
             return None
 
-        now = now or datetime.now(timezone.utc)
+        now = now or datetime.now(UTC)
         subscription_end = self._as_aware_utc(sub.end_date)
         if not subscription_end or subscription_end <= now:
             return None
@@ -378,15 +380,15 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         payment_amount: float,
         payment_db_id: int,
         provider: str = "yookassa",
-        tariff_key: Optional[str] = None,
+        tariff_key: str | None = None,
         renewal: bool = False,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         try:
             purchased_devices = int(device_count)
         except (TypeError, ValueError):
             purchased_devices = 0
         if purchased_devices <= 0:
-            logging.error("HWID device top-up requires positive device count for user %s", user_id)
+            logger.error("HWID device top-up requires positive device count for user %s", user_id)
             return None
 
         db_user = await user_dal.get_user_by_id(session, user_id)
@@ -402,7 +404,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         if self._tariffs_config():
             tariff = self._resolve_tariff(tariff_key or sub.tariff_key)
             if tariff.billing_model != "period":
-                logging.info(
+                logger.info(
                     "Skipping HWID top-up for user %s because tariff %s is %s",
                     user_id,
                     tariff.key,
@@ -419,7 +421,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
                 else []
             )
             if packages and not any(pkg.count == purchased_devices for pkg in packages):
-                logging.error(
+                logger.error(
                     "HWID device package %s is not available for tariff %s",
                     purchased_devices,
                     tariff.key,
@@ -432,7 +434,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
             else self._base_hwid_limit_for_tariff(tariff)
         )
         if base_hwid_limit in (None, 0):
-            logging.info(
+            logger.info(
                 "Skipping HWID top-up for user %s because current limit is unlimited", user_id
             )
             return {
@@ -446,7 +448,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
                 "purchased_hwid_devices": 0,
             }
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)
         entitlement_summary = await tariff_dal.get_hwid_device_entitlement_summary(
             session,
@@ -457,7 +459,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         valid_until = self._as_aware_utc(getattr(payment, "hwid_valid_until", None))
         if valid_from and valid_until:
             if valid_until <= now or valid_from >= valid_until:
-                logging.error(
+                logger.error(
                     "Frozen HWID quote is no longer valid for user %s "
                     "(payment_id=%s, valid_from=%s, valid_until=%s)",
                     user_id,
@@ -476,7 +478,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
             if window:
                 valid_from, valid_until, entitlement_summary = window
         if not valid_from or not valid_until:
-            logging.error(
+            logger.error(
                 "HWID top-up has no valid subscription window for user %s "
                 "(subscription_id=%s, renewal=%s)",
                 user_id,
@@ -525,7 +527,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
             panel_payload,
         )
         if not updated_panel or updated_panel.get("error"):
-            logging.warning(
+            logger.warning(
                 "Panel user HWID limit update failed for user %s. Response: %s",
                 user_id,
                 updated_panel,

@@ -5,11 +5,12 @@
   import PaymentMethodGrid from "$lib/components/patterns/webapp/PaymentMethodGrid.svelte";
   import { Plus } from "$components/ui/icons.js";
 
-  type AnyRecord = Record<string, any>;
+  type UnknownRecord = Record<string, unknown>;
   type ApiUnchecked = (
     path: string,
     options?: Parameters<typeof fetch>[1]
   ) => Promise<Record<string, unknown>>;
+  type PaymentMethod = UnknownRecord & { id: string; disabled?: boolean };
   const missingApi: ApiUnchecked = async () => ({ ok: false, error: "api_unavailable" });
 
   let {
@@ -18,14 +19,14 @@
     apiUnchecked = missingApi,
     paymentMethods = [],
     selectedMethod = "",
-    t = (key: string, _params?: AnyRecord, fallback?: string) => fallback || key,
+    t = (key: string, _params?: UnknownRecord, fallback?: string) => fallback || key,
   }: {
-    subscription?: AnyRecord;
-    appSettings?: AnyRecord;
+    subscription?: UnknownRecord;
+    appSettings?: UnknownRecord;
     apiUnchecked?: ApiUnchecked;
-    paymentMethods?: AnyRecord[];
+    paymentMethods?: UnknownRecord[];
     selectedMethod?: string;
-    t?: (key: string, params?: AnyRecord, fallback?: string) => string;
+    t?: (key: string, params?: UnknownRecord, fallback?: string) => string;
   } = $props();
 
   const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
@@ -43,7 +44,7 @@
   let open = $state(false);
   let amountRub = $state<number>(300);
   let customAmount = $state<string>("");
-  let localMethod = $state<string>(selectedMethod);
+  let localMethod = $state<string>("");
   let busy = $state(false);
   let error = $state<string | null>(null);
 
@@ -61,9 +62,11 @@
   const submitAmount = $derived(customParsed !== null ? customParsed : amountRub);
   const submitAmountValid = $derived(submitAmount >= MIN_RUB);
 
-  const enabledMethods = $derived(
-    (paymentMethods || []).filter((m) => m && !m.disabled && typeof m.id === "string" && m.id)
-  );
+  function isEnabledMethod(method: UnknownRecord): method is PaymentMethod {
+    return method.disabled !== true && typeof method.id === "string" && method.id.length > 0;
+  }
+
+  const enabledMethods = $derived((paymentMethods || []).filter(isEnabledMethod));
 
   // ponytail: when the card opens or the parent flips selectedMethod,
   // mirror it into local state so PaymentMethodGrid stays in sync.
@@ -157,7 +160,7 @@
         <Plus size={15} />
         <span>{t("admin_cornllm_balance", {}, "CornLLM")}</span>
       </div>
-      <Button variant="primary" onclick={() => (open = true)} disabled={busy || !actionsEnabled}>
+      <Button variant="default" onclick={() => (open = true)} disabled={busy || !actionsEnabled}>
         <Plus size={14} />
         {t("wa_topup_action", {}, "Top up")}
       </Button>
@@ -178,7 +181,7 @@
       <div style="display: flex; gap: 6px; flex-wrap: wrap;">
         {#each QUICK_RUB as rub}
           <Button
-            variant={amountRub === rub && !customAmount ? "primary" : "secondary"}
+            variant={amountRub === rub && !customAmount ? "default" : "secondary"}
             onclick={() => pickQuick(rub)}
           >
             {rub} ₽
@@ -187,7 +190,11 @@
       </div>
       <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px;">
         <span style="color: var(--muted);"
-          >{t("wa_topup_custom_label", { minimum: MIN_RUB }, `Custom amount (min ${MIN_RUB} ₽)`)}</span
+          >{t(
+            "wa_topup_custom_label",
+            { minimum: MIN_RUB },
+            `Custom amount (min ${MIN_RUB} ₽)`
+          )}</span
         >
         <input
           type="number"
@@ -199,7 +206,10 @@
         />
         {#if customParsed !== null}
           <span style="color: var(--muted); font-size: 11px;">
-            {submitAmountValid ? "→" : "✗"} {submitAmount} ₽{#if !submitAmountValid} {t("wa_topup_below_minimum_hint", { minimum: MIN_RUB })} {/if}
+            {submitAmountValid ? "→" : "✗"}
+            {submitAmount} ₽{#if !submitAmountValid}
+              {t("wa_topup_below_minimum_hint", { minimum: MIN_RUB })}
+            {/if}
           </span>
         {/if}
       </label>
@@ -214,7 +224,11 @@
       {#if error}
         <p style="margin: 0; color: var(--danger); font-size: 12px;">{error}</p>
       {/if}
-      <Button variant="primary" onclick={submit} disabled={busy || !actionsEnabled || !submitAmountValid}>
+      <Button
+        variant="default"
+        onclick={submit}
+        disabled={busy || !actionsEnabled || !submitAmountValid}
+      >
         {t("wa_topup_action_button", { amount: submitAmount }, `Top up ${submitAmount} ₽`)}
       </Button>
     </div>

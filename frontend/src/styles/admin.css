@@ -4312,7 +4312,7 @@
   outline: none;
 }
 
-.admin-tabs-content[data-state="inactive"] {
+.admin-tabs-root .admin-tabs-content[data-state="inactive"] {
   display: none;
 }
 

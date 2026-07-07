@@ -22,16 +22,20 @@
     PaymentMethodGrid,
   } from "$components/patterns/webapp/index.js";
   import CheckoutPromoRow from "./CheckoutPromoRow.svelte";
+  import type {
+    BillingOptionsResponse,
+    DeviceTopupOptions,
+    PaymentMethodView,
+    PlanView,
+    SubscriptionView,
+    TariffChangeAction,
+    TariffChangeOptions,
+    TariffChangeTarget,
+    Translate,
+    VoidAction,
+  } from "$lib/webapp/types.js";
 
-  type AnyRecord = Record<string, any>;
-  type DeviceTopupPlan = {
-    device_count?: number | string | null;
-    months?: number | string | null;
-    subtitle?: string | null;
-    valid_until_text?: string | null;
-  };
-  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-  type VoidAction = () => void;
+  type CheckoutPlan = PlanView | TariffChangeAction;
 
   let {
     applyTariffChange = () => {},
@@ -77,7 +81,7 @@
     applyTariffChange?: VoidAction;
     changeConfirmOpen?: boolean;
     changeModalOpen?: boolean;
-    changeOptions?: AnyRecord | null;
+    changeOptions?: TariffChangeOptions | null;
     closeDeviceTopupModal?: VoidAction;
     closeTariffChangeConfirm?: VoidAction;
     closeTariffChangeModal?: VoidAction;
@@ -96,29 +100,29 @@
     createDeviceTopupPayment?: VoidAction;
     createTopupPayment?: VoidAction;
     deviceTopupModalOpen?: boolean;
-    deviceTopupOptions?: AnyRecord | null;
-    methods?: AnyRecord[];
+    deviceTopupOptions?: DeviceTopupOptions | null;
+    methods?: PaymentMethodView[];
     openTariffChangeConfirm?: VoidAction;
     payBusy?: boolean;
-    selectedChangeAction?: AnyRecord | null;
-    selectedChangeTarget?: AnyRecord | null;
-    selectedDeviceTopupPlan?: AnyRecord | null;
+    selectedChangeAction?: TariffChangeAction | null;
+    selectedChangeTarget?: TariffChangeTarget | null;
+    selectedDeviceTopupPlan?: PlanView | null;
     selectedMethod?: string;
-    selectedTopupPlan?: AnyRecord | null;
+    selectedTopupPlan?: PlanView | null;
     singleTariffMode?: boolean;
     tariffActionBusy?: boolean;
     topupModalOpen?: boolean;
-    topupOptions?: AnyRecord | null;
+    topupOptions?: BillingOptionsResponse | null;
     topupKind?: string;
-    subscription?: AnyRecord;
+    subscription?: SubscriptionView;
     trafficMode?: boolean;
     t?: Translate;
   } = $props();
 
-  function priceLabel(plan: AnyRecord | null) {
+  function priceLabel(plan: CheckoutPlan | null) {
     return priceLabelFn(plan, selectedMethod);
   }
-  function checkoutPlanPriceLabel(plan: AnyRecord | null) {
+  function checkoutPlanPriceLabel(plan: CheckoutPlan | null) {
     const promoPrice = checkoutPromoPriceParts(plan);
     if (promoPrice) return promoPrice.discounted;
     if (checkoutPromoAppliedCode && checkoutPromoPriceText) return checkoutPromoPriceText;
@@ -129,7 +133,7 @@
     if (!checkoutPromoAppliedCode || !Number.isFinite(value) || value <= 0) return 0;
     return Math.min(100, value);
   }
-  function planSaleModeBase(plan: AnyRecord | null) {
+  function planSaleModeBase(plan: CheckoutPlan | null) {
     const fallback =
       Number(plan?.device_count || 0) > 0
         ? "hwid_devices"
@@ -142,12 +146,12 @@
     if (["hwid_device", "hwid_devices", "hwid_devices_renewal"].includes(saleMode)) return "hwid";
     return "subscription";
   }
-  function checkoutPromoScopeMatches(plan: AnyRecord | null) {
+  function checkoutPromoScopeMatches(plan: CheckoutPlan | null) {
     const scope = String(checkoutPromoAppliesTo || "all").toLowerCase();
     const base = planSaleModeBase(plan);
     return scope === "all" || scope === base;
   }
-  function checkoutPromoThresholdMatches(plan: AnyRecord | null) {
+  function checkoutPromoThresholdMatches(plan: CheckoutPlan | null) {
     const base = planSaleModeBase(plan);
     const minMonths = Number(checkoutPromoMinSubscriptionMonths || 0);
     const minTrafficGb = Number(checkoutPromoMinTrafficGb || 0);
@@ -159,18 +163,18 @@
     }
     return true;
   }
-  function checkoutPromoAffectsPlan(plan: AnyRecord | null) {
+  function checkoutPromoAffectsPlan(plan: CheckoutPlan | null) {
     return (
       checkoutPromoDiscount() > 0 &&
       checkoutPromoScopeMatches(plan) &&
       checkoutPromoThresholdMatches(plan)
     );
   }
-  function discountedCheckoutPlan(plan: AnyRecord | null) {
+  function discountedCheckoutPlan(plan: CheckoutPlan | null) {
     const discount = checkoutPromoDiscount();
     if (!plan || discount <= 0) return plan;
     const multiplier = Math.max(0, 1 - discount / 100);
-    const next: AnyRecord = { ...plan };
+    const next: CheckoutPlan = { ...plan };
     if (Number(plan.price || 0) > 0) {
       next.price = Math.round(Number(plan.price || 0) * multiplier * 100) / 100;
     }
@@ -179,20 +183,20 @@
     }
     return next;
   }
-  function checkoutPromoPriceParts(plan: AnyRecord | null) {
+  function checkoutPromoPriceParts(plan: CheckoutPlan | null) {
     if (!checkoutPromoAffectsPlan(plan)) return null;
     return {
       base: priceLabel(plan),
       discounted: priceLabel(discountedCheckoutPlan(plan)),
     };
   }
-  function planKey(plan: AnyRecord | null) {
+  function planKey(plan: CheckoutPlan | null) {
     return planKeyFn(plan);
   }
-  function planUnitHint(plan: AnyRecord | null) {
+  function planUnitHint(plan: CheckoutPlan | null) {
     return planUnitHintFn(plan, { trafficMode, selectedMethod, t });
   }
-  function actionKey(action: AnyRecord | null) {
+  function actionKey(action: TariffChangeAction | null) {
     return actionKeyFn(action);
   }
 
@@ -231,7 +235,7 @@
     }
   });
 
-  function changeActionTitle(action: AnyRecord | null) {
+  function changeActionTitle(action: TariffChangeAction | null) {
     const mode = String(action?.mode || "");
     if (mode === "recalc_days") {
       return t("wa_tariff_change_recalc_days", { days: Number(action?.days_after || 0) });
@@ -298,13 +302,13 @@
       : "";
   }
 
-  function deviceTopupPlanTitle(plan: DeviceTopupPlan) {
+  function deviceTopupPlanTitle(plan: PlanView) {
     return t("wa_hwid_devices_package", {
       count: Number(plan?.device_count || plan?.months || 0),
     });
   }
 
-  function deviceTopupPlanHint(plan: DeviceTopupPlan) {
+  function deviceTopupPlanHint(plan: PlanView) {
     if (plan?.valid_until_text) {
       return t("wa_hwid_devices_active_until", { date: plan.valid_until_text });
     }

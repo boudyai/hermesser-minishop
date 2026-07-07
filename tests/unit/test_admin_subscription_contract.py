@@ -16,8 +16,9 @@ def _subscription(**overrides):
         "subscription_id": 7,
         "panel_user_uuid": "puuid",
         "panel_subscription_uuid": "psuuid",
-        "start_date": datetime(2026, 1, 1, 12, 0, 0),
-        "end_date": datetime(2026, 2, 1, 12, 0, 0),
+        # Admin JSON contracts serialize legacy naive DB datetimes without offsets.
+        "start_date": datetime(2026, 1, 1, 12, 0, 0),  # noqa: DTZ001
+        "end_date": datetime(2026, 2, 1, 12, 0, 0),  # noqa: DTZ001
         "duration_months": 1,
         "is_active": True,
         "status_from_panel": "ACTIVE",

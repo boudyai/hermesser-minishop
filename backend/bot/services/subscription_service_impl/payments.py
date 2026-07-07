@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
+from typing import ClassVar
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,13 +12,15 @@ from db.models import User
 
 from ._typing import SubscriptionServiceMixinContract
 
+logger = logging.getLogger(__name__)
+
 
 class PaymentContextMixin(SubscriptionServiceMixinContract):
     # Human-readable provider names rendered in payment-success emails.
     # Keys are the lowercased value persisted in ``subscriptions.provider``
     # (see the call sites in lifecycle.py / traffic.py); missing keys produce
     # no row in the email rather than raising.
-    _PROVIDER_LABELS = {
+    _PROVIDER_LABELS: ClassVar[dict[str, str]] = {
         "yookassa": "YooKassa",
         "freekassa": "FreeKassa",
         "platega": "Platega",
@@ -38,14 +40,14 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
         payment_db_id: int,
         *,
         sale_mode: str,
-        tariff_key: Optional[str],
-        purchased_gb: Optional[float] = None,
-        purchased_hwid_devices: Optional[int] = None,
-        hwid_valid_from: Optional[datetime] = None,
-        hwid_valid_until: Optional[datetime] = None,
-        hwid_pricing_period_months: Optional[int] = None,
-        hwid_proration_ratio: Optional[float] = None,
-        hwid_full_price: Optional[float] = None,
+        tariff_key: str | None,
+        purchased_gb: float | None = None,
+        purchased_hwid_devices: int | None = None,
+        hwid_valid_from: datetime | None = None,
+        hwid_valid_until: datetime | None = None,
+        hwid_pricing_period_months: int | None = None,
+        hwid_proration_ratio: float | None = None,
+        hwid_full_price: float | None = None,
     ) -> None:
         payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)
         if not payment:
@@ -94,9 +96,9 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
             )
             if not active_sub or not active_sub.end_date:
                 return False
-            from datetime import datetime, timezone
+            from datetime import datetime
 
-            return bool(active_sub.is_active and active_sub.end_date > datetime.now(timezone.utc))
+            return bool(active_sub.is_active and active_sub.end_date > datetime.now(UTC))
         except Exception:
             return False
 
@@ -106,9 +108,9 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
         db_user: User,
         sale_mode: str,
         months: int,
-        traffic_gb: Optional[float],
+        traffic_gb: float | None,
         payment_amount: float,
-        end_date: Optional[datetime],
+        end_date: datetime | None,
         provider: str,
     ) -> None:
         """Best-effort branded email confirming the payment. No-op if SMTP or
@@ -154,7 +156,7 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
             email_service = EmailAuthService(self.settings, i18n)
             await email_service.send_rendered_email(email=recipient, content=content)
         except Exception:
-            logging.exception("Failed to send payment success email to user %s", db_user.user_id)
+            logger.exception("Failed to send payment success email to user %s", db_user.user_id)
 
     async def update_last_notification_sent(
         self, session: AsyncSession, user_id: int, subscription_end_date: datetime
@@ -164,12 +166,16 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
         )
         if sub_to_update:
             await subscription_dal.update_subscription_notification_time(
-                session, sub_to_update.subscription_id, datetime.now(timezone.utc)
+                session, sub_to_update.subscription_id, datetime.now(UTC)
             )
-            logging.info(
-                f"Updated last_notification_sent for user {user_id}, sub_id {sub_to_update.subscription_id}"  # noqa: E501
+            logger.info(
+                "Updated last_notification_sent for user %s, sub_id %s",
+                user_id,
+                sub_to_update.subscription_id,
             )
         else:
-            logging.warning(
-                f"Could not find subscription for user {user_id} ending at {subscription_end_date.isoformat()} to update notification time."  # noqa: E501
+            logger.warning(
+                "Could not find subscription for user %s ending at %s to update notification time.",
+                user_id,
+                subscription_end_date.isoformat(),
             )

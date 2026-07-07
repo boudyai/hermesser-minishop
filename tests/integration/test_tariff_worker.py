@@ -2,9 +2,10 @@ import asyncio
 import json
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from typing import ClassVar
 from unittest.mock import AsyncMock, patch
 
 from bot.services.panel_api_service import PanelApiService
@@ -68,8 +69,8 @@ class _PeriodTariff:
 
 class _PremiumTariff:
     key = "standard"
-    squad_uuids = ["squad-1"]
-    premium_squad_uuids = ["premium-squad"]
+    squad_uuids: ClassVar[list[str]] = ["squad-1"]
+    premium_squad_uuids: ClassVar[list[str]] = ["premium-squad"]
     premium_monthly_bytes = 25 * (1024**3)
 
     def name(self, _lang, fallback="ru"):
@@ -102,6 +103,51 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(premium.text, "Top up premium traffic")
         self.assertEqual(premium.web_app.url, "https://app.example.com?topup=premium")
 
+    def test_panel_last_reset_drives_future_reset_note_date(self):
+        worker = TariffTrafficWorker(
+            settings=SimpleNamespace(USER_TRAFFIC_STRATEGY="MONTH"),
+            session_factory=SimpleNamespace(),
+            panel_service=SimpleNamespace(),
+            subscription_service=SimpleNamespace(),
+        )
+
+        next_reset_at = worker._panel_next_traffic_reset_at(
+            {
+                "trafficLimitStrategy": "MONTH",
+                "lastTrafficResetAt": "2026-04-01T00:00:00Z",
+            },
+            now=datetime(2026, 7, 1, 12, tzinfo=UTC),
+        )
+        note = worker._traffic_next_reset_note(
+            lambda key, **kwargs: "{reset_date} {reset_available}".format(**kwargs),
+            kind="premium",
+            period_start_at=datetime(2026, 3, 1, tzinfo=UTC),
+            reset_available_bytes=1024,
+            user_lang="en",
+            next_reset_at=next_reset_at,
+        )
+
+        self.assertEqual(next_reset_at, datetime(2026, 8, 1, tzinfo=UTC))
+        self.assertEqual(note, "2026-08-01 1.0 KB")
+
+    def test_no_reset_strategy_omits_reset_note(self):
+        worker = TariffTrafficWorker(
+            settings=SimpleNamespace(USER_TRAFFIC_STRATEGY="NO_RESET"),
+            session_factory=SimpleNamespace(),
+            panel_service=SimpleNamespace(),
+            subscription_service=SimpleNamespace(),
+        )
+
+        note = worker._traffic_next_reset_note(
+            lambda key, **kwargs: "{reset_date} {reset_available}".format(**kwargs),
+            kind="premium",
+            period_start_at=datetime(2026, 3, 1, tzinfo=UTC),
+            reset_available_bytes=1024,
+            user_lang="en",
+        )
+
+        self.assertEqual(note, "")
+
     async def test_regular_reset_notice_sent_after_previous_period_warning(self):
         bot = AsyncMock()
         worker = TariffTrafficWorker(
@@ -119,8 +165,8 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         )
         worker._user_lang = AsyncMock(return_value="en")
         session = AsyncMock()
-        current_period = datetime(2026, 6, 1, tzinfo=timezone.utc)
-        previous_period = datetime(2026, 5, 1, tzinfo=timezone.utc)
+        current_period = datetime(2026, 6, 1, tzinfo=UTC)
+        previous_period = datetime(2026, 5, 1, tzinfo=UTC)
         sub = SimpleNamespace(subscription_id=10, user_id=123, traffic_used_bytes=1)
 
         with (
@@ -188,8 +234,8 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 _PeriodTariff(),
                 used=85,
                 limit=100,
-                period_start_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
-                previous_period_start=datetime(2026, 5, 1, tzinfo=timezone.utc),
+                period_start_at=datetime(2026, 6, 1, tzinfo=UTC),
+                previous_period_start=datetime(2026, 5, 1, tzinfo=UTC),
             )
 
         has_warning.assert_not_awaited()
@@ -221,8 +267,8 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 _PeriodTariff(),
                 used=int(817.2 * (1024**3)),
                 limit=1000 * (1024**3),
-                period_start_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
-                previous_period_start=datetime(2026, 6, 1, tzinfo=timezone.utc),
+                period_start_at=datetime(2026, 6, 1, tzinfo=UTC),
+                previous_period_start=datetime(2026, 6, 1, tzinfo=UTC),
             )
 
         has_warning.assert_not_awaited()
@@ -273,7 +319,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 _PeriodTariff(),
                 used=180,
                 limit=200,
-                warning_period_start=datetime(2026, 6, 1, tzinfo=timezone.utc),
+                warning_period_start=datetime(2026, 6, 1, tzinfo=UTC),
             )
 
         bot.send_message.assert_awaited_once()
@@ -320,7 +366,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             premium_topup_used_bytes=0,
             premium_used_bytes=25 * (1024**3),
             premium_is_limited=True,
-            premium_period_start_at=datetime(2026, 5, 1, tzinfo=timezone.utc),
+            premium_period_start_at=datetime(2026, 5, 1, tzinfo=UTC),
             premium_unlimited_override=False,
             premium_bonus_bytes=0,
         )
@@ -347,7 +393,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 AsyncMock(),
                 sub,
                 _PremiumTariff(),
-                datetime(2026, 6, 2, tzinfo=timezone.utc),
+                datetime(2026, 6, 2, tzinfo=UTC),
                 panel_username="tg_123",
                 panel_user_dict={"activeInternalSquads": [{"uuid": "squad-1"}]},
             )
@@ -413,7 +459,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 _PremiumTariff(),
                 used=270,
                 limit=300,
-                period_start_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+                period_start_at=datetime(2026, 6, 1, tzinfo=UTC),
             )
 
         bot.send_message.assert_awaited_once()
@@ -508,7 +554,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 subscription_id=1,
                 user_id=123,
                 panel_user_uuid="panel-uuid",
-                end_date=datetime.now(timezone.utc) + timedelta(days=10),
+                end_date=datetime.now(UTC) + timedelta(days=10),
                 traffic_limit_bytes=500 * (1024**3),
                 topup_balance_bytes=0,
                 is_throttled=False,
@@ -571,7 +617,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                     tariff,
                     used=100,
                     limit=100,
-                    warning_period_start=datetime.now(timezone.utc),
+                    warning_period_start=datetime.now(UTC),
                 )
 
             panel_service.remove_users_from_internal_squad.assert_not_awaited()
@@ -635,7 +681,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                     AsyncMock(),
                     sub,
                     tariff,
-                    datetime.now(timezone.utc),
+                    datetime.now(UTC),
                     panel_username="tg_123",
                 )
 
@@ -709,7 +755,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 AsyncMock(),
                 sub,
                 trial_tariff,
-                datetime.now(timezone.utc),
+                datetime.now(UTC),
                 panel_username="tg_123",
                 panel_user_dict={
                     "activeInternalSquads": [
@@ -764,7 +810,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 panel_service=panel_service,
                 subscription_service=subscription_service,
             )
-            now = datetime(2026, 5, 9, tzinfo=timezone.utc)
+            now = datetime(2026, 5, 9, tzinfo=UTC)
             sub = SimpleNamespace(
                 subscription_id=1,
                 user_id=123,
@@ -774,7 +820,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 premium_topup_used_bytes=0,
                 premium_used_bytes=0,
                 premium_is_limited=False,
-                premium_period_start_at=datetime(2026, 5, 1, tzinfo=timezone.utc),
+                premium_period_start_at=datetime(2026, 5, 1, tzinfo=UTC),
             )
             tariff = settings.tariffs_config.require("standard")
 
@@ -796,14 +842,14 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                     ]
                 }
             )
-            next_month = datetime(2026, 6, 2, tzinfo=timezone.utc)
+            next_month = datetime(2026, 6, 2, tzinfo=UTC)
             await worker._sync_premium_squad_limit(
                 AsyncMock(), sub, tariff, next_month, panel_username="tg_123"
             )
 
             self.assertEqual(sub.premium_topup_balance_bytes, int(1.5 * (1024**3)))
             self.assertEqual(sub.premium_topup_used_bytes, 0)
-            self.assertEqual(sub.premium_period_start_at, datetime(2026, 6, 1, tzinfo=timezone.utc))
+            self.assertEqual(sub.premium_period_start_at, datetime(2026, 6, 1, tzinfo=UTC))
 
     async def test_premium_no_reset_keeps_period_usage_after_month_boundary(self):
         payload = _tariffs_config_payload()
@@ -848,13 +894,13 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 subscription_id=1,
                 user_id=123,
                 panel_user_uuid="panel-uuid",
-                start_date=datetime(2026, 5, 15, 12, tzinfo=timezone.utc),
+                start_date=datetime(2026, 5, 15, 12, tzinfo=UTC),
                 premium_baseline_bytes=1 * (1024**3),
                 premium_topup_balance_bytes=2 * (1024**3),
                 premium_topup_used_bytes=int(0.25 * (1024**3)),
                 premium_used_bytes=1 * (1024**3),
                 premium_is_limited=False,
-                premium_period_start_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+                premium_period_start_at=datetime(2026, 6, 1, tzinfo=UTC),
                 premium_unlimited_override=False,
                 premium_bonus_bytes=0,
             )
@@ -864,7 +910,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 AsyncMock(),
                 sub,
                 tariff,
-                datetime(2026, 7, 2, tzinfo=timezone.utc),
+                datetime(2026, 7, 2, tzinfo=UTC),
                 panel_username="tg_123",
             )
 
@@ -914,7 +960,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 subscription_service=subscription_service,
             )
             worker._premium_topup_ledger_total = AsyncMock(return_value=20 * (1024**3))
-            now = datetime(2026, 5, 9, tzinfo=timezone.utc)
+            now = datetime(2026, 5, 9, tzinfo=UTC)
             sub = SimpleNamespace(
                 subscription_id=1,
                 user_id=123,
@@ -924,7 +970,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 premium_topup_used_bytes=0,
                 premium_used_bytes=40 * (1024**3),
                 premium_is_limited=True,
-                premium_period_start_at=datetime(2026, 5, 1, tzinfo=timezone.utc),
+                premium_period_start_at=datetime(2026, 5, 1, tzinfo=UTC),
                 premium_unlimited_override=False,
                 premium_bonus_bytes=0,
             )
@@ -996,7 +1042,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 panel_service=panel_service,
                 subscription_service=subscription_service,
             )
-            now = datetime(2026, 5, 9, tzinfo=timezone.utc)
+            now = datetime(2026, 5, 9, tzinfo=UTC)
             sub = SimpleNamespace(
                 subscription_id=1,
                 user_id=123,
@@ -1006,7 +1052,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 premium_topup_used_bytes=0,
                 premium_used_bytes=1 * (1024**3),
                 premium_is_limited=False,
-                premium_period_start_at=datetime(2026, 5, 1, tzinfo=timezone.utc),
+                premium_period_start_at=datetime(2026, 5, 1, tzinfo=UTC),
                 premium_unlimited_override=False,
                 premium_bonus_bytes=0,
             )
@@ -1074,7 +1120,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 panel_service=panel_service,
                 subscription_service=subscription_service,
             )
-            now = datetime(2026, 5, 9, tzinfo=timezone.utc)
+            now = datetime(2026, 5, 9, tzinfo=UTC)
             sub = SimpleNamespace(
                 subscription_id=1,
                 user_id=123,
@@ -1084,7 +1130,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 premium_topup_used_bytes=0,
                 premium_used_bytes=5 * (1024**3),
                 premium_is_limited=False,
-                premium_period_start_at=datetime(2026, 5, 1, tzinfo=timezone.utc),
+                premium_period_start_at=datetime(2026, 5, 1, tzinfo=UTC),
                 premium_unlimited_override=False,
                 premium_bonus_bytes=0,
             )
@@ -1163,7 +1209,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 panel_service=panel_service,
                 subscription_service=subscription_service,
             )
-            now = datetime(2026, 5, 9, tzinfo=timezone.utc)
+            now = datetime(2026, 5, 9, tzinfo=UTC)
             sub = SimpleNamespace(
                 subscription_id=1,
                 user_id=123,
@@ -1173,7 +1219,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 premium_topup_used_bytes=0,
                 premium_used_bytes=5 * (1024**3),
                 premium_is_limited=True,
-                premium_period_start_at=datetime(2026, 5, 1, tzinfo=timezone.utc),
+                premium_period_start_at=datetime(2026, 5, 1, tzinfo=UTC),
                 premium_unlimited_override=False,
                 premium_bonus_bytes=0,
             )
@@ -1234,7 +1280,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 panel_service=panel_service,
                 subscription_service=subscription_service,
             )
-            now = datetime(2026, 5, 9, tzinfo=timezone.utc)
+            now = datetime(2026, 5, 9, tzinfo=UTC)
             sub = SimpleNamespace(
                 subscription_id=1,
                 user_id=123,
@@ -1244,7 +1290,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 premium_topup_used_bytes=0,
                 premium_used_bytes=5 * (1024**3),
                 premium_is_limited=False,
-                premium_period_start_at=datetime(2026, 5, 1, tzinfo=timezone.utc),
+                premium_period_start_at=datetime(2026, 5, 1, tzinfo=UTC),
                 premium_unlimited_override=False,
                 premium_bonus_bytes=0,
             )
@@ -1334,7 +1380,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 AsyncMock(),
                 sub,
                 tariff,
-                datetime.now(timezone.utc),
+                datetime.now(UTC),
                 panel_username="tg_42",
                 panel_user_dict={"activeInternalSquads": [{"uuid": "squad-1"}]},
                 panel_view="list",
@@ -1397,7 +1443,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             tariff = settings.tariffs_config.require("standard")
 
             await worker._sync_premium_squad_limit(
-                AsyncMock(), sub, tariff, datetime.now(timezone.utc), panel_username="tg_77"
+                AsyncMock(), sub, tariff, datetime.now(UTC), panel_username="tg_77"
             )
 
             # 4 GB used vs 1 GB baseline + 10 GB bonus = 11 GB limit → not limited.

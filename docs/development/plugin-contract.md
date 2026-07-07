@@ -42,3 +42,14 @@ Web-плагины получают один из двух scope из `bot.plugi
 Минимальный runnable sample лежит в
 [`../../examples/plugins/audit_logger_plugin`](../../examples/plugins/audit_logger_plugin). Он показывает
 `setup`, `setup_web` и подписку через `bot.infra.events.subscribe`.
+
+## Observability hooks
+
+Core exposes no-op observability defaults in `bot.infra.observability`. Plugins may provide
+`ctx.services["error_reporter"]` implementing `ErrorReporter` and/or `ctx.services["metrics"]`
+implementing `Metrics` from their `setup(ctx)` hook. `PluginContext.error_reporter` and
+`PluginContext.metrics` resolve plugin-provided implementations or fall back to no-op defaults.
+
+The web and worker global error paths call the resolved `ErrorReporter` for unhandled handler
+exceptions. Reporter failures are logged and never replace the original exception. The service
+keys are additive extension points; existing plugin hook signatures stay unchanged.

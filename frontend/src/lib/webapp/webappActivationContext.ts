@@ -1,6 +1,6 @@
 import { tick } from "svelte";
 
-import { createActivationHandoff } from "./activationHandoff.js";
+import { createActivationHandoff } from "./activationHandoff";
 import { createActivationRuntime } from "./activationRuntime.js";
 import { createActivationWatcher } from "./activationWatcher";
 import { shellState } from "./shellState.svelte";

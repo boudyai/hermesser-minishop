@@ -67,6 +67,16 @@ export type ApiResponse<Path extends string> =
   | JsonResponse<OperationFor<Path, "put">>
   | JsonResponse<OperationFor<Path, "patch">>
   | JsonResponse<OperationFor<Path, "delete">>;
+type MethodForOptions<Options> = Options extends { method?: infer Method }
+  ? Method extends string
+    ? Lowercase<Method> extends HttpMethod
+      ? Lowercase<Method>
+      : HttpMethod
+    : "get"
+  : "get";
+export type ApiResponseFor<Path extends string, Options = undefined> = JsonResponse<
+  OperationFor<Path, MethodForOptions<Options>>
+>;
 export type GetResponse<Path extends string> = JsonResponse<OperationFor<Path, "get">>;
 export type PostPayload<Path extends string> = JsonRequestBody<OperationFor<Path, "post">>;
 export type PostResponse<Path extends string> = JsonResponse<OperationFor<Path, "post">>;
@@ -153,10 +163,54 @@ type ApiClientOptions = {
   onUnauthorized?: () => void;
   mockApi?: MockApi | null;
   getMockContext?: () => MockContext;
+  requestTimeoutMs?: number;
 };
 
+const DEFAULT_API_REQUEST_TIMEOUT_MS = 15000;
+
+function apiTimeoutError(): Error {
+  const error = new Error("api_request_timeout");
+  error.name = "TimeoutError";
+  return error;
+}
+
+function requestSignal(
+  existingSignal: AbortSignal | null | undefined,
+  timeoutMs: number
+): { signal: AbortSignal | undefined; cleanup: () => void } {
+  const timeout = Math.max(0, Number(timeoutMs || 0));
+  if (timeout <= 0 || typeof AbortController === "undefined") {
+    return { signal: existingSignal || undefined, cleanup: () => {} };
+  }
+
+  const controller = new AbortController();
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const abortFromExisting = () => controller.abort(existingSignal?.reason);
+
+  if (existingSignal?.aborted) {
+    controller.abort(existingSignal.reason);
+  } else {
+    existingSignal?.addEventListener("abort", abortFromExisting, { once: true });
+  }
+
+  timeoutId = setTimeout(() => {
+    if (!controller.signal.aborted) controller.abort(apiTimeoutError());
+  }, timeout);
+
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      existingSignal?.removeEventListener("abort", abortFromExisting);
+    },
+  };
+}
+
 export type ApiClient = {
-  api<Path extends ApiPathInput>(path: Path, options?: RequestInit): Promise<ApiResponse<Path>>;
+  api<Path extends ApiPathInput, Options extends RequestInit | undefined = undefined>(
+    path: Path,
+    options?: Options
+  ): Promise<ApiResponseFor<Path, Options>>;
   apiUnchecked(path: string, options?: RequestInit): Promise<Record<string, unknown>>;
   publicApi<Path extends ApiPathInput>(
     path: Path,
@@ -605,6 +659,7 @@ export function createApiClient({
   onUnauthorized = () => {},
   mockApi = null,
   getMockContext = () => ({}),
+  requestTimeoutMs = DEFAULT_API_REQUEST_TIMEOUT_MS,
 }: ApiClientOptions = {}): ApiClient {
   const isFormDataBody = (body: BodyInit | null | undefined) =>
     typeof FormData !== "undefined" && body instanceof FormData;
@@ -630,21 +685,27 @@ export function createApiClient({
       headers.set("Content-Type", "application/json");
     }
 
-    const response = await fetch(`${apiBase}${path}`, {
-      ...options,
-      headers,
-      credentials: "same-origin",
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (response.status === 401) onUnauthorized();
-    return payload as Record<string, unknown>;
+    const { signal, cleanup } = requestSignal(options.signal, requestTimeoutMs);
+    try {
+      const response = await fetch(`${apiBase}${path}`, {
+        ...options,
+        headers,
+        credentials: "same-origin",
+        signal,
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) onUnauthorized();
+      return payload as Record<string, unknown>;
+    } finally {
+      cleanup();
+    }
   }
 
-  async function api<Path extends ApiPathInput>(
-    path: Path,
-    options: RequestInit = {}
-  ): Promise<ApiResponse<Path>> {
-    return (await requestJson(path, options)) as ApiResponse<Path>;
+  async function api<
+    Path extends ApiPathInput,
+    Options extends RequestInit | undefined = undefined,
+  >(path: Path, options: Options = {} as Options): Promise<ApiResponseFor<Path, Options>> {
+    return (await requestJson(path, options)) as ApiResponseFor<Path, Options>;
   }
 
   async function apiUnchecked(
@@ -666,14 +727,19 @@ export function createApiClient({
         getMockContext()
       )) as Record<string, unknown>;
     }
-    const response = await fetch(`${apiBase}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: options.signal,
-      credentials: "same-origin",
-    });
-    return (await response.json()) as Record<string, unknown>;
+    const { signal, cleanup } = requestSignal(options.signal, requestTimeoutMs);
+    try {
+      const response = await fetch(`${apiBase}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal,
+        credentials: "same-origin",
+      });
+      return (await response.json()) as Record<string, unknown>;
+    } finally {
+      cleanup();
+    }
   }
 
   async function publicApi<Path extends ApiPathInput>(
@@ -684,5 +750,10 @@ export function createApiClient({
     return (await publicApiUnchecked(path, payload, options)) as PostResponse<Path>;
   }
 
-  return { api, apiUnchecked, publicApi, publicApiUnchecked };
+  const client = {} as ApiClient;
+  client.api = api as ApiClient["api"];
+  client.apiUnchecked = apiUnchecked as ApiClient["apiUnchecked"];
+  client.publicApi = publicApi as ApiClient["publicApi"];
+  client.publicApiUnchecked = publicApiUnchecked as ApiClient["publicApiUnchecked"];
+  return client;
 }

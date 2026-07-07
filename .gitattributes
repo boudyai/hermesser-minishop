@@ -9,6 +9,7 @@
 deploy/docker/frontend/*.sh text eol=lf
 frontend/src/*.js text eol=lf
 frontend/src/**/*.js text eol=lf
+frontend/src/lib/webapp/demoDataset.js linguist-generated=true
 frontend/src/**/*.svelte text eol=lf
 frontend/scripts/*.mjs text eol=lf
 frontend/scripts/**/*.mjs text eol=lf

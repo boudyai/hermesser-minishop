@@ -1,13 +1,28 @@
 import logging
-from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Dict, Optional, cast
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
+from typing import Any, cast
 
-from aiogram import BaseMiddleware
+from aiogram import BaseMiddleware, Bot
 from aiogram.types import CallbackQuery, Message, TelegramObject, Update, User
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.services.message_log_notifier import notify_message_log
 from config.settings import Settings
 from db.dal import message_log_dal, user_dal
+
+logger = logging.getLogger(__name__)
+
+
+def _source_chat_id(update: Update) -> int | None:
+    if update.message:
+        return update.message.chat.id
+    if update.callback_query and update.callback_query.message:
+        chat = getattr(update.callback_query.message, "chat", None)
+        chat_id = getattr(chat, "id", None)
+        if isinstance(chat_id, int):
+            return chat_id
+    return None
 
 
 class ActionLoggerMiddleware(BaseMiddleware):
@@ -17,9 +32,9 @@ class ActionLoggerMiddleware(BaseMiddleware):
 
     async def __call__(
         self,
-        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
         event: TelegramObject,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> Any:
 
         result = await handler(event, data)
@@ -29,14 +44,14 @@ class ActionLoggerMiddleware(BaseMiddleware):
         update = cast(Update, event)
 
         session: AsyncSession = data["session"]
-        event_user: Optional[User] = data.get("event_from_user")
+        event_user: User | None = data.get("event_from_user")
 
-        user_id: Optional[int] = None
-        telegram_username: Optional[str] = None
-        telegram_first_name: Optional[str] = None
-        content: Optional[str] = None
+        user_id: int | None = None
+        telegram_username: str | None = None
+        telegram_first_name: str | None = None
+        content: str | None = None
         is_admin_event_flag: bool = False
-        target_user_id_for_log: Optional[int] = None
+        target_user_id_for_log: int | None = None
 
         if event_user:
             user_id = event_user.id
@@ -79,8 +94,10 @@ class ActionLoggerMiddleware(BaseMiddleware):
             if user_id:
                 user_exists = await user_dal.get_user_by_id(session, user_id)
                 if not user_exists:
-                    logging.warning(
-                        f"ActionLoggerMiddleware: User {user_id} not found in DB. Logging action with user_id=NULL."  # noqa: E501
+                    logger.warning(
+                        "ActionLoggerMiddleware: User %s not found in DB. Logging action with "
+                        "user_id=NULL.",
+                        user_id,
                     )
                     log_user_id_for_db = None
 
@@ -93,14 +110,20 @@ class ActionLoggerMiddleware(BaseMiddleware):
                 "raw_update_preview": raw_update_snippet,
                 "is_admin_event": is_admin_event_flag,
                 "target_user_id": target_user_id_for_log,
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": datetime.now(UTC),
             }
             try:
                 await message_log_dal.create_message_log_no_commit(session, log_payload)
+                if _source_chat_id(update) != self.settings.LOG_CHAT_ID:
+                    bot_candidate = data.get("bot")
+                    bot = bot_candidate if isinstance(bot_candidate, Bot) else None
+                    await notify_message_log(log_payload, settings=self.settings, bot=bot)
             except Exception as e_log:
-                logging.error(
-                    f"ActionLoggerMiddleware: Failed to add log to session for user {user_id}, type {current_event_type}: {e_log}",  # noqa: E501
-                    exc_info=True,
+                logger.exception(
+                    "ActionLoggerMiddleware: Failed to add log to session for user %s, type %s: %s",
+                    user_id,
+                    current_event_type,
+                    e_log,
                 )
 
         return result

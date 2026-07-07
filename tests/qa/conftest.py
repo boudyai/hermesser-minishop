@@ -11,7 +11,9 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     if enabled:
         return
 
-    marker = pytest.mark.skip(reason="full-stack QA requires QA_FULLSTACK=1 and the dev stand")
+    marker = pytest.mark.skip(
+        reason="full-stack QA requires QA_FULLSTACK=1 with the dev stand already running"
+    )
     qa_root = Path(__file__).resolve().parent
     for item in items:
         item_path = Path(str(item.fspath)).resolve()

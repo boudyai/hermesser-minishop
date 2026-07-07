@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import {
     CircleQuestionMark,
     Copy,
@@ -13,6 +13,31 @@
   import Card from "$components/ui/card.svelte";
   import Input from "$components/ui/input.svelte";
   import { StatusMessage } from "$components/patterns/webapp/index.js";
+  import type {
+    CopyTextAction,
+    ReferralBonusDetail,
+    ReferralState,
+    StringAction,
+    Translate,
+    VoidAction,
+  } from "$lib/webapp/types.js";
+
+  type Props = {
+    applyPromo?: VoidAction;
+    clearPromoFieldError?: VoidAction;
+    copyText?: CopyTextAction;
+    promoBusy?: boolean;
+    promoCode?: string;
+    promoFieldError?: string;
+    promoIsError?: boolean;
+    promoStatus?: string;
+    referral?: ReferralState;
+    referralBonusDetails?: ReferralBonusDetail[];
+    referralOneBonusPerReferee?: boolean;
+    referralWelcomeBonusDays?: number;
+    setPromoCode?: StringAction;
+    t?: Translate;
+  };
 
   let {
     referral = {},
@@ -27,9 +52,9 @@
     applyPromo = () => {},
     setPromoCode = () => {},
     clearPromoFieldError = () => {},
-    copyText = () => {},
+    copyText = async () => {},
     t = (key) => key,
-  } = $props();
+  }: Props = $props();
 
   const tariffBonusSummaries = $derived(
     referralBonusDetails.filter((bonus) => Array.isArray(bonus.details))
@@ -44,7 +69,7 @@
     !promoIsError && hasPromoCode && promoStatus ? String(promoStatus).trim() : ""
   );
 
-  function daysRange(minDays, maxDays) {
+  function daysRange(minDays: unknown, maxDays: unknown): string {
     return t("wa_referral_bonus_range_days", {
       min: Number(minDays || 0),
       max: Number(maxDays || 0),
@@ -74,7 +99,8 @@
         <code>{referral.webapp_link || referral.bot_link || t("wa_link_unavailable")}</code>
         <Button
           class="referral-copy-button"
-          onclick={() => copyText(referral.webapp_link || referral.bot_link, t("wa_link_copied"))}
+          onclick={() =>
+            copyText(String(referral.webapp_link || referral.bot_link || ""), t("wa_link_copied"))}
         >
           {t("wa_copy")}
           <Copy size={17} />

@@ -1,9 +1,25 @@
-<script>
+<script lang="ts">
   import { ArrowLeft, RefreshCw } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
   import { Input } from "$components/ui/index.js";
   import { StatusMessage } from "$components/patterns/webapp/index.js";
+
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type Action = () => void | Promise<void>;
+
+  type Props = {
+    busy?: boolean;
+    code?: string;
+    email?: string;
+    isError?: boolean;
+    onBack?: Action;
+    onConfirm?: Action;
+    onResend?: Action;
+    resendCooldown?: number;
+    status?: string;
+    t?: Translate;
+  };
 
   let {
     code = $bindable(""),
@@ -16,7 +32,7 @@
     onBack = () => {},
     onConfirm = () => {},
     onResend = () => {},
-  } = $props();
+  }: Props = $props();
 </script>
 
 <div class="phone-screen auth-screen">
@@ -36,7 +52,7 @@
         bind:value={code}
         inputmode="numeric"
         autocomplete="one-time-code"
-        maxlength="6"
+        maxlength={6}
         aria-label={t("wa_email_code_aria")}
       />
       <span class="otp-slots" aria-hidden="true">

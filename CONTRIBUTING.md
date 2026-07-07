@@ -32,24 +32,30 @@ npm run check
 npm run check:quick
 ```
 
-Current documented mypy frontier outside the CI scope: `backend/scripts`, `scripts`, and `tests`.
-Add those only after separate type-hardening work keeps the full command green.
-(`backend/config`, `backend/main_backend.py`, and `backend/main_worker.py` graduated into the
-enforced scope.)
+There is no mypy frontier: the whole repository is in scope — all backend packages, both
+script roots (`backend/scripts`, `scripts`), and the whole `tests/` tree. The `type_ignore`
+allowlist holds a single boundary-proven entry (`config/settings.py`: pydantic-settings
+fills required fields from the environment, invisible to static analysis; the inline
+comment at the call site carries the proof).
 
 Явные команды ниже остаются источником правды для CI и ручной диагностики.
 
 **Бэкенд** (из корня репозитория; `pytest.ini` задаёт `pythonpath = backend .`):
 ```bash
-python -m pytest -q                 # полный прогон (в CI поднимаются сервисы Postgres + Redis)
+python -m pytest -q                 # полный прогон (в CI поднимаются Postgres + Redis; warnings-as-errors; branch-coverage ratchet: fail_under=53)
 python -m ruff check .              # линт
 python -m ruff format --check .     # формат
 python -m mypy --explicit-package-bases backend/config backend/db backend/bot/infra \
   backend/bot/middlewares backend/bot/utils \
   backend/bot/plugins backend/bot/keyboards backend/bot/payment_providers backend/bot/services \
   backend/bot/handlers backend/bot/app/factories backend/bot/app/controllers backend/bot/app/web \
-  backend/main_backend.py backend/main_worker.py
+  backend/main_backend.py backend/main_worker.py backend/scripts scripts tests
 ```
+
+Финальный набор ruff-семейств — `E, W, F, I, UP, B, ASYNC, DTZ, C4, SIM, PIE, PERF, RUF,
+LOG, G, PLE, T10` (задан в `pyproject.toml` `[tool.ruff.lint]`); `per-file-ignores` нет,
+поэтому нового lint-исключения по файлу завести нельзя. `pytest.ini` держит
+`filterwarnings = error`: любой незапланированный warning валит прогон.
 
 **Фронтенд** (`frontend/`):
 ```bash
@@ -62,10 +68,11 @@ npm run test:e2e     # Playwright docs-demo smoke: webapp+админка, окн
 **У сгенерированных артефактов есть drift-guard — регенерируй, не правь руками:**
 | Артефакт | Регенерация | Защищён |
 | --- | --- | --- |
-| `docs/openapi.json` | `PYTHONPATH=backend python -m bot.app.web.openapi` | `tests/test_openapi_artifact.py` |
-| `docs/architecture/events.md` | `PYTHONPATH=backend python -m bot.infra.event_catalog` | `tests/test_contract_docs_accuracy.py` |
+| `docs/openapi.json` | `PYTHONPATH=backend python -m bot.app.web.openapi` | `tests/contracts/test_openapi_artifact.py` |
+| `docs/architecture/events.md` | `PYTHONPATH=backend python -m bot.infra.event_catalog` | `tests/contracts/test_contract_docs_accuracy.py` |
 | `frontend/src/lib/api/openapi.generated.ts` | `npm --prefix frontend run generate:api-types` | CI `git diff --exit-code` |
-| demo settings manifest | `python scripts/export_settings_manifest.py` (+ prettier) | `tests/test_settings_manifest_demo_sync.py` |
+| demo settings manifest | `python scripts/export_settings_manifest.py` (+ prettier) | `tests/contracts/test_settings_manifest_demo_sync.py` |
+| `backend/requirements.txt` | `python -m piptools compile --resolver=backtracking --no-emit-index-url --no-emit-trusted-host -o backend/requirements.txt backend/requirements.in` (Python 3.12) | CI install + `pip-audit` |
 
 Меняешь контракт API — регенерируй `openapi.json` **и** `openapi.generated.ts`.
 
@@ -84,8 +91,14 @@ npm run test:e2e     # Playwright docs-demo smoke: webapp+админка, окн
   совместимости. Новый код имплементирует через конкретные внутренние модули (`*_impl`, domain,
   service/route modules) и не опирается на фасады как на дефолтный внутренний API; любые
   исключения фиксируем в контрактных тестах.
-- **Без глобального `checkJs`** на фронте — типизация opt-in пофайлово
-  (`.ts` / `<script lang="ts">`).
+- **Весь first-party код фронтенда — TypeScript** (`.ts` / `<script lang="ts">`). Новые `.js`
+  и `<script>` без `lang="ts"` в `frontend/src` запрещены архитектурными гейтами
+  (`first_party_js`, `svelte_lang_ts` в `scripts/architecture_gates.json`); исключение — только
+  сгенерированные артефакты из allowlist. Глобальный `checkJs` не включаем.
+- **Не хардкодь пользовательский или админский текст.** Любая новая или изменённая видимая строка
+  (бот, Web App, админка, email/уведомления, aria/placeholder/title) должна идти через локализацию
+  и иметь минимум базовые варианты в `locales/ru.json` и `locales/en.json`. Fallback-строка в
+  компоненте или helper'е — только страховка для разработки, а не замена ключа в базовых локалях.
 - **Сначала декомпозиция, потом типизация** — см. раздел 5. Не типизируй god-файл «на месте».
 - **Отличай «совместимость с другими ботами» (фича — оставить) от «остатков рефакторинга»
   (убрать)** — см. раздел 6.
@@ -128,12 +141,12 @@ HTTP-эндпоинт) — [docs/development/how-to.md](docs/development/how-to.
 - Каталог: [docs/architecture/events.md](docs/architecture/events.md).
 
 ### 3.3 Типобезопасность
-- `mypy` покрывает весь бэкенд и должен оставаться зелёным. Новые модули попадают в скоуп
-  автоматически (по каталогам). Строгость поднимай помодульно через `[[tool.mypy.overrides]]`,
-  а не глобальным `strict`.
+- `mypy` покрывает весь бэкенд и контрактные тесты (`tests/contracts`) и должен оставаться
+  зелёным. Новые backend-модули попадают в скоуп автоматически (по каталогам). Строгость
+  поднимай помодульно через `[[tool.mypy.overrides]]`, а не глобальным `strict`.
 
 ### 3.4 Миграции
-- Рукописный **идемпотентный** мигратор (`db/migrator.py`): интроспекция схемы, затем условный
+- Рукописный **идемпотентный** мигратор (пакет `db/migrator/`): интроспекция схемы, затем условный
   DDL (`IF NOT EXISTS`, проверки колонок). Применённые id трекаются в `schema_migrations`.
 - **Append-only.** Добавляй новую миграцию; никогда не правь/переупорядочивай существующие.
   Цепочки плагинов неймспейснуты (`<plugin>.0001_*`).
@@ -162,9 +175,15 @@ Svelte + Vite. API-клиент **типизирован из OpenAPI-спека
   `{ok,…}` через `unwrap(...)`.
 - `openapi.generated.ts` генерируется из `docs/openapi.json` и **защищён drift-guard в CI** —
   регенерируй при любом изменении контракта на бэке.
-- Новый код, трогающий API, пиши в `.ts`; типизируй сторы (`writable<State>`) и потребляющие
-  `<script lang="ts">` компоненты, чтобы изменение контракта на бэке валило `check:svelte` ровно
-  у потребителя. **Не** включай глобальный `checkJs`.
+- Весь first-party код — TypeScript: новые модули пиши в `.ts`, компоненты — с
+  `<script lang="ts">`; типизируй сторы (`writable<State>`), чтобы изменение контракта на бэке
+  валило `check:svelte` ровно у потребителя. Архитектурные гейты (`first_party_js`,
+  `svelte_lang_ts`) не пропустят новый нетипизированный файл. **Не** включай глобальный
+  `checkJs` — он не нужен, когда JS-файлов нет.
+- Для UI-текста используй `t(...)`/`at(...)` и добавляй реальные ключи в обе базовые локали:
+  `locales/ru.json` и `locales/en.json`. В админке `at("tariff_title", ...)` ищет
+  `admin_tariff_title`, поэтому проверяй итоговое имя ключа. Если добавляешь новую группу строк,
+  добавь узкий тест или существующий locale guard, чтобы ключи не остались только fallback'ами.
 - Frontend first-party Svelte code is Svelte 5 runes-only. Do not reintroduce `export let`,
   `$:`, `$$props`, `$$restProps`, `<slot>`, `<svelte:component>`, `createEventDispatcher`, or
   class API `$set`. `frontend/vite.config.mjs` and `frontend/vitest.config.mjs` enable
@@ -178,7 +197,11 @@ Svelte + Vite. API-клиент **типизирован из OpenAPI-спека
 - **Сначала декомпозиция, потом типизация.** Для любого крупного/запутанного файла выноси
   связные срезы в маленькие типизированные модули, а не типизируй на месте — одно усилие, два
   выигрыша (типы + размер), без двойной работы. Цель — **ни одного модуля > ~1000 строк** без
-  задокументированной причины.
+  задокументированной причины. Единственная принятая причина — сгенерированный артефакт:
+  `module_size.allowlist` в `scripts/architecture_gates.json` держит только выходы генераторов
+  (`templates/*.js`, `openapi.generated.ts`, `demoDataset.js`), и это зафиксировано тестом
+  `tests/contracts/test_architecture_gates.py::test_module_size_allowlist_is_generated_artifacts_only`.
+  Разросшийся рукописный файл — режь, а не вноси в allowlist.
 - **Ловушка monkeypatch / re-export.** Тесты часто делают `monkeypatch.setattr(module, "name", …)`.
   Перенос `name` в подмодуль с ре-экспортом восстанавливает *импорты*, но **не** семантику
   monkeypatch — пропатченная и вызываемая копии расходятся, и патч молча не срабатывает
@@ -199,9 +222,12 @@ Svelte + Vite. API-клиент **типизирован из OpenAPI-спека
 ## 6. Что намеренно, а что removable
 
 **Оставить — это фичи, а не легаси:**
-- Кросс-бот **совместимость миграций** (`MIGRATION_REMNASHOP_*`, `scripts/import_legacy.py`,
+- Кросс-бот **совместимость миграций** (`MIGRATION_REMNASHOP_*`, `backend/scripts/import_legacy.py`,
   `legacy_referral_codes` / `legacy_import_mappings`, reconcile-миграции). Это и есть «миграция
-  с другого бота» + install wizard (`scripts/install.sh`).
+  с другого бота» + install wizard (`scripts/install.sh`). Порядок применяемых миграций
+  (ядро + плагинные, неймспейснутые) пинуется снапшот-тестом
+  `tests/contracts/test_migration_chain_snapshot.py`: любой reorder/renumber падает в CI, а не
+  только на ревью, поэтому append-only-правило теперь машинно-проверяемо.
 - **Deprecated env-алиасы** в `config/settings.py` (`ignore_deprecated_*`) — защищают
   существующие деплои. Удалять только с окном депрекации.
 - Внутрипакетные общие хабы `_runtime.py` — load-bearing, не мёртвый код.
@@ -233,6 +259,9 @@ Svelte + Vite. API-клиент **типизирован из OpenAPI-спека
 - **Сообщения коммитов:** префиксы Conventional Commits (`fix:`, `feat:`, `refactor:`, `chore:`,
   `docs:`, `ci:`, `build:`, `perf:`, `test:`, `style:`), на английском. Трейлер `Co-Authored-By`
   **не добавлять**.
+- **`CHANGELOG.md` в проекте нет намеренно — не создавать и не вести.** История изменений живёт
+  в Conventional Commits и описаниях PR; ручной журнал изменений дублирует их и мгновенно
+  устаревает.
 - Одно связное изменение на коммит; для рефакторов предпочитай move-only диффы для ревью.
 - После любого изменения контракта регенерируй затронутые артефакты (раздел 1) в том же изменении.
 - Compatibility facades (`admin_api`, `subscription_webapp`, `subscription_service`) are compatibility-only layers.

@@ -18,7 +18,6 @@
   import Card from "$components/ui/card.svelte";
   import BotStatusCard from "../components/BotStatusCard.svelte";
   import CornllmTopupCard from "../components/CornllmTopupCard.svelte";
-  import OnboardingWizard from "../components/OnboardingWizard.svelte";
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
   import { LinearProgress } from "$components/patterns/webapp/index.js";
   import { formatTrafficGb } from "../../lib/webapp/formatters.js";
@@ -34,20 +33,26 @@
     premiumServerLabels as premiumServerLabelsFn,
     activeSubscriptionTermLabel as activeSubscriptionTermLabelFn,
   } from "../../lib/webapp/traffic.js";
+  import type {
+    AppSettings,
+    ApiUnchecked,
+    BooleanAction,
+    BrandConfig,
+    PaymentMethod,
+    ReferralState,
+    SubscriptionView,
+    TermUnitLabel,
+    Translate,
+    VoidAction,
+  } from "$lib/webapp/types.js";
 
   const SUBSCRIPTION_EXPIRY_WARNING_MS = 72 * 60 * 60 * 1000;
   const SUBSCRIPTION_EXPIRING_SOON_MS = 24 * 60 * 60 * 1000;
-
-  type AnyRecord = Record<string, any>;
-  type ApiUnchecked = (
-    path: string,
-    options?: Parameters<typeof fetch>[1]
-  ) => Promise<Record<string, unknown>>;
-  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  const missingApi: ApiUnchecked = async () => ({ ok: false, error: "api_unavailable" });
 
   let {
     appSettings = {},
-    apiUnchecked,
+    apiUnchecked = missingApi,
     brand = {},
     brandTitle = "",
     canChangeTariff = false,
@@ -56,10 +61,10 @@
     regularTrafficTopupBarClickable = false,
     regularTrafficTopupUnlocked = false,
     referral = {},
+    methods = [],
     currentTariffName = "",
     hasActiveTariffSubscription = false,
     hasMultipleTariffs = false,
-    methods = [],
     subscription = {},
     autoRenewBusy = false,
     linkTelegramBusy = false,
@@ -79,25 +84,24 @@
     openRegularTopupModal = () => {},
     openPremiumTopupModal = () => {},
     openTariffChangeModal = () => {},
-    goTrial = () => {},
     primaryPayActionLabel = () => "",
     t = (key) => key,
   }: {
-    appSettings?: AnyRecord;
+    appSettings?: AppSettings;
     apiUnchecked?: ApiUnchecked;
-    brand?: AnyRecord;
+    brand?: BrandConfig;
     brandTitle?: string;
     canChangeTariff?: boolean;
     premiumTrafficTopupBarClickable?: boolean;
     premiumTrafficTopupUnlocked?: boolean;
     regularTrafficTopupBarClickable?: boolean;
     regularTrafficTopupUnlocked?: boolean;
-    referral?: AnyRecord;
+    referral?: ReferralState;
+    methods?: PaymentMethod[];
     currentTariffName?: string;
     hasActiveTariffSubscription?: boolean;
     hasMultipleTariffs?: boolean;
-    methods?: AnyRecord[];
-    subscription?: AnyRecord;
+    subscription?: SubscriptionView;
     autoRenewBusy?: boolean;
     linkTelegramBusy?: boolean;
     telegramNotificationsNeedPrompt?: boolean;
@@ -105,153 +109,41 @@
     telegramNotificationsStatus?: string;
     trafficMode?: boolean;
     trialBusy?: boolean;
-    termUnitLabel?: (value: number, unit: string) => string;
-    activateTrial?: () => void;
-    toggleAutoRenew?: (enabled: boolean) => void;
-    linkTelegramAndActivateTrial?: () => void;
-    linkTelegramAndClaimReferralWelcome?: () => void;
-    openConnectLink?: () => void;
-    openPaymentModal?: () => void;
-    openTelegramNotificationsBot?: () => void;
-    openRegularTopupModal?: () => void;
-    openPremiumTopupModal?: () => void;
-    openTariffChangeModal?: () => void;
-    goTrial?: () => void;
+    termUnitLabel?: TermUnitLabel;
+    activateTrial?: VoidAction;
+    toggleAutoRenew?: BooleanAction;
+    linkTelegramAndActivateTrial?: VoidAction;
+    linkTelegramAndClaimReferralWelcome?: VoidAction;
+    openConnectLink?: VoidAction;
+    openPaymentModal?: VoidAction;
+    openTelegramNotificationsBot?: VoidAction;
+    openRegularTopupModal?: VoidAction;
+    openPremiumTopupModal?: VoidAction;
+    openTariffChangeModal?: VoidAction;
     primaryPayActionLabel?: () => string;
     t?: Translate;
   } = $props();
 
   let nowMs = $state(Date.now());
 
-  const hermesMode = $derived(
-    String(appSettings?.panel_write_mode || "").toLowerCase() === "hermes"
-  );
-  const hasBotToken = $derived(Boolean(appSettings?.has_bot_token));
-  const hermesTokenRequired = $derived(Boolean(hermesMode && !hasBotToken));
-  // ponytail: Telegram Mini App webview silently swallows window.open
-  // for arbitrary URLs, so "Open bot" needs to go through the SDK's
-  // openTelegramLink (which appends the right ?tgsr query and is the
-  // only path Telegram actually honors on iOS). Fall back to a plain
-  // window.open for non-Telegram URLs and for non-Mini-App sessions
-  // where the SDK isn't injected yet.
-  function openBotChat(url: string): void {
-    if (typeof window === "undefined" || !url) return;
-    const tg = (window as AnyRecord).Telegram as
-      | { WebApp?: { openTelegramLink?: (u: string) => void; openLink?: (u: string) => void } }
-      | undefined;
-    const sdk = tg?.WebApp;
-    if (sdk?.openTelegramLink && /^https:\/\/t\.me\//i.test(url)) {
-      try {
-        sdk.openTelegramLink(url);
-        return;
-      } catch {
-        // fall through to plain window.open below
-      }
-    }
-    try {
-      window.open(url, "_blank", "noopener,noreferrer");
-    } catch {
-      // some webviews reject window.open entirely — last-ditch: location.assign
-      if (typeof window !== "undefined") window.location.assign(url);
-    }
-  }
-  // ponytail: in hermes mode the InstallGuideScreen has no proxy
-  // config links to show, so "Открыть бота" should open the bot's
-  // Telegram chat directly instead of rendering an empty page.
-  // ponytail: appSettings never carries bot_username — the backend
-  // exposes it only on subscription (sourced from provisioning-core via
-  // /shop/tenants/{uuid} in lifecycle_details.py). Reading it from
-  // appSettings was speculative and always evaluated to undefined.
-  const hermesBotUsername = $derived(
-    String(subscription?.bot_username || "").trim()
-  );
-  const hermesTMeUrl = $derived(hermesBotUsername ? `https://t.me/${hermesBotUsername}` : "");
-  // ponytail: track tenant lifecycle to show a "Bot deleted" card
-  // with a re-create action. tenant_status comes from
-  // _tenant_runtime_fields via the /api/me serializer.
-  const hermesTenantStatus = $derived(
-    String(subscription?.tenant_status || subscription?.status || "").toLowerCase()
-  );
-  const hermesBotDeleted = $derived(
-    hermesMode && ["deleting", "deleted", "archived"].includes(hermesTenantStatus)
-  );
-  let hermesCardBusy = $state(false);
-  let hermesCardError = $state<string | null>(null);
-  async function recreateHermesBot() {
-    if (hermesCardBusy) return;
-    hermesCardBusy = true;
-    hermesCardError = null;
-    try {
-      // ponytail: the user has an active local subscription
-      // already, so /api/trial/activate returns 400 with
-      // "trial_already_had_subscription_or_trial". Use the
-      // dedicated re-create endpoint which re-runs
-      // create_panel_user with the stored bot_token — the
-      // provisioning-core resurrects the existing tenant row
-      // in place and enqueues fresh create_litellm_key +
-      // create_vm jobs.
-      const result = await apiUnchecked("/tenant/recreate", {
-        method: "POST",
-      });
-      if (!result || result.ok === false) {
-        hermesCardError = t(
-          "wa_hermes_bot_action_recreate_failed",
-          {},
-          "Failed to create. Try again or contact support."
-        );
-      } else {
-        setTimeout(() => window.location.reload(), 1500);
-      }
-    } catch (_e) {
-      hermesCardError = t(
-        "wa_hermes_bot_action_recreate_failed",
-        {},
-        "Failed to create. Try again or contact support."
-      );
-    } finally {
-      hermesCardBusy = false;
-    }
-  }
-  function openHermesBotChat() {
-    if (!hermesTMeUrl) return;
-    openBotChat(hermesTMeUrl);
-  }
-  // ponytail: in hermes mode the InstallGuideScreen has no proxy
-  // config links to show, so the main CTA opens the bot's Telegram
-  // chat directly. Falls back to the proxy install-guide flow when
-  // the bot username is not yet known.
-  function onPrimaryOpenBot() {
-    if (hermesMode && hermesTMeUrl) {
-      openHermesBotChat();
-      return;
-    }
-    openConnectLink();
-  }
-  function trafficPercent(sub: AnyRecord) {
+  function trafficPercent(sub: SubscriptionView) {
     return trafficPercentFn(sub);
   }
-  function activeStatusTitle() {
-    if (hermesMode) return t("wa_home_bot_active", {}, "Bot is active");
-    return trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active");
-  }
-  function installButtonTitle() {
-    return hermesMode ? t("wa_open_bot", {}, "Open bot") : t("wa_install_and_configure");
-  }
-  function trafficLabel(sub: AnyRecord) {
+  function trafficLabel(sub: SubscriptionView) {
     return trafficLabelFn(sub, t);
   }
-  function trafficResetLabel(sub: AnyRecord) {
+  function trafficResetLabel(sub: SubscriptionView) {
     return trafficResetLabelFn(sub, t);
   }
-  function regularTrafficLimitVisible(sub: AnyRecord = subscription) {
+  function regularTrafficLimitVisible(sub: SubscriptionView = subscription) {
     return regularTrafficLimitVisibleFn(sub);
   }
-  function regularTrafficDepleted(sub: AnyRecord = subscription) {
+  function regularTrafficDepleted(sub: SubscriptionView = subscription) {
     const used = Number(sub?.traffic_used_bytes || 0);
     const limit = Number(sub?.traffic_limit_bytes || 0);
     return limit > 0 && used >= limit;
   }
-  function regularTrafficCardClass(sub: AnyRecord = subscription) {
+  function regularTrafficCardClass(sub: SubscriptionView = subscription) {
     return [
       "traffic-card-compact",
       regularTrafficTopupBarClickable ? "traffic-card-clickable" : "",
@@ -260,33 +152,33 @@
       .filter(Boolean)
       .join(" ");
   }
-  function regularTrafficMetaLabel(sub: AnyRecord = subscription) {
+  function regularTrafficMetaLabel(sub: SubscriptionView = subscription) {
     return regularTrafficDepleted(sub) ? t("wa_traffic_depleted") : trafficResetLabel(sub);
   }
-  function premiumTrafficAvailable(sub: AnyRecord = subscription) {
+  function premiumTrafficAvailable(sub: SubscriptionView = subscription) {
     return !regularTrafficDepleted(sub);
   }
-  function premiumTrafficPercent(sub: AnyRecord) {
+  function premiumTrafficPercent(sub: SubscriptionView) {
     return premiumTrafficPercentFn(sub);
   }
-  function premiumTrafficLimitVisible(sub: AnyRecord = subscription) {
+  function premiumTrafficLimitVisible(sub: SubscriptionView = subscription) {
     return premiumTrafficLimitVisibleFn(sub);
   }
-  function premiumTrafficLabel(sub: AnyRecord) {
+  function premiumTrafficLabel(sub: SubscriptionView) {
     return premiumTrafficLabelFn(sub, t);
   }
-  function premiumTitle(sub: AnyRecord = subscription) {
+  function premiumTitle(sub: SubscriptionView = subscription) {
     return premiumTitleFn(sub, t);
   }
-  function premiumTrafficMetaLabel(sub: AnyRecord = subscription) {
+  function premiumTrafficMetaLabel(sub: SubscriptionView = subscription) {
     return sub?.premium_is_limited
-      ? t("wa_premium_access_limited", {}, "Premium access temporarily limited")
-      : t("wa_premium_reset_monthly", {}, "Separate monthly limit");
+      ? t("wa_premium_access_limited", {}, "Доступ к premium временно ограничен")
+      : t("wa_premium_reset_monthly", {}, "Отдельный лимит на месяц");
   }
-  function premiumServerLabels(sub: AnyRecord) {
+  function premiumServerLabels(sub: SubscriptionView) {
     return premiumServerLabelsFn(sub);
   }
-  function activeSubscriptionTermLabel(sub: AnyRecord) {
+  function activeSubscriptionTermLabel(sub: SubscriptionView) {
     return activeSubscriptionTermLabelFn(sub, { t, termUnitLabel });
   }
   function trialTrafficLabel() {
@@ -300,7 +192,7 @@
       unit: termUnitLabel(days, "day"),
     });
   }
-  function parseSubscriptionEndMs(sub: AnyRecord) {
+  function parseSubscriptionEndMs(sub: SubscriptionView) {
     const raw = String(sub?.end_date || "").trim();
     if (!raw) return null;
     const parsed = Date.parse(raw);
@@ -315,7 +207,7 @@
     const match = String(text || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
     return match ? `${match[3]}.${match[2]}.${match[1]}` : "";
   }
-  function subscriptionEndDateLabel(sub: AnyRecord) {
+  function subscriptionEndDateLabel(sub: SubscriptionView) {
     return dateOnlyFromEndText(sub?.end_date_text) || dateOnlyFromIso(sub?.end_date);
   }
   function formatSubscriptionCountdown(ms: number) {
@@ -373,7 +265,7 @@
   );
   const subscriptionTermDisplayText = $derived(
     subscriptionExpiringSoon
-      ? t("wa_subscription_expiring_soon", {}, "Expiring soon!")
+      ? t("wa_subscription_expiring_soon", {}, "Скоро закончится!")
       : activeSubscriptionTermLabel(subscription)
   );
   const subscriptionEndDisplayText = $derived(
@@ -394,6 +286,59 @@
     Boolean(subscription?.active && subscription?.auto_renew_available)
   );
   const autoRenewEnabled = $derived(Boolean(subscription?.auto_renew_enabled));
+  const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
+  const hermesBotUsername = $derived(String(subscription?.bot_username || "").replace(/^@/, ""));
+  const hermesBotUrl = $derived(hermesBotUsername ? `https://t.me/${hermesBotUsername}` : "");
+  const hermesTenantStatus = $derived(
+    String(subscription?.tenant_status || subscription?.status || "").toLowerCase()
+  );
+  const hermesBotDeleted = $derived(["deleted", "archived"].includes(hermesTenantStatus));
+  const selectedCornllmMethod = $derived(String(methods?.[0]?.id || ""));
+
+  function openTelegramUrl(url: string): void {
+    if (!url) return;
+    const runtime = window as unknown as {
+      Telegram?: {
+        WebApp?: { openTelegramLink?: (value: string) => void; openLink?: (value: string) => void };
+      };
+    };
+    if (url.startsWith("https://t.me/") && runtime.Telegram?.WebApp?.openTelegramLink) {
+      runtime.Telegram.WebApp.openTelegramLink(url);
+      return;
+    }
+    if (runtime.Telegram?.WebApp?.openLink) {
+      runtime.Telegram.WebApp.openLink(url);
+      return;
+    }
+    window.location.href = url;
+  }
+
+  function openHermesBotChat(): void {
+    if (hermesBotUrl) {
+      openTelegramUrl(hermesBotUrl);
+      return;
+    }
+    openConnectLink();
+  }
+
+  async function recreateHermesBot(): Promise<void> {
+    const data = await apiUnchecked("/tenant/recreate", { method: "POST" });
+    if (data.ok === false) return;
+    window.location.reload();
+  }
+
+  function primaryInstallAction(): void {
+    if (hermesMode) {
+      openHermesBotChat();
+      return;
+    }
+    openConnectLink();
+  }
+
+  function installButtonTitle(): string {
+    if (hermesMode) return t("wa_open_customer_bot", {}, "Open bot");
+    return t("wa_install_and_configure");
+  }
 
   onMount(() => {
     const countdownTimer = window.setInterval(() => {
@@ -426,7 +371,7 @@
           <CheckCircle2 class="sub-status-icon" size={23} />
           <div class="sub-status-main">
             <h2>
-              {activeStatusTitle()} | {subscriptionTermDisplayText}
+              {trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active")} | {subscriptionTermDisplayText}
             </h2>
             <div
               class:sub-status-details-with-tariff={hasActiveTariffSubscription &&
@@ -493,46 +438,18 @@
       {/if}
     </Card>
 
-    {#if subscription.active && hermesMode && hermesBotDeleted}
-      <Card class="trial-card">
-        <h2 style="margin: 0 0 8px; font-size: 15px;">
-          {t(
-            "wa_hermes_bot_card_deleted",
-            {},
-            "🤖 Бот удалён\nЧтобы создать нового, нажмите кнопку ниже."
-          )}
-        </h2>
-        <Button class="wide" onclick={recreateHermesBot} disabled={hermesCardBusy}>
-          {t("wa_hermes_bot_action_create", {}, "🆕 Create new bot")}
-        </Button>
-        {#if hermesCardError}
-          <p style="margin: 8px 0 0; color: var(--danger); font-size: 12px;">
-            {hermesCardError}
-          </p>
-        {/if}
-      </Card>
-    {/if}
-
-    {#if subscription.active && hermesMode}
-      <BotStatusCard {subscription} {appSettings} {apiUnchecked} {t} />
-      <CornllmTopupCard {subscription} {appSettings} {apiUnchecked} {methods} {t} />
-    {/if}
-
-    {#if !subscription.active && hermesMode}
-      <OnboardingWizard
-        {appSettings}
-        {subscription}
-        {apiUnchecked}
-        {methods}
-        {t}
-        {hasActiveTariffSubscription}
-        {hasMultipleTariffs}
-        {currentTariffName}
-        {openPaymentModal}
-      />
-    {/if}
-
     {#if subscription.active}
+      {#if hermesMode}
+        <BotStatusCard {subscription} {appSettings} {apiUnchecked} {t} />
+        <CornllmTopupCard
+          {subscription}
+          {appSettings}
+          {apiUnchecked}
+          paymentMethods={methods}
+          selectedMethod={selectedCornllmMethod}
+          {t}
+        />
+      {/if}
       {#if regularTrafficLimitVisible(subscription)}
         <Card compact class={regularTrafficCardClass(subscription)}>
           {#if regularTrafficTopupBarClickable}
@@ -620,25 +537,6 @@
         </Card>
       {/if}
     {:else}
-      {#if hermesTokenRequired}
-        <Card class="trial-card">
-          <div class="trial-card-head">
-            <Gift size={22} />
-            <span>
-              <strong>
-                {t("wa_home_set_token_first_title", {}, "Set the bot token")}
-              </strong>
-              <small>
-                {t(
-                  "wa_home_set_token_first_hint",
-                  {},
-                  "Go to Settings → Bot token and paste a token from @BotFather"
-                )}
-              </small>
-            </span>
-          </div>
-        </Card>
-      {/if}
       {#if referralWelcomeRequiresTelegram}
         <Card class="trial-card trial-offer-card">
           <div class="trial-card-head">
@@ -648,17 +546,17 @@
                 {t(
                   "wa_referral_welcome_telegram_required_title",
                   {},
-                  "Bonus awaits linking Telegram"
+                  "Бонус ждёт привязки Telegram"
                 )}
               </strong>
-              <small>{t("wa_referral_program_title", {}, "Referral program")}</small>
+              <small>{t("wa_referral_program_title", {}, "Реферальная программа")}</small>
             </span>
           </div>
           <p class="trial-card-description">
             {t(
               "wa_referral_welcome_telegram_required_description",
               { days: Number(referral?.welcome_bonus_days || 0) },
-              "Link Telegram to claim {days} bonus days for signing up via invitation."
+              "Привяжите Telegram, чтобы получить {days} бонусных дней за регистрацию по приглашению."
             )}
           </p>
           <Button
@@ -669,7 +567,7 @@
           >
             <AttentionDot />
             <Send size={18} />
-            {t("wa_referral_link_telegram_and_claim", {}, "Link and claim bonus")}
+            {t("wa_referral_link_telegram_and_claim", {}, "Привязать и получить бонус")}
           </Button>
         </Card>
       {/if}
@@ -679,50 +577,30 @@
           <div class="trial-card-head">
             <Gift size={22} />
             <span>
-              <strong>{t("wa_trial_offer_title", {}, "Start with a free trial")}</strong>
+              <strong>{t("wa_trial_offer_title", {}, "Можно начать с льготного периода")}</strong>
               <small>{t("wa_trial_title")}</small>
             </span>
           </div>
           <p class="trial-card-description">
-            {hermesMode
-              ? t(
-                  "wa_trial_offer_description_hermes",
-                  { duration: trialDurationLabel() },
-                  "Activate the trial: {duration} of free hosting for your Telegram bot with Hermes Agent."
-                )
-              : t(
-                  "wa_trial_offer_description",
-                  { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
-                  "Activate the trial: {duration} of access plus {traffic} download allowance, no payment needed."
-                )}
+            {t(
+              "wa_trial_offer_description",
+              { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
+              "Активируйте триал: {duration} доступа и {traffic} для скачивания без оплаты."
+            )}
           </p>
           <div class="trial-card-facts">
             <span>
-              <small>{t("wa_trial_duration_label", {}, "Duration")}</small>
+              <small>{t("wa_trial_duration_label", {}, "Срок")}</small>
               <strong>{trialDurationLabel()}</strong>
             </span>
-            {#if !hermesMode}
-              <span>
-                <small>{t("wa_trial_download_traffic_label", {}, "Download allowance")}</small>
-                <strong>{trialTrafficLabel()}</strong>
-              </span>
-            {/if}
+            <span>
+              <small>{t("wa_trial_download_traffic_label", {}, "Доступно для скачивания")}</small>
+              <strong>{trialTrafficLabel()}</strong>
+            </span>
           </div>
-          <Button
-            class="wide trial-card-action"
-            onclick={() => {
-              if (hermesMode && !hasBotToken) {
-                goTrial();
-              } else {
-                activateTrial();
-              }
-            }}
-            disabled={trialBusy}
-          >
+          <Button class="wide trial-card-action" onclick={activateTrial} disabled={trialBusy}>
             <Gift size={18} />
-            {hermesMode
-              ? t("wa_trial_activate_hosting", {}, "Start trial hosting")
-              : t("wa_trial_try_free", {}, "Попробовать бесплатно")}
+            {t("wa_trial_try_free", {}, "Попробовать бесплатно")}
           </Button>
         </Card>
       {:else if trialRequiresTelegram}
@@ -731,7 +609,7 @@
             <Gift size={22} />
             <span>
               <strong>
-                {t("wa_trial_telegram_required_title", {}, "Link Telegram to start the trial")}
+                {t("wa_trial_telegram_required_title", {}, "Привяжите Telegram для триала")}
               </strong>
               <small>{t("wa_trial_title")}</small>
             </span>
@@ -740,16 +618,16 @@
             {t(
               "wa_trial_telegram_required_description",
               { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
-              "To activate the {duration} trial with {traffic} allowance, first link your Telegram."
+              "Чтобы активировать триал на {duration} с лимитом {traffic}, сначала привяжите Telegram."
             )}
           </p>
           <div class="trial-card-facts">
             <span>
-              <small>{t("wa_trial_duration_label", {}, "Duration")}</small>
+              <small>{t("wa_trial_duration_label", {}, "Срок")}</small>
               <strong>{trialDurationLabel()}</strong>
             </span>
             <span>
-              <small>{t("wa_trial_download_traffic_label", {}, "Download allowance")}</small>
+              <small>{t("wa_trial_download_traffic_label", {}, "Доступно для скачивания")}</small>
               <strong>{trialTrafficLabel()}</strong>
             </span>
           </div>
@@ -761,7 +639,7 @@
           >
             <AttentionDot />
             <Send size={18} />
-            {t("wa_trial_link_telegram_and_activate", {}, "Link and activate")}
+            {t("wa_trial_link_telegram_and_activate", {}, "Привязать и активировать")}
           </Button>
         </Card>
       {/if}
@@ -769,25 +647,17 @@
 
     <div class="action-stack">
       {#if subscription.active}
-        <Button
-          class="wide"
-          onclick={onPrimaryOpenBot}
-          disabled={hermesMode && !hermesTMeUrl}
-          title={hermesMode && !hermesTMeUrl
-            ? t(
-                "wa_hermes_open_bot_no_username",
-                {},
-                "Bot username is not yet known — wait for the container to start or contact support."
-              )
-            : undefined}
-        >
-          {#if hermesMode}
-            <Send size={18} />
-          {:else}
+        {#if hermesMode && hermesBotDeleted}
+          <Button class="wide" onclick={recreateHermesBot}>
+            <Repeat2 size={18} />
+            {t("wa_recreate_bot", {}, "Recreate bot")}
+          </Button>
+        {:else}
+          <Button class="wide" onclick={primaryInstallAction}>
             <Download size={18} />
-          {/if}
-          {installButtonTitle()}
-        </Button>
+            {installButtonTitle()}
+          </Button>
+        {/if}
       {/if}
       <Button
         data-webapp-action="open-payment"

@@ -1,7 +1,22 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
+  import type { HTMLAttributes } from "svelte/elements";
 
-  let { variant = "block", width = "", height = "", class: className = "", ...rest } = $props();
+  type SkeletonVariant = "badge" | "block" | "dot" | "line" | "short" | "tiny" | "title";
+  type Props = Omit<HTMLAttributes<HTMLSpanElement>, "class"> & {
+    class?: string;
+    height?: string;
+    variant?: SkeletonVariant;
+    width?: string;
+  };
+
+  let {
+    variant = "block",
+    width = "",
+    height = "",
+    class: className = "",
+    ...rest
+  }: Props = $props();
 </script>
 
 <span

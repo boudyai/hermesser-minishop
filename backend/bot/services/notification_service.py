@@ -1,6 +1,7 @@
 import logging
-from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Any
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest
@@ -23,6 +24,8 @@ from bot.utils.text_sanitizer import (
 )
 from config.settings import Settings
 
+logger = logging.getLogger(__name__)
+
 
 class NotificationService(NotificationSupportMixin):
     """Enhanced notification service for sending messages to admins and log channels"""
@@ -31,11 +34,11 @@ class NotificationService(NotificationSupportMixin):
         self,
         bot: Bot,
         settings: Settings,
-        i18n: Optional[JsonI18n] = None,
+        i18n: JsonI18n | None = None,
         *,
-        session_factory: Optional[sessionmaker] = None,
-        email_auth_service: Optional[EmailAuthService] = None,
-        bot_username: Optional[str] = None,
+        session_factory: sessionmaker | None = None,
+        email_auth_service: EmailAuthService | None = None,
+        bot_username: str | None = None,
     ) -> None:
         self.bot = bot
         self.settings = settings
@@ -47,9 +50,9 @@ class NotificationService(NotificationSupportMixin):
     @staticmethod
     def _format_user_display(
         user_id: int,
-        username: Optional[str] = None,
-        first_name: Optional[str] = None,
-        email: Optional[str] = None,
+        username: str | None = None,
+        first_name: str | None = None,
+        email: str | None = None,
     ) -> str:
         base_display = display_name_or_fallback(first_name, f"ID {user_id}")
         if username:
@@ -64,8 +67,8 @@ class NotificationService(NotificationSupportMixin):
     def _build_profile_keyboard(
         translate: Callable[..., str],
         user_id: int,
-        referrer_id: Optional[int] = None,
-    ) -> Optional[InlineKeyboardMarkup]:
+        referrer_id: int | None = None,
+    ) -> InlineKeyboardMarkup | None:
         """Create inline keyboard with links to user (and referrer) profiles.
 
         Email-only users have a synthetic negative ``user_id`` with no
@@ -97,8 +100,8 @@ class NotificationService(NotificationSupportMixin):
     async def _send_to_log_channel(
         self,
         message: str,
-        thread_id: Optional[int] = None,
-        reply_markup: Optional[InlineKeyboardMarkup] = None,
+        thread_id: int | None = None,
+        reply_markup: InlineKeyboardMarkup | None = None,
     ) -> None:
         """Send message to configured log channel/group using message queue"""
         if not self.settings.LOG_CHAT_ID:
@@ -106,11 +109,11 @@ class NotificationService(NotificationSupportMixin):
 
         queue_manager = get_queue_manager()
         if not queue_manager:
-            logging.warning("Message queue manager not available, falling back to direct send")
+            logger.warning("Message queue manager not available, falling back to direct send")
             final_thread_id = thread_id or self.settings.LOG_THREAD_ID
 
-            def _build_kwargs(markup: Optional[InlineKeyboardMarkup]) -> Dict[str, Any]:
-                kwargs: Dict[str, Any] = {
+            def _build_kwargs(markup: InlineKeyboardMarkup | None) -> dict[str, Any]:
+                kwargs: dict[str, Any] = {
                     "chat_id": self.settings.LOG_CHAT_ID,
                     "text": message,
                     "parse_mode": "HTML",
@@ -127,7 +130,7 @@ class NotificationService(NotificationSupportMixin):
             except TelegramBadRequest as exc:
                 if is_profile_link_error(exc):
                     fallback_markup = remove_profile_link_buttons(reply_markup)
-                    logging.warning(
+                    logger.warning(
                         "Telegram rejected profile buttons for log chat %s: %s. "
                         "Retrying without tg:// links.",
                         self.settings.LOG_CHAT_ID,
@@ -136,16 +139,20 @@ class NotificationService(NotificationSupportMixin):
                     try:
                         await self.bot.send_message(**_build_kwargs(fallback_markup))
                     except Exception as retry_exc:
-                        logging.error(
-                            "Failed to send notification without profile buttons to log "
-                            f"channel {self.settings.LOG_CHAT_ID}: {retry_exc}"
+                        logger.error(
+                            "Failed to send notification without profile buttons to log channel "
+                            "%s: %s",
+                            self.settings.LOG_CHAT_ID,
+                            retry_exc,
                         )
                     return
-                logging.error(
-                    f"Failed to send notification to log channel {self.settings.LOG_CHAT_ID}: {exc}"
+                logger.error(
+                    "Failed to send notification to log channel %s: %s",
+                    self.settings.LOG_CHAT_ID,
+                    exc,
                 )
             except Exception:
-                logging.exception(
+                logger.exception(
                     "Failed to send notification to log channel %s.", self.settings.LOG_CHAT_ID
                 )
             return
@@ -166,14 +173,14 @@ class NotificationService(NotificationSupportMixin):
             await queue_manager.send_message(self.settings.LOG_CHAT_ID, **kwargs)
 
         except Exception:
-            logging.exception(
+            logger.exception(
                 "Failed to queue notification to log channel %s.", self.settings.LOG_CHAT_ID
             )
 
     async def _send_to_admins(
         self,
         message: str,
-        reply_markup: Optional[InlineKeyboardMarkup] = None,
+        reply_markup: InlineKeyboardMarkup | None = None,
     ) -> None:
         """Send message to all admin users using message queue"""
         if not self.settings.ADMIN_IDS:
@@ -181,7 +188,7 @@ class NotificationService(NotificationSupportMixin):
 
         queue_manager = get_queue_manager()
         if not queue_manager:
-            logging.warning("Message queue manager not available, falling back to direct send")
+            logger.warning("Message queue manager not available, falling back to direct send")
             for admin_id in self.settings.ADMIN_IDS:
                 try:
                     await self.bot.send_message(
@@ -192,7 +199,7 @@ class NotificationService(NotificationSupportMixin):
                         reply_markup=reply_markup,
                     )
                 except Exception:
-                    logging.exception("Failed to send notification to admin %s.", admin_id)
+                    logger.exception("Failed to send notification to admin %s.", admin_id)
             return
 
         for admin_id in self.settings.ADMIN_IDS:
@@ -205,15 +212,15 @@ class NotificationService(NotificationSupportMixin):
                     reply_markup=reply_markup,
                 )
             except Exception:
-                logging.exception("Failed to queue notification to admin %s.", admin_id)
+                logger.exception("Failed to queue notification to admin %s.", admin_id)
 
     async def notify_new_user_registration(
         self,
         user_id: int,
-        username: Optional[str] = None,
-        first_name: Optional[str] = None,
-        email: Optional[str] = None,
-        referred_by_id: Optional[int] = None,
+        username: str | None = None,
+        first_name: str | None = None,
+        email: str | None = None,
+        referred_by_id: int | None = None,
     ) -> None:
         """Send notification about new user registration"""
         if not self.settings.LOG_NEW_USERS:
@@ -242,7 +249,7 @@ class NotificationService(NotificationSupportMixin):
             user_id=user_id,
             user_display=user_display,
             referral_text=referral_text,
-            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
 
         # Send to log channel
@@ -253,7 +260,7 @@ class NotificationService(NotificationSupportMixin):
         self,
         user_id: int,
         email: str,
-        referred_by_id: Optional[int] = None,
+        referred_by_id: int | None = None,
     ) -> None:
         """Send notification about new user registration via email (Web App)."""
         if not self.settings.LOG_NEW_USERS:
@@ -275,12 +282,12 @@ class NotificationService(NotificationSupportMixin):
             user_id=user_id,
             email=hd.quote(email),
             referral_text=referral_text,
-            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
 
         # Email users have a synthetic (negative) user_id with no Telegram profile,
         # so we only attach the referrer button when a real referrer is present.
-        reply_markup: Optional[InlineKeyboardMarkup] = None
+        reply_markup: InlineKeyboardMarkup | None = None
         if referred_by_id and referred_by_id > 0:
             reply_markup = InlineKeyboardMarkup(
                 inline_keyboard=[
@@ -299,9 +306,9 @@ class NotificationService(NotificationSupportMixin):
         self,
         user_id: int,
         email: str,
-        telegram_id: Optional[int] = None,
-        username: Optional[str] = None,
-        first_name: Optional[str] = None,
+        telegram_id: int | None = None,
+        username: str | None = None,
+        first_name: str | None = None,
     ) -> None:
         """Send notification when an email is linked to a Telegram-created account."""
         if not self.settings.LOG_NEW_USERS:
@@ -323,10 +330,10 @@ class NotificationService(NotificationSupportMixin):
             telegram_id=telegram_id or user_id,
             user_display=user_display,
             email=hd.quote(email),
-            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
 
-        reply_markup: Optional[InlineKeyboardMarkup] = None
+        reply_markup: InlineKeyboardMarkup | None = None
         if telegram_id and telegram_id > 0:
             reply_markup = self._build_profile_keyboard(_, telegram_id)
 
@@ -335,10 +342,10 @@ class NotificationService(NotificationSupportMixin):
     async def notify_account_telegram_linked(
         self,
         user_id: int,
-        email: Optional[str],
+        email: str | None,
         telegram_id: int,
-        username: Optional[str] = None,
-        first_name: Optional[str] = None,
+        username: str | None = None,
+        first_name: str | None = None,
     ) -> None:
         """Send notification when Telegram is linked to an email-created account."""
         if not self.settings.LOG_NEW_USERS:
@@ -360,7 +367,7 @@ class NotificationService(NotificationSupportMixin):
             telegram_id=telegram_id,
             user_display=user_display,
             email=hd.quote(email or ""),
-            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
 
         profile_keyboard = self._build_profile_keyboard(_, telegram_id)
@@ -371,13 +378,13 @@ class NotificationService(NotificationSupportMixin):
         *,
         primary_user_id: int,
         removed_user_id: int,
-        email: Optional[str],
-        telegram_id: Optional[int],
-        username: Optional[str] = None,
-        first_name: Optional[str] = None,
-        final_end_date_text: Optional[str] = None,
-        primary_panel_user_uuid: Optional[str] = None,
-        removed_panel_user_uuid: Optional[str] = None,
+        email: str | None,
+        telegram_id: int | None,
+        username: str | None = None,
+        first_name: str | None = None,
+        final_end_date_text: str | None = None,
+        primary_panel_user_uuid: str | None = None,
+        removed_panel_user_uuid: str | None = None,
     ) -> None:
         """Send notification when duplicate email/Telegram accounts are merged."""
         if not self.settings.LOG_NEW_USERS:
@@ -404,7 +411,7 @@ class NotificationService(NotificationSupportMixin):
             final_end_date=hd.quote(final_end_date_text or ""),
             primary_panel_user_uuid=hd.quote(primary_panel_user_uuid or ""),
             removed_panel_user_uuid=hd.quote(removed_panel_user_uuid or ""),
-            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
 
         profile_keyboard = (
@@ -418,7 +425,7 @@ class NotificationService(NotificationSupportMixin):
             return str(int(value))
         return f"{value:g}"
 
-    def _tariff_display_for_log(self, tariff_key: Optional[str]) -> str:
+    def _tariff_display_for_log(self, tariff_key: str | None) -> str:
         if not tariff_key:
             return ""
         cfg = getattr(self.settings, "tariffs_config", None)
@@ -437,14 +444,14 @@ class NotificationService(NotificationSupportMixin):
         currency: str,
         months: int,
         payment_provider: str,
-        username: Optional[str] = None,
-        email: Optional[str] = None,
-        traffic_gb: Optional[float] = None,
+        username: str | None = None,
+        email: str | None = None,
+        traffic_gb: float | None = None,
         *,
         traffic_is_premium: bool = False,
-        tariff_key: Optional[str] = None,
-        purchased_hwid_devices: Optional[int] = None,
-        purchases: Optional[tuple[PaymentPurchase, ...]] = None,
+        tariff_key: str | None = None,
+        purchased_hwid_devices: int | None = None,
+        purchases: tuple[PaymentPurchase, ...] | None = None,
     ) -> None:
         """Send notification about successful payment"""
         if not self.settings.LOG_PAYMENTS:
@@ -509,7 +516,7 @@ class NotificationService(NotificationSupportMixin):
                 traffic_summary=purchase_summary,
                 tariff_line=tariff_line,
                 payment_provider=payment_provider,
-                timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
             )
         elif effective_purchases:
             tariff_name = self._tariff_display_for_log(tariff_key)
@@ -531,7 +538,7 @@ class NotificationService(NotificationSupportMixin):
                 purchase_summary_line=purchase_summary_line,
                 tariff_line=tariff_line,
                 payment_provider=payment_provider,
-                timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
             )
         else:
             message = _(
@@ -542,7 +549,7 @@ class NotificationService(NotificationSupportMixin):
                 currency=currency,
                 months=months,
                 payment_provider=payment_provider,
-                timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
             )
 
         # Send to log channel
@@ -587,8 +594,8 @@ class NotificationService(NotificationSupportMixin):
         user_id: int,
         promo_code: str,
         bonus_days: int,
-        username: Optional[str] = None,
-        email: Optional[str] = None,
+        username: str | None = None,
+        email: str | None = None,
     ) -> None:
         """Send notification about promo code activation"""
         if not self.settings.LOG_PROMO_ACTIVATIONS:
@@ -608,7 +615,7 @@ class NotificationService(NotificationSupportMixin):
             user_display=user_display,
             promo_code=promo_code,
             bonus_days=bonus_days,
-            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
 
         # Send to log channel
@@ -619,8 +626,8 @@ class NotificationService(NotificationSupportMixin):
         self,
         user_id: int,
         end_date: datetime,
-        username: Optional[str] = None,
-        email: Optional[str] = None,
+        username: str | None = None,
+        email: str | None = None,
     ) -> None:
         """Send notification about trial activation"""
         if not self.settings.LOG_TRIAL_ACTIVATIONS:
@@ -639,7 +646,7 @@ class NotificationService(NotificationSupportMixin):
             "log_trial_activation",
             user_display=user_display,
             end_date=end_date.strftime("%Y-%m-%d %H:%M"),
-            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
 
         # Send to log channel
@@ -652,7 +659,7 @@ class NotificationService(NotificationSupportMixin):
         details: str,
         users_processed: int,
         subs_synced: int,
-        username: Optional[str] = None,
+        username: str | None = None,
     ) -> None:
         """Send notification about panel synchronization"""
         if not getattr(self.settings, "LOG_PANEL_SYNC", True):
@@ -672,7 +679,7 @@ class NotificationService(NotificationSupportMixin):
             status=status,
             users_processed=users_processed,
             subs_synced=subs_synced,
-            timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S %Z"),
+            timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S %Z"),
             details=details,
         )
 
@@ -683,9 +690,9 @@ class NotificationService(NotificationSupportMixin):
         self,
         user_id: int,
         suspicious_input: str,
-        username: Optional[str] = None,
-        first_name: Optional[str] = None,
-        email: Optional[str] = None,
+        username: str | None = None,
+        first_name: str | None = None,
+        email: str | None = None,
     ) -> None:
         """Send notification about a suspicious promo code attempt."""
         if not self.settings.LOG_SUSPICIOUS_ACTIVITY:
@@ -706,7 +713,7 @@ class NotificationService(NotificationSupportMixin):
             user_display=user_display,
             user_id=user_id,
             suspicious_input=hd.quote(suspicious_input),
-            timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S %Z"),
+            timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S %Z"),
         )
 
         # Send to log channel
@@ -718,7 +725,7 @@ class NotificationService(NotificationSupportMixin):
         message: str,
         to_admins: bool = False,
         to_log_channel: bool = True,
-        thread_id: Optional[int] = None,
+        thread_id: int | None = None,
     ) -> None:
         """Send custom notification message"""
         if to_log_channel:

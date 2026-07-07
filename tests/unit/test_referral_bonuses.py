@@ -17,9 +17,9 @@ and DB intent, not network I/O.
 """
 
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import Any, Optional
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 from bot.services.referral_service import ReferralService
@@ -27,26 +27,26 @@ from config.tariffs_config import TariffsConfig
 
 
 def _make_settings(**overrides: Any) -> SimpleNamespace:
-    base = dict(
-        DEFAULT_LANGUAGE="en",
-        REFERRAL_ONE_BONUS_PER_REFEREE=True,
-        user_traffic_limit_bytes=0,
-        referral_bonus_inviter={1: 7, 3: 21, 6: 45, 12: 90},
-        referral_bonus_referee={1: 3, 3: 10, 6: 21, 12: 45},
-    )
+    base = {
+        "DEFAULT_LANGUAGE": "en",
+        "REFERRAL_ONE_BONUS_PER_REFEREE": True,
+        "user_traffic_limit_bytes": 0,
+        "referral_bonus_inviter": {1: 7, 3: 21, 6: 45, 12: 90},
+        "referral_bonus_referee": {1: 3, 3: 10, 6: 21, 12: 45},
+    }
     base.update(overrides)
     return SimpleNamespace(**base)
 
 
-def _make_user(user_id: int, *, referred_by_id: Optional[int] = None, **fields):
-    base = dict(
-        user_id=user_id,
-        first_name=f"User{user_id}",
-        language_code="en",
-        referred_by_id=referred_by_id,
-        email=None,
-        panel_user_uuid=f"panel-{user_id}",
-    )
+def _make_user(user_id: int, *, referred_by_id: int | None = None, **fields):
+    base = {
+        "user_id": user_id,
+        "first_name": f"User{user_id}",
+        "language_code": "en",
+        "referred_by_id": referred_by_id,
+        "email": None,
+        "panel_user_uuid": f"panel-{user_id}",
+    }
     base.update(fields)
     return SimpleNamespace(**base)
 
@@ -151,7 +151,7 @@ class InviterBonusTests(unittest.IsolatedAsyncioTestCase):
         subscription_service._get_or_create_panel_user_link_details = AsyncMock(
             return_value=("inviter-panel", "inviter-sub", "short", False)
         )
-        new_end = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        new_end = datetime(2026, 1, 1, tzinfo=UTC)
         subscription_service.extend_active_subscription_days = AsyncMock(return_value=new_end)
         service, bot = _make_service(settings=settings, subscription_service=subscription_service)
 
@@ -204,13 +204,13 @@ class InviterBonusTests(unittest.IsolatedAsyncioTestCase):
         # Inviter has no active sub → extend returns None for inviter.
         # extend_active_subscription_days is called twice (inviter + referee). Use a side_effect:
         # First call (inviter) → None, second call (referee) → new datetime.
-        inviter_new_end = datetime(2026, 1, 10, tzinfo=timezone.utc)
-        referee_new_end = datetime(2026, 2, 1, tzinfo=timezone.utc)
+        inviter_new_end = datetime(2026, 1, 10, tzinfo=UTC)
+        referee_new_end = datetime(2026, 2, 1, tzinfo=UTC)
         subscription_service.extend_active_subscription_days = AsyncMock(
             side_effect=[inviter_new_end, referee_new_end]
         )
 
-        service, bot = _make_service(settings=settings, subscription_service=subscription_service)
+        service, _bot = _make_service(settings=settings, subscription_service=subscription_service)
 
         with (
             patch(
@@ -255,7 +255,7 @@ class InviterBonusTests(unittest.IsolatedAsyncioTestCase):
         subscription_service._get_or_create_panel_user_link_details = AsyncMock(
             return_value=("inviter-panel", "inviter-sub", "short", False)
         )
-        referee_new_end = datetime(2026, 2, 1, tzinfo=timezone.utc)
+        referee_new_end = datetime(2026, 2, 1, tzinfo=UTC)
         subscription_service.extend_active_subscription_days = AsyncMock(
             side_effect=[None, referee_new_end]
         )
@@ -300,7 +300,7 @@ class RefereeBonusTests(unittest.IsolatedAsyncioTestCase):
         subscription_service._get_or_create_panel_user_link_details = AsyncMock(
             return_value=("inviter-panel", "inviter-sub", "short", False)
         )
-        referee_new_end = datetime(2026, 3, 1, tzinfo=timezone.utc)
+        referee_new_end = datetime(2026, 3, 1, tzinfo=UTC)
         subscription_service.extend_active_subscription_days = AsyncMock(
             return_value=referee_new_end
         )
@@ -451,8 +451,8 @@ class RefereeBonusTests(unittest.IsolatedAsyncioTestCase):
         subscription_service._get_or_create_panel_user_link_details = AsyncMock(
             return_value=("inviter-panel", "inviter-sub", "short", False)
         )
-        inviter_new_end = datetime(2026, 4, 1, tzinfo=timezone.utc)
-        referee_new_end = datetime(2026, 5, 1, tzinfo=timezone.utc)
+        inviter_new_end = datetime(2026, 4, 1, tzinfo=UTC)
+        referee_new_end = datetime(2026, 5, 1, tzinfo=UTC)
         subscription_service.extend_active_subscription_days = AsyncMock(
             side_effect=[inviter_new_end, referee_new_end]
         )
@@ -482,16 +482,16 @@ class RefereeBonusTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result["referee_bonus_applied_days"], 7)
         self.assertTrue(result["inviter_bonus_applied_flag"])
-        inviter_call = [
+        inviter_call = next(
             call
             for call in subscription_service.extend_active_subscription_days.await_args_list
             if call.kwargs.get("user_id") == 1
-        ][0]
-        referee_call = [
+        )
+        referee_call = next(
             call
             for call in subscription_service.extend_active_subscription_days.await_args_list
             if call.kwargs.get("user_id") == 42
-        ][0]
+        )
         self.assertEqual(inviter_call.kwargs["bonus_days"], 20)
         self.assertEqual(referee_call.kwargs["bonus_days"], 7)
 

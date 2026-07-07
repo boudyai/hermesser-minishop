@@ -12,7 +12,6 @@
   import type { AdminUser } from "$lib/admin/stores/usersStore";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-  type ComponentCallback = (...args: never[]) => void;
   type SelectOption = { value: string; label: string };
   type SubscriptionDetail = Record<string, unknown> & {
     extra_hwid_devices?: unknown;
@@ -35,12 +34,12 @@
     userExtendDaysValid?: boolean;
     userExtendTariffValid?: boolean;
     extendTariffRequired?: boolean;
-    selectExtendTariff: ComponentCallback;
+    selectExtendTariff: (value: string) => void;
     periodTariffItems?: SelectOption[];
     tariffActionDirty?: boolean;
     currentSubscriptionTariffLabel?: string;
     userTariffActionKey?: string;
-    selectTariffAction: ComponentCallback;
+    selectTariffAction: (value: string) => void;
     premiumOverrideDirty?: boolean;
     premiumOverrideDraftValid?: boolean;
     premiumUnlimitedDraft?: boolean;
@@ -51,7 +50,7 @@
     hwidLimitDraftValid?: boolean;
     hwidUnlimitedDraft?: boolean;
     hwidLimitLabel: (sub: Record<string, unknown> | null | undefined) => string;
-    selectGrantTrafficKind: ComponentCallback;
+    selectGrantTrafficKind: (value: string) => void;
     grantTrafficGbValid?: boolean;
   };
 

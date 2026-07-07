@@ -3,9 +3,7 @@ import {
   buildAdminPanelInternalSquadsPath,
   buildAdminTariffsPath,
   unwrap,
-  type ApiResponse,
   type ApiClient,
-  type GetResponse,
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
 import {
@@ -15,39 +13,21 @@ import {
   tariffFromDraft as tariffFromDraftFn,
   normalizeCurrencyKey,
   normalizeUuidList,
-} from "../tariffDraft.js";
+} from "../tariffDraft";
 import { snapshotForPayload } from "./snapshotForPayload.svelte";
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
-type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
-  path: Path,
-  options?: Parameters<ApiClient["api"]>[1]
-) => Promise<ApiResponse<Path> | AdminErrorResponse>;
+type AdminApi = ApiClient["api"];
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-type TariffsResponse = GetResponse<"/api/admin/tariffs">;
-type TariffsSaveResponse = Extract<ApiResponse<"/api/admin/tariffs">, { exists: boolean }>;
 type TariffsSavePayload = components["schemas"]["TariffsSaveBody"];
 export type Tariff = components["schemas"]["Tariff"];
-export type TariffsCatalog = components["schemas"]["TariffsConfig"];
+export type TariffsCatalog = components["schemas"]["AdminTariffsCatalogOut"];
 export type PanelSquad = {
   uuid: string;
   name: string;
 };
-export type ProviderCurrencySupport = {
-  id?: string;
-  key?: string;
-  provider_key?: string;
-  provider_label?: string;
-  provider_name?: string;
-  label?: string;
-  enabled?: boolean;
-  configured?: boolean;
-  supports_default_currency?: boolean;
-  accepts_any_currency?: boolean;
-  currencies?: string[];
-  settings_path?: string[];
-};
+export type ProviderCurrencySupport = components["schemas"]["ProviderCurrencySupportOut"];
 type TariffDraftRow = Record<string, unknown>;
 export type TariffDraft = ReturnType<typeof emptyTariffDraft> & Record<string, unknown>;
 export type DraftSquadField = "squadUuids" | "premiumSquadUuids";
@@ -196,7 +176,7 @@ export function createTariffsStore({
     updateStore((s) => ({ ...s, tariffsLoading: true }));
     try {
       void loadPanelSquads();
-      const data = (await api(buildAdminTariffsPath())) as TariffsResponse | AdminErrorResponse;
+      const data = await api(buildAdminTariffsPath());
       if (isOkResponse(data)) {
         const result = unwrap(data);
         updateStore((s) => ({
@@ -220,8 +200,7 @@ export function createTariffsStore({
 
     updateStore((s) => ({ ...s, panelSquadsLoading: true }));
     try {
-      const data = (await api(buildAdminPanelInternalSquadsPath())) as
-        GetResponse<"/api/admin/panel/internal-squads"> | AdminErrorResponse;
+      const data = await api(buildAdminPanelInternalSquadsPath());
       if (isOkResponse(data)) {
         const result = unwrap(data);
         updateStore((s) => ({ ...s, panelSquads: normalizePanelSquads(result.squads) }));
@@ -268,10 +247,10 @@ export function createTariffsStore({
 
     try {
       const payload: TariffsSavePayload = { catalog: snapshotForPayload(nextCatalog) };
-      const res = (await api(buildAdminTariffsPath(), {
+      const res = await api(buildAdminTariffsPath(), {
         method: "PUT",
         body: JSON.stringify(payload),
-      })) as TariffsSaveResponse | AdminErrorResponse;
+      });
       if (isOkResponse(res)) {
         const result = unwrap(res);
         updateStore((s) => ({

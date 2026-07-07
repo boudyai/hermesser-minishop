@@ -1,10 +1,12 @@
+import contextlib
 import csv
 import io
 import logging
 import math
 import re
-from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, cast
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Any, cast
 
 from aiogram import F, Router, types
 from aiogram.fsm.context import FSMContext
@@ -22,20 +24,22 @@ from config.settings import Settings
 from db.dal import message_log_dal, user_dal
 from db.models import MessageLog, User
 
+logger = logging.getLogger(__name__)
+
 router = Router(name="admin_logs_router")
 USERNAME_REGEX = re.compile(r"^[a-zA-Z0-9_]{5,32}$")
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-def _user_email(user: Optional[User]) -> str:
+def _user_email(user: User | None) -> str:
     return str(getattr(user, "email", None) or "").strip()
 
 
 def _format_user_with_email(
     *,
-    first_name: Optional[str] = None,
-    username: Optional[str] = None,
-    email: Optional[str] = None,
+    first_name: str | None = None,
+    username: str | None = None,
+    email: str | None = None,
     fallback: str = "",
 ) -> str:
     parts = []
@@ -69,7 +73,7 @@ async def display_logs_menu(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
 
     if not i18n or not callback.message:
         await callback.answer("Error displaying logs menu.", show_alert=True)
@@ -82,7 +86,7 @@ async def display_logs_menu(
             reply_markup=get_logs_menu_keyboard(i18n, current_lang),
         )
     except Exception as e:
-        logging.warning(f"Failed to edit message for logs menu: {e}. Sending new.")
+        logger.warning("Failed to edit message for logs menu: %s. Sending new.", e)
         await callback_message(callback).answer(
             text=_(key="admin_logs_menu_title"),
             reply_markup=get_logs_menu_keyboard(i18n, current_lang),
@@ -92,7 +96,7 @@ async def display_logs_menu(
 
 async def _display_formatted_logs(
     target_message: types.Message,
-    logs: List[MessageLog],
+    logs: list[MessageLog],
     total_logs: int,
     current_page_idx: int,
     settings: Settings,
@@ -100,7 +104,7 @@ async def _display_formatted_logs(
     base_pagination_callback_data: str,
     i18n: JsonI18n,
     current_lang: str,
-    title_kwargs: Optional[Dict[str, Any]] = None,
+    title_kwargs: dict[str, Any] | None = None,
 ) -> None:
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
     page_size = settings.LOGS_PAGE_SIZE
@@ -175,8 +179,10 @@ async def _display_formatted_logs(
             text, reply_markup=reply_markup, parse_mode="HTML", disable_web_page_preview=True
         )
     except Exception as e:
-        logging.warning(
-            f"Failed to edit message for logs display (len: {len(text)}): {e}. Sending new message(s)."  # noqa: E501
+        logger.warning(
+            "Failed to edit message for logs display (len: %s): %s. Sending new message(s).",
+            len(text),
+            e,
         )
 
         max_chunk_size = 4000
@@ -191,7 +197,7 @@ async def _display_formatted_logs(
                     disable_web_page_preview=True,
                 )
             except Exception as e_chunk:
-                logging.error(f"Failed to send log chunk: {e_chunk}")
+                logger.error("Failed to send log chunk: %s", e_chunk)
 
                 if i == 0:
                     await target_message.answer(
@@ -213,7 +219,7 @@ async def view_all_logs_handler(
         except ValueError:
             page_idx = 0
 
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     if not i18n or not callback.message:
         await callback.answer("Error processing request.", show_alert=True)
@@ -246,7 +252,7 @@ async def prompt_user_for_logs_handler(
     settings: Settings,
     session: AsyncSession,
 ) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     if not i18n or not callback.message:
         await callback.answer("Error preparing user log prompt.", show_alert=True)
@@ -271,7 +277,7 @@ async def process_user_id_for_logs_handler(
 ) -> None:
     await state.clear()
 
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     if not i18n:
         await message.reply("Language service error.")
@@ -279,13 +285,11 @@ async def process_user_id_for_logs_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     input_text = (message.text or "").strip() if message.text else ""
-    user_model_for_logs: Optional[User] = None
+    user_model_for_logs: User | None = None
 
     if input_text.isdigit() or (input_text.startswith("-") and input_text[1:].isdigit()):
-        try:
+        with contextlib.suppress(ValueError):
             user_model_for_logs = await user_dal.get_user_by_id(session, int(input_text))
-        except ValueError:
-            pass
     elif EMAIL_REGEX.match(input_text):
         user_model_for_logs = await user_dal.get_user_by_email(session, input_text)
     elif input_text.startswith("@") and USERNAME_REGEX.match(input_text[1:]):
@@ -336,7 +340,7 @@ async def view_user_logs_paginated_handler(
         await callback.answer("Invalid log request format.", show_alert=True)
         return
 
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     if not i18n or not callback.message:
         await callback.answer("Error processing request.", show_alert=True)
@@ -394,7 +398,7 @@ async def cancel_log_user_input_state_to_menu(
 async def export_logs_csv_handler(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
 ) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     if not i18n or not callback.message:
         await callback.answer("Error processing CSV export.", show_alert=True)
@@ -462,7 +466,7 @@ async def export_logs_csv_handler(
         csv_buffer.close()
 
         # Generate filename with current timestamp
-        now = datetime.now()
+        now = datetime.now(UTC)
         filename = f"message_logs_{now.strftime('%Y%m%d_%H%M%S')}.csv"
 
         # Send as document
@@ -481,5 +485,5 @@ async def export_logs_csv_handler(
         )
 
     except Exception as e:
-        logging.error(f"Error exporting logs to CSV: {e}", exc_info=True)
+        logger.exception("Error exporting logs to CSV: %s", e)
         await callback_message(callback).answer(_("admin_logs_csv_export_failed", error=str(e)))

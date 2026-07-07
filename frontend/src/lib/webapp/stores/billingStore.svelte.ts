@@ -1,11 +1,22 @@
 import type { LoadDataOptions } from "../dataClient";
 import type { BillingActions } from "../billingActions";
 import { unwrap } from "../publicApi";
+import type {
+  BillingOptionsResponse,
+  DeviceTopupOptions,
+  PlanView,
+  SubscriptionView,
+  TariffChangeAction,
+  TariffChangeOptions,
+  TariffChangeTarget,
+  TariffView,
+  WebappRecord,
+} from "../types";
 
 type TelegramWebApp = Record<string, unknown> & {
   openInvoice?: (url: string, callback: (status: string) => void) => void;
 };
-type BillingRecord = Record<string, unknown> & {
+type BillingRecord = WebappRecord & {
   action?: string;
   actions?: BillingRecord[];
   available?: boolean;
@@ -28,7 +39,7 @@ export type BillingState = {
   paymentModalOpen: boolean;
   paymentStep: string;
   selectedTariffKey: string;
-  selectedPlan: BillingRecord | null;
+  selectedPlan: PlanView | null;
   selectedMethod: string;
   renewHwidDevices: boolean;
   paymentStartedWithActiveSubscription: boolean;
@@ -36,13 +47,13 @@ export type BillingState = {
   topupKind: string;
   deviceTopupModalOpen: boolean;
   changeModalOpen: boolean;
-  topupOptions: BillingRecord | null;
-  deviceTopupOptions: BillingRecord | null;
-  changeOptions: BillingRecord | null;
-  selectedTopupPlan: BillingRecord | null;
-  selectedDeviceTopupPlan: BillingRecord | null;
-  selectedChangeTarget: BillingRecord | null;
-  selectedChangeAction: BillingRecord | null;
+  topupOptions: BillingOptionsResponse | null;
+  deviceTopupOptions: DeviceTopupOptions | null;
+  changeOptions: TariffChangeOptions | null;
+  selectedTopupPlan: PlanView | null;
+  selectedDeviceTopupPlan: PlanView | null;
+  selectedChangeTarget: TariffChangeTarget | null;
+  selectedChangeAction: TariffChangeAction | null;
   changeConfirmOpen: boolean;
   tariffActionBusy: boolean;
   payBusy: boolean;
@@ -61,16 +72,16 @@ export type BillingStore = BillingState & {
   openPaymentModal(
     tariffMode: boolean,
     singleTariffMode: boolean,
-    tariffCatalog: BillingRecord[],
-    subscription: BillingRecord,
-    plans: BillingRecord[],
+    tariffCatalog: TariffView[],
+    subscription: SubscriptionView,
+    plans: PlanView[],
     defaultMethod?: string,
-    options?: BillingRecord
+    options?: WebappRecord
   ): void;
   closePaymentModal(): void;
-  selectTariff(tariff: BillingRecord, plans?: BillingRecord[]): void;
-  continueWithSelectedTariff(selectedTariffPlans?: BillingRecord[]): void;
-  backToTariffList(subscription: BillingRecord, tariffCatalog?: BillingRecord[]): void;
+  selectTariff(tariff: TariffView, plans?: PlanView[]): void;
+  continueWithSelectedTariff(selectedTariffPlans?: PlanView[]): void;
+  backToTariffList(subscription: SubscriptionView, tariffCatalog?: TariffView[]): void;
   createPayment(): Promise<void>;
   setCheckoutPromoInput(value: string): void;
   applyCheckoutPromo(): Promise<void>;
@@ -122,8 +133,10 @@ export function createBillingStore({
     return value && typeof value === "object" ? (value as BillingRecord) : {};
   }
 
-  function arrayRecords(value: unknown): BillingRecord[] {
-    return Array.isArray(value) ? value.filter((item) => item && typeof item === "object") : [];
+  function arrayRecords<T extends WebappRecord = BillingRecord>(value: unknown): T[] {
+    return Array.isArray(value)
+      ? (value.filter((item) => item && typeof item === "object") as T[])
+      : [];
   }
 
   function stringField(value: unknown): string {
@@ -275,7 +288,7 @@ export function createBillingStore({
     return null;
   }
 
-  function checkoutPlanKey(plan: BillingRecord | null): string {
+  function checkoutPlanKey(plan: PlanView | null): string {
     if (!plan) return "";
     return String(
       plan.id ||
@@ -410,7 +423,7 @@ export function createBillingStore({
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  function isSubscriptionSale(plan: BillingRecord | null) {
+  function isSubscriptionSale(plan: PlanView | null) {
     const saleMode = String(plan?.sale_mode || "subscription").toLowerCase();
     return ![
       "traffic",
@@ -466,11 +479,11 @@ export function createBillingStore({
   function openPaymentModal(
     tariffMode: boolean,
     singleTariffMode: boolean,
-    tariffCatalog: BillingRecord[],
-    subscription: BillingRecord,
-    plans: BillingRecord[],
+    tariffCatalog: TariffView[],
+    subscription: SubscriptionView,
+    plans: PlanView[],
     defaultMethod = "",
-    options: BillingRecord = {}
+    options: WebappRecord = {}
   ) {
     updateState((s) => {
       let step: string;
@@ -532,7 +545,7 @@ export function createBillingStore({
     updateState((s) => ({ ...s, paymentModalOpen: false }));
   }
 
-  function selectTariff(tariff: BillingRecord, plans: BillingRecord[] = []) {
+  function selectTariff(tariff: TariffView, plans: PlanView[] = []) {
     const key = String(tariff?.key || "").trim();
     if (!key) return;
     updateState((s) => ({
@@ -543,7 +556,7 @@ export function createBillingStore({
     }));
   }
 
-  function continueWithSelectedTariff(selectedTariffPlans: BillingRecord[] = []) {
+  function continueWithSelectedTariff(selectedTariffPlans: PlanView[] = []) {
     updateState((s) => {
       if (!s.selectedTariffKey) return s;
       return {
@@ -555,7 +568,7 @@ export function createBillingStore({
     });
   }
 
-  function backToTariffList(subscription: BillingRecord, tariffCatalog: BillingRecord[] = []) {
+  function backToTariffList(subscription: SubscriptionView, tariffCatalog: TariffView[] = []) {
     if (
       subscription?.active &&
       subscription?.tariff_key &&
@@ -761,7 +774,7 @@ export function createBillingStore({
       updateState((s) => ({
         ...s,
         topupOptions: payload,
-        selectedTopupPlan: arrayRecords(payload.plans)[0] || null,
+        selectedTopupPlan: arrayRecords<PlanView>(payload.plans)[0] || null,
       }));
     } catch (error: unknown) {
       if (requestId !== topupOptionsRequestId || kind !== state.topupKind) return;
@@ -805,7 +818,7 @@ export function createBillingStore({
       const response = await billing.fetchTariffChangeOptions();
       if (!response?.ok) throw response;
       const payload = unwrapBilling(response);
-      const targets = arrayRecords(payload.targets);
+      const targets = arrayRecords<TariffChangeTarget>(payload.targets);
       const firstTarget = targets[0] || null;
       updateState((s) => ({
         ...s,
@@ -888,7 +901,7 @@ export function createBillingStore({
       updateState((s) => ({
         ...s,
         deviceTopupOptions: payload,
-        selectedDeviceTopupPlan: arrayRecords(payload.plans)[0] || null,
+        selectedDeviceTopupPlan: arrayRecords<PlanView>(payload.plans)[0] || null,
       }));
     } catch (error: unknown) {
       showToast(stringField(asRecord(error).message) || t("wa_device_topup_options_failed"));

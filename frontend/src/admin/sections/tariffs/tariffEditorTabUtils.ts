@@ -1,4 +1,4 @@
-import { normalizeCurrencyKey } from "$lib/admin/tariffDraft.js";
+import { normalizeCurrencyKey } from "$lib/admin/tariffDraft";
 import type {
   DraftRowsField,
   DraftSquadField,

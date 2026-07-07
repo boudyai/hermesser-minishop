@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
@@ -126,8 +126,8 @@ def test_remnashop_plan_months_prefers_snapshot_then_dates():
     assert (
         remnashop_months_from_plan_snapshot(
             {},
-            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
-            expire_at=datetime(2026, 4, 1, tzinfo=timezone.utc),
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            expire_at=datetime(2026, 4, 1, tzinfo=UTC),
         )
         == 3
     )
@@ -433,7 +433,10 @@ def test_remnashop_encrypted_gateway_settings_need_app_crypt_key():
 
 
 def test_remnashop_encrypted_gateway_settings_decrypt_with_app_crypt_key():
-    cryptography = pytest.importorskip("cryptography.fernet")
+    cryptography = pytest.importorskip(
+        "cryptography.fernet",
+        reason="encrypted legacy gateway fixtures require cryptography",
+    )
     key = cryptography.Fernet.generate_key().decode()
     token = cryptography.Fernet(key.encode()).encrypt(b"wata-token").decode()
 

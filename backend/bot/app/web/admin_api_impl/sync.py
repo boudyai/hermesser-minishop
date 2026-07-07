@@ -5,8 +5,7 @@ from bot.app.web.context import (
 )
 from bot.app.web.route_contracts import (
     RouteContract,
-    loose_object_schema,
-    ok_envelope_with,
+    ok_envelope_for,
     register_contract,
 )
 from bot.infra.webhook_queue import enqueue_webhook_event
@@ -19,10 +18,14 @@ from .common import (
     _error,
     _ok,
 )
+from .response_schemas import AdminSyncOut
 
 register_contract(
     "admin_sync_route",
-    RouteContract(response_schema=ok_envelope_with({"result": loose_object_schema()})),
+    RouteContract(
+        response_schema=ok_envelope_for(AdminSyncOut),
+        models=(AdminSyncOut,),
+    ),
 )
 
 

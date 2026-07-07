@@ -22,7 +22,7 @@
 При сборке сайта документации запускается `docs-site/scripts/build-demo-runtime.mjs`. Скрипт:
 
 - собирает отдельный frontend-бандл в Vite mode `docs-demo`;
-- использует entrypoint `frontend/src/docsDemoEntry.js`, где подключены моковые данные и mock API;
+- использует entrypoint `frontend/src/docsDemoEntry.ts`, где подключены моковые данные и mock API;
 - дополнительно собирает обычный admin-бандл, чтобы админка работала внутри демо;
 - копирует JS/CSS, темы, default-brand ассеты, локали и конфиг гайдов подключения в `docs-site/public/demo/runtime/`;
 - генерирует `app/index.html`, который грузит demo runtime и встроенные переводы;
@@ -34,4 +34,4 @@
 
 ## Почему это не попадает в production
 
-Обычная production-сборка Mini App использует `frontend/src/main.js` и не импортирует `previewMock`, `mockApi` или demo entrypoint. Моковый runtime подключается только в Vite mode `docs-demo`, который вызывается из сборки документации.
+Обычная production-сборка Mini App использует `frontend/src/main.ts` и не импортирует `previewMock`, `mockApi` или demo entrypoint. Моковый runtime подключается только в Vite mode `docs-demo`, который вызывается из сборки документации.

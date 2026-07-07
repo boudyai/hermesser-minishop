@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from aiohttp import web
 from sqlalchemy import Float, and_, case, cast, or_, select
@@ -18,6 +18,7 @@ from bot.app.web.context import (
     get_settings,
 )
 from bot.services.referral_service import ReferralService
+from bot.utils.install_links import ensure_user_install_guide_share_url
 from config.settings import Settings
 from db.dal import message_log_dal, payment_dal, subscription_dal, user_dal
 from db.models import Payment, Subscription, User, UserTelegramAvatar
@@ -106,13 +107,13 @@ def _ranked_active_subscriptions_sq(now: datetime) -> Subquery:
 
 
 async def _bulk_active_subscriptions_for_users(
-    session: AsyncSession, user_ids: List[int]
-) -> Dict[int, Subscription]:
+    session: AsyncSession, user_ids: list[int]
+) -> dict[int, Subscription]:
     """Active subscription row per user (for admin list premium traffic column)."""
 
     if not user_ids:
         return {}
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     stmt = (
         select(Subscription)
         .where(
@@ -127,7 +128,7 @@ async def _bulk_active_subscriptions_for_users(
         )
     )
     rows = (await session.execute(stmt)).scalars().all()
-    out: Dict[int, Subscription] = {}
+    out: dict[int, Subscription] = {}
     for sub in rows:
         uid = int(sub.user_id)
         if uid not in out:
@@ -174,8 +175,8 @@ def _user_subscription_expiry_sq() -> Subquery:
 
 async def _bulk_user_payment_summaries(
     session: AsyncSession,
-    user_ids: List[int],
-) -> Dict[int, Dict[str, Any]]:
+    user_ids: list[int],
+) -> dict[int, dict[str, Any]]:
     if not user_ids:
         return {}
 
@@ -202,8 +203,8 @@ async def _bulk_user_payment_summaries(
 
 async def _bulk_user_referral_counts(
     session: AsyncSession,
-    user_ids: List[int],
-) -> Dict[int, int]:
+    user_ids: list[int],
+) -> dict[int, int]:
     if not user_ids:
         return {}
 
@@ -227,10 +228,10 @@ async def _filter_and_sort_users(
     sort_value: str,
     page: int,
     page_size: int,
-) -> tuple[List[User], int]:
+) -> tuple[list[User], int]:
     """Return paginated users with optional search, filter and sort applied."""
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     sort_key = (sort_value or "registered_desc").lower()
     pt_filter = (premium_traffic or "all").lower()
     needs_premium_sq = pt_filter != "all" or sort_key in {
@@ -424,10 +425,7 @@ async def _filter_and_sort_users(
         stmt = stmt.order_by(subscription_expires_expr.desc().nullslast(), User.user_id.desc())
     else:
         order = sort_map.get(sort_key, sort_map["registered_desc"])
-        if isinstance(order, tuple):
-            stmt = stmt.order_by(*order)
-        else:
-            stmt = stmt.order_by(order)
+        stmt = stmt.order_by(*order) if isinstance(order, tuple) else stmt.order_by(order)
 
     stmt = stmt.offset(max(page, 0) * max(page_size, 1)).limit(max(page_size, 1))
 
@@ -446,7 +444,7 @@ def _user_panel_status_condition(panel_status: str) -> ColumnElement[bool] | Non
         Subscription.status_from_panel.is_(None), Subscription.status_from_panel == ""
     )
     if status == "active":
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         status_cond = and_(
             User.is_banned.is_(False),
             Subscription.is_active.is_(True),
@@ -454,7 +452,7 @@ def _user_panel_status_condition(panel_status: str) -> ColumnElement[bool] | Non
             or_(normalized_status == "active", blank_status),
         )
     elif status == "expired":
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expired_subs = aliased(Subscription)
         active_subs = aliased(Subscription)
         expired_status = sa_func.lower(sa_func.coalesce(expired_subs.status_from_panel, ""))
@@ -483,7 +481,7 @@ def _user_panel_status_condition(panel_status: str) -> ColumnElement[bool] | Non
         )
         return and_(expired_exists, ~active_exists)
     else:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         status_cond = and_(
             User.is_banned.is_(False),
             Subscription.is_active.is_(True),
@@ -517,7 +515,7 @@ def _user_search_condition(query: str) -> ColumnElement[bool] | None:
     return or_(*conditions)
 
 
-def _serialize_trial_summary(user: User, trial_subs: List[Subscription]) -> Dict[str, Any]:
+def _serialize_trial_summary(user: User, trial_subs: list[Subscription]) -> dict[str, Any]:
     return AdminUserTrialOut.from_orm_trial(user, trial_subs).model_dump(mode="json")
 
 
@@ -566,7 +564,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
         avatar_keys = await _bulk_user_avatar_keys(session, avatar_user_ids)
 
         # Referral links вЂ” both the bot deep-link and the webapp deep-link.
-        referral_code: Optional[str] = None
+        referral_code: str | None = None
         try:
             referral_code = await user_dal.ensure_referral_code(session, user)
             await session.commit()
@@ -574,9 +572,27 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
             logger.warning("Failed to ensure referral code for user %s: %s", target_id, exc_ref)
             await session.rollback()
 
-    referral_service: Optional[ReferralService] = get_referral_service(request)
+        install_share_url: str | None = None
+        if active_sub is not None:
+            try:
+                install_share_url = await ensure_user_install_guide_share_url(
+                    session,
+                    settings,
+                    target_id,
+                    local_subscription=active_sub,
+                )
+                await session.commit()
+            except Exception as exc_install:  # pragma: no cover - defensive
+                logger.warning(
+                    "Failed to build install guide share link for user %s: %s",
+                    target_id,
+                    exc_install,
+                )
+                await session.rollback()
+
+    referral_service: ReferralService | None = get_referral_service(request)
     bot_username = get_bot_username(request)
-    referral_bot_link: Optional[str] = None
+    referral_bot_link: str | None = None
     if referral_service and bot_username and referral_code:
         try:
             async with async_session_factory() as session:
@@ -593,8 +609,8 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
     # Subscription page URL вЂ” the raw panel `subscriptionUrl` that the user
     # imports into their VPN client. May be missing if the user has never
     # been provisioned on the panel.
-    subscription_url: Optional[str] = None
-    last_vpn_connected_at: Optional[str] = None
+    subscription_url: str | None = None
+    last_vpn_connected_at: str | None = None
     vpn_connection_status = "unknown"
     panel_uuid = getattr(user, "panel_user_uuid", None) or getattr(
         active_sub,
@@ -631,10 +647,10 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
     # user-detail card is where the operator goes to look up a single
     # customer. Mirrors the per-row fetch in _bulk_cornllm_balance_for_users
     # (see users_listing.py) so the wire shape matches the list endpoint.
-    cornllm_payload: Dict[str, Any] = {"state": "none"}
+    cornllm_payload: dict[str, Any] = {"state": "none"}
+    panel_settings = settings.panel_settings if hasattr(settings, "panel_settings") else None
     hermes_mode = (
-        str(getattr(getattr(settings, "panel_settings", None), "write_mode", "") or "").lower()
-        == "hermes"
+        str((panel_settings.write_mode if panel_settings else "") or "").lower() == "hermes"
     )
     if hermes_mode and panel_uuid:
         subscription_service = get_optional_subscription_service(request)
@@ -666,6 +682,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
             "recent_payments": [_serialize_payment(p) for p in recent_payments],
             "log_count": int(log_count or 0),
             "subscription_url": subscription_url,
+            "install_share_url": install_share_url,
             "last_vpn_connected_at": last_vpn_connected_at,
             "vpn_connection_status": vpn_connection_status,
             "cornllm": cornllm_payload,

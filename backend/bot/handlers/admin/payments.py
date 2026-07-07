@@ -1,8 +1,7 @@
 import csv
 import io
 import logging
-from datetime import datetime
-from typing import List, Optional
+from datetime import UTC, datetime
 
 from aiogram import F, Router, types
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
@@ -16,12 +15,14 @@ from config.settings import Settings
 from db.dal import payment_dal
 from db.models import Payment
 
+logger = logging.getLogger(__name__)
+
 router = Router(name="admin_payments_router")
 
 
 async def get_payments_with_pagination(
     session: AsyncSession, page: int = 0, page_size: int = 10
-) -> tuple[List[Payment], int]:
+) -> tuple[list[Payment], int]:
     """Get payments with pagination and total count."""
     offset = page * page_size
 
@@ -94,7 +95,7 @@ async def view_payments_handler(
 ) -> None:
     """Display paginated list of all payments."""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error processing request.", show_alert=True)
         return
@@ -193,7 +194,7 @@ async def export_payments_csv_handler(
 ) -> None:
     """Export all successful payments to CSV file."""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await callback.answer("Language service error.", show_alert=True)
         return
@@ -267,7 +268,7 @@ async def export_payments_csv_handler(
         output.close()
 
         # Generate filename with current date
-        current_time = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        current_time = datetime.now(UTC).strftime("%Y-%m-%d_%H-%M")
         filename = f"payments_export_{current_time}.csv"
 
         # Send file
@@ -282,7 +283,7 @@ async def export_payments_csv_handler(
         await callback.answer(_("admin_export_sent"), show_alert=False)
 
     except Exception as e:
-        logging.error(f"Failed to export payments CSV: {e}", exc_info=True)
+        logger.exception("Failed to export payments CSV: %s", e)
         await callback.answer(_("tg_admin_export_failed", error=str(e)), show_alert=True)
 
 

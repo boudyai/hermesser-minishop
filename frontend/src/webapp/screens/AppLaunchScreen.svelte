@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { onMount } from "svelte";
 
   import BrandMark from "$lib/webapp/BrandMark.svelte";
@@ -8,31 +8,42 @@
   const DONE_STATE_DELAY_MS = 900;
   const CLOSE_ATTEMPT_DELAY_MS = 2500;
 
+  type LaunchState = "done" | "manual" | "opening" | "unavailable";
+  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+
+  type Props = {
+    appLaunchTarget?: string;
+    brand?: Record<string, unknown>;
+    openAppLaunchTarget?: (target: string) => boolean | void;
+    refreshAppLaunchTarget?: () => string;
+    t?: Translate;
+  };
+
   let {
     brand = {},
     appLaunchTarget = "",
     refreshAppLaunchTarget = () => appLaunchTarget,
     openAppLaunchTarget = () => false,
     t = (_key, _params = {}, fallback = "") => fallback,
-  } = $props();
+  }: Props = $props();
 
   let activeTarget = $state("");
-  let state = $state("unavailable");
+  let launchState = $state<LaunchState>("unavailable");
   let attempted = $state(false);
   let pageLeft = $state(false);
-  let autoOpenTimer = null;
-  let manualStateTimer = null;
-  let doneStateTimer = null;
-  let closeAttemptTimer = null;
+  let autoOpenTimer = $state<number | null>(null);
+  let manualStateTimer = $state<number | null>(null);
+  let doneStateTimer = $state<number | null>(null);
+  let closeAttemptTimer = $state<number | null>(null);
 
   $effect.pre(() => {
     if (attempted || appLaunchTarget === activeTarget) return;
     activeTarget = appLaunchTarget;
-    state = activeTarget ? "opening" : "unavailable";
+    launchState = activeTarget ? "opening" : "unavailable";
   });
 
-  const isDone = $derived(state === "done");
-  const isUnavailable = $derived(state === "unavailable");
+  const isDone = $derived(launchState === "done");
+  const isUnavailable = $derived(launchState === "unavailable");
   const title = $derived(
     isUnavailable
       ? t("wa_app_launch_unavailable_title", {}, "App link unavailable")
@@ -45,7 +56,7 @@
       ? t("wa_app_launch_unavailable_hint", {}, "Return to Telegram and try again.")
       : isDone
         ? t("wa_app_launch_done_hint", {}, "If the app opened, you can close this window.")
-        : state === "manual"
+        : launchState === "manual"
           ? t(
               "wa_app_launch_hint",
               {},
@@ -75,14 +86,14 @@
     };
   });
 
-  function clearTimer(timer) {
+  function clearTimer(timer: number | null) {
     if (timer) window.clearTimeout(timer);
   }
 
-  function refreshTarget() {
+  function refreshTarget(): string {
     const target = String(refreshAppLaunchTarget?.() || appLaunchTarget || "").trim();
     activeTarget = target;
-    if (!activeTarget) state = "unavailable";
+    if (!activeTarget) launchState = "unavailable";
     return activeTarget;
   }
 
@@ -95,8 +106,8 @@
   }
 
   function markDone() {
-    if (!attempted || state === "done" || !activeTarget) return;
-    state = "done";
+    if (!attempted || launchState === "done" || !activeTarget) return;
+    launchState = "done";
     clearTimer(closeAttemptTimer);
     closeAttemptTimer = window.setTimeout(() => {
       if (pageLeft || document.hidden) tryCloseWindow();
@@ -119,27 +130,27 @@
     if (pageLeft) markDone();
   }
 
-  function openTarget() {
+  function openTarget(): void {
     const target = refreshTarget();
     if (!target) {
-      state = "unavailable";
+      launchState = "unavailable";
       return;
     }
 
     attempted = true;
     pageLeft = false;
-    state = "opening";
+    launchState = "opening";
     openAppLaunchTarget(target);
 
     clearTimer(manualStateTimer);
     manualStateTimer = window.setTimeout(() => {
-      if (state === "opening" && !pageLeft) state = "manual";
+      if (launchState === "opening" && !pageLeft) launchState = "manual";
     }, MANUAL_STATE_DELAY_MS);
   }
 
-  function closeWindow() {
+  function closeWindow(): void {
     tryCloseWindow();
-    state = "done";
+    launchState = "done";
   }
 </script>
 

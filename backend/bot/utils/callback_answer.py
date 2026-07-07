@@ -5,6 +5,8 @@ from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from aiogram.types import CallbackQuery, Message, User
 
+logger = logging.getLogger(__name__)
+
 _EXPIRED_CALLBACK_MARKERS = (
     "query is too old",
     "response timeout expired",
@@ -74,13 +76,13 @@ async def safe_answer_callback(
     except TelegramBadRequest as error:
         user_id = getattr(getattr(callback, "from_user", None), "id", "unknown")
         if is_expired_callback_answer_error(error):
-            logging.info(
+            logger.info(
                 "Ignored expired callback answer for user %s: %s",
                 user_id,
                 error,
             )
             return False
-        logging.warning(
+        logger.warning(
             "Failed to answer callback query for user %s: %s",
             user_id,
             error,
@@ -88,7 +90,7 @@ async def safe_answer_callback(
         return False
     except TelegramAPIError as error:
         user_id = getattr(getattr(callback, "from_user", None), "id", "unknown")
-        logging.warning(
+        logger.warning(
             "Telegram API error while answering callback query for user %s: %s",
             user_id,
             error,

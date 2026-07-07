@@ -18,9 +18,9 @@ from __future__ import annotations
 
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import bot.app.web.subscription_webapp  # noqa: F401 — populates _runtime
 from bot.app.web.webapp.contract_schemas import WEBAPP_SUBSCRIPTION_SCHEMA
@@ -61,11 +61,11 @@ def _make_settings(tmpdir: str) -> Settings:
     )
 
 
-def _active(**overrides: Any) -> Dict[str, Any]:
-    base: Dict[str, Any] = {
+def _active(**overrides: Any) -> dict[str, Any]:
+    base: dict[str, Any] = {
         "tariff_key": "standard",
         "status_from_panel": "ACTIVE",
-        "end_date": datetime.now(timezone.utc) + timedelta(days=30),
+        "end_date": datetime.now(UTC) + timedelta(days=30),
         "traffic_limit_bytes": 0,
         "traffic_used_bytes": 0,
         "premium_baseline_bytes": 0,

@@ -1,16 +1,17 @@
 import asyncio
 import logging
 from datetime import datetime
-from typing import Optional
 
 from .lknpd_client import LknpdApiError, LknpdClient, PaymentType
+
+logger = logging.getLogger(__name__)
 
 
 class LknpdService:
     def __init__(
         self,
-        inn: Optional[str],
-        password: Optional[str],
+        inn: str | None,
+        password: str | None,
         api_url: str = "https://lknpd.nalog.ru/api",
     ) -> None:
         self.inn = inn.strip() if inn else None
@@ -20,7 +21,7 @@ class LknpdService:
         self._auth_lock = asyncio.Lock()
 
         if not self.configured:
-            logging.warning("LKNPD credentials are missing. Receipt sending disabled.")
+            logger.warning("LKNPD credentials are missing. Receipt sending disabled.")
 
     async def _ensure_authenticated(self) -> bool:
         if not self._client or not self.inn or not self.password:
@@ -34,7 +35,7 @@ class LknpdService:
                 await self._client.authenticate(self.inn, self.password)
                 return True
             except LknpdApiError:
-                logging.exception("LKNPD authentication failed.")
+                logger.exception("LKNPD authentication failed.")
                 return False
 
     async def create_income_receipt(
@@ -43,8 +44,8 @@ class LknpdService:
         item_name: str,
         amount: float,
         quantity: float = 1.0,
-        operation_time: Optional[datetime] = None,
-    ) -> Optional[str]:
+        operation_time: datetime | None = None,
+    ) -> str | None:
         if not self.configured:
             return None
         if not await self._ensure_authenticated():
@@ -63,10 +64,10 @@ class LknpdService:
                 operation_time=operation_time,
             )
             if not receipt_uuid:
-                logging.info("LKNPD receipt created without a UUID in response.")
+                logger.info("LKNPD receipt created without a UUID in response.")
             return receipt_uuid if isinstance(receipt_uuid, str) else None
         except LknpdApiError:
-            logging.exception("Failed to create LKNPD receipt.")
+            logger.exception("Failed to create LKNPD receipt.")
             return None
 
     async def close(self) -> None:

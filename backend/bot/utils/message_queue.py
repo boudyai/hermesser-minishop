@@ -1,9 +1,10 @@
 import asyncio
 import logging
 from collections import deque
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Any, Awaitable, Callable, Dict, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest
@@ -13,6 +14,8 @@ from bot.utils.telegram_markup import (
     remove_profile_link_buttons,
 )
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class QueuedMessage:
@@ -20,8 +23,8 @@ class QueuedMessage:
 
     chat_id: int
     method_name: str  # 'send_message', 'edit_message_text', etc.
-    kwargs: Dict[str, Any]
-    callback: Optional[Callable[[Any], Awaitable[None]]] = None  # Optional callback for result
+    kwargs: dict[str, Any]
+    callback: Callable[[Any], Awaitable[None]] | None = None  # Optional callback for result
 
 
 class MessageQueue:
@@ -41,13 +44,22 @@ class MessageQueue:
         self.delay_between_messages = 1.0 / messages_per_second
         self.total_sent = 0
         self.total_failed = 0
-        self._chat_last_sent: Dict[int, datetime] = {}
+        self._chat_last_sent: dict[int, datetime] = {}
+        self._processing_task: asyncio.Task[None] | None = None
 
     async def add_message(self, message: QueuedMessage) -> None:
         """Add message to queue"""
         self.queue.append(message)
-        if not self.is_processing:
-            asyncio.create_task(self._process_queue())
+        if not self.is_processing and (
+            self._processing_task is None or self._processing_task.done()
+        ):
+            task = asyncio.create_task(self._process_queue())
+            self._processing_task = task
+            task.add_done_callback(self._forget_processing_task)
+
+    def _forget_processing_task(self, task: asyncio.Task[None]) -> None:
+        if self._processing_task is task:
+            self._processing_task = None
 
     async def _process_queue(self) -> None:
         """Process messages from queue with rate limiting"""
@@ -70,7 +82,7 @@ class MessageQueue:
                 except TelegramBadRequest as exc:
                     fallback_message = self._build_profile_link_fallback(message, exc)
                     if fallback_message:
-                        logging.warning(
+                        logger.warning(
                             "Telegram rejected profile buttons for chat %s: %s. "
                             "Retrying without tg:// links.",
                             message.chat_id,
@@ -82,24 +94,26 @@ class MessageQueue:
                             continue
                         except Exception as retry_exc:
                             self.total_failed += 1
-                            logging.error(
-                                f"Failed to send fallback message to {message.chat_id}: {retry_exc}"
+                            logger.error(
+                                "Failed to send fallback message to %s: %s",
+                                message.chat_id,
+                                retry_exc,
                             )
                             continue
 
                     self.total_failed += 1
-                    logging.error(f"Failed to send queued message to {message.chat_id}: {exc}")
+                    logger.error("Failed to send queued message to %s: %s", message.chat_id, exc)
 
                 except Exception:
                     self.total_failed += 1
-                    logging.exception("Failed to send queued message to %s.", message.chat_id)
+                    logger.exception("Failed to send queued message to %s.", message.chat_id)
 
         finally:
             self.is_processing = False
 
-    async def _wait_if_needed(self, chat_id: Optional[int] = None) -> None:
+    async def _wait_if_needed(self, chat_id: int | None = None) -> None:
         """Wait if we need to respect global and per-chat rate limits."""
-        now = datetime.now()
+        now = datetime.now(UTC)
         waits: list[float] = []
 
         if self.last_send_times:
@@ -117,9 +131,9 @@ class MessageQueue:
         if waits:
             await asyncio.sleep(max(waits))
 
-    def _record_send_time(self, chat_id: Optional[int] = None) -> None:
+    def _record_send_time(self, chat_id: int | None = None) -> None:
         """Track sent message timestamps and purge old entries for rate limiting."""
-        now = datetime.now()
+        now = datetime.now(UTC)
         self.last_send_times.append(now)
         self.total_sent += 1
 
@@ -136,7 +150,7 @@ class MessageQueue:
 
     def _build_profile_link_fallback(
         self, message: QueuedMessage, exc: Exception
-    ) -> Optional[QueuedMessage]:
+    ) -> QueuedMessage | None:
         """Create a fallback message without tg://user buttons when Telegram rejects them."""
         if not is_profile_link_error(exc):
             return None
@@ -267,7 +281,7 @@ class MessageQueueManager:
         """Send callback query answer immediately (not rate limited)"""
         await self.bot.answer_callback_query(callback_query_id, **kwargs)
 
-    def get_queue_stats(self) -> Dict[str, Any]:
+    def get_queue_stats(self) -> dict[str, Any]:
         """Get statistics about queues"""
         return {
             "group_queue_size": len(self.group_queue.queue),
@@ -284,7 +298,7 @@ class MessageQueueManager:
 
 
 # Global queue manager instance
-_queue_manager: Optional[MessageQueueManager] = None
+_queue_manager: MessageQueueManager | None = None
 
 
 def init_queue_manager(bot: Bot) -> MessageQueueManager:
@@ -294,6 +308,6 @@ def init_queue_manager(bot: Bot) -> MessageQueueManager:
     return _queue_manager
 
 
-def get_queue_manager() -> Optional[MessageQueueManager]:
+def get_queue_manager() -> MessageQueueManager | None:
     """Get global queue manager instance"""
     return _queue_manager

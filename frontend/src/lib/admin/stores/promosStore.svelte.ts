@@ -2,11 +2,9 @@ import { adminErrorMessage } from "../errors.js";
 import { copyTextToClipboard } from "../../webapp/clipboard.js";
 import {
   unwrap,
-  type ApiResponse,
   type ApiClient,
   type GetResponse,
   type PostPayload,
-  type PostResponse,
   buildAdminPromoActivationsPath,
   buildAdminPromosPath,
   buildAdminPromoPath,
@@ -22,10 +20,7 @@ import {
 } from "./adminQueryCache";
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
-type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
-  path: Path,
-  options?: Parameters<ApiClient["api"]>[1]
-) => Promise<ApiResponse<Path> | AdminErrorResponse>;
+type AdminApi = ApiClient["api"];
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type Promo = components["schemas"]["PromoOut"];
@@ -43,13 +38,7 @@ type PromoEffectPayload = {
   traffic_multiplier?: number | null;
   bonus_requires_payment?: boolean | null;
 };
-type PromoPatchResponse = Extract<ApiResponse<"/api/admin/promos/{promo_id}">, { promo: Promo }>;
-type PromoDeleteResponse = Extract<
-  ApiResponse<"/api/admin/promos/{promo_id}">,
-  { ok: true; promo?: never }
->;
 type PromosListResponse = GetResponse<"/api/admin/promos">;
-type PromoCreateResponse = PostResponse<"/api/admin/promos">;
 type PromoActivationsResponse = GetResponse<"/api/admin/promos/{promo_id}/activations">;
 type PromosState = {
   promos: Promo[];
@@ -103,9 +92,9 @@ const PROMOS_QUERY_KEY = ["admin", "promos"] as const;
 const PROMO_ACTIVATIONS_QUERY_KEY = ["admin", "promos", "activations"] as const;
 
 class AdminPromosError extends Error {
-  payload: AdminErrorResponse;
+  payload: unknown;
 
-  constructor(message: string, payload: AdminErrorResponse) {
+  constructor(message: string, payload: unknown) {
     super(message);
     this.payload = payload;
   }
@@ -241,8 +230,7 @@ export function createPromosStore({
       page: String(page),
       page_size: String(PROMOS_PAGE_SIZE),
     });
-    const data = (await api(buildAdminPromosPath(params))) as
-      PromosListResponse | AdminErrorResponse;
+    const data = await api(buildAdminPromosPath(params));
     if (!isOkResponse(data)) {
       throw new AdminPromosError(adminErrorMessage(data, at, "Error"), data);
     }
@@ -267,8 +255,7 @@ export function createPromosStore({
       page: String(page),
       page_size: String(ACTIVATIONS_PAGE_SIZE),
     });
-    const data = (await api(buildAdminPromoActivationsPath(promoId, params))) as
-      PromoActivationsResponse | AdminErrorResponse;
+    const data = await api(buildAdminPromoActivationsPath(promoId, params));
     if (!isOkResponse(data)) {
       throw new AdminPromosError(adminErrorMessage(data, at, "Error"), data);
     }
@@ -307,10 +294,10 @@ export function createPromosStore({
   async function createPromo(): Promise<void> {
     const draft = normalizeEffectPayload(snapshotForPayload(state.promoDraft));
 
-    const res = (await api(buildAdminPromosPath(), {
+    const res = await api(buildAdminPromosPath(), {
       method: "POST",
       body: JSON.stringify(draft satisfies PostPayload<"/api/admin/promos">),
-    })) as PromoCreateResponse | AdminErrorResponse;
+    });
 
     if (isOkResponse(res)) {
       invalidatePromosQueries();
@@ -328,10 +315,10 @@ export function createPromosStore({
     if (!promo) return;
     const path = buildAdminPromoPath(promo.id);
     const draft = normalizeEffectPayload(snapshotForPayload(state.promoEditDraft));
-    const res = (await api(path, {
-      method: "PATCH",
+    const res = await api(path, {
+      method: "PATCH" as const,
       body: JSON.stringify(draft),
-    })) as PromoPatchResponse | AdminErrorResponse;
+    });
     if (isOkResponse(res)) {
       invalidatePromosQueries();
       const payload = unwrap(res);
@@ -349,10 +336,10 @@ export function createPromosStore({
     const promoSnapshot = snapshotForPayload(promo);
     const path = buildAdminPromoPath(promoSnapshot.id);
     const body = { is_active: !promoSnapshot.is_active } satisfies Partial<PromoPatch>;
-    const res = (await api(path, {
-      method: "PATCH",
+    const res = await api(path, {
+      method: "PATCH" as const,
       body: JSON.stringify(body),
-    })) as PromoPatchResponse | AdminErrorResponse;
+    });
     if (isOkResponse(res)) {
       invalidatePromosQueries();
       const payload = unwrap(res);
@@ -364,7 +351,7 @@ export function createPromosStore({
 
   async function deletePromo(promo: Promo): Promise<void> {
     const path = buildAdminPromoPath(promo.id);
-    const res = (await api(path, { method: "DELETE" })) as PromoDeleteResponse | AdminErrorResponse;
+    const res = await api(path, { method: "DELETE" });
     if (isOkResponse(res)) {
       invalidatePromosQueries();
       promos = promos.filter((p) => p.id !== promo.id);

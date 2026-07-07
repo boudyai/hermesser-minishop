@@ -1,7 +1,8 @@
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, Protocol
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
@@ -19,20 +20,14 @@ from config.traffic_strategy import canonical_traffic_limit_strategy
 from db.dal import tariff_dal, user_dal
 from db.models import Subscription
 
-PREMIUM_WARNING_LEVEL_OFFSET = 1000
-# Single warning per premium billing period when usage reached or exceeded the quota.
-PREMIUM_WARNING_DEPLETED_LEVEL = PREMIUM_WARNING_LEVEL_OFFSET + 100
+from .tariff_worker_shared import (
+    TARIFF_WORKER_BATCH_SIZE,
+    TARIFF_WORKER_BULK_PANEL_FETCH_THRESHOLD,
+    TARIFF_WORKER_PANEL_CONCURRENCY,
+    deliver_traffic_warning,
+)
 
-# Process active subscriptions in chunks and prefetch panel data concurrently
-# to avoid an N+1 serial chain to the Remnawave panel each tick.
-TARIFF_WORKER_BATCH_SIZE = 50
-TARIFF_WORKER_PANEL_CONCURRENCY = 10
-TARIFF_WORKER_BULK_PANEL_FETCH_THRESHOLD = 50
-TARIFF_WORKER_SQUAD_CONFIRMATION_CACHE_TTL_SECONDS = 900
-TARIFF_WORKER_DB_RETRY_ATTEMPTS = 3
-TARIFF_WORKER_DB_RETRY_BASE_SLEEP_SECONDS = 0.5
-POSTGRES_RETRYABLE_SQLSTATES = {"40001", "40P01"}
-POSTGRES_RETRYABLE_ERROR_NAMES = {"DeadlockDetectedError", "SerializationError"}
+logger = logging.getLogger(__name__)
 
 
 class _RegularTariff(Protocol):
@@ -46,18 +41,18 @@ class TariffWorkerRegularMixin:
     settings: Settings
     panel_service: PanelApiService
     subscription_service: SubscriptionService
-    bot: Optional[Bot]
-    i18n: Optional[JsonI18n]
+    bot: Bot | None
+    i18n: JsonI18n | None
     _premium_node_usage_tick_cache: dict[
         tuple[str, str, str],
-        Optional[dict[str, dict[Any, int]]],
+        dict[str, dict[Any, int]] | None,
     ]
 
     if TYPE_CHECKING:
         REGULAR_RESET_NOTICE_LEVEL: int
 
         def _is_trial_subscription(self, sub: Subscription) -> bool: ...
-        def _trial_premium_tariff(self) -> Optional[Any]: ...
+        def _trial_premium_tariff(self) -> Any | None: ...
         async def _sync_premium_squad_limit(
             self,
             session: AsyncSession,
@@ -65,25 +60,32 @@ class TariffWorkerRegularMixin:
             tariff: Any,
             now: datetime,
             *,
-            panel_username: Optional[str] = None,
-            panel_user_dict: Optional[dict] = None,
+            panel_username: str | None = None,
+            panel_user_dict: dict | None = None,
             panel_view: str = "unknown",
         ) -> None: ...
         async def _user_lang(self, session: AsyncSession, user_id: int) -> str: ...
         def _period_tariff_traffic_strategy(self) -> str: ...
         def _usage_placeholders(self, used_bytes: int, limit_bytes: int) -> dict: ...
+        def _panel_next_traffic_reset_at(
+            self,
+            panel_user_data: dict[str, Any] | None,
+            *,
+            now: datetime | None = None,
+        ) -> datetime | None: ...
         def _traffic_next_reset_note(
             self,
             translate: Callable[..., str],
             *,
             kind: str,
-            period_start_at: Optional[datetime],
+            period_start_at: datetime | None,
             reset_available_bytes: int,
             user_lang: str,
+            next_reset_at: datetime | None = None,
         ) -> str: ...
         def _traffic_topup_markup(
             self, user_lang: str, kind: str
-        ) -> Optional[InlineKeyboardMarkup]: ...
+        ) -> InlineKeyboardMarkup | None: ...
         async def _send_traffic_warning_email(
             self,
             session: AsyncSession,
@@ -112,7 +114,7 @@ class TariffWorkerRegularMixin:
         ) -> None: ...
 
     async def traffic_period_tick(self, session: AsyncSession) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         self._premium_node_usage_tick_cache = {}
         warning_period_start = month_start(now)
         tracked_subscriptions_filter = Subscription.tariff_key.is_not(None)
@@ -163,7 +165,7 @@ class TariffWorkerRegularMixin:
                         sub.panel_user_uuid, log_response=False
                     )
                 except Exception:
-                    logging.exception(
+                    logger.exception(
                         "TariffTrafficWorker: failed to fetch panel user %s",
                         sub.panel_user_uuid,
                     )
@@ -181,7 +183,7 @@ class TariffWorkerRegularMixin:
         for chunk_start in range(0, len(subs), TARIFF_WORKER_BATCH_SIZE):
             chunk = subs[chunk_start : chunk_start + TARIFF_WORKER_BATCH_SIZE]
             panel_payloads = await asyncio.gather(*(_fetch_panel(s) for s in chunk))
-            for sub, panel_data in zip(chunk, panel_payloads):
+            for sub, panel_data in zip(chunk, panel_payloads, strict=True):
                 if not panel_data:
                     continue
                 trial_premium_subscription = bool(
@@ -226,6 +228,7 @@ class TariffWorkerRegularMixin:
                     )
                     sub.period_start_at = warning_period_start
                 if not trial_premium_subscription:
+                    panel_next_reset_at = self._panel_next_traffic_reset_at(panel_data, now=now)
                     await self._sync_hwid_device_limit(session, sub, tariff, panel_data)
                     await self._maybe_warn_or_throttle(
                         session,
@@ -236,6 +239,7 @@ class TariffWorkerRegularMixin:
                         warning_period_start=warning_period_start
                         if tariff.billing_model == "period"
                         else None,
+                        next_reset_at=panel_next_reset_at,
                     )
 
                 await self._sync_premium_squad_limit(
@@ -251,7 +255,7 @@ class TariffWorkerRegularMixin:
     async def _prefetch_panel_users_by_uuid(
         self,
         subs: list[Subscription],
-    ) -> Optional[dict[str, dict]]:
+    ) -> dict[str, dict] | None:
         threshold = int(
             getattr(
                 self.settings,
@@ -265,7 +269,7 @@ class TariffWorkerRegularMixin:
         try:
             panel_users = await self.panel_service.get_all_panel_users(log_responses=False)
         except Exception:
-            logging.exception("TariffTrafficWorker: failed to bulk-prefetch panel users")
+            logger.exception("TariffTrafficWorker: failed to bulk-prefetch panel users")
             return None
         if not panel_users:
             return None
@@ -280,7 +284,7 @@ class TariffWorkerRegularMixin:
         if not by_uuid:
             return None
         matched = sum(1 for sub in subs if str(sub.panel_user_uuid) in by_uuid)
-        logging.info(
+        logger.info(
             "metric panel_bulk_user_prefetch users=%s matched=%s active_subscriptions=%s",
             len(by_uuid),
             matched,
@@ -293,7 +297,7 @@ class TariffWorkerRegularMixin:
         session: AsyncSession,
         sub: Subscription,
         *,
-        panel_users_by_uuid: Optional[dict[str, dict]],
+        panel_users_by_uuid: dict[str, dict] | None,
         semaphore: asyncio.Semaphore,
         confirmed_missing: bool,
     ) -> dict:
@@ -317,13 +321,13 @@ class TariffWorkerRegularMixin:
                             log_response=False,
                         )
                     except Exception:
-                        logging.exception(
+                        logger.exception(
                             "TariffTrafficWorker: failed to fetch canonical panel user %s",
                             canonical_uuid,
                         )
                         panel_user = None
             if panel_user:
-                logging.warning(
+                logger.warning(
                     "TariffTrafficWorker: repaired subscription %s panel UUID %s -> %s",
                     sub.subscription_id,
                     current_uuid,
@@ -336,13 +340,13 @@ class TariffWorkerRegularMixin:
             sub.is_active = False
             sub.skip_notifications = True
             sub.status_from_panel = "PANEL_USER_NOT_FOUND"
-            logging.warning(
+            logger.warning(
                 "TariffTrafficWorker: deactivated subscription %s because panel user %s is missing",
                 sub.subscription_id,
                 current_uuid,
             )
         else:
-            logging.warning(
+            logger.warning(
                 "TariffTrafficWorker: skipping subscription %s because panel user %s "
                 "could not be fetched",
                 sub.subscription_id,
@@ -351,7 +355,7 @@ class TariffWorkerRegularMixin:
         return {}
 
     @staticmethod
-    def _same_regular_period(value: Optional[datetime], period_start: datetime) -> bool:
+    def _same_regular_period(value: datetime | None, period_start: datetime) -> bool:
         if value is None:
             return False
         try:
@@ -363,8 +367,8 @@ class TariffWorkerRegularMixin:
         self,
         sub: Subscription,
         tariff: _RegularTariff,
-        limit: Optional[int],
-        panel_strategy: Optional[str],
+        limit: int | None,
+        panel_strategy: str | None,
     ) -> None:
         target_strategy = self._period_tariff_traffic_strategy()
         if canonical_traffic_limit_strategy(panel_strategy) == target_strategy:
@@ -414,7 +418,7 @@ class TariffWorkerRegularMixin:
         active_extra = await tariff_dal.sum_active_hwid_devices(
             session,
             subscription_id=sub.subscription_id,
-            at=datetime.now(timezone.utc),
+            at=datetime.now(UTC),
         )
         update_data = {}
         if sub.hwid_device_limit != base_hwid_limit:
@@ -451,7 +455,7 @@ class TariffWorkerRegularMixin:
             log_response=False,
         )
         if not updated_panel or updated_panel.get("error"):
-            logging.warning(
+            logger.warning(
                 "TariffTrafficWorker: failed to sync HWID limit for subscription %s: %s",
                 sub.subscription_id,
                 updated_panel,
@@ -462,11 +466,11 @@ class TariffWorkerRegularMixin:
         session: AsyncSession,
         sub: Subscription,
         tariff: _RegularTariff,
-        used: Optional[int],
-        limit: Optional[int],
+        used: int | None,
+        limit: int | None,
         period_start_at: datetime,
         *,
-        previous_period_start: Optional[datetime],
+        previous_period_start: datetime | None,
     ) -> None:
         if self._period_tariff_traffic_strategy() == "NO_RESET":
             return
@@ -551,10 +555,11 @@ class TariffWorkerRegularMixin:
         session: AsyncSession,
         sub: Subscription,
         tariff: _RegularTariff,
-        used: Optional[int],
-        limit: Optional[int],
+        used: int | None,
+        limit: int | None,
         *,
-        warning_period_start: Optional[datetime] = None,
+        warning_period_start: datetime | None = None,
+        next_reset_at: datetime | None = None,
     ) -> None:
         if bool(getattr(sub, "regular_unlimited_override", False)):
             return
@@ -588,7 +593,7 @@ class TariffWorkerRegularMixin:
             )
             user_lang = await self._user_lang(session, sub.user_id)
             _ = (
-                (lambda k, **kw: self.i18n.gettext(user_lang, k, **kw))
+                (lambda k, _user_lang=user_lang, **kw: self.i18n.gettext(_user_lang, k, **kw))
                 if self.i18n
                 else (lambda k, **kw: k)
             )
@@ -601,6 +606,7 @@ class TariffWorkerRegularMixin:
                 period_start_at=warning_period_start if tariff.billing_model == "period" else None,
                 reset_available_bytes=limit_val,
                 user_lang=user_lang,
+                next_reset_at=next_reset_at,
             )
             if level < 100:
                 text = _(
@@ -628,36 +634,24 @@ class TariffWorkerRegularMixin:
                 f"kind=regular warning_key={warning_key} level={level} "
                 f"used_bytes={used_val} limit_bytes={limit_val}"
             )
-            if self.bot:
-                try:
-                    markup = self._traffic_topup_markup(user_lang, "regular")
-                    await self.bot.send_message(
-                        sub.user_id,
-                        text,
-                        reply_markup=markup,
-                        parse_mode="HTML",
-                    )
-                    await log_user_message_delivery(
-                        session,
-                        target_user_id=sub.user_id,
-                        event_type="telegram_traffic_warning_sent",
-                        channel="telegram",
-                        recipient=str(sub.user_id),
-                        content=audit_content,
-                    )
-                except Exception:
-                    logging.exception("Failed to send traffic warning to user %s", sub.user_id)
-            await self._send_traffic_warning_email(
+            markup = self._traffic_topup_markup(user_lang, "regular") if self.bot else None
+            await deliver_traffic_warning(
                 session,
                 user_id=sub.user_id,
+                bot=self.bot,
+                text=text,
+                markup=markup,
+                audit_content=audit_content,
+                audit_logger=log_user_message_delivery,
+                email_sender=self._send_traffic_warning_email,
                 subject_key=subject_key,
-                message_text=text,
                 kind="regular",
                 warning_key=warning_key,
-                audit_content=audit_content,
+                logger=logger,
+                telegram_failure_message="Failed to send traffic warning to user %s",
             )
         if ratio >= 1.0 and not sub.is_throttled:
-            logging.info(
+            logger.info(
                 "Tariff traffic limit reached for user %s subscription %s. "
                 "Leaving access control to Remnawave status handling.",
                 sub.user_id,

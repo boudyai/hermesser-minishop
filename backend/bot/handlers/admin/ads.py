@@ -1,5 +1,5 @@
+import contextlib
 import logging
-from typing import Optional
 
 from aiogram import F, Router, types
 from aiogram.filters import StateFilter
@@ -12,6 +12,8 @@ from bot.utils.callback_answer import callback_data, callback_message
 from config.settings import Settings
 from db.dal import ad_dal
 
+logger = logging.getLogger(__name__)
+
 router = Router(name="admin_ads_router")
 
 
@@ -23,7 +25,7 @@ async def show_ads_menu(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     if not i18n or not callback.message:
@@ -54,10 +56,8 @@ async def show_ads_menu(
             i18n, current_lang, campaigns, current_page, total_pages
         )
     await callback_message(callback).edit_text(text, reply_markup=reply_markup)
-    try:
+    with contextlib.suppress(Exception):
         await callback.answer()
-    except Exception:
-        pass
 
 
 @router.callback_query(F.data.startswith("admin_ads:page:"))
@@ -65,7 +65,7 @@ async def ads_list_pagination(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
     if not i18n or not callback.message:
         await callback.answer("Language error.", show_alert=True)
@@ -95,7 +95,7 @@ async def ads_list_pagination(
         await callback_message(callback).edit_text(text, reply_markup=reply_markup)
         await callback.answer()
     except Exception as e:
-        logging.error(f"Failed to paginate ads list: {e}")
+        logger.error("Failed to paginate ads list: %s", e)
         await callback.answer()
 
 
@@ -104,7 +104,7 @@ async def show_ad_card(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
     if not i18n or not callback.message:
         await callback.answer("Language error.", show_alert=True)
@@ -145,7 +145,7 @@ async def show_ad_card(
         )
         await callback.answer()
     except Exception as e:
-        logging.error(f"Failed to show ad card: {e}")
+        logger.error("Failed to show ad card: %s", e)
         await callback.answer()
 
 
@@ -154,7 +154,7 @@ async def ads_delete_prompt(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Language error.", show_alert=True)
         return
@@ -189,7 +189,7 @@ async def ads_delete_cancel(
 ) -> None:
     # Return to the ad card view
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
     if not i18n or not callback.message:
         await callback.answer("Language error.", show_alert=True)
@@ -240,7 +240,7 @@ async def ads_delete_confirm(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
     if not i18n or not callback.message:
         await callback.answer("Language error.", show_alert=True)
@@ -289,7 +289,7 @@ async def ads_create_start(
     from bot.states.admin_states import AdminStates
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     if not i18n or not callback.message:
@@ -298,10 +298,8 @@ async def ads_create_start(
 
     await state.set_state(AdminStates.waiting_for_ad_source)
     await callback_message(callback).edit_text(_("admin_ads_create_source_prompt"))
-    try:
+    with contextlib.suppress(Exception):
         await callback.answer()
-    except Exception:
-        pass
 
 
 @router.message(
@@ -328,7 +326,7 @@ async def ads_create_flow(
         return
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     if current_state == AdminStates.waiting_for_ad_source.state:
@@ -382,7 +380,7 @@ async def ads_create_flow(
             return
         except Exception as e:
             await session.rollback()
-            logging.error(f"Failed to create ad campaign: {e}", exc_info=True)
+            logger.exception("Failed to create ad campaign: %s", e)
             await message.answer(_("error_occurred_try_again"))
             return
 

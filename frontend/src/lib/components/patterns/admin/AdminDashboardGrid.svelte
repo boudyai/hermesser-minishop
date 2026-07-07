@@ -1,7 +1,15 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
+  import type { Snippet } from "svelte";
+  import type { HTMLAttributes } from "svelte/elements";
 
-  let { columns = 1, class: className = "", children, ...restProps } = $props();
+  type Props = Omit<HTMLAttributes<HTMLDivElement>, "children" | "class"> & {
+    children?: Snippet;
+    class?: string;
+    columns?: number;
+  };
+
+  let { columns = 1, class: className = "", children, ...restProps }: Props = $props();
 </script>
 
 <div

@@ -12,6 +12,7 @@
   import { AdminBadge, AdminButton } from "$components/patterns/admin/index.js";
   import Dialog from "$components/ui/dialog.svelte";
   import type { AdminPayment } from "../../lib/admin/stores/paymentsStore";
+  import type { AdminBadgeVariant } from "$components/patterns/admin/types";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type MetaRow = {
@@ -30,7 +31,7 @@
     at?: TranslateFn;
     fmtDate?: (value: string | null | undefined) => string;
     fmtMoney?: (amount: unknown, currency?: string | null) => string;
-    paymentStatusVariant?: (status: string | null | undefined) => string;
+    paymentStatusVariant?: (status: string | null | undefined) => AdminBadgeVariant;
     onOpenUserCard?: (userId: number) => void;
   } = $props();
 

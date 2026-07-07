@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,9 +11,11 @@ from db.models import Subscription
 
 from ._typing import SubscriptionServiceMixinContract
 
+logger = logging.getLogger(__name__)
+
 
 class RenewalMixin(SubscriptionServiceMixinContract):
-    def recurring_service_for(self, provider: Optional[str]) -> RecurringProviderService | None:
+    def recurring_service_for(self, provider: str | None) -> RecurringProviderService | None:
         """Resolve a provider service that can charge a saved payment method."""
         provider_key = str(provider or "").strip().lower()
         if not provider_key:
@@ -36,7 +37,7 @@ class RenewalMixin(SubscriptionServiceMixinContract):
         accepted by the provider, and False when the renewal needs attention.
         """
         if getattr(self.settings, "traffic_sale_mode", False):
-            logging.info("Auto-renew skipped: traffic sale mode enabled")
+            logger.info("Auto-renew skipped: traffic sale mode enabled")
             return True
         if not sub.auto_renew_enabled:
             return True
@@ -46,7 +47,7 @@ class RenewalMixin(SubscriptionServiceMixinContract):
 
         provider = str(getattr(sub, "provider", "") or "").strip().lower()
         if not provider_supports_recurring(provider):
-            logging.info(
+            logger.info(
                 "Auto-renew skipped: provider %s does not support auto-renew",
                 getattr(sub, "provider", None),
             )
@@ -54,20 +55,20 @@ class RenewalMixin(SubscriptionServiceMixinContract):
 
         recurring_service = self.recurring_service_for(provider)
         if not recurring_service:
-            logging.warning("%s unavailable for auto-renew", provider)
+            logger.warning("%s unavailable for auto-renew", provider)
             return False
         if not getattr(recurring_service, "configured", False):
-            logging.warning("%s is not configured for auto-renew", provider)
+            logger.warning("%s is not configured for auto-renew", provider)
             return False
         if not service_supports_recurring(recurring_service):
-            logging.info("Auto-renew skipped: %s recurring charges are disabled", provider)
+            logger.info("Auto-renew skipped: %s recurring charges are disabled", provider)
             return True
 
         from db.dal.user_billing_dal import get_user_default_payment_method
 
         default_pm = await get_user_default_payment_method(session, sub.user_id, provider=provider)
         if not default_pm:
-            logging.info(
+            logger.info(
                 "Auto-renew skipped: no saved %s payment method for user %s",
                 provider,
                 sub.user_id,
@@ -95,7 +96,7 @@ class RenewalMixin(SubscriptionServiceMixinContract):
         if amount is None:
             amount = self.settings.subscription_options.get(months)
         if not amount:
-            logging.error("Auto-renew price missing for %s months", months)
+            logger.error("Auto-renew price missing for %s months", months)
             return False
 
         hwid_quote = None
@@ -114,7 +115,7 @@ class RenewalMixin(SubscriptionServiceMixinContract):
                     currency=default_currency_key_for_settings(self.settings),
                 )
             except Exception:
-                logging.exception(
+                logger.exception(
                     "Failed to quote HWID devices for auto-renew user %s",
                     sub.user_id,
                 )
@@ -164,13 +165,13 @@ class RenewalMixin(SubscriptionServiceMixinContract):
             )
         )
         if not result.initiated:
-            logging.error(
+            logger.error(
                 "Auto-renew saved-method charge failed for provider %s: %s",
                 provider,
                 result.message,
             )
             return False
-        logging.info(
+        logger.info(
             "Auto-renew initiated for user %s provider=%s payment_id=%s status=%s",
             sub.user_id,
             provider,

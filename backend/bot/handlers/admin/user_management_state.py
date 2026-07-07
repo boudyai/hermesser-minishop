@@ -1,6 +1,5 @@
 import logging
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from aiogram import Bot, F, types
 from aiogram.exceptions import TelegramBadRequest
@@ -37,6 +36,8 @@ from .user_management_common import (
 )
 from .user_management_overrides import _admin_hwid_limit_state_text
 
+logger = logging.getLogger(__name__)
+
 
 @router.message(AdminStates.waiting_for_subscription_days_to_add, F.text)
 async def process_subscription_days_handler(
@@ -49,7 +50,7 @@ async def process_subscription_days_handler(
 ) -> None:
     """Process subscription days input"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -128,7 +129,7 @@ async def process_subscription_days_handler(
             await message.answer(_("admin_user_subscription_added_error"))
 
     except Exception as e:
-        logging.error(f"Error adding subscription days for user {target_user_id}: {e}")
+        logger.error("Error adding subscription days for user %s: %s", target_user_id, e)
         await session.rollback()
         await message.answer(_("admin_user_subscription_added_error"))
 
@@ -146,7 +147,7 @@ async def process_direct_message_handler(
 ) -> None:
     """Process direct message to user"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -236,7 +237,7 @@ async def process_direct_message_handler(
             )
 
     except Exception as e:
-        logging.error(f"Error sending direct message to user {target_user_id}: {e}")
+        logger.error("Error sending direct message to user %s: %s", target_user_id, e)
         await message.answer(_("admin_user_message_sent_error"))
 
     await state.clear()
@@ -251,7 +252,7 @@ async def ban_user_prompt_handler(
 ) -> None:
     """Prompt admin to enter user ID or username to ban"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error preparing ban prompt.", show_alert=True)
         return
@@ -264,7 +265,7 @@ async def ban_user_prompt_handler(
             prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
         )
     except Exception as e:
-        logging.warning(f"Could not edit message for ban prompt: {e}. Sending new.")
+        logger.warning("Could not edit message for ban prompt: %s. Sending new.", e)
         await callback_message(callback).answer(
             prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
         )
@@ -282,7 +283,7 @@ async def unban_user_prompt_handler(
 ) -> None:
     """Prompt admin to enter user ID or username to unban"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error preparing unban prompt.", show_alert=True)
         return
@@ -295,7 +296,7 @@ async def unban_user_prompt_handler(
             prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
         )
     except Exception as e:
-        logging.warning(f"Could not edit message for unban prompt: {e}. Sending new.")
+        logger.warning("Could not edit message for unban prompt: %s. Sending new.", e)
         await callback_message(callback).answer(
             prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
         )
@@ -313,7 +314,7 @@ async def view_banned_users_handler(
 ) -> None:
     """Display list of banned users"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error preparing banned users list.", show_alert=True)
         return
@@ -342,7 +343,7 @@ async def view_banned_users_handler(
         )
 
     except Exception as e:
-        logging.error(f"Error displaying banned users: {e}")
+        logger.error("Error displaying banned users: %s", e)
         await callback.answer("Error loading banned users", show_alert=True)
 
 
@@ -357,7 +358,7 @@ async def process_ban_user_handler(
 ) -> None:
     """Process user ban input"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -389,7 +390,7 @@ async def process_ban_user_handler(
         await message.answer(_("admin_user_ban_success", input=hcode(input_text)))
 
     except Exception as e:
-        logging.error(f"Error banning user {user_model.user_id}: {e}")
+        logger.error("Error banning user %s: %s", user_model.user_id, e)
         await session.rollback()
         await message.answer(_("admin_user_ban_error"))
 
@@ -407,7 +408,7 @@ async def process_unban_user_handler(
 ) -> None:
     """Process user unban input"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -439,7 +440,7 @@ async def process_unban_user_handler(
         await message.answer(_("admin_user_unban_success", input=hcode(input_text)))
 
     except Exception as e:
-        logging.error(f"Error unbanning user {user_model.user_id}: {e}")
+        logger.error("Error unbanning user %s: %s", user_model.user_id, e)
         await session.rollback()
         await message.answer(_("admin_user_unban_error"))
 
@@ -457,7 +458,7 @@ async def process_premium_override_bonus_handler(
 ) -> None:
     """Read bonus GB and apply premium override (non-unlimited path)."""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -479,7 +480,7 @@ async def process_premium_override_bonus_handler(
         await message.answer(_("admin_premium_override_invalid_gb"))
         return
 
-    bonus_bytes = int(round(gb * (1024**3)))
+    bonus_bytes = round(gb * (1024**3))
     target_user = await user_dal.get_user_by_id(session, target_user_id)
     if not target_user:
         await message.answer(_("admin_user_not_found_action"))
@@ -506,7 +507,7 @@ async def process_premium_override_bonus_handler(
                 "content": f"unlimited=False bonus_bytes={int(bonus_bytes)}",
                 "is_admin_event": True,
                 "target_user_id": target_user_id,
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": datetime.now(UTC),
             },
         )
         await session.commit()
@@ -543,11 +544,8 @@ async def process_premium_override_bonus_handler(
             parse_mode="HTML",
         )
     except Exception as exc:
-        logging.error(
-            "Error setting premium override bonus for user %s: %s",
-            target_user_id,
-            exc,
-            exc_info=True,
+        logger.exception(
+            "Error setting premium override bonus for user %s: %s", target_user_id, exc
         )
         await session.rollback()
         await message.answer(_("admin_premium_override_save_error"))
@@ -566,7 +564,7 @@ async def process_hwid_device_limit_handler(
 ) -> None:
     """Read explicit HWID device limit and apply it."""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -618,7 +616,7 @@ async def process_hwid_device_limit_handler(
                 ),
                 "is_admin_event": True,
                 "target_user_id": target_user_id,
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": datetime.now(UTC),
             },
         )
         await session.commit()
@@ -653,12 +651,7 @@ async def process_hwid_device_limit_handler(
             parse_mode="HTML",
         )
     except Exception as exc:
-        logging.error(
-            "Error setting HWID device limit for user %s: %s",
-            target_user_id,
-            exc,
-            exc_info=True,
-        )
+        logger.exception("Error setting HWID device limit for user %s: %s", target_user_id, exc)
         await session.rollback()
         await message.answer(_("admin_hwid_limit_save_error"))
     finally:
@@ -676,7 +669,7 @@ async def process_traffic_grant_gb_handler(
 ) -> None:
     """Read GB amount and apply admin grant of regular or premium traffic."""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -725,7 +718,7 @@ async def process_traffic_grant_gb_handler(
                 "content": f"kind={kind} gb={gb_value:g}",
                 "is_admin_event": True,
                 "target_user_id": target_user_id,
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": datetime.now(UTC),
             },
         )
         await session.commit()
@@ -763,13 +756,12 @@ async def process_traffic_grant_gb_handler(
             parse_mode="HTML",
         )
     except Exception as exc:
-        logging.error(
+        logger.exception(
             "Error granting traffic for user %s (kind=%s, gb=%s): %s",
             target_user_id,
             kind,
             gb_value,
             exc,
-            exc_info=True,
         )
         await session.rollback()
         await message.answer(_("admin_traffic_grant_failed"))
@@ -798,7 +790,7 @@ async def user_card_from_list_handler(
         return
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await callback.answer("Language service error", show_alert=True)
         return
@@ -846,5 +838,5 @@ async def user_card_from_list_handler(
         await callback.answer()
 
     except Exception as e:
-        logging.error(f"Error displaying user card: {e}")
+        logger.error("Error displaying user card: %s", e)
         await callback.answer("Error displaying user card", show_alert=True)

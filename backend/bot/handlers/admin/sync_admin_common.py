@@ -1,8 +1,8 @@
 import asyncio
 import logging
 from collections import Counter
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from aiogram import Router
 
@@ -10,6 +10,8 @@ from bot.services.panel_api_service import PanelApiService
 from bot.utils.text_sanitizer import panel_description_from_profile
 from config.settings import Settings
 from db.models import Subscription, User
+
+logger = logging.getLogger(__name__)
 
 router = Router(name="admin_sync_router")
 
@@ -19,22 +21,22 @@ router = Router(name="admin_sync_router")
 _sync_lock = asyncio.Lock()
 
 
-def _normalize_panel_email(value: Optional[str]) -> Optional[str]:
+def _normalize_panel_email(value: str | None) -> str | None:
     email = (value or "").strip().lower()
     return email or None
 
 
-def _coerce_panel_telegram_id(value: Any) -> Optional[int]:
+def _coerce_panel_telegram_id(value: Any) -> int | None:
     if value in (None, ""):
         return None
     try:
         return int(value)
     except (TypeError, ValueError):
-        logging.warning("Panel user has non-numeric telegramId: %r", value)
+        logger.warning("Panel user has non-numeric telegramId: %r", value)
         return None
 
 
-def _normalize_description(value: Optional[str]) -> str:
+def _normalize_description(value: str | None) -> str:
     return "\n".join((value or "").split()).strip()
 
 
@@ -45,7 +47,7 @@ def _repair_cp1251_mojibake(value: str) -> str:
         return value
 
 
-def _description_variants(value: Optional[str]) -> set[str]:
+def _description_variants(value: str | None) -> set[str]:
     normalized = _normalize_description(value)
     variants = {normalized}
     repaired = _normalize_description(_repair_cp1251_mojibake(normalized))
@@ -54,18 +56,18 @@ def _description_variants(value: Optional[str]) -> set[str]:
     return variants
 
 
-def _description_matches(current: Optional[str], desired: str) -> bool:
+def _description_matches(current: str | None, desired: str) -> bool:
     return bool(_description_variants(current) & _description_variants(desired))
 
 
-def _description_contains_email(value: Optional[str], email: Optional[str]) -> bool:
+def _description_contains_email(value: str | None, email: str | None) -> bool:
     normalized_email = _normalize_panel_email(email)
     if not normalized_email:
         return False
     return normalized_email in _normalize_description(value).lower()
 
 
-def _description_without_email(value: Optional[str], email: Optional[str]) -> str:
+def _description_without_email(value: str | None, email: str | None) -> str:
     normalized_email = _normalize_panel_email(email)
     if not normalized_email:
         return (value or "").strip()
@@ -136,7 +138,7 @@ def _panel_log_value(field: str, value: Any) -> str:
     return _compact_log_value(value)
 
 
-def _parse_panel_datetime(value: Any) -> Optional[datetime]:
+def _parse_panel_datetime(value: Any) -> datetime | None:
     if isinstance(value, datetime):
         return value
     if not value:
@@ -147,7 +149,7 @@ def _parse_panel_datetime(value: Any) -> Optional[datetime]:
         return None
 
 
-def _safe_panel_telegram_id(value: Any) -> Optional[int]:
+def _safe_panel_telegram_id(value: Any) -> int | None:
     if value in (None, ""):
         return None
     try:
@@ -178,7 +180,7 @@ _MISSING = object()
 
 
 def _panel_update_changes(
-    current_panel_user: Optional[dict[str, Any]],
+    current_panel_user: dict[str, Any] | None,
     update_payload: dict[str, Any],
 ) -> list[tuple[str, Any, Any]]:
     current_panel_user = current_panel_user or {}
@@ -230,14 +232,14 @@ def _log_sync_panel_patch(
     user: Any,
     panel_uuid: str,
     update_payload: dict[str, Any],
-    current_panel_user: Optional[dict[str, Any]],
+    current_panel_user: dict[str, Any] | None,
     reasons: list[str],
     panel_view: str = "unknown",
 ) -> list[str]:
     changes = _panel_update_changes(current_panel_user, update_payload)
     changed_fields = [field for field, _old, _new in changes]
     payload_fields = [field for field in update_payload if field != "uuid"]
-    logging.info(
+    logger.info(
         "Sync panel PATCH: source=%s user_id=%s telegram_id=%s panel_uuid=%s "
         "panel_view=%s reasons=%s fields=%s payload_fields=%s changes=%s",
         source,
@@ -339,7 +341,7 @@ async def _panel_identity_view_for_comparison(
     try:
         full_panel_user = await panel_service.get_user_by_uuid(panel_uuid)
     except Exception:
-        logging.exception(
+        logger.exception(
             "Sync: failed to fetch full panel user %s for identity comparison",
             panel_uuid,
         )
@@ -362,22 +364,22 @@ def _panel_description_for_user(user: User) -> str:
     return str(panel_description_from_profile(user.username, user.first_name, user.last_name))
 
 
-def _datetime_matches(current: Optional[datetime], desired: datetime) -> bool:
+def _datetime_matches(current: datetime | None, desired: datetime) -> bool:
     if current is None:
         return False
-    current_dt = current if current.tzinfo else current.replace(tzinfo=timezone.utc)
-    desired_dt = desired if desired.tzinfo else desired.replace(tzinfo=timezone.utc)
-    delta = current_dt.astimezone(timezone.utc) - desired_dt.astimezone(timezone.utc)
+    current_dt = current if current.tzinfo else current.replace(tzinfo=UTC)
+    desired_dt = desired if desired.tzinfo else desired.replace(tzinfo=UTC)
+    delta = current_dt.astimezone(UTC) - desired_dt.astimezone(UTC)
     return abs(delta.total_seconds()) < 1
 
 
 def _as_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
-def _panel_expire_at(panel_user: dict[str, Any]) -> Optional[datetime]:
+def _panel_expire_at(panel_user: dict[str, Any]) -> datetime | None:
     raw_value = panel_user.get("expireAt")
     if not raw_value:
         return None
@@ -387,7 +389,7 @@ def _panel_expire_at(panel_user: dict[str, Any]) -> Optional[datetime]:
         return None
 
 
-def _panel_subscription_uuid(panel_user: dict[str, Any]) -> Optional[str]:
+def _panel_subscription_uuid(panel_user: dict[str, Any]) -> str | None:
     value = panel_user.get("subscriptionUuid") or panel_user.get("shortUuid")
     return str(value) if value else None
 

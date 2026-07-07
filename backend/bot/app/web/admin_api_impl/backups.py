@@ -2,7 +2,7 @@ import logging
 import secrets
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, Optional, cast
+from typing import Any, cast
 
 from aiohttp import web
 from aiohttp.multipart import BodyPartReader
@@ -15,11 +15,8 @@ from bot.app.web.context import (
 from bot.app.web.request_parsing import parse_body_or_400
 from bot.app.web.route_contracts import (
     BINARY_RESPONSE_SCHEMA,
-    STRING_SCHEMA,
     RouteContract,
-    loose_array_schema,
-    loose_object_schema,
-    ok_envelope_with,
+    ok_envelope_for,
     register_contract,
 )
 from bot.infra.redis import redis_lock
@@ -28,9 +25,10 @@ from bot.services.backup_restore_service import (
     BackupArchiveError,
     BackupArchiveInfo,
     BackupRestoreError,
+    BackupRestoreResult,
     BackupRestoreService,
 )
-from bot.services.backup_worker import BackupWorker
+from bot.services.backup_worker import BackupResult, BackupWorker
 from config.settings import Settings
 
 from .auth import (
@@ -39,6 +37,15 @@ from .auth import (
 from .common import (
     _error,
     _ok,
+)
+from .response_schemas import (
+    AdminBackupArchiveOut,
+    AdminBackupCreateOut,
+    AdminBackupCreateResultOut,
+    AdminBackupRestoreOut,
+    AdminBackupRestoreResultOut,
+    AdminBackupsListOut,
+    AdminBackupUploadOut,
 )
 from .schemas import AdminBackupRestoreBody
 
@@ -52,44 +59,61 @@ _BACKUP_UPLOAD_BODY_SCHEMA = {
 register_contract(
     "admin_backups_list_route",
     RouteContract(
-        response_schema=ok_envelope_with(
-            {"backup_dir": STRING_SCHEMA, "archives": loose_array_schema()}
-        )
+        response_schema=ok_envelope_for(AdminBackupsListOut),
+        models=(AdminBackupsListOut,),
     ),
 )
 register_contract(
     "admin_backups_create_route",
     RouteContract(
-        response_schema=ok_envelope_with(
-            {"result": loose_object_schema(), "archive": loose_object_schema()}
-        )
+        response_schema=ok_envelope_for(AdminBackupCreateOut),
+        models=(AdminBackupCreateOut,),
     ),
 )
 register_contract(
     "admin_backups_upload_route",
     RouteContract(
         request_content={"multipart/form-data": _BACKUP_UPLOAD_BODY_SCHEMA},
-        response_schema=ok_envelope_with({"archive": loose_object_schema()}),
+        response_schema=ok_envelope_for(AdminBackupUploadOut),
+        models=(AdminBackupUploadOut,),
     ),
 )
 register_contract(
     "admin_backups_restore_route",
     RouteContract(
         request_model=AdminBackupRestoreBody,
-        response_schema=ok_envelope_with({"result": loose_object_schema()}),
+        response_schema=ok_envelope_for(AdminBackupRestoreOut),
+        models=(AdminBackupRestoreBody, AdminBackupRestoreOut),
     ),
 )
 
 
-def _backup_archive_payload(archive: BackupArchiveInfo) -> Dict[str, Any]:
-    return cast(Dict[str, Any], archive.to_payload())
+def _backup_archive_payload(archive: BackupArchiveInfo) -> dict[str, Any]:
+    return cast(
+        dict[str, Any],
+        AdminBackupArchiveOut.from_archive(archive).model_dump(mode="json"),
+    )
+
+
+def _backup_create_result_payload(result: BackupResult) -> dict[str, Any]:
+    return cast(
+        dict[str, Any],
+        AdminBackupCreateResultOut.from_result(result).model_dump(mode="json"),
+    )
+
+
+def _backup_restore_result_payload(result: BackupRestoreResult) -> dict[str, Any]:
+    return cast(
+        dict[str, Any],
+        AdminBackupRestoreResultOut.from_result(result).model_dump(mode="json"),
+    )
 
 
 async def _read_uploaded_backup_file(request: web.Request) -> BackupArchiveInfo:
     settings: Settings = get_settings(request)
     service = BackupRestoreService(settings)
     backup_dir = service.backup_dir()
-    temp_path: Optional[Path] = None
+    temp_path: Path | None = None
 
     reader = await request.multipart()
     try:
@@ -192,7 +216,7 @@ async def admin_backups_create_route(request: web.Request) -> web.Response:
 
     return _ok(
         {
-            "result": result.to_payload(),
+            "result": _backup_create_result_payload(result),
             "archive": _backup_archive_payload(archive),
         }
     )
@@ -246,4 +270,4 @@ async def admin_backups_restore_route(request: web.Request) -> web.Response:
         except Exception:
             logger.exception("Failed to dispose DB engine after backup restore")
 
-    return _ok({"result": result.to_payload()})
+    return _ok({"result": _backup_restore_result_payload(result)})

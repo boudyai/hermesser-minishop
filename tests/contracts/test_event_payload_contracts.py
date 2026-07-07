@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -23,7 +23,7 @@ from bot.infra.event_payloads import (
     UserRegisteredPayload,
 )
 
-UTC_DT = datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+UTC_DT = datetime(2026, 1, 2, 3, 4, 5, tzinfo=UTC)
 UTC_TEXT = "2026-01-02T03:04:05+00:00"
 
 
@@ -46,7 +46,7 @@ UTC_TEXT = "2026-01-02T03:04:05+00:00"
     ],
 )
 def test_event_payload_names_match_bus_constants(model_cls, event_name):
-    assert model_cls.EVENT_NAME == event_name
+    assert event_name == model_cls.EVENT_NAME
 
 
 def test_every_event_constant_has_exactly_one_payload_model():

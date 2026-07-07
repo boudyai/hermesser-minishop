@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import {
     ArrowLeft,
     CheckCircle2,
@@ -14,22 +15,26 @@
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import { formatTrafficGb } from "../../lib/webapp/formatters.js";
-
-  type AnyRecord = Record<string, any>;
-  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-  type VoidAction = () => void;
-  type ActivateTrialFn = (botToken?: string) => void;
+  import type {
+    AppSettings,
+    ActivateTrialAction,
+    BrandConfig,
+    SubscriptionView,
+    Translate,
+    TrialActivationResult,
+    VoidAction,
+  } from "$lib/webapp/types.js";
 
   type Props = {
-    appSettings?: AnyRecord;
-    brand?: AnyRecord;
+    appSettings?: AppSettings;
+    brand?: BrandConfig;
     brandTitle?: string;
-    subscription?: AnyRecord;
+    subscription?: SubscriptionView;
     trialBusy?: boolean;
     linkTelegramBusy?: boolean;
-    trialResult?: AnyRecord | null;
+    trialResult?: TrialActivationResult | null;
     trialError?: string;
-    activateTrial?: ActivateTrialFn;
+    activateTrial?: ActivateTrialAction;
     linkTelegramAndActivateTrial?: VoidAction;
     openInstallOrConnect?: VoidAction;
     goHome?: VoidAction;
@@ -52,17 +57,20 @@
     t = (key, _params = {}, fallback = "") => fallback || key,
   }: Props = $props();
 
-  let requested = $state(false);
-  let botTokenDraft = $state("");
+  let requested = false;
+  let botToken = $state("");
 
   const trialEnabled = $derived(Boolean(appSettings?.trial_enabled));
   const trialAvailable = $derived(Boolean(appSettings?.trial_available));
   const trialRequiresTelegram = $derived(
     Boolean(trialEnabled && appSettings?.trial_requires_telegram && !subscription?.active)
   );
-  const hermesMode = $derived(
-    String(appSettings?.panel_write_mode || "").toLowerCase() === "hermes"
+  const canRequestTrial = $derived(
+    Boolean(trialEnabled && trialAvailable && !subscription?.active)
   );
+  const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
+  const hasBotToken = $derived(Boolean(appSettings?.has_bot_token));
+  const hermesTokenRequired = $derived(Boolean(hermesMode && canRequestTrial && !hasBotToken));
   const isTrialStatus = $derived(
     Boolean(trialResult?.activated) ||
       String(subscription?.status || "")
@@ -70,14 +78,6 @@
         .includes("TRIAL")
   );
   const hasActiveAccess = $derived(Boolean(subscription?.active || trialResult?.activated));
-  const hermesTokenRequired = $derived(
-    Boolean(hermesMode && !hasActiveAccess && !appSettings?.has_bot_token)
-  );
-  const canRequestTrial = $derived(
-    Boolean(trialEnabled && trialAvailable && !subscription?.active)
-  );
-  const trimmedToken = $derived(botTokenDraft.trim());
-  const canSubmit = $derived(canRequestTrial && (!hermesTokenRequired || trimmedToken.length > 0));
   const successTitle = $derived(
     isTrialStatus
       ? t("wa_trial_activated")
@@ -96,15 +96,18 @@
     return limit > 0 ? formatTrafficGb(limit) : t("wa_unlimited_traffic");
   }
 
-  function submitActivation() {
-    if (requested || trialBusy || !canSubmit) return;
+  onMount(() => {
+    if (!requested && canRequestTrial && !hermesTokenRequired) {
+      requested = true;
+      activateTrial();
+    }
+  });
+
+  function activateTrialWithBotToken(): void {
+    const token = botToken.trim();
+    if (!token) return;
     requested = true;
-    const token = hermesTokenRequired ? trimmedToken : "";
-    activateTrial(token || undefined)
-      .catch(() => {})
-      .finally(() => {
-        requested = false;
-      });
+    activateTrial(token);
   }
 </script>
 
@@ -125,6 +128,37 @@
         <RefreshCw size={27} />
       {:else if hasActiveAccess}
         <CheckCircle2 size={30} />
+      {:else if hermesTokenRequired}
+        <h2>{t("wa_trial_bot_token_title", {}, "Add your bot token")}</h2>
+        <p>
+          {t(
+            "wa_trial_bot_token_hint",
+            {},
+            "Create a bot via @BotFather and paste its token here to activate the trial."
+          )}
+        </p>
+        <dl class="trial-activation-facts">
+          {#if daysLeft > 0}
+            <div>
+              <dt>{t("wa_trial_duration_label", {}, "Срок")}</dt>
+              <dd>{t("wa_trial_days_left", { days: daysLeft }, "{days} days")}</dd>
+            </div>
+          {/if}
+          <div>
+            <dt>{t("wa_trial_traffic_label", {}, "Traffic")}</dt>
+            <dd>{trafficLabel}</dd>
+          </div>
+        </dl>
+        <label class="trial-bot-token-field">
+          <span>{t("wa_trial_bot_token_label", {}, "Bot token")}</span>
+          <input
+            type="text"
+            bind:value={botToken}
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="123456789:ABCdef..."
+          />
+        </label>
       {:else if trialRequiresTelegram}
         <Gift size={30} />
       {:else if trialError || !canRequestTrial}
@@ -160,12 +194,10 @@
               <dd>{t("wa_trial_days_left", { days: daysLeft }, "{days} days")}</dd>
             </div>
           {/if}
-          {#if !hermesMode}
-            <div>
-              <dt>{t("wa_trial_traffic_label", {}, "Traffic")}</dt>
-              <dd>{trafficLabel}</dd>
-            </div>
-          {/if}
+          <div>
+            <dt>{t("wa_trial_traffic_label", {}, "Traffic")}</dt>
+            <dd>{trafficLabel}</dd>
+          </div>
         </dl>
       {:else if trialRequiresTelegram}
         <h2>{t("wa_trial_telegram_required_title", {}, "Привяжите Telegram для триала")}</h2>
@@ -177,7 +209,7 @@
                 daysLeft > 0 ? t("wa_trial_days_left", { days: daysLeft }, "{days} days") : "",
               traffic: trafficLabel,
             },
-            "Link your Telegram account to activate the trial."
+            "Чтобы активировать пробный период, сначала привяжите Telegram."
           )}
         </p>
         <dl class="trial-activation-facts">
@@ -187,61 +219,14 @@
               <dd>{t("wa_trial_days_left", { days: daysLeft }, "{days} days")}</dd>
             </div>
           {/if}
-          {#if !hermesMode}
-            <div>
-              <dt>{t("wa_trial_traffic_label", {}, "Traffic")}</dt>
-              <dd>{trafficLabel}</dd>
-            </div>
-          {/if}
+          <div>
+            <dt>{t("wa_trial_traffic_label", {}, "Traffic")}</dt>
+            <dd>{trafficLabel}</dd>
+          </div>
         </dl>
       {:else if trialError}
         <h2>{t("wa_trial_activation_failed")}</h2>
         <p>{trialError}</p>
-      {:else if canRequestTrial && hermesTokenRequired}
-        <h2>{t("wa_trial_token_required_title", {}, "Укажите токен бота")}</h2>
-        <p>
-          {t(
-            "wa_trial_token_required_hint",
-            {},
-            "Create a bot via @BotFather and paste its token here. The bot will receive messages from your customers."
-          )}
-        </p>
-        <details style="margin: 0 0 10px; font-size: 12px; color: var(--muted);">
-          <summary style="cursor: pointer;">
-            {t("wa_trial_bot_token_steps_title", {}, "How do I get a token?")}
-          </summary>
-          <ol style="padding-left: 20px; margin: 6px 0 0;">
-            <li>
-              {t("wa_trial_bot_token_step_1", {}, "Open")} <a
-                href="https://t.me/BotFather"
-                target="_blank"
-                rel="noopener">@BotFather</a
-              >
-              {t("wa_trial_bot_token_step_1b", {}, "in Telegram")}
-            </li>
-            <li>
-              {t("wa_trial_bot_token_step_2", {}, "Send the command")}
-              <code>/newbot</code>
-            </li>
-            <li>{t("wa_trial_bot_token_step_3", {}, "Pick a name and @username for the bot")}</li>
-            <li>
-              {t("wa_trial_bot_token_step_4", {}, "Copy the token like")}
-              <code>123456789:ABCdef...</code>
-            </li>
-            <li>{t("wa_trial_bot_token_step_5", {}, "Paste it into the field below")}</li>
-          </ol>
-        </details>
-        <label class="trial-token-input">
-          <span>{t("wa_trial_bot_token_label", {}, "BotFather token")}</span>
-          <input
-            type="text"
-            inputmode="text"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="123456789:ABCdef-…"
-            bind:value={botTokenDraft}
-          />
-        </label>
       {:else}
         <h2>{t("wa_trial_unavailable_title", {}, "Trial is unavailable")}</h2>
         <p>
@@ -261,6 +246,15 @@
         <Download size={18} />
         {t("wa_install_and_configure")}
       </Button>
+    {:else if hermesTokenRequired}
+      <Button
+        class="wide"
+        onclick={activateTrialWithBotToken}
+        disabled={trialBusy || !botToken.trim()}
+      >
+        <Gift size={18} />
+        {t("wa_trial_activate_with_bot_token", {}, "Activate trial")}
+      </Button>
     {:else if trialRequiresTelegram}
       <Button
         class="wide settings-telegram-link-btn attention-wrap"
@@ -272,16 +266,10 @@
         <Send size={18} />
         {t("wa_trial_link_telegram_and_activate", {}, "Привязать и активировать")}
       </Button>
-    {:else if canRequestTrial}
-      <Button class="wide" onclick={submitActivation} disabled={!canSubmit || trialBusy}>
+    {:else if trialError && canRequestTrial}
+      <Button class="wide" onclick={activateTrial} disabled={trialBusy}>
         <RefreshCw size={18} />
-        {trialError
-          ? t("wa_trial_retry", {}, "Try again")
-          : hermesTokenRequired
-            ? t("wa_trial_activate_with_token", {}, "Активировать")
-            : hermesMode
-              ? t("wa_trial_activate_hosting", {}, "Запустить пробный хостинг")
-              : t("wa_trial_try_free", {}, "Попробовать бесплатно")}
+        {t("wa_trial_retry", {}, "Try again")}
       </Button>
     {/if}
     <Button class="wide" variant="secondary" onclick={goHome}>
@@ -402,6 +390,32 @@
     text-align: right;
   }
 
+  .trial-bot-token-field {
+    display: grid;
+    gap: 6px;
+    width: 100%;
+    text-align: left;
+  }
+
+  .trial-bot-token-field span {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  .trial-bot-token-field input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 11px;
+    border: 1px solid var(--surface-subtle-border);
+    border-radius: 8px;
+    background: var(--surface-subtle);
+    color: var(--text);
+    font:
+      12px ui-monospace,
+      monospace;
+  }
+
   .trial-activation-actions {
     display: grid;
     gap: 10px;
@@ -411,35 +425,5 @@
     to {
       transform: rotate(360deg);
     }
-  }
-
-  .trial-token-input {
-    display: grid;
-    gap: 6px;
-    width: 100%;
-    margin-top: 6px;
-    text-align: left;
-  }
-
-  .trial-token-input span {
-    font-size: 12px;
-    color: var(--muted);
-  }
-
-  .trial-token-input input {
-    width: 100%;
-    padding: 10px 12px;
-    border-radius: 10px;
-    border: 1px solid var(--surface-subtle-border);
-    background: var(--surface-subtle);
-    color: var(--text);
-    font-family: ui-monospace, SFMono-Regular, monospace;
-    font-size: 13px;
-    line-height: 1.3;
-  }
-
-  .trial-token-input input:focus {
-    outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
-    outline-offset: 1px;
   }
 </style>

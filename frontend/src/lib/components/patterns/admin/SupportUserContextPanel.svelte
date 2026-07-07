@@ -1,8 +1,21 @@
-<script>
+<script lang="ts">
   import { AdminBadge, AdminButton } from "$components/patterns/admin/index.js";
   import { User } from "$components/ui/icons.js";
+  import type {
+    SupportTicketLike,
+    SupportUserLike,
+    SupportUserSnapshotLike,
+    TranslateFn,
+  } from "./types";
 
-  let { ticket, snapshot = {}, at = (key) => key, onOpenUser = () => {} } = $props();
+  type Props = {
+    ticket: SupportTicketLike | null;
+    snapshot?: SupportUserSnapshotLike;
+    at?: TranslateFn;
+    onOpenUser?: (userId: number | string) => void;
+  };
+
+  let { ticket, snapshot = {}, at = (key) => key, onOpenUser = () => {} }: Props = $props();
 
   const user = $derived(ticket?.user || {});
   const displayName = $derived(
@@ -22,7 +35,7 @@
     { label: at("support_remaining", {}, "Осталось"), value: snapshot?.remaining || "-" },
   ]);
 
-  function computeInitials(u, fallback) {
+  function computeInitials(u: SupportUserLike, fallback: string | number | null): string {
     const source =
       [u?.first_name, u?.last_name].filter(Boolean).join(" ").trim() ||
       u?.username ||
@@ -69,7 +82,7 @@
       variant="ghost"
       size="icon"
       disabled={!canOpenUser}
-      onclick={() => onOpenUser(user.user_id)}
+      onclick={() => onOpenUser(user.user_id ?? "")}
       aria-label={at("support_open_user", {}, "Карточка")}
       title={at("support_open_user", {}, "Карточка")}
     >

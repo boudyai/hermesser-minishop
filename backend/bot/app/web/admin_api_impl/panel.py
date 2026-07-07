@@ -8,8 +8,7 @@ from bot.app.web.context import (
 )
 from bot.app.web.route_contracts import (
     RouteContract,
-    loose_array_schema,
-    ok_envelope_with,
+    ok_envelope_for,
     register_contract,
 )
 from config.settings import Settings
@@ -21,13 +20,27 @@ from .common import (
     _error,
     _ok,
 )
+from .response_schemas import AdminPanelInternalSquadOut
 
 logger = logging.getLogger(__name__)
 
 register_contract(
     "admin_panel_internal_squads_route",
-    RouteContract(response_schema=ok_envelope_with({"squads": loose_array_schema()})),
+    RouteContract(
+        response_schema=ok_envelope_for(AdminPanelInternalSquadOut, key="squads", many=True),
+        models=(AdminPanelInternalSquadOut,),
+    ),
 )
+
+
+def _first_squad_value(squad: dict[str, object], *keys: str) -> int | float | str | bool | None:
+    for key in keys:
+        value = squad.get(key)
+        if value:
+            if isinstance(value, (int, float, str, bool)):
+                return value
+            return str(value)
+    return None
 
 
 async def admin_panel_internal_squads_route(request: web.Request) -> web.Response:
@@ -56,15 +69,15 @@ async def admin_panel_internal_squads_route(request: web.Request) -> web.Respons
         uuid = squad.get("uuid") or squad.get("id")
         if not uuid:
             continue
-        items.append(
-            {
-                "uuid": str(uuid),
-                "name": squad.get("name") or squad.get("title") or str(uuid),
-                "members_count": squad.get("membersCount")
-                or squad.get("usersCount")
-                or squad.get("members_count"),
-                "active_inbounds_count": squad.get("activeInboundsCount")
-                or squad.get("active_inbounds_count"),
-            }
+        item = AdminPanelInternalSquadOut(
+            uuid=str(uuid),
+            name=str(squad.get("name") or squad.get("title") or uuid),
+            members_count=_first_squad_value(squad, "membersCount", "usersCount", "members_count"),
+            active_inbounds_count=_first_squad_value(
+                squad,
+                "activeInboundsCount",
+                "active_inbounds_count",
+            ),
         )
+        items.append(item.model_dump(mode="json"))
     return _ok({"squads": items})

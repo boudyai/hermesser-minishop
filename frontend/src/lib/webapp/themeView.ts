@@ -8,7 +8,7 @@ import {
   themeCssHref,
   themeEntryToInlineStyle,
   themeRootClass,
-} from "./themeStyle.js";
+} from "./themeStyle";
 
 type ThemeData = Record<string, unknown>;
 type ThemeTokens = ThemeData & {
@@ -17,6 +17,7 @@ type ThemeTokens = ThemeData & {
 };
 type ThemeEntry =
   | (ThemeData & {
+      key?: string;
       use_in_admin?: unknown;
       tokens?: ThemeTokens | null;
     })

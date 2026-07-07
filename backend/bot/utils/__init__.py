@@ -1,7 +1,7 @@
 # Bot utilities package
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from aiogram import Bot, types
 
@@ -14,8 +14,8 @@ class MessageContent:
     """Класс для хранения информации о контенте сообщения"""
 
     content_type: str
-    file_id: Optional[str] = None
-    text: Optional[str] = None
+    file_id: str | None = None
+    text: str | None = None
 
 
 # Словари поддерживаемых параметров для каждого типа сообщения
@@ -138,14 +138,14 @@ SUPPORTED_PARAMS = {
 }
 
 
-def filter_kwargs(content_type: str, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+def filter_kwargs(content_type: str, kwargs: dict[str, Any]) -> dict[str, Any]:
     """Фильтрует kwargs, оставляя только поддерживаемые параметры для данного типа сообщения"""
     supported = SUPPORTED_PARAMS.get(content_type, set())
     return {k: v for k, v in kwargs.items() if k in supported}
 
 
 def get_message_content(message: types.Message) -> MessageContent:
-    """
+    """# noqa: E501
     Определяет тип контента сообщения и возвращает его данные.
     Использует match/case вместо длинных if-elif цепочек.
     """
@@ -324,9 +324,10 @@ async def send_direct_message(
 ) -> None:
     """
     Отправляет прямое сообщение с дополнительной обработкой для sticker и video_note.
-    Для этих типов медиа отправляется отдельное текстовое сообщение, т.к. они не поддерживают caption.
+    Для этих типов медиа отправляется отдельное текстовое сообщение,
+    т.к. они не поддерживают caption.
     Автоматически фильтрует неподдерживаемые параметры.
-    """  # noqa: E501
+    """
     match content.content_type:
         case "sticker":
             # Отправляем стикер с отфильтрованными параметрами

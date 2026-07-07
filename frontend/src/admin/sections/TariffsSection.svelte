@@ -15,7 +15,7 @@
   import { Switch } from "$components/ui/primitives.js";
   import TariffReferralSettings from "./tariffs/TariffReferralSettings.svelte";
   import TariffTrialSettings from "./tariffs/TariffTrialSettings.svelte";
-  import { normalizeCurrencyKey } from "$lib/admin/tariffDraft.js";
+  import { normalizeCurrencyKey } from "$lib/admin/tariffDraft";
   import {
     LEGACY_PERIODS,
     LEGACY_TARIFF_SETTING_KEYS,

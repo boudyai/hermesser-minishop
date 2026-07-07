@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,15 +9,17 @@ from db.dal import subscription_dal, tariff_dal, user_dal
 
 from ._typing import SubscriptionServiceMixinContract
 
+logger = logging.getLogger(__name__)
+
 
 class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
     async def get_active_subscription_details(
         self, session: AsyncSession, user_id: int
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or not db_user.panel_user_uuid:
-            logging.info(
-                f"User {user_id} not found in DB or no panel_user_uuid for 'my_subscription'."
+            logger.info(
+                "User %s not found in DB or no panel_user_uuid for 'my_subscription'.", user_id
             )
             return None
 
@@ -33,7 +35,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
 
         if not panel_user_data:
             if panel_user_confirmed_absent:
-                logging.warning(
+                logger.warning(
                     "Panel user %s confirmed absent on panel for user %s. "
                     "Clearing local linkage. reason=%s",
                     panel_user_uuid,
@@ -43,7 +45,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                 await subscription_dal.deactivate_all_user_subscriptions(session, user_id)
                 await user_dal.update_user(session, user_id, {"panel_user_uuid": None})
                 return None
-            logging.warning(
+            logger.warning(
                 "Panel user %s lookup failed for user %s; treating it as a panel access/API "
                 "problem and preserving local linkage/subscription. reason=%s",
                 panel_user_uuid,
@@ -69,20 +71,11 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                 {"lifetime_used_traffic_bytes": panel_lifetime_used},
             )
 
-        # ponytail: hermes_mode is read on line ~146 outside the
-        # `if local_active_sub:` block below — compute it once here so
-        # it's always defined, even when the user has no local
-        # subscription (first-ever /status check from a fresh
-        # Mini-App open, or a user whose panel_user_uuid is registered
-        # but no subscription row exists yet).
-        hermes_mode = (
-            str(getattr(self.settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
-        )
-
         if local_active_sub:
             update_payload_local = {}
             panel_status = panel_user_data.get("status", "UNKNOWN").upper()
             panel_expire_at_str = panel_user_data.get("expireAt")
+            panel_expire_dt: datetime | None = None
             panel_traffic_used, panel_traffic_limit, _ = self._extract_panel_traffic_details(
                 panel_user_data
             )
@@ -90,24 +83,13 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                 "subscriptionUuid"
             ) or panel_user_data.get("shortUuid")
 
-            if not hermes_mode and local_active_sub.status_from_panel != panel_status:
-                # ponytail: in hermes mode the core's status is the
-                # tenant lifecycle state (created / provisioning_vm /
-                # deleting / …) which is not a subscription status.
-                # Tenant runtime is surfaced through tenant_status in
-                # the Mini App payload instead of overwriting the
-                # local subscription row.
+            if local_active_sub.status_from_panel != panel_status:
                 update_payload_local["status_from_panel"] = panel_status
             if panel_expire_at_str:
                 panel_expire_dt = datetime.fromisoformat(panel_expire_at_str.replace("Z", "+00:00"))
-                if not hermes_mode and local_active_sub.end_date.replace(
+                if local_active_sub.end_date.replace(microsecond=0) != panel_expire_dt.replace(
                     microsecond=0
-                ) != panel_expire_dt.replace(microsecond=0):
-                    # ponytail: in hermes mode the core's expireAt is a
-                    # tenant lifecycle timestamp, not a subscription
-                    # expiry. The local Subscription.end_date is the
-                    # source of truth; never overwrite it from the
-                    # core's lifecycle field.
+                ):
                     update_payload_local["end_date"] = panel_expire_dt
                     update_payload_local["last_notification_sent"] = None
             if (
@@ -126,16 +108,15 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             ):
                 update_payload_local["panel_subscription_uuid"] = panel_sub_uuid_from_panel
 
+            hermes_mode = (
+                str(getattr(self.settings.panel_settings, "write_mode", "") or "").lower()
+                == "hermes"
+            )
             if hermes_mode:
-                # In hermes mode, the local Subscription.end_date governs
-                # active state. The core only knows about tenant
-                # lifecycle, not subscription expiry, so the panel-driven
-                # comparison would mark every tenant inactive as soon as
-                # the last_state_change timestamp falls in the past.
                 is_active_based_on_panel = bool(local_active_sub.is_active)
             else:
                 is_active_based_on_panel = panel_status == "ACTIVE" and (
-                    panel_expire_dt > datetime.now(timezone.utc) if panel_expire_dt else False
+                    panel_expire_dt > datetime.now(UTC) if panel_expire_dt else False
                 )
             if local_active_sub.is_active != is_active_based_on_panel:
                 update_payload_local["is_active"] = is_active_based_on_panel
@@ -145,18 +126,11 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                     session, local_active_sub.subscription_id, update_payload_local
                 )
 
-        # ponytail: in hermes mode the core's expireAt is a tenant
-        # lifecycle timestamp (last_state_change), not a subscription
-        # expiry. Use the local Subscription.end_date as the truth.
-        panel_expire_at_str = panel_user_data.get("expireAt")
-        if hermes_mode and local_active_sub and local_active_sub.end_date:
-            panel_end_date = local_active_sub.end_date
-        else:
-            panel_end_date = (
-                datetime.fromisoformat(panel_expire_at_str.replace("Z", "+00:00"))
-                if panel_expire_at_str
-                else None
-            )
+        panel_end_date = (
+            datetime.fromisoformat(panel_user_data["expireAt"].replace("Z", "+00:00"))
+            if panel_user_data.get("expireAt")
+            else None
+        )
         panel_traffic_used, panel_traffic_limit, panel_traffic_strategy = (
             self._extract_panel_traffic_details(panel_user_data)
         )
@@ -221,7 +195,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             if local_active_sub
             else False
         )
-        hwid_entitlement_summary: Dict[str, Any] = {}
+        hwid_entitlement_summary: dict[str, Any] = {}
         active_extra_hwid_devices = (
             int(local_active_sub.extra_hwid_devices or 0) if local_active_sub else 0
         )
@@ -230,7 +204,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                 hwid_entitlement_summary = await tariff_dal.get_hwid_device_entitlement_summary(
                     session,
                     subscription_id=local_active_sub.subscription_id,
-                    at=datetime.now(timezone.utc),
+                    at=datetime.now(UTC),
                 )
                 active_extra_hwid_devices = int(hwid_entitlement_summary.get("active_devices") or 0)
                 if active_extra_hwid_devices != int(local_active_sub.extra_hwid_devices or 0):
@@ -241,7 +215,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                     )
                     local_active_sub.extra_hwid_devices = active_extra_hwid_devices
             except Exception:
-                logging.exception(
+                logger.exception(
                     "Failed to load HWID entitlement summary for subscription %s",
                     local_active_sub.subscription_id,
                 )
@@ -273,15 +247,12 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             "panel_short_uuid": panel_user_data.get("shortUuid"),
             "end_date": panel_end_date,
             "status_from_panel": panel_user_data.get("status", "UNKNOWN").upper(),
-            # ponytail: in hermes mode, provisioning-core stores the bot's
-            # @handle on the tenant row; the lifecycle payload needs to carry
-            # it through so the Mini App's "Открыть бота" CTA can render the
-            # Telegram link instead of staying disabled.
-            "bot_username": (
-                str(panel_user_data.get("botUsername") or "").strip()
-                or (str(getattr(db_user, "pending_bot_username", "") or "").strip())
-                or None
-            ),
+            "bot_username": str(
+                panel_user_data.get("botUsername")
+                or panel_user_data.get("bot_username")
+                or getattr(db_user, "pending_bot_username", "")
+                or ""
+            ).lstrip("@"),
             "config_link": display_link,
             "connect_button_url": connect_button_url,
             "traffic_limit_bytes": panel_traffic_limit,
@@ -347,16 +318,14 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
 
     async def get_subscriptions_ending_soon(
         self, session: AsyncSession, days_threshold: int
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         subs_models_with_users = await subscription_dal.get_subscriptions_near_expiration(
             session, days_threshold
         )
         results = []
         for sub_model in subs_models_with_users:
             if sub_model.user and sub_model.end_date and not sub_model.skip_notifications:
-                days_left = (sub_model.end_date - datetime.now(timezone.utc)).total_seconds() / (
-                    24 * 3600
-                )
+                days_left = (sub_model.end_date - datetime.now(UTC)).total_seconds() / (24 * 3600)
                 results.append(
                     {
                         "user_id": sub_model.user_id,
@@ -364,7 +333,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                         "language_code": sub_model.user.language_code
                         or self.settings.DEFAULT_LANGUAGE,
                         "end_date_str": sub_model.end_date.strftime("%Y-%m-%d"),
-                        "days_left": max(0, int(round(days_left))),
+                        "days_left": max(0, round(days_left)),
                         "subscription_end_date_iso_for_update": sub_model.end_date,
                     }
                 )

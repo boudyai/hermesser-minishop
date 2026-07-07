@@ -2,7 +2,7 @@ import hashlib
 import hmac
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot, F, Router, types
 from aiohttp import web
@@ -12,13 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
-
-if TYPE_CHECKING:
-    from bot.services.referral_service import ReferralService
-    from bot.services.subscription_service_impl.core import SubscriptionService
-else:
-    ReferralService = object
-    SubscriptionService = object
 from config.settings import Settings
 from db.dal import payment_dal
 
@@ -52,6 +45,15 @@ from ..shared import (
 )
 from ..shared.app_context import app_required
 
+if TYPE_CHECKING:
+    from bot.services.referral_service import ReferralService
+    from bot.services.subscription_service_impl.core import SubscriptionService
+else:
+    ReferralService = object
+    SubscriptionService = object
+
+logger = logging.getLogger(__name__)
+
 _LOG = "lava"
 
 # LAVA Business invoice statuses (https://dev.lava.ru/business-objects-invoice).
@@ -71,13 +73,13 @@ class LavaConfig(ProviderEnvConfig):
     )
 
     ENABLED: bool = Field(default=False)
-    SHOP_ID: Optional[str] = None
-    SECRET_KEY: Optional[str] = None
-    WEBHOOK_SECRET: Optional[str] = None
+    SHOP_ID: str | None = None
+    SECRET_KEY: str | None = None
+    WEBHOOK_SECRET: str | None = None
     BASE_URL: str = Field(default="https://api.lava.ru")
-    RETURN_URL: Optional[str] = None
-    LIFETIME_MINUTES: Optional[int] = None
-    INCLUDE_SERVICES: Optional[str] = None
+    RETURN_URL: str | None = None
+    LIFETIME_MINUTES: int | None = None
+    INCLUDE_SERVICES: str | None = None
 
     @field_validator("LIFETIME_MINUTES", mode="before")
     @classmethod
@@ -99,13 +101,13 @@ class LavaConfig(ProviderEnvConfig):
     def webhook_path(self) -> str:
         return "/webhook/lava"
 
-    def full_webhook_url(self, base: Optional[str]) -> Optional[str]:
+    def full_webhook_url(self, base: str | None) -> str | None:
         if not base:
             return None
         return f"{base.rstrip('/')}{self.webhook_path}"
 
     @property
-    def include_services_list(self) -> List[str]:
+    def include_services_list(self) -> list[str]:
         return [item.strip() for item in (self.INCLUDE_SERVICES or "").split(",") if item.strip()]
 
 
@@ -119,15 +121,15 @@ class LavaPresentation(ProviderEnvConfig):
         extra="ignore",
     )
 
-    WEBAPP_LABEL_RU: Optional[str] = None
-    WEBAPP_LABEL_EN: Optional[str] = None
-    WEBAPP_ICON: Optional[str] = None
-    TELEGRAM_LABEL_RU: Optional[str] = None
-    TELEGRAM_LABEL_EN: Optional[str] = None
-    TELEGRAM_EMOJI: Optional[str] = None
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None
+    TELEGRAM_LABEL_RU: str | None = None
+    TELEGRAM_LABEL_EN: str | None = None
+    TELEGRAM_EMOJI: str | None = None
 
 
-def _canonical_json(payload: Dict[str, Any]) -> str:
+def _canonical_json(payload: dict[str, Any]) -> str:
     """JSON with sorted keys, the way legacy LAVA PHP-SDK shops sign webhooks.
 
     Only used as a webhook-verification fallback: outgoing requests sign the
@@ -184,7 +186,7 @@ class LavaService(HttpClientMixin):
         self._init_http_client(total_timeout=lambda: self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
 
         if not self.configured:
-            logging.warning("LavaService initialized but not fully configured. Payments disabled.")
+            logger.warning("LavaService initialized but not fully configured. Payments disabled.")
 
     @property
     def configured(self) -> bool:
@@ -213,13 +215,13 @@ class LavaService(HttpClientMixin):
         return self.config.RETURN_URL or f"https://t.me/{self._default_return_url}"
 
     @property
-    def lifetime_minutes(self) -> Optional[int]:
+    def lifetime_minutes(self) -> int | None:
         return self.config.LIFETIME_MINUTES
 
     def _hmac_hex(self, message: bytes, key: str) -> str:
         return hmac.new(key.encode("utf-8"), message, hashlib.sha256).hexdigest()
 
-    async def _post_signed(self, path: str, payload: Dict[str, Any]) -> Tuple[bool, Dict[str, Any]]:
+    async def _post_signed(self, path: str, payload: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
         """POST to LAVA signing the exact bytes that go on the wire."""
         url = f"{self.base_url}/{path.lstrip('/')}"
         body_bytes = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
@@ -235,13 +237,13 @@ class LavaService(HttpClientMixin):
                 try:
                     response_data = json.loads(response_text) if response_text else {}
                 except json.JSONDecodeError:
-                    logging.error("LAVA %s: invalid JSON response: %s", path, response_text[:500])
+                    logger.error("LAVA %s: invalid JSON response: %s", path, response_text[:500])
                     return False, {"status": response.status, "message": "invalid_json"}
                 if not isinstance(response_data, dict):
                     response_data = {"data": response_data}
                 api_status = str(response_data.get("status") or "").lower()
                 if response.status != 200 or api_status == "error":
-                    logging.error(
+                    logger.error(
                         "LAVA %s: API error (http=%s, body=%s)",
                         path,
                         response.status,
@@ -257,7 +259,7 @@ class LavaService(HttpClientMixin):
                 data = response_data.get("data")
                 return True, data if isinstance(data, dict) else response_data
         except Exception as exc:
-            logging.exception("LAVA %s: request failed.", path)
+            logger.exception("LAVA %s: request failed.", path)
             return False, {"message": str(exc)}
 
     async def create_payment(
@@ -265,11 +267,11 @@ class LavaService(HttpClientMixin):
         *,
         payment_db_id: int,
         amount: float,
-        currency: Optional[str],
-        description: Optional[str] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        currency: str | None,
+        description: str | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
-            logging.error("LavaService is not configured. Cannot create payment.")
+            logger.error("LavaService is not configured. Cannot create payment.")
             return False, {"message": "service_not_configured"}
 
         currency_code = normalize_payment_currency_code(
@@ -282,7 +284,7 @@ class LavaService(HttpClientMixin):
                 "supported_currencies": ["RUB"],
             }
 
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "sum": float(format_decimal_amount(amount)),
             "orderId": str(payment_db_id),
             "shopId": self.shop_id,
@@ -307,22 +309,22 @@ class LavaService(HttpClientMixin):
     async def get_invoice_status(
         self,
         *,
-        order_id: Optional[str] = None,
-        invoice_id: Optional[str] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        order_id: str | None = None,
+        invoice_id: str | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
             return False, {"message": "service_not_configured"}
         if not order_id and not invoice_id:
             return False, {"message": "missing_identifier"}
 
-        body: Dict[str, Any] = {"shopId": self.shop_id}
+        body: dict[str, Any] = {"shopId": self.shop_id}
         if invoice_id:
             body["invoiceId"] = str(invoice_id)
         if order_id:
             body["orderId"] = str(order_id)
         return await self._post_signed("/business/invoice/status", body)
 
-    async def try_reuse_pending_payment(self, payment: Any) -> Optional[str]:
+    async def try_reuse_pending_payment(self, payment: Any) -> str | None:
         provider_payment_id = str(getattr(payment, "provider_payment_id", None) or "").strip()
         payment_url = str(getattr(payment, "provider_payment_url", None) or "").strip()
         if not provider_payment_id or not payment_url:
@@ -350,11 +352,11 @@ class LavaService(HttpClientMixin):
         """
         received = str(received_signature or "").strip()
         if not received:
-            logging.warning("LAVA webhook: missing signature header.")
+            logger.warning("LAVA webhook: missing signature header.")
             return False
         secret = self.webhook_secret
         if not secret:
-            logging.error("LAVA webhook: no webhook secret configured.")
+            logger.error("LAVA webhook: no webhook secret configured.")
             return False
 
         expected_raw = self._hmac_hex(raw_body, secret)
@@ -377,16 +379,16 @@ class LavaService(HttpClientMixin):
         raw_body = await request.read()
         signature = request.headers.get("Authorization") or request.headers.get("Signature") or ""
         if not self.verify_webhook_signature(raw_body, signature):
-            logging.error("LAVA webhook: invalid signature.")
+            logger.error("LAVA webhook: invalid signature.")
             return web.json_response({"status": False, "msg": "invalid_signature"}, status=403)
 
         try:
             payload = json.loads(raw_body)
         except (ValueError, TypeError):
-            logging.exception("LAVA webhook: failed to parse JSON.")
+            logger.exception("LAVA webhook: failed to parse JSON.")
             return web.json_response({"status": False, "msg": "bad_request"}, status=400)
         if not isinstance(payload, dict):
-            logging.error("LAVA webhook: unexpected payload type.")
+            logger.error("LAVA webhook: unexpected payload type.")
             return web.json_response({"status": False, "msg": "bad_request"}, status=400)
 
         provider_payment_id = str(payload.get("invoice_id") or payload.get("id") or "")
@@ -400,7 +402,7 @@ class LavaService(HttpClientMixin):
                 provider_payment_id=provider_payment_id or None,
             )
             if not payment:
-                logging.error(
+                logger.error(
                     "LAVA webhook: payment not found (order_id=%s, provider_id=%s)",
                     order_id_raw,
                     provider_payment_id,
@@ -415,14 +417,14 @@ class LavaService(HttpClientMixin):
 
             if status in _SUCCESS_STATUSES:
                 if payment.status == "succeeded":
-                    logging.info("LAVA webhook: payment %s already succeeded.", payment.payment_id)
+                    logger.info("LAVA webhook: payment %s already succeeded.", payment.payment_id)
                     return web.json_response({"status": True})
 
                 webhook_amount = payload.get("amount")
                 if webhook_amount is not None and not decimal_amounts_equal(
                     webhook_amount, payment.amount
                 ):
-                    logging.error(
+                    logger.error(
                         "LAVA webhook: amount mismatch for payment %s (expected=%s, received=%s)",
                         payment.payment_id,
                         payment.amount,
@@ -442,7 +444,7 @@ class LavaService(HttpClientMixin):
                     await session.commit()
                 except Exception:
                     await session.rollback()
-                    logging.exception(
+                    logger.exception(
                         "LAVA webhook: failed to mark payment %s as succeeded.",
                         resolved_provider_id,
                     )
@@ -488,7 +490,7 @@ class LavaService(HttpClientMixin):
                     await session.commit()
                 except Exception:
                     await session.rollback()
-                    logging.exception(
+                    logger.exception(
                         "LAVA webhook: failed to mark payment %s as failed.",
                         resolved_provider_id,
                     )
@@ -515,13 +517,13 @@ class LavaService(HttpClientMixin):
                     await session.commit()
                 except Exception:
                     await session.rollback()
-                    logging.exception(
+                    logger.exception(
                         "LAVA webhook: failed to update pending status for %s.",
                         resolved_provider_id,
                     )
                 return web.json_response({"status": True})
 
-            logging.warning(
+            logger.warning(
                 "LAVA webhook: unhandled status '%s' for payment %s",
                 status,
                 resolved_provider_id,
@@ -567,7 +569,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     return await run_webapp_payment(_DESCRIPTOR, ctx)
 
 
-async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
+async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> str | None:
     return await run_reuse_webapp_payment(_DESCRIPTOR, ctx, payment)
 
 
@@ -731,7 +733,7 @@ async def _create_payment(service: LavaService, req: CreatePaymentRequest) -> Cr
     )
 
 
-async def _reuse_payment(service: LavaService, payment: Any) -> Optional[str]:
+async def _reuse_payment(service: LavaService, payment: Any) -> str | None:
     return await service.try_reuse_pending_payment(payment)
 
 

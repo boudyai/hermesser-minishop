@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from pydantic import ConfigDict, Field
+
+from bot.app.web.http_contracts import HttpResponseModel
 from bot.app.web.route_contracts import (
     BOOLEAN_SCHEMA,
     INTEGER_SCHEMA,
@@ -26,6 +29,75 @@ def public_contract(**kwargs: Any) -> RouteContract:
 
 def user_contract(**kwargs: Any) -> RouteContract:
     return RouteContract(security=USER_SECURITY, **kwargs)
+
+
+class WebappBootstrapLanguageOut(HttpResponseModel):
+    code: str
+    label: str
+    flag: str
+    base: bool
+
+
+class WebappBootstrapConfigOut(HttpResponseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    title: str
+    primary_color: str | None = Field(default=None, alias="primaryColor")
+    themes_catalog: dict[str, Any] = Field(default_factory=dict, alias="themesCatalog")
+    themes_dir: str = Field(alias="themesDir")
+    theme_preview_key: str = Field(alias="themePreviewKey")
+    logo_url: str = Field(alias="logoUrl")
+    favicon_url: str = Field(alias="faviconUrl")
+    favicon_use_custom: bool = Field(alias="faviconUseCustom")
+    api_base: str = Field(alias="apiBase")
+    admin_js_asset: str = Field(alias="adminJsAsset")
+    admin_css_asset: str = Field(alias="adminCssAsset")
+    telegram_login_bot_username: str = Field(alias="telegramLoginBotUsername")
+    telegram_login_bot_id: int = Field(alias="telegramLoginBotId")
+    telegram_oauth_client_id: int = Field(alias="telegramOAuthClientId")
+    telegram_oauth_request_access: str = Field(alias="telegramOAuthRequestAccess")
+    support_url: str = Field(alias="supportUrl")
+    server_status_url: str = Field(alias="serverStatusUrl")
+    privacy_policy_url: str = Field(alias="privacyPolicyUrl")
+    user_agreement_url: str = Field(alias="userAgreementUrl")
+    currency: str
+    language: str
+    languages: list[WebappBootstrapLanguageOut]
+    email_auth_enabled: bool = Field(alias="emailAuthEnabled")
+    registration_invite_only_enabled: bool = Field(alias="registrationInviteOnlyEnabled")
+    app_version: str = Field(alias="appVersion")
+    app_repository_url: str = Field(alias="appRepositoryUrl")
+
+
+class WebappBootstrapOut(HttpResponseModel):
+    config: WebappBootstrapConfigOut
+    i18n: dict[str, dict[str, Any]]
+
+
+class WebappI18nOut(HttpResponseModel):
+    scope: str
+    i18n: dict[str, dict[str, Any]]
+
+
+class SubscriptionGuidesOut(HttpResponseModel):
+    enabled: bool
+    config: dict[str, Any] | None = None
+    source: str | None = None
+    error: str | None = None
+
+
+class PublicSubscriptionContextOut(HttpResponseModel):
+    active: bool
+    config_link: str
+    connect_url: str
+    panel_short_uuid: str | None = None
+    install_share_token: str
+    username: str
+    share_url: str
+
+
+class PublicSubscriptionGuidesOut(SubscriptionGuidesOut):
+    subscription: PublicSubscriptionContextOut | None = None
 
 
 ACCOUNT_MERGE_SCHEMA: dict[str, Any] = {
@@ -329,6 +401,8 @@ WEBAPP_SUBSCRIPTION_SCHEMA: dict[str, Any] = {
         "can_topup_regular_traffic": BOOLEAN_SCHEMA,
         "can_topup_premium_traffic": BOOLEAN_SCHEMA,
         "can_topup_devices": BOOLEAN_SCHEMA,
+        "topup_always_available": BOOLEAN_SCHEMA,
+        "premium_topup_always_available": BOOLEAN_SCHEMA,
         "period_start_at": NULLABLE_STRING_SCHEMA,
         "is_throttled": BOOLEAN_SCHEMA,
         "max_devices": NULLABLE_INTEGER_SCHEMA,

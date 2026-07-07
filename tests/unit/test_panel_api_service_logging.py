@@ -2,6 +2,7 @@ import asyncio
 import time
 import unittest
 from types import SimpleNamespace
+from typing import ClassVar
 from unittest.mock import AsyncMock, patch
 
 import aiohttp
@@ -77,13 +78,15 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         service = self._make_service()
 
         def fake_request(*_args, **_kwargs):
-            raise asyncio.TimeoutError()
+            raise TimeoutError()
 
         service._get_session = AsyncMock(return_value=SimpleNamespace(request=fake_request))
 
-        with patch("bot.services.panel_api_service.asyncio.sleep", new=AsyncMock()):
-            with self.assertLogs(level="INFO") as captured:
-                result = await service._request("GET", "/users/by-email/user@example.com")
+        with (
+            patch("bot.services.panel_api_service.asyncio.sleep", new=AsyncMock()),
+            self.assertLogs(level="INFO") as captured,
+        ):
+            result = await service._request("GET", "/users/by-email/user@example.com")
 
         self.assertTrue(result["error"])
         joined = "\n".join(captured.output)
@@ -96,7 +99,7 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
 
         class OkResponse:
             status = 200
-            headers = {"Content-Type": "application/json"}
+            headers: ClassVar[dict[str, str]] = {"Content-Type": "application/json"}
 
             async def __aenter__(self):
                 return self

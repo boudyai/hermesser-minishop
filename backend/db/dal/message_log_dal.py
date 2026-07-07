@@ -1,5 +1,4 @@
 import logging
-from typing import List, Optional
 
 from sqlalchemy import func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,8 +7,10 @@ from sqlalchemy.orm import selectinload
 
 from ..models import MessageLog
 
+logger = logging.getLogger(__name__)
 
-async def create_message_log(session: AsyncSession, log_data: dict) -> Optional[MessageLog]:
+
+async def create_message_log(session: AsyncSession, log_data: dict) -> MessageLog | None:
 
     try:
         log_entry = await create_message_log_no_commit(session, log_data)
@@ -18,11 +19,11 @@ async def create_message_log(session: AsyncSession, log_data: dict) -> Optional[
         return log_entry
     except Exception as e:
         await session.rollback()
-        logging.error(f"Failed to create and commit message log: {e}", exc_info=True)
+        logger.exception("Failed to create and commit message log: %s", e)
         return None
 
 
-async def get_all_message_logs(session: AsyncSession, limit: int, offset: int) -> List[MessageLog]:
+async def get_all_message_logs(session: AsyncSession, limit: int, offset: int) -> list[MessageLog]:
     stmt = (
         select(MessageLog)
         .options(selectinload(MessageLog.author_user), selectinload(MessageLog.target_user))
@@ -42,7 +43,7 @@ async def count_all_message_logs(session: AsyncSession) -> int:
 
 async def get_user_message_logs(
     session: AsyncSession, user_id_to_search: int, limit: int, offset: int
-) -> List[MessageLog]:
+) -> list[MessageLog]:
     stmt = (
         select(MessageLog)
         .options(selectinload(MessageLog.author_user), selectinload(MessageLog.target_user))
@@ -82,15 +83,18 @@ async def create_message_log_no_commit(session: AsyncSession, log_data: dict) ->
 
         target_user = await get_user_by_id(session, log_data["target_user_id"])
         if not target_user:
-            logging.warning(
-                f"Target user {log_data['target_user_id']} not found for message log. Setting to NULL."  # noqa: E501
+            logger.warning(
+                "Target user %s not found for message log. Setting to NULL.",
+                log_data["target_user_id"],
             )
             log_data["target_user_id"] = None
 
     new_log = MessageLog(**log_data)
     session.add(new_log)
 
-    logging.debug(
-        f"Message log added to session: user {log_data.get('user_id')}, event {log_data.get('event_type')}"  # noqa: E501
+    logger.debug(
+        "Message log added to session: user %s, event %s",
+        log_data.get("user_id"),
+        log_data.get("event_type"),
     )
     return new_log

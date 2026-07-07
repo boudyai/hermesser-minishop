@@ -1,7 +1,8 @@
+import asyncio
 import hashlib
 import json
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple, cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 from aiohttp import web
 from sqlalchemy import select
@@ -42,7 +43,6 @@ async def admin_users_list_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     settings: Settings = get_settings(request)
     async_session_factory: sessionmaker = get_session_factory(request)
-    panel_service = get_panel_service(request) if _is_hermes_mode(settings) else None
 
     page = max(0, int(request.query.get("page", 0) or 0))
     page_size = min(100, max(1, int(request.query.get("page_size", 25) or 25)))
@@ -55,7 +55,7 @@ async def admin_users_list_route(request: web.Request) -> web.Response:
     payload = await _load_admin_users_list_payload(
         settings,
         async_session_factory,
-        panel_service=panel_service,
+        panel_service=get_panel_service(request),
         page=page,
         page_size=page_size,
         query=query,
@@ -71,7 +71,7 @@ async def _load_admin_users_list_payload(
     settings: Settings,
     async_session_factory: sessionmaker,
     *,
-    panel_service: Any | None,
+    panel_service: Any | None = None,
     page: int,
     page_size: int,
     query: str,
@@ -79,7 +79,7 @@ async def _load_admin_users_list_payload(
     panel_status: str,
     premium_traffic: str,
     sort_value: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     cache = _admin_users_list_cache(settings)
     cache_key = _admin_users_list_cache_key(
         page=page,
@@ -92,8 +92,8 @@ async def _load_admin_users_list_payload(
     )
     if cache is None:
         return await _load_admin_users_list_payload_uncached(
-            settings,
             async_session_factory,
+            settings=settings,
             panel_service=panel_service,
             page=page,
             page_size=page_size,
@@ -104,12 +104,12 @@ async def _load_admin_users_list_payload(
             sort_value=sort_value,
         )
     return cast(
-        Dict[str, Any],
+        dict[str, Any],
         await cache.get_or_load(
             cache_key,
             lambda: _load_admin_users_list_payload_uncached(
-                settings,
                 async_session_factory,
+                settings=settings,
                 panel_service=panel_service,
                 page=page,
                 page_size=page_size,
@@ -124,10 +124,10 @@ async def _load_admin_users_list_payload(
 
 
 async def _load_admin_users_list_payload_uncached(
-    settings: Settings,
     async_session_factory: sessionmaker,
     *,
-    panel_service: Any | None,
+    settings: Settings | None = None,
+    panel_service: Any | None = None,
     page: int,
     page_size: int,
     query: str,
@@ -135,7 +135,7 @@ async def _load_admin_users_list_payload_uncached(
     panel_status: str,
     premium_traffic: str,
     sort_value: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     async with async_session_factory() as session:
         users, total = await _filter_and_sort_users(
             session,
@@ -155,14 +155,11 @@ async def _load_admin_users_list_payload_uncached(
         )
         payment_summaries = await _bulk_user_payment_summaries(session, [u.user_id for u in users])
         referral_counts = await _bulk_user_referral_counts(session, [u.user_id for u in users])
-
-    # ponytail: in hermes mode the admin wants CornLLM balance / spent
-    # per user, not Remnawave premium traffic. The source of truth
-    # lives in provisioning-core; we batch-call it with
-    # asyncio.gather and degrade gracefully if the core is unreachable
-    # (return "unreachable" per user — admin still sees the rest of the
-    # row). The list cache TTL absorbs most of the cost.
-    cornllm_by_user = await _bulk_cornllm_balance_for_users(panel_service, users)
+        cornllm_balances = (
+            await _bulk_cornllm_balance_for_users(panel_service, users)
+            if settings is not None and _is_hermes_mode(settings)
+            else {}
+        )
 
     serialized = []
     for user in users:
@@ -178,12 +175,13 @@ async def _load_admin_users_list_payload_uncached(
             else None
         )
         payload["premium_traffic"] = _premium_traffic_list_payload(active_subs.get(user.user_id))
-        payload["cornllm"] = cornllm_by_user.get(user.user_id) or {"state": "none"}
         payment_summary = payment_summaries.get(user.user_id) or {}
         payload["payments_total_amount"] = float(payment_summary.get("total_amount") or 0)
         payload["payments_count"] = int(payment_summary.get("count") or 0)
         payload["payments_currency"] = payment_summary.get("currency")
         payload["invited_users_count"] = int(referral_counts.get(user.user_id) or 0)
+        if settings is not None and _is_hermes_mode(settings):
+            payload["cornllm"] = cornllm_balances.get(user.user_id) or {"state": "none"}
         serialized.append(payload)
 
     return {
@@ -195,52 +193,30 @@ async def _load_admin_users_list_payload_uncached(
 
 
 def _is_hermes_mode(settings: Settings) -> bool:
-    """True when the bot is in hosted-Hermes mode (provisioning-core
-    is the panel backend)."""
     try:
-        return (
-            str(getattr(getattr(settings, "panel_settings", None), "write_mode", "") or "").lower()
-            == "hermes"
-        )
+        return str(settings.panel_settings.write_mode or "").lower() == "hermes"
     except Exception:
         return False
 
 
 async def _bulk_cornllm_balance_for_users(
-    panel_service: Any | None, users: List[Any]
-) -> Dict[int, Dict[str, Any]]:
-    """Per-user CornLLM balance + spent snapshot, fetched from
-    provisioning-core. The lookup goes tenant-by-tenant; we issue all
-    requests in parallel and degrade gracefully on any failure.
+    panel_service: Any | None, users: list[Any]
+) -> dict[int, dict[str, Any]]:
+    if panel_service is None or not isinstance(panel_service, HermesProvisioningService):
+        return {}
 
-    Returns a dict keyed by user_id with a `state` marker:
-
-        {"state": "ok",        "max_budget": 16.0, "spent": 0.5}
-        {"state": "none"}                          # no panel_user_uuid
-        {"state": "unreachable"}                  # core error / timeout
-    """
-    out: Dict[int, Dict[str, Any]] = {}
-    if panel_service is None:
-        return out
-    if not isinstance(panel_service, HermesProvisioningService):
-        return out
-
-    import asyncio
-
-    async def _fetch(user: Any) -> tuple[int, Dict[str, Any]]:
+    async def _fetch(user: Any) -> tuple[int, dict[str, Any]]:
         panel_uuid = getattr(user, "panel_user_uuid", None)
         if not panel_uuid:
-            return user.user_id, {"state": "none"}
+            return int(user.user_id), {"state": "none"}
         try:
             quota = await panel_service.get_tenant_quota(str(panel_uuid))
         except Exception:
-            # ponytail: core may be down or the user has no key yet —
-            # either way we don't want to fail the admin page load.
-            return user.user_id, {"state": "unreachable"}
+            return int(user.user_id), {"state": "unreachable"}
         if not quota:
-            return user.user_id, {"state": "none"}
+            return int(user.user_id), {"state": "none"}
         return (
-            user.user_id,
+            int(user.user_id),
             {
                 "state": "ok",
                 "max_budget": quota.get("max_budget"),
@@ -250,13 +226,10 @@ async def _bulk_cornllm_balance_for_users(
             },
         )
 
-    results = await asyncio.gather(*[_fetch(u) for u in users], return_exceptions=False)
-    for user_id, payload in results:
-        out[user_id] = payload
-    return out
+    return dict(await asyncio.gather(*(_fetch(user) for user in users)))
 
 
-def _admin_users_list_cache(settings: Settings) -> Optional[AsyncTTLCache]:
+def _admin_users_list_cache(settings: Settings) -> AsyncTTLCache | None:
     ttl_seconds = int(settings.ADMIN_USERS_LIST_CACHE_TTL_SECONDS or 0)
     if ttl_seconds <= 0:
         return None
@@ -289,7 +262,7 @@ async def _invalidate_admin_users_list_cache(settings: Settings) -> None:
 
 async def _invalidate_after_admin_user_mutation(
     settings: Settings,
-    user_id: Optional[int] = None,
+    user_id: int | None = None,
     *,
     include_devices: bool = True,
 ) -> None:
@@ -302,14 +275,14 @@ async def _invalidate_after_admin_user_mutation(
         )
 
 
-def _enabled_admin_tariffs(settings: Settings) -> List[Any]:
+def _enabled_admin_tariffs(settings: Settings) -> list[Any]:
     config = settings.tariffs_config
     if not config:
         return []
     return list(getattr(config, "enabled_tariffs", []) or [])
 
 
-def _enabled_admin_period_tariffs(settings: Settings) -> List[Any]:
+def _enabled_admin_period_tariffs(settings: Settings) -> list[Any]:
     return [
         tariff
         for tariff in _enabled_admin_tariffs(settings)
@@ -322,7 +295,7 @@ def _resolve_admin_period_tariff_key(
     explicit_tariff_key: Any,
     *,
     allow_legacy_without_tariffs: bool = False,
-) -> Tuple[Optional[str], Optional[str]]:
+) -> tuple[str | None, str | None]:
     config = settings.tariffs_config
     if not config:
         return (None, None) if allow_legacy_without_tariffs else (None, "tariffs_not_configured")
@@ -347,8 +320,8 @@ def _resolve_admin_period_tariff_key(
 
 
 async def _bulk_user_statuses(
-    session: AsyncSession, user_ids: List[int]
-) -> Dict[int, Dict[str, Optional[str]]]:
+    session: AsyncSession, user_ids: list[int]
+) -> dict[int, dict[str, str | None]]:
     """Return active subscription status for a batch of users.
 
     Returns the panel status (active/expired/limited/disabled) when an active
@@ -369,8 +342,8 @@ async def _bulk_user_statuses(
         .order_by(Subscription.is_active.desc(), Subscription.end_date.desc().nullslast())
     )
     rows = (await session.execute(stmt)).all()
-    out: Dict[int, Dict[str, Optional[str]]] = {}
-    now = datetime.now(timezone.utc)
+    out: dict[int, dict[str, str | None]] = {}
+    now = datetime.now(UTC)
     for uid, panel_status, is_active, end_date in rows:
         if uid in out:
             continue

@@ -5,10 +5,10 @@ import shutil
 import subprocess
 import tempfile
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Iterable, Optional
 
 from aiogram import Bot
 from aiogram.types import FSInputFile
@@ -26,6 +26,8 @@ from bot.services.backup_archive import (
     write_zip_from_directory,
 )
 from config.settings import Settings
+
+logger = logging.getLogger(__name__)
 
 COMPOSE_MARKER_FILES = {
     "compose.yaml",
@@ -89,7 +91,7 @@ class BackupWorker:
     SETTINGS_REFRESH_SECONDS = 60
 
     def __init__(
-        self, settings: Settings, bot: Bot, session_factory: Optional[sessionmaker] = None
+        self, settings: Settings, bot: Bot, session_factory: sessionmaker | None = None
     ) -> None:
         self.settings = settings
         self.bot = bot
@@ -126,17 +128,17 @@ class BackupWorker:
                     if acquired:
                         started = time.monotonic()
                         result = await self.create_and_send_backup()
-                        logging.info(
+                        logger.info(
                             "metric worker_tick_duration_seconds=%.3f worker=backup size_bytes=%s",
                             time.monotonic() - started,
                             result.size_bytes,
                         )
                     else:
-                        logging.info(
+                        logger.info(
                             "Backup worker tick skipped because another worker holds the lock"
                         )
             except Exception as exc:
-                logging.exception("Backup worker tick failed")
+                logger.exception("Backup worker tick failed")
                 await self._notify_failure(exc)
 
     async def create_and_send_backup(self, *, backup_type: str = "scheduled") -> BackupResult:
@@ -148,12 +150,13 @@ class BackupWorker:
         return result
 
     async def create_backup(self, *, backup_type: str = "scheduled") -> BackupResult:
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
         stamp = backup_filename_timestamp()
         archive_name = f"{BACKUP_FILENAME_PREFIX}{stamp}.zip"
-        backup_dir = Path(self.settings.BACKUP_DIR).expanduser()
-        backup_dir.mkdir(parents=True, exist_ok=True)
-        archive_path = self._unique_archive_path(backup_dir / archive_name)
+        backup_dir, archive_path = await asyncio.to_thread(
+            self._prepare_backup_paths,
+            archive_name,
+        )
 
         with tempfile.TemporaryDirectory(
             prefix=f"{BACKUP_FILENAME_PREFIX}{stamp}-",
@@ -174,7 +177,7 @@ class BackupWorker:
             if self.settings.BACKUP_COMPOSE_ENABLED:
                 compose_files_count = self._stage_compose_source(staging_dir / "compose", warnings)
 
-            completed_at = datetime.now(timezone.utc)
+            completed_at = datetime.now(UTC)
             manifest = {
                 "app": BACKUP_APP_ID,
                 "format_version": BACKUP_FORMAT_VERSION,
@@ -224,6 +227,12 @@ class BackupWorker:
             if not candidate.exists():
                 return candidate
         raise RuntimeError("Could not allocate a unique backup archive filename")
+
+    def _prepare_backup_paths(self, archive_name: str) -> tuple[Path, Path]:
+        backup_dir = Path(self.settings.BACKUP_DIR).expanduser()
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        archive_path = self._unique_archive_path(backup_dir / archive_name)
+        return backup_dir, archive_path
 
     async def _dump_database(self, dump_path: Path) -> None:
         await asyncio.to_thread(self._run_pg_dump, dump_path)
@@ -318,7 +327,7 @@ class BackupWorker:
         return DEFAULT_COMPOSE_EXCLUDED_DIRS | set(configured)
 
     @staticmethod
-    def _split_csv(value: Optional[str]) -> list[str]:
+    def _split_csv(value: str | None) -> list[str]:
         if not value:
             return []
         return [item.strip() for item in value.split(",") if item.strip()]
@@ -326,7 +335,7 @@ class BackupWorker:
     async def send_backup(self, result: BackupResult) -> None:
         chat_id = self._target_chat_id()
         if chat_id is None:
-            logging.warning(
+            logger.warning(
                 "Backup archive created at %s but BACKUP_CHAT_ID/LOG_CHAT_ID is not configured",
                 result.archive_path,
             )
@@ -354,13 +363,13 @@ class BackupWorker:
             try:
                 archive.unlink()
             except OSError:
-                logging.exception("Failed to delete old backup archive %s", archive)
+                logger.exception("Failed to delete old backup archive %s", archive)
 
-    def _target_chat_id(self) -> Optional[int]:
+    def _target_chat_id(self) -> int | None:
         value = self.settings.BACKUP_CHAT_ID or self.settings.LOG_CHAT_ID
         return int(value) if value is not None else None
 
-    def _target_thread_id(self) -> Optional[int]:
+    def _target_thread_id(self) -> int | None:
         value = self.settings.BACKUP_THREAD_ID or self.settings.LOG_THREAD_ID
         return int(value) if value is not None else None
 
@@ -428,7 +437,7 @@ class BackupWorker:
                 keys=BACKUP_RUNTIME_SETTING_KEYS,
             )
         except Exception:
-            logging.exception("Failed to refresh backup settings from DB")
+            logger.exception("Failed to refresh backup settings from DB")
 
     def _interval_seconds(self) -> int:
         try:
@@ -452,9 +461,9 @@ class BackupWorker:
         return max(0.0, interval_seconds - remainder)
 
     async def _sleep_until_next_slot(self, delay_seconds: float, interval_seconds: int) -> bool:
-        deadline = datetime.now(timezone.utc) + timedelta(seconds=delay_seconds)
+        deadline = datetime.now(UTC) + timedelta(seconds=delay_seconds)
         while True:
-            remaining = (deadline - datetime.now(timezone.utc)).total_seconds()
+            remaining = (deadline - datetime.now(UTC)).total_seconds()
             if remaining <= 0:
                 return True
             await asyncio.sleep(min(remaining, self.SETTINGS_REFRESH_SECONDS))
@@ -477,4 +486,4 @@ class BackupWorker:
                 message_thread_id=self._target_thread_id(),
             )
         except Exception:
-            logging.exception("Failed to send backup failure notification")
+            logger.exception("Failed to send backup failure notification")

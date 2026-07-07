@@ -8,22 +8,22 @@ import logging
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
-from enum import Enum
-from typing import Any
+from enum import StrEnum
+from typing import Any, ClassVar
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
 
-class PaymentType(str, Enum):
+class PaymentType(StrEnum):
     """Payment type for income registration."""
 
     CASH = "CASH"
     WIRE = "WIRE"
 
 
-class IncomeType(str, Enum):
+class IncomeType(StrEnum):
     """Income source type."""
 
     FROM_INDIVIDUAL = "FROM_INDIVIDUAL"
@@ -42,13 +42,9 @@ class LknpdApiError(Exception):
 class LknpdAuthError(LknpdApiError):
     """Authentication error (401)."""
 
-    pass
-
 
 class LknpdValidationError(LknpdApiError):
     """Validation error (400)."""
-
-    pass
 
 
 def _generate_device_id() -> str:
@@ -75,14 +71,14 @@ class LknpdClient:
     - Income registration with proper payment types (CASH/WIRE)
     """
 
-    DEFAULT_HEADERS = {
+    DEFAULT_HEADERS: ClassVar[dict[str, str]] = {
         "Content-Type": "application/json",
         "Accept": "application/json, text/plain, */*",
         "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
         "Referrer": "https://lknpd.nalog.ru/auth/login",
     }
 
-    DEVICE_INFO_TEMPLATE = {
+    DEVICE_INFO_TEMPLATE: ClassVar[dict[str, object]] = {
         "sourceType": "WEB",
         "appVersion": "1.0.0",
         "metaDetails": {
@@ -145,7 +141,7 @@ class LknpdClient:
 
         except httpx.RequestError as e:
             logger.exception("Network error during authentication")
-            raise LknpdApiError(f"Network error: {e}")
+            raise LknpdApiError(f"Network error: {e}") from e
 
     async def _refresh_token(self) -> bool:
         """Refresh access token using refresh token."""
@@ -203,15 +199,14 @@ class LknpdClient:
             )
 
             # Handle 401 with token refresh
-            if response.status_code == 401 and retry_on_401:
-                if await self._refresh_token():
-                    headers = {**self.DEFAULT_HEADERS, **self._get_auth_headers()}
-                    response = await client.request(
-                        method,
-                        url,
-                        json=json_data,
-                        headers=headers,
-                    )
+            if response.status_code == 401 and retry_on_401 and await self._refresh_token():
+                headers = {**self.DEFAULT_HEADERS, **self._get_auth_headers()}
+                response = await client.request(
+                    method,
+                    url,
+                    json=json_data,
+                    headers=headers,
+                )
 
             return response
 
@@ -323,4 +318,4 @@ class LknpdClient:
 
         except httpx.RequestError as e:
             logger.exception("Network error creating income")
-            raise LknpdApiError(f"Network error: {e}")
+            raise LknpdApiError(f"Network error: {e}") from e

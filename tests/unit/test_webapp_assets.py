@@ -5,7 +5,7 @@ import json
 import os
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -362,9 +362,10 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("cfg.serverStatusUrl", account_view_source)
         self.assertIn("appSettings?.server_status_url", account_view_source)
         self.assertIn("{shellView}", app_source)
-        self.assertIn("const accountView = $derived(shellView?.accountView)", app_mode_source)
-        self.assertIn("const serverStatusUrl = $derived(", app_mode_source)
-        self.assertIn("accountView?.serverStatusUrl : serverStatusUrlProp", app_mode_source)
+        self.assertIn("const accountView = $derived(shellView.accountView)", app_mode_source)
+        self.assertIn(
+            "const serverStatusUrl = $derived(accountView.serverStatusUrl)", app_mode_source
+        )
         self.assertIn("{serverStatusUrl}", app_mode_source)
         self.assertIn('t("menu_server_status_button")', settings_source)
 
@@ -438,7 +439,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("/api/subscription-guides/public/", install_markup)
 
     def test_frontend_starts_public_install_preload_before_mount(self):
-        main_source = Path("frontend/src/main.js").read_text(encoding="utf-8")
+        main_source = Path("frontend/src/main.ts").read_text(encoding="utf-8")
         public_install_actions_source = Path(
             "frontend/src/lib/webapp/publicInstallActions.ts"
         ).read_text(encoding="utf-8")
@@ -715,7 +716,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
     def test_frontend_runtime_fallback_title_is_not_minishop_path(self):
         app_source = Path("frontend/src/App.svelte").read_text(encoding="utf-8")
-        browser_source = Path("frontend/src/lib/webapp/browser.js").read_text(encoding="utf-8")
+        browser_source = Path("frontend/src/lib/webapp/browser.ts").read_text(encoding="utf-8")
         preview_source = Path("frontend/src/PreviewBoard.svelte").read_text(encoding="utf-8")
         admin_source = Path("frontend/src/admin/AdminPanel.svelte").read_text(encoding="utf-8")
 
@@ -923,7 +924,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         avatar = SimpleNamespace(
             user_id=123,
             image_bytes=b"avatar",
-            updated_at=datetime(2026, 5, 6, 12, 0, tzinfo=timezone.utc),
+            updated_at=datetime(2026, 5, 6, 12, 0, tzinfo=UTC),
         )
 
         self.assertEqual(

@@ -188,8 +188,8 @@ class DocComposeFileReferencesTests(unittest.TestCase):
 
     def test_doc_references_migrator_module_path(self):
         doc = _read(DOC_PATH)
-        self.assertIn("backend/db/migrator.py", doc)
-        self.assertTrue((REPO_ROOT / "backend" / "db" / "migrator.py").is_file())
+        self.assertIn("backend/db/migrator/", doc)
+        self.assertTrue((REPO_ROOT / "backend" / "db" / "migrator" / "__init__.py").is_file())
 
 
 class RemnashopMigrationDocumentationFactsTests(unittest.TestCase):

@@ -1,4 +1,4 @@
-# ruff: noqa: F401,F403,F405,I001
+# ruff: noqa: F401, I001
 from collections.abc import Awaitable
 from typing import cast
 
@@ -16,11 +16,12 @@ from bot.app.web.route_contracts import RouteContract, ok_envelope_for, register
 from bot.utils.message_queue import get_queue_manager
 from config.settings import Settings
 from config.tariffs_config import default_payment_currency_code_for_settings
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, UTC
 from db.dal import panel_sync_dal, payment_dal, user_dal
 from .schemas import AdminMeOut, AdminPanelSyncOut, AdminStatsOut, PaymentOut
+from .users_listing import _bulk_cornllm_balance_for_users
 from sqlalchemy.orm import sessionmaker
-from typing import Any, Dict, Optional
+from typing import Any
 import logging
 from .auth import _require_admin_user_id
 from .common import (
@@ -33,8 +34,8 @@ from bot.utils.ttl_cache import AsyncTTLCache
 
 logger = logging.getLogger(__name__)
 
-_ADMIN_PANEL_STATS_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {}
-_ADMIN_DB_STATS_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {}
+_ADMIN_PANEL_STATS_CACHES: dict[tuple[int, int], AsyncTTLCache] = {}
+_ADMIN_DB_STATS_CACHES: dict[tuple[int, int], AsyncTTLCache] = {}
 
 
 register_contract(
@@ -56,9 +57,7 @@ register_contract(
 async def admin_me_route(request: web.Request) -> web.Response:
     user_id = _require_admin_user_id(request)
     settings: Settings = get_settings(request)
-    write_mode = str(
-        getattr(getattr(settings, "panel_settings", None), "write_mode", "") or "remnawave"
-    ).lower()
+    write_mode = str(settings.panel_settings.write_mode or "remnawave").lower()
     return _ok(
         AdminMeOut(
             user_id=user_id,
@@ -83,6 +82,11 @@ async def admin_stats_route(request: web.Request) -> web.Response:
     is_hermes = str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
     if panel_service is not None and not is_hermes:
         payload["panel"] = await _load_admin_panel_stats(request, settings, panel_service)
+    if is_hermes:
+        payload["cornllm"] = await _load_admin_cornllm_stats(
+            async_session_factory,
+            panel_service,
+        )
 
     queue_manager = get_queue_manager()
     if queue_manager:
@@ -98,12 +102,12 @@ async def admin_stats_route(request: web.Request) -> web.Response:
 async def _load_admin_db_stats(
     settings: Settings,
     async_session_factory: sessionmaker,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     cache = _admin_db_stats_cache(settings)
     if cache is None:
         return await _load_admin_db_stats_uncached(async_session_factory)
     return cast(
-        Dict[str, Any],
+        dict[str, Any],
         await cache.get_or_load(
             "db",
             lambda: _load_admin_db_stats_uncached(async_session_factory),
@@ -111,7 +115,7 @@ async def _load_admin_db_stats(
     )
 
 
-async def _load_admin_db_stats_uncached(async_session_factory: sessionmaker) -> Dict[str, Any]:
+async def _load_admin_db_stats_uncached(async_session_factory: sessionmaker) -> dict[str, Any]:
     async with async_session_factory() as session:
         user_stats = await user_dal.get_enhanced_user_statistics(session)
         financial_stats = await payment_dal.get_financial_statistics(session)
@@ -126,7 +130,53 @@ async def _load_admin_db_stats_uncached(async_session_factory: sessionmaker) -> 
     }
 
 
-def _admin_db_stats_cache(settings: Settings) -> Optional[AsyncTTLCache]:
+def _float_or_zero(value: Any) -> float:
+    try:
+        number = float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+    return number if number >= 0 else 0.0
+
+
+async def _load_admin_cornllm_stats(
+    async_session_factory: sessionmaker,
+    panel_service: Any | None,
+) -> dict[str, Any]:
+    async with async_session_factory() as session:
+        users = await user_dal.get_all_users_with_panel_uuid(session)
+
+    balances = await _bulk_cornllm_balance_for_users(panel_service, users)
+    summary: dict[str, Any] = {
+        "state": "none",
+        "linked_users": len(users),
+        "ok_users": 0,
+        "unreachable_users": 0,
+        "no_key_users": 0,
+        "total_max_budget": 0.0,
+        "total_spent": 0.0,
+        "total_remaining": 0.0,
+    }
+    for user in users:
+        balance = balances.get(int(user.user_id)) or {"state": "none"}
+        state = str(balance.get("state") or "none").lower()
+        if state == "ok":
+            summary["ok_users"] += 1
+            summary["total_max_budget"] += _float_or_zero(balance.get("max_budget"))
+            summary["total_spent"] += _float_or_zero(balance.get("spent"))
+            summary["total_remaining"] += _float_or_zero(balance.get("remaining"))
+        elif state == "unreachable":
+            summary["unreachable_users"] += 1
+        else:
+            summary["no_key_users"] += 1
+
+    if summary["unreachable_users"]:
+        summary["state"] = "unreachable"
+    elif summary["ok_users"]:
+        summary["state"] = "ok"
+    return summary
+
+
+def _admin_db_stats_cache(settings: Settings) -> AsyncTTLCache | None:
     ttl_seconds = int(settings.ADMIN_DB_STATS_CACHE_TTL_SECONDS or 0)
     if ttl_seconds <= 0:
         return None
@@ -146,17 +196,17 @@ async def _load_admin_panel_stats(
     request: web.Request,
     settings: Settings,
     panel_service: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     cache = _admin_panel_stats_cache(settings)
     if cache is None:
         return await _load_admin_panel_stats_uncached(panel_service)
     return cast(
-        Dict[str, Any],
+        dict[str, Any],
         await cache.get_or_load("panel", lambda: _load_admin_panel_stats_uncached(panel_service)),
     )
 
 
-def _admin_panel_stats_cache(settings: Settings) -> Optional[AsyncTTLCache]:
+def _admin_panel_stats_cache(settings: Settings) -> AsyncTTLCache | None:
     ttl_seconds = int(settings.ADMIN_PANEL_STATS_CACHE_TTL_SECONDS or 0)
     if ttl_seconds <= 0:
         return None
@@ -172,9 +222,9 @@ def _admin_panel_stats_cache(settings: Settings) -> Optional[AsyncTTLCache]:
     return cache
 
 
-async def _load_admin_panel_stats_uncached(panel_service: Any) -> Dict[str, Any]:
+async def _load_admin_panel_stats_uncached(panel_service: Any) -> dict[str, Any]:
     try:
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(UTC).date()
         start_d = today - timedelta(days=7)
         system, bandwidth, nodes, nodes_bw, lookups = await asyncio.gather(
             _safe_panel_call(panel_service.get_system_stats(), "system stats"),
@@ -191,7 +241,7 @@ async def _load_admin_panel_stats_uncached(panel_service: Any) -> Dict[str, Any]
             _safe_panel_call(panel_service.get_nodes_online_lookups(), "nodes online lookups"),
         )
 
-        panel_body: Dict[str, Any] = {
+        panel_body: dict[str, Any] = {
             "system": system or {},
             "bandwidth": bandwidth or {},
             "nodes": nodes or {},

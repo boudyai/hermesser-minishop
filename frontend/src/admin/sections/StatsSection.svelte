@@ -1,19 +1,9 @@
 <script lang="ts">
   import { getPaymentsStore, getStatsStore } from "$lib/admin/context";
-  import {
-    Activity,
-    FileText,
-    Radio,
-    Server,
-    TrendingDown,
-    TrendingUp,
-    User,
-    Zap,
-  } from "$components/ui/icons.js";
+  import { FileText, TrendingDown, TrendingUp, User } from "$components/ui/icons.js";
   import { onMount, type ComponentType, type SvelteComponent } from "svelte";
 
   import Badge from "$components/ui/badge.svelte";
-  import { ScrollArea } from "$components/ui/index.js";
   import * as Card from "$components/ui/card/index.js";
   import {
     AdminDashboardGrid,
@@ -26,6 +16,9 @@
     AdminTable,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
+  import StatsPanelDashboard from "./stats/StatsPanelDashboard.svelte";
+  import StatsSkeleton from "./stats/StatsSkeleton.svelte";
+  import StatsSyncStrip from "./stats/StatsSyncStrip.svelte";
   import {
     aggregateRevenueSeries,
     filterDailyByIsoRange,
@@ -41,6 +34,7 @@
     parsePanelSystem,
     paymentDescriptionDisplay,
     type AdminStats,
+    type CornllmStats,
     type CustomRangeApply,
     type PanelNodeTraffic,
     type PanelStats,
@@ -65,6 +59,7 @@
     fmtDate = (value) => String(value ?? ""),
     fmtDateShort = (value) => String(value ?? ""),
     fmtMoney = (value) => String(value ?? ""),
+    hermesMode = false,
     paymentStatusVariant = () => "muted",
     onOpenUserCard = () => {},
   }: {
@@ -72,6 +67,7 @@
     fmtDate?: DateFormatterFn;
     fmtDateShort?: DateFormatterFn;
     fmtMoney?: FormatterFn;
+    hermesMode?: boolean;
     paymentStatusVariant?: (status: unknown) => AdminBadgeVariant;
     onOpenUserCard?: (userId: unknown) => void;
   } = $props();
@@ -88,6 +84,7 @@
   const currency = $derived(stats?.currency_symbol || "RUB");
   const fin: AdminStats["financial"] = $derived(stats?.financial || {});
   const users: AdminStats["users"] = $derived(stats?.users || {});
+  const cornllmStats: CornllmStats | null = $derived(stats?.cornllm ?? null);
   const panelPayload: PanelStats | null = $derived(stats?.panel ?? null);
   const panelMetrics: PanelSystemMetrics | null = $derived(
     panelPayload && !panelPayload.error ? parsePanelSystem(panelPayload) : null
@@ -101,8 +98,6 @@
 
   /** Same rows as the «Per node (7 days)» block — not system.nodes.totalOnline from /system/stats */
   const panelNodesListedCount = $derived(panelNodeTraffic?.seven?.length ?? 0);
-
-  const PANEL_NODE_TILE_LIMIT = 10;
 
   const REVENUE_CHART_MAX_CSS_HEIGHT = 204;
 
@@ -140,6 +135,22 @@
   const chartRangeSum = $derived(
     revenueChartSeries.reduce((a, p) => a + (Number(p.amount) || 0), 0)
   );
+
+  function numberOrNull(value: unknown): number | null {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+
+  function rubFromUsd(value: unknown): string {
+    const usd = numberOrNull(value);
+    if (usd === null) return "—";
+    return `${(usd * 100).toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ₽`;
+  }
+
+  function countValue(value: unknown): number {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : 0;
+  }
 
   function loadRevenueChart(): void {
     if (AdminRevenueChartComponent) return;
@@ -211,188 +222,7 @@
 {#if statsError}
   <AdminEmptyState>{at("stats_error", { error: statsError }, "")}</AdminEmptyState>
 {:else if showSkeleton}
-  <AdminDashboardStack>
-    <AdminSectionHeader title={at("stats_section_audience", {}, "")} />
-    <AdminDashboardGrid columns={3}>
-      {#each Array(3) as _, i (i)}
-        <Card.Root class="admin-cn-card-skeleton">
-          <Card.Header>
-            <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span>
-            <span
-              class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"
-              style="width:72%"
-            ></span>
-          </Card.Header>
-          <Card.Footer class="admin-cn-card-footer--stack">
-            <span class="admin-skeleton admin-skeleton-line" style="width:88%"></span>
-            <span
-              class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"
-              style="width:60%"
-            ></span>
-          </Card.Footer>
-        </Card.Root>
-      {/each}
-    </AdminDashboardGrid>
-
-    <AdminSectionHeader
-      title={at("stats_section_revenue", {}, "")}
-      description={at("stats_section_revenue_hint", {}, "")}
-    />
-    <Card.Root class="admin-cn-card-skeleton admin-cn-card-skeleton--tall">
-      <Card.Header>
-        <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span>
-        <span
-          class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"
-          style="width:48%"
-        ></span>
-      </Card.Header>
-      <Card.Content>
-        <div class="admin-revenue-kpis" aria-hidden="true">
-          {#each Array(6) as _, i (i)}
-            <div class="admin-revenue-kpi">
-              <span
-                class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"
-                style="width:72%"
-              ></span>
-              <span
-                class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"
-                style="width:58%;height:20px;margin-top:4px"
-              ></span>
-            </div>
-          {/each}
-          <div class="admin-revenue-kpi admin-revenue-kpi--wide">
-            <span
-              class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"
-              style="width:46%"
-            ></span>
-            <span
-              class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"
-              style="width:36%;height:20px;margin-top:4px"
-            ></span>
-            <span
-              class="admin-skeleton admin-skeleton-line"
-              style="width:92%;height:9px;margin-top:6px"
-            ></span>
-          </div>
-        </div>
-        <div class="admin-revenue-chart">
-          <div class="admin-revenue-chart-title">
-            <span
-              class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"
-              style="width:42%"
-            ></span>
-          </div>
-          <div class="admin-revenue-svg-frame">
-            <div
-              class="admin-skeleton admin-revenue-chart-skeleton"
-              style="display:block;width:100%;border-radius:0"
-            ></div>
-          </div>
-          <div class="admin-revenue-xlabels" aria-hidden="true">
-            {#each Array(4) as _, j (j)}
-              <span
-                class="admin-skeleton admin-skeleton-line"
-                style="display:block;height:8px;flex:1;max-width:24%"
-              ></span>
-            {/each}
-          </div>
-        </div>
-      </Card.Content>
-    </Card.Root>
-
-    <AdminSectionHeader
-      title={at("stats_section_panel", {}, "")}
-      description={at("stats_section_panel_hint", {}, "")}
-    />
-    <Card.Root class="admin-cn-card-skeleton admin-cn-card-skeleton--tall">
-      <Card.Content class="admin-cn-card-content admin-panel-dash-card">
-        <div class="admin-panel-dash">
-          <div class="admin-panel-dash-tiles" aria-hidden="true">
-            {#each Array(9) as _, k (k)}
-              <div class="admin-panel-dash-tile">
-                <span
-                  class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"
-                  style="width:58%"
-                ></span>
-                <span
-                  class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"
-                  style="width:44%;height:22px;margin-top:6px"
-                ></span>
-              </div>
-            {/each}
-          </div>
-          <div class="admin-panel-dash-nodes">
-            <div class="admin-panel-dash-nodes-head">
-              <span class="admin-skeleton admin-skeleton-line" style="width:40%;height:12px"></span>
-              <span
-                class="admin-skeleton admin-skeleton-line"
-                style="width:78%;height:9px;margin-top:6px"
-              ></span>
-            </div>
-            <ScrollArea class="admin-panel-dash-nodes-scroll" maxHeight="240px">
-              <div class="admin-panel-dash-nodes-grid">
-                {#each Array(4) as _, m (m)}
-                  <div class="admin-panel-dash-node">
-                    <span class="admin-skeleton admin-skeleton-line" style="width:82%"></span>
-                    <span
-                      class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"
-                      style="width:52%;height:16px;margin-top:6px"
-                    ></span>
-                    <span
-                      class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"
-                      style="width:44%;margin-top:6px"
-                    ></span>
-                  </div>
-                {/each}
-              </div>
-            </ScrollArea>
-          </div>
-        </div>
-      </Card.Content>
-    </Card.Root>
-
-    <Card.Root>
-      <Card.Content
-        class="admin-cn-card-content--flush"
-        style="padding-top:12px;padding-bottom:12px;"
-      >
-        <div class="admin-sync-strip" style="border:0;background:transparent;padding:0;">
-          <span
-            class="admin-skeleton admin-skeleton-line"
-            style="display:block;width:min(100%, 340px);height:12px"
-          ></span>
-          <span
-            class="admin-skeleton admin-skeleton-line"
-            style="display:block;width:min(100%, 220px);height:11px;margin-top:8px"
-          ></span>
-        </div>
-      </Card.Content>
-    </Card.Root>
-
-    <Card.Root>
-      <Card.Header class="admin-cn-card-header--lead">
-        <span class="admin-skeleton admin-skeleton-line" style="width:44%;height:14px"></span>
-      </Card.Header>
-      <Card.Content class="admin-cn-card-content--flush">
-        <AdminTableSkeleton
-          headers={recentPaymentHeaders}
-          rows={5}
-          widths={[
-            "48px",
-            "148px",
-            "88px",
-            "72px",
-            "72px",
-            "78px",
-            "82px",
-            "140px",
-            "72px",
-            "96px",
-          ]}
-        />
-      </Card.Content>
-    </Card.Root>
-  </AdminDashboardStack>
+  <StatsSkeleton {at} headers={recentPaymentHeaders} />
 {:else if stats}
   <AdminDashboardStack>
     <AdminSectionHeader
@@ -442,6 +272,45 @@
           </div>
         </Card.Footer>
       </Card.Root>
+
+      {#if hermesMode && cornllmStats}
+        <Card.Root>
+          <Card.Header>
+            <Card.Description>{at("stats_label_api_balance", {}, "API balance")}</Card.Description>
+            <Card.Title>{rubFromUsd(cornllmStats.total_remaining)}</Card.Title>
+            <Card.Action>
+              <Badge
+                variant={countValue(cornllmStats.unreachable_users) > 0 ? "destructive" : "outline"}
+              >
+                {at("stats_api_balance_keys", { count: countValue(cornllmStats.ok_users) }, "")}
+              </Badge>
+            </Card.Action>
+          </Card.Header>
+          <Card.Footer class="admin-cn-card-footer--stack">
+            <div class="admin-cn-card-footer-primary">
+              {at(
+                "stats_api_balance_spent",
+                {
+                  spent: rubFromUsd(cornllmStats.total_spent),
+                  budget: rubFromUsd(cornllmStats.total_max_budget),
+                },
+                ""
+              )}
+            </div>
+            <div class="admin-cn-card-footer-muted">
+              {at(
+                "stats_api_balance_linked",
+                {
+                  linked: countValue(cornllmStats.linked_users),
+                  missing: countValue(cornllmStats.no_key_users),
+                  unreachable: countValue(cornllmStats.unreachable_users),
+                },
+                ""
+              )}
+            </div>
+          </Card.Footer>
+        </Card.Root>
+      {/if}
 
       <Card.Root>
         <Card.Header>
@@ -660,183 +529,16 @@
       </Card.Content>
     </Card.Root>
 
-    <AdminSectionHeader
-      title={at("stats_section_panel", {}, "")}
-      description={panelPayload?.error
-        ? at("stats_panel_unavailable", {}, "")
-        : panelMetrics
-          ? at("stats_section_panel_hint", {}, "")
-          : ""}
+    <StatsPanelDashboard
+      {at}
+      {panelPayload}
+      {panelMetrics}
+      {panelBw}
+      {panelNodeTraffic}
+      {panelNodesListedCount}
     />
 
-    {#if panelPayload?.error}
-      <p class="admin-muted" style="margin:0;">{at("stats_panel_unavailable_detail", {}, "")}</p>
-    {:else if panelMetrics}
-      <Card.Root>
-        <Card.Content class="admin-cn-card-content admin-panel-dash-card">
-          <div class="admin-panel-dash">
-            <div
-              class="admin-panel-dash-tiles"
-              role="group"
-              aria-label={at("stats_section_panel", {}, "")}
-            >
-              <div class="admin-panel-dash-tile">
-                <div class="admin-panel-dash-tile-label">
-                  <span class="admin-panel-dash-ico" aria-hidden="true"><Radio size={12} /></span>
-                  {at("stats_panel_online", {}, "")}
-                </div>
-                <div class="admin-panel-dash-tile-value">{panelMetrics.onlineNow}</div>
-              </div>
-              <div class="admin-panel-dash-tile">
-                <div class="admin-panel-dash-tile-label">{at("stats_panel_active", {}, "")}</div>
-                <div class="admin-panel-dash-tile-value">{panelMetrics.active}</div>
-              </div>
-              <div class="admin-panel-dash-tile">
-                <div class="admin-panel-dash-tile-label">
-                  <span class="admin-panel-dash-ico" aria-hidden="true"><Activity size={12} /></span
-                  >
-                  {at("stats_panel_total_users", {}, "")}
-                </div>
-                <div class="admin-panel-dash-tile-value">{panelMetrics.totalPanelUsers}</div>
-              </div>
-              <div class="admin-panel-dash-tile">
-                <div class="admin-panel-dash-tile-label">{at("stats_panel_expired", {}, "")}</div>
-                <div class="admin-panel-dash-tile-value">{panelMetrics.expired}</div>
-              </div>
-              <div class="admin-panel-dash-tile">
-                <div class="admin-panel-dash-tile-label">{at("stats_panel_disabled", {}, "")}</div>
-                <div class="admin-panel-dash-tile-value">{panelMetrics.disabled}</div>
-              </div>
-              <div class="admin-panel-dash-tile">
-                <div class="admin-panel-dash-tile-label">{at("stats_panel_limited", {}, "")}</div>
-                <div class="admin-panel-dash-tile-value">{panelMetrics.limited}</div>
-              </div>
-              {#if panelNodesListedCount > 0}
-                <div
-                  class="admin-panel-dash-tile"
-                  title={at("stats_panel_nodes_online_hint", {}, "")}
-                >
-                  <div class="admin-panel-dash-tile-label">
-                    <span class="admin-panel-dash-ico" aria-hidden="true"><Server size={12} /></span
-                    >
-                    {at("stats_panel_nodes_online", {}, "")}
-                  </div>
-                  <div class="admin-panel-dash-tile-value">{panelNodesListedCount}</div>
-                </div>
-              {/if}
-              {#if panelMetrics.memPct != null}
-                <div class="admin-panel-dash-tile">
-                  <div class="admin-panel-dash-tile-label">{at("stats_panel_memory", {}, "")}</div>
-                  <div class="admin-panel-dash-tile-value">{panelMetrics.memPct.toFixed(1)}%</div>
-                </div>
-              {/if}
-              {#if panelMetrics.cpuPct != null}
-                <div class="admin-panel-dash-tile">
-                  <div class="admin-panel-dash-tile-label">
-                    <span class="admin-panel-dash-ico" aria-hidden="true"><Zap size={12} /></span>
-                    {at("stats_panel_cpu", {}, "")}
-                  </div>
-                  <div class="admin-panel-dash-tile-value">{panelMetrics.cpuPct.toFixed(1)}%</div>
-                </div>
-              {/if}
-              {#if panelBw?.week != null}
-                <div class="admin-panel-dash-tile admin-panel-dash-tile--wide">
-                  <div class="admin-panel-dash-tile-label">{at("stats_panel_bw_week", {}, "")}</div>
-                  <div class="admin-panel-dash-tile-value admin-panel-dash-tile-value--sm">
-                    {panelBw.week}
-                  </div>
-                </div>
-              {/if}
-              {#if panelBw?.month != null}
-                <div class="admin-panel-dash-tile admin-panel-dash-tile--wide">
-                  <div class="admin-panel-dash-tile-label">
-                    {at("stats_panel_bw_month", {}, "")}
-                  </div>
-                  <div class="admin-panel-dash-tile-value admin-panel-dash-tile-value--sm">
-                    {panelBw.month}
-                  </div>
-                </div>
-              {/if}
-            </div>
-
-            {#if panelNodeTraffic?.seven?.length}
-              <div class="admin-panel-dash-nodes">
-                <div class="admin-panel-dash-nodes-head">
-                  <h3 class="admin-panel-dash-nodes-title">
-                    {at("stats_panel_inner_nodes", {}, "")}
-                  </h3>
-                  <p class="admin-panel-dash-nodes-hint">
-                    {at("stats_panel_inner_nodes_hint", {}, "")}
-                  </p>
-                </div>
-                <ScrollArea class="admin-panel-dash-nodes-scroll" maxHeight="240px">
-                  <div class="admin-panel-dash-nodes-grid">
-                    {#each panelNodeTraffic.seven.slice(0, PANEL_NODE_TILE_LIMIT) as node}
-                      <div class="admin-panel-dash-node">
-                        <div class="admin-panel-dash-node-name">{node.label}</div>
-                        <div class="admin-panel-dash-node-value">{node.value}</div>
-                        {#if node.online != null}
-                          <div class="admin-panel-dash-node-meta">
-                            {at("stats_panel_node_users_online", { count: node.online }, "")}
-                          </div>
-                        {/if}
-                      </div>
-                    {/each}
-                  </div>
-                </ScrollArea>
-                {#if panelNodeTraffic.seven.length > PANEL_NODE_TILE_LIMIT}
-                  <p class="admin-panel-dash-nodes-more">
-                    {at(
-                      "stats_panel_nodes_overflow",
-                      { count: panelNodeTraffic.seven.length - PANEL_NODE_TILE_LIMIT },
-                      ""
-                    )}
-                  </p>
-                {/if}
-              </div>
-            {:else if panelPayload?.nodes && typeof panelPayload.nodes === "object" && Object.keys(panelPayload.nodes).length > 0}
-              <p class="admin-panel-dash-nodes-empty">{at("stats_panel_nodes_empty", {}, "")}</p>
-            {/if}
-          </div>
-        </Card.Content>
-      </Card.Root>
-    {/if}
-
-    <Card.Root>
-      <Card.Content
-        class="admin-cn-card-content--flush"
-        style="padding-top:12px;padding-bottom:12px;"
-      >
-        <div class="admin-sync-strip" style="border:0;background:transparent;padding:0;">
-          <span
-            ><strong>{at("stats_sync_label", {}, "")}:</strong>
-            {stats.panel_sync?.status ?? "—"}{#if stats.panel_sync?.last_sync_time}
-              · {at("stats_sync_last", {}, "")}: {fmtDateShort(
-                stats.panel_sync.last_sync_time
-              )}{/if}</span
-          >
-          {#if stats.panel_sync && (stats.panel_sync.users_processed > 0 || stats.panel_sync.subscriptions_synced > 0)}
-            <span
-              >{at(
-                "stats_sync_processed",
-                {
-                  users: stats.panel_sync.users_processed,
-                  subs: stats.panel_sync.subscriptions_synced,
-                },
-                ""
-              )}</span
-            >
-          {/if}
-          {#if stats.queue}
-            <span
-              ><strong>{at("stats_label_queue", {}, "")}:</strong>
-              {stats.queue.user_queue_size ?? 0}{at("stats_queue_users", {}, "")}, {stats.queue
-                .group_queue_size ?? 0}{at("stats_queue_groups", {}, "")}</span
-            >
-          {/if}
-        </div>
-      </Card.Content>
-    </Card.Root>
+    <StatsSyncStrip {at} {stats} {fmtDateShort} />
 
     <Card.Root>
       <Card.Header class="admin-cn-card-header--lead">

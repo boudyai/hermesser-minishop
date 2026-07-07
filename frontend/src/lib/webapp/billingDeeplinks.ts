@@ -1,13 +1,13 @@
 import { buildTariffCatalog, type BillingPlan, type TariffCatalogEntry } from "./tariffs.js";
 import { premiumTrafficLimitVisible, regularTrafficLimitVisible } from "./traffic.js";
+import type { SubscriptionView } from "./types";
 
-type WebappRecord = Record<string, unknown>;
 type TopupKind = "premium" | "regular";
 
 export type TopupDeeplinkInput = {
   plans: BillingPlan[];
   search: string;
-  subscription: WebappRecord;
+  subscription: SubscriptionView;
 };
 
 export type RenewalPaymentConfig = {
@@ -19,13 +19,13 @@ export type RenewalPaymentConfig = {
   };
   plans: BillingPlan[];
   singleTariffMode: boolean;
-  subscription: WebappRecord;
+  subscription: SubscriptionView;
   tariffCatalog: TariffCatalogEntry[];
   tariffMode: boolean;
 };
 
 function hasActiveTariffSubscription(
-  subscription: WebappRecord,
+  subscription: SubscriptionView,
   tariffCatalog: TariffCatalogEntry[],
   tariffMode: boolean
 ) {
@@ -66,7 +66,7 @@ export function renewalPaymentConfig({
 }: {
   defaultMethod: string;
   plans: BillingPlan[];
-  subscription: WebappRecord;
+  subscription: SubscriptionView;
   tariffKey: string;
 }): RenewalPaymentConfig {
   const tariffCatalog = buildTariffCatalog(plans);

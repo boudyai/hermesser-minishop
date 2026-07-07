@@ -3,8 +3,8 @@ import hashlib
 import hmac
 import json
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
@@ -30,6 +30,8 @@ from db.dal import subscription_dal, tariff_dal, user_dal
 from db.models import Subscription, User
 
 from .panel_api_service import PanelApiService
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from bot.services.subscription_service_impl.core import SubscriptionService
@@ -95,10 +97,9 @@ class PanelWebhookService:
         )
         self.subscription_service: SubscriptionService | None = None
         self._event_semaphore = asyncio.Semaphore(self._MAX_CONCURRENT_EVENTS)
+        self._background_tasks: set[asyncio.Task[None]] = set()
         if not self.settings.PANEL_WEBHOOK_SECRET:
-            logging.error(
-                "PANEL_WEBHOOK_SECRET is not configured. Panel webhooks will be rejected."
-            )
+            logger.error("PANEL_WEBHOOK_SECRET is not configured. Panel webhooks will be rejected.")
 
     async def _send_message(
         self,
@@ -116,7 +117,7 @@ class PanelWebhookService:
                 text = f"{text}\n\n{extra_text}"
             await self.bot.send_message(user_id, text, reply_markup=reply_markup)
         except Exception:
-            logging.exception("Failed to send notification to %s", user_id)
+            logger.exception("Failed to send notification to %s", user_id)
 
     async def _hwid_renewal_note(self, internal_user_id: int, lang: str) -> str:
         try:
@@ -138,7 +139,7 @@ class PanelWebhookService:
                 active_until = summary.get("active_until") or sub.end_date
                 date_text = active_until.strftime("%Y-%m-%d") if active_until else ""
         except Exception:
-            logging.exception("Failed to build HWID renewal note for user %s", internal_user_id)
+            logger.exception("Failed to build HWID renewal note for user %s", internal_user_id)
             return ""
         return str(
             self.i18n.gettext(
@@ -153,7 +154,7 @@ class PanelWebhookService:
         self,
         event_name: str,
         user_payload: dict[str, Any],
-        meta: Optional[dict[str, Any]] = None,
+        meta: dict[str, Any] | None = None,
     ) -> None:
         await events.emit_model(
             PanelWebhookReceivedPayload(
@@ -167,7 +168,7 @@ class PanelWebhookService:
             return
 
         if event_name not in ACTIONABLE_EVENTS:
-            logging.info(
+            logger.info(
                 "Panel webhook event %s ignored: event is not used for subscription "
                 "notifications; %s",
                 event_name,
@@ -177,7 +178,7 @@ class PanelWebhookService:
 
         stage = self._stage_for_event(event_name, user_payload, meta)
         if stage is None:
-            logging.warning(
+            logger.warning(
                 "Panel webhook event %s ignored: expiration metadata is missing or invalid; %s",
                 event_name,
                 self._payload_log_context(user_payload),
@@ -201,7 +202,7 @@ class PanelWebhookService:
             if not sub:
                 if not telegram_id:
                     local_user_id = getattr(db_user, "user_id", None) if db_user else None
-                    logging.warning(
+                    logger.warning(
                         "Panel webhook event %s cannot be matched to a local subscription; "
                         "notification skipped. %s local_user_id=%s. Possible causes: "
                         "panel user was created outside the bot, subscription was deleted "
@@ -235,7 +236,7 @@ class PanelWebhookService:
             # expiry/expiring notices in that case is wrong (e.g. "your sub ended
             # yesterday" right after a successful renewal), so skip them.
             if await self._superseded_by_newer_subscription(session, sub):
-                logging.info(
+                logger.info(
                     "Panel webhook event %s skipped: subscription %s is superseded by a "
                     "newer active subscription for user %s.",
                     event_name,
@@ -259,7 +260,7 @@ class PanelWebhookService:
                             session,
                             internal_user_id,
                         )
-                        logging.info(
+                        logger.info(
                             "48h webhook check: user_id=%s sub_found=%s auto_renew=%s provider=%s",
                             internal_user_id,
                             bool(active_sub),
@@ -328,9 +329,9 @@ class PanelWebhookService:
         user_payload: dict,
         user_id: int,
         lang: str,
-        db_user: Optional[User],
+        db_user: User | None,
         *,
-        meta: Optional[dict[str, Any]] = None,
+        meta: dict[str, Any] | None = None,
     ) -> None:
         first_name = getattr(db_user, "first_name", None) or f"User {user_id}"
         markup = get_subscribe_only_markup(lang, self.i18n, self.settings)
@@ -357,15 +358,7 @@ class PanelWebhookService:
                 reply_markup=markup,
                 **kwargs,
             )
-        elif stage.key == "expired" and self.settings.SUBSCRIPTION_NOTIFY_ON_EXPIRE:
-            await self._send_message(
-                user_id,
-                lang,
-                stage.message_key,
-                reply_markup=markup,
-                **kwargs,
-            )
-        elif (
+        elif (stage.key == "expired" and self.settings.SUBSCRIPTION_NOTIFY_ON_EXPIRE) or (
             self._is_after_expiration_stage(stage)
             and self.settings.SUBSCRIPTION_NOTIFY_AFTER_EXPIRE
         ):
@@ -382,8 +375,8 @@ class PanelWebhookService:
         cls,
         event_name: str,
         user_payload: dict[str, Any],
-        meta: Optional[dict[str, Any]] = None,
-    ) -> Optional[SubscriptionNotificationStage]:
+        meta: dict[str, Any] | None = None,
+    ) -> SubscriptionNotificationStage | None:
         if event_name in EVENT_MAP:
             return EVENT_MAP[event_name]
         if event_name == EXPIRED_EVENT:
@@ -480,17 +473,17 @@ class PanelWebhookService:
                     await renewal_session.rollback()
                 except Exception:
                     await renewal_session.rollback()
-                    logging.exception("Auto-renew attempt (%s) failed", stage_key)
+                    logger.exception("Auto-renew attempt (%s) failed", stage_key)
         except Exception:
-            logging.exception("Auto-renew trigger (%s) failed pre-check", stage_key)
+            logger.exception("Auto-renew trigger (%s) failed pre-check", stage_key)
         return False
 
     @classmethod
     def _expiration_hours(
         cls,
-        meta: Optional[dict[str, Any]],
+        meta: dict[str, Any] | None,
         user_payload: dict[str, Any],
-    ) -> Optional[int]:
+    ) -> int | None:
         for source in (meta, user_payload):
             if not isinstance(source, dict):
                 continue
@@ -501,7 +494,7 @@ class PanelWebhookService:
         return None
 
     @staticmethod
-    def _coerce_int(value: object) -> Optional[int]:
+    def _coerce_int(value: object) -> int | None:
         if value is None or isinstance(value, bool):
             return None
         if isinstance(value, int):
@@ -526,7 +519,7 @@ class PanelWebhookService:
         self,
         session: AsyncSession,
         user_payload: dict,
-    ) -> Optional[User]:
+    ) -> User | None:
         telegram_id = self._payload_telegram_id(user_payload)
         if telegram_id:
             user = await user_dal.get_user_by_telegram_id(session, telegram_id)
@@ -550,17 +543,17 @@ class PanelWebhookService:
     async def _superseded_by_newer_subscription(
         self,
         session: AsyncSession,
-        sub: Optional[Subscription],
+        sub: Subscription | None,
     ) -> bool:
         if sub is None:
             return False
         user_id = getattr(sub, "user_id", None)
         if user_id is None:
             return False
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         sub_end = getattr(sub, "end_date", None)
         if sub_end is not None and sub_end.tzinfo is None:
-            sub_end = sub_end.replace(tzinfo=timezone.utc)
+            sub_end = sub_end.replace(tzinfo=UTC)
         after = max(now, sub_end) if sub_end is not None else now
         return bool(
             await subscription_dal.user_has_active_subscription_after(
@@ -575,8 +568,8 @@ class PanelWebhookService:
         self,
         session: AsyncSession,
         user_payload: dict,
-        db_user: Optional[User],
-    ) -> Optional[Subscription]:
+        db_user: User | None,
+    ) -> Subscription | None:
         conditions = []
         if db_user:
             conditions.append(Subscription.user_id == db_user.user_id)
@@ -614,7 +607,7 @@ class PanelWebhookService:
         return result.scalars().first()
 
     @staticmethod
-    def _payload_telegram_id(user_payload: dict) -> Optional[int]:
+    def _payload_telegram_id(user_payload: dict) -> int | None:
         raw = user_payload.get("telegramId")
         try:
             value = int(raw or 0)
@@ -641,7 +634,7 @@ class PanelWebhookService:
         panel_uuid = PanelWebhookService._payload_panel_uuid(user_payload)
         email = PanelWebhookService._mask_email(str(user_payload.get("email") or "").strip())
         expire_at = str(user_payload.get("expireAt") or "").strip()
-        payload_keys = ",".join(sorted(str(key) for key in user_payload.keys())) or "none"
+        payload_keys = ",".join(sorted(str(key) for key in user_payload)) or "none"
         return (
             f"telegramId={telegram_id or 'N/A'} "
             f"panel_uuid={panel_uuid or 'N/A'} "
@@ -661,7 +654,7 @@ class PanelWebhookService:
         return f"{visible}***@{domain}"
 
     @staticmethod
-    def _payload_expire_datetime(user_payload: dict) -> Optional[datetime]:
+    def _payload_expire_datetime(user_payload: dict) -> datetime | None:
         raw = str(user_payload.get("expireAt") or "").strip()
         if not raw:
             return None
@@ -673,12 +666,10 @@ class PanelWebhookService:
             except ValueError:
                 return None
         if value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
-        return value.astimezone(timezone.utc)
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
 
-    async def handle_webhook(
-        self, raw_body: bytes, signature_header: Optional[str]
-    ) -> web.Response:
+    async def handle_webhook(self, raw_body: bytes, signature_header: str | None) -> web.Response:
         if not self.settings.PANEL_WEBHOOK_SECRET:
             return web.Response(status=401, text="unauthorized")
 
@@ -714,7 +705,7 @@ class PanelWebhookService:
         if not event_name:
             return web.Response(status=200, text="ok_no_event")
 
-        logging.info(
+        logger.info(
             "Panel webhook event received: %s; telegramId=%s",
             event_name,
             telegram_id if telegram_id is not None else "N/A",
@@ -730,10 +721,12 @@ class PanelWebhookService:
             event_id=self._webhook_event_id(str(event_name), user_data, meta),
         )
         if not queued:
-            asyncio.create_task(
+            task = asyncio.create_task(
                 self._run_event_in_background(str(event_name), user_data, meta),
                 name=f"panel_event_{event_name}",
             )
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
         return web.Response(status=200, text="ok")
 
     @classmethod
@@ -755,7 +748,7 @@ class PanelWebhookService:
         cls,
         event_name: str,
         user_payload: dict[str, Any],
-        meta: Optional[dict[str, Any]] = None,
+        meta: dict[str, Any] | None = None,
     ) -> str:
         subject = (
             cls._payload_telegram_id(user_payload)
@@ -775,15 +768,13 @@ class PanelWebhookService:
         self,
         event_name: str,
         user_payload: dict[str, Any],
-        meta: Optional[dict[str, Any]] = None,
+        meta: dict[str, Any] | None = None,
     ) -> None:
         async with self._event_semaphore:
             try:
                 await self.handle_event(event_name, user_payload, meta=meta)
             except Exception:
-                logging.exception(
-                    "Panel webhook background handler failed for event %s", event_name
-                )
+                logger.exception("Panel webhook background handler failed for event %s", event_name)
 
 
 async def panel_webhook_route(request: web.Request) -> web.Response:

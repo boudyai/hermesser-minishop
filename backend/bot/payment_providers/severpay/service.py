@@ -3,7 +3,7 @@ import hmac
 import json
 import logging
 import secrets
-from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot, F, Router, types
 from aiohttp import web
@@ -13,13 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
-
-if TYPE_CHECKING:
-    from bot.services.referral_service import ReferralService
-    from bot.services.subscription_service_impl.core import SubscriptionService
-else:
-    ReferralService = object
-    SubscriptionService = object
 from config.settings import Settings
 from db.dal import payment_dal
 
@@ -54,6 +47,15 @@ from ..shared import (
 )
 from ..shared.app_context import app_required
 
+if TYPE_CHECKING:
+    from bot.services.referral_service import ReferralService
+    from bot.services.subscription_service_impl.core import SubscriptionService
+else:
+    ReferralService = object
+    SubscriptionService = object
+
+logger = logging.getLogger(__name__)
+
 _LOG = "severpay"
 
 
@@ -66,11 +68,11 @@ class SeverPayConfig(ProviderEnvConfig):
     )
 
     ENABLED: bool = Field(default=False)
-    MID: Optional[int] = None
-    TOKEN: Optional[str] = None
-    RETURN_URL: Optional[str] = None
+    MID: int | None = None
+    TOKEN: str | None = None
+    RETURN_URL: str | None = None
     BASE_URL: str = Field(default="https://severpay.io/api/merchant")
-    LIFETIME_MINUTES: Optional[int] = None
+    LIFETIME_MINUTES: int | None = None
     SUPPORTED_CURRENCIES: str = Field(default="RUB,USD")
 
     @field_validator("MID", "LIFETIME_MINUTES", mode="before")
@@ -102,12 +104,12 @@ class SeverPayPresentation(ProviderEnvConfig):
         extra="ignore",
     )
 
-    WEBAPP_LABEL_RU: Optional[str] = None
-    WEBAPP_LABEL_EN: Optional[str] = None
-    WEBAPP_ICON: Optional[str] = None
-    TELEGRAM_LABEL_RU: Optional[str] = None
-    TELEGRAM_LABEL_EN: Optional[str] = None
-    TELEGRAM_EMOJI: Optional[str] = None
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None
+    TELEGRAM_LABEL_RU: str | None = None
+    TELEGRAM_LABEL_EN: str | None = None
+    TELEGRAM_EMOJI: str | None = None
 
 
 class SeverPayService(HttpClientMixin):
@@ -135,7 +137,7 @@ class SeverPayService(HttpClientMixin):
         self._init_http_client(total_timeout=lambda: self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
 
         if not self.configured:
-            logging.warning(
+            logger.warning(
                 "SeverPayService initialized but not fully configured. Payments disabled."
             )
 
@@ -148,7 +150,7 @@ class SeverPayService(HttpClientMixin):
         return (self.config.BASE_URL or "https://severpay.io/api/merchant").rstrip("/")
 
     @property
-    def mid(self) -> Optional[int]:
+    def mid(self) -> int | None:
         return self.config.MID
 
     @property
@@ -160,21 +162,21 @@ class SeverPayService(HttpClientMixin):
         return self.config.RETURN_URL or f"https://t.me/{self._default_return_url}"
 
     @property
-    def lifetime_minutes(self) -> Optional[int]:
+    def lifetime_minutes(self) -> int | None:
         return self.config.LIFETIME_MINUTES
 
     @staticmethod
     def _format_amount(amount: float) -> str:
         return f"{format_decimal_amount(amount):.2f}"
 
-    def _sign_payload(self, payload: Dict[str, Any]) -> str:
+    def _sign_payload(self, payload: dict[str, Any]) -> str:
         message = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
         return hmac.new(
             self.token.encode("utf-8"), message.encode("utf-8"), hashlib.sha256
         ).hexdigest()
 
-    def _build_signed_body(self, extra: Dict[str, Any]) -> Dict[str, Any]:
-        body: Dict[str, Any] = {
+    def _build_signed_body(self, extra: dict[str, Any]) -> dict[str, Any]:
+        body: dict[str, Any] = {
             "mid": self.mid,
             "salt": secrets.token_hex(8),
         }
@@ -183,7 +185,7 @@ class SeverPayService(HttpClientMixin):
         sorted_body["sign"] = self._sign_payload(sorted_body)
         return sorted_body
 
-    def _validate_signature(self, payload: Dict[str, Any]) -> bool:
+    def _validate_signature(self, payload: dict[str, Any]) -> bool:
         provided_sign = str(payload.get("sign") or "")
         if not provided_sign or not self.token:
             return False
@@ -198,10 +200,10 @@ class SeverPayService(HttpClientMixin):
         payment_db_id: int,
         user_id: int,
         amount: float,
-        currency: Optional[str],
-    ) -> Tuple[bool, Dict[str, Any]]:
+        currency: str | None,
+    ) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
-            logging.error("SeverPayService is not configured. Cannot create payment.")
+            logger.error("SeverPayService is not configured. Cannot create payment.")
             return False, {"message": "service_not_configured"}
 
         currency_code = normalize_payment_currency_code(
@@ -218,7 +220,7 @@ class SeverPayService(HttpClientMixin):
         session = await self._get_session()
         url = f"{self.base_url}/payin/create"
 
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "order_id": str(payment_db_id),
             "amount": self._format_amount(amount),
             "currency": currency_code,
@@ -244,7 +246,7 @@ class SeverPayService(HttpClientMixin):
             return True, response_data.get("data") or response_data
         return False, response_data
 
-    async def get_payment(self, provider_payment_id: str) -> Tuple[bool, Dict[str, Any]]:
+    async def get_payment(self, provider_payment_id: str) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
             return False, {"message": "service_not_configured"}
 
@@ -252,7 +254,7 @@ class SeverPayService(HttpClientMixin):
         if not provider_payment_id:
             return False, {"message": "missing_payment_id"}
 
-        identifier: Dict[str, Any]
+        identifier: dict[str, Any]
         if provider_payment_id.isdigit():
             identifier = {"id": int(provider_payment_id)}
         else:
@@ -270,7 +272,7 @@ class SeverPayService(HttpClientMixin):
             return True, response_data.get("data") or response_data
         return False, response_data
 
-    async def try_reuse_pending_payment(self, payment: Any) -> Optional[str]:
+    async def try_reuse_pending_payment(self, payment: Any) -> str | None:
         provider_payment_id = str(getattr(payment, "provider_payment_id", None) or "").strip()
         payment_url = str(getattr(payment, "provider_payment_url", None) or "").strip()
         if not provider_payment_id or not payment_url:
@@ -293,18 +295,18 @@ class SeverPayService(HttpClientMixin):
         try:
             payload = await request.json()
         except Exception:
-            logging.exception("SeverPay webhook: failed to parse JSON.")
+            logger.exception("SeverPay webhook: failed to parse JSON.")
             return web.json_response({"status": False, "msg": "bad_request"}, status=400)
 
         if not isinstance(payload, dict) or not self._validate_signature(payload):
-            logging.error("SeverPay webhook: invalid signature or payload.")
+            logger.error("SeverPay webhook: invalid signature or payload.")
             return web.json_response({"status": False, "msg": "invalid_signature"}, status=403)
 
         event_type = str(payload.get("type") or "").lower()
         data = payload.get("data") or {}
 
         if event_type != "payin" or not isinstance(data, dict):
-            logging.warning("SeverPay webhook: unsupported event type '%s'", event_type)
+            logger.warning("SeverPay webhook: unsupported event type '%s'", event_type)
             return web.json_response({"status": True})
 
         provider_payment_id = str(data.get("id") or data.get("uid") or "")
@@ -318,7 +320,7 @@ class SeverPayService(HttpClientMixin):
                 provider_payment_id=provider_payment_id or None,
             )
             if not payment:
-                logging.error(
+                logger.error(
                     "SeverPay webhook: payment not found (order_id=%s, provider_id=%s)",
                     order_id_raw,
                     provider_payment_id,
@@ -333,7 +335,7 @@ class SeverPayService(HttpClientMixin):
 
             if status == "success":
                 if payment.status == "succeeded":
-                    logging.info(
+                    logger.info(
                         "SeverPay webhook: payment %s already succeeded.",
                         payment.payment_id,
                     )
@@ -349,7 +351,7 @@ class SeverPayService(HttpClientMixin):
                     await session.commit()
                 except Exception:
                     await session.rollback()
-                    logging.exception(
+                    logger.exception(
                         "SeverPay webhook: failed to mark payment %s as succeeded.",
                         resolved_provider_id,
                     )
@@ -395,7 +397,7 @@ class SeverPayService(HttpClientMixin):
                     await session.commit()
                 except Exception:
                     await session.rollback()
-                    logging.exception(
+                    logger.exception(
                         "SeverPay webhook: failed to mark payment %s as failed.",
                         resolved_provider_id,
                     )
@@ -422,13 +424,13 @@ class SeverPayService(HttpClientMixin):
                     await session.commit()
                 except Exception:
                     await session.rollback()
-                    logging.exception(
+                    logger.exception(
                         "SeverPay webhook: failed to update pending status for %s.",
                         resolved_provider_id,
                     )
                 return web.json_response({"status": True})
 
-            logging.warning(
+            logger.warning(
                 "SeverPay webhook: unhandled status '%s' for payment %s",
                 status,
                 resolved_provider_id,
@@ -478,7 +480,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     return await run_webapp_payment(_DESCRIPTOR, ctx)
 
 
-async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
+async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> str | None:
     return await run_reuse_webapp_payment(_DESCRIPTOR, ctx, payment)
 
 
@@ -628,7 +630,7 @@ async def _create_payment(service: SeverPayService, req: CreatePaymentRequest) -
     )
 
 
-async def _reuse_payment(service: SeverPayService, payment: Any) -> Optional[str]:
+async def _reuse_payment(service: SeverPayService, payment: Any) -> str | None:
     return await service.try_reuse_pending_payment(payment)
 
 

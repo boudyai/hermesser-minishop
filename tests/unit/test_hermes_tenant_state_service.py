@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
@@ -41,18 +41,18 @@ def _make_service(
 class _FakeResponse:
     """Minimal stand-in for an aiohttp response supporting __aenter__."""
 
-    def __init__(self, status: int, payload: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, status: int, payload: dict[str, Any] | None = None) -> None:
         self.status = status
         self._payload = payload
         self._text_value = "" if payload is None else json.dumps(payload)
 
-    async def __aenter__(self) -> "_FakeResponse":
+    async def __aenter__(self) -> _FakeResponse:
         return self
 
     async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
         return None
 
-    async def json(self) -> Dict[str, Any]:
+    async def json(self) -> dict[str, Any]:
         assert self._payload is not None
         return self._payload
 
@@ -60,7 +60,7 @@ class _FakeResponse:
         return self._text_value
 
 
-def _session_with(responses) -> tuple[MagicMock, list[str]]:
+def _session_with(responses: list[_FakeResponse]) -> tuple[MagicMock, list[str]]:
     """Build a mock aiohttp.ClientSession that returns the queued responses in order.
 
     Returns the session and a list that collects every URL the test hit, so

@@ -8,7 +8,7 @@ import shutil
 import socket
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Dict, Optional, cast
+from typing import Any, cast
 from urllib.parse import urlsplit
 
 from aiohttp import ClientSession, ClientTimeout, web
@@ -27,7 +27,7 @@ from bot.app.web.route_contracts import (
     BOOLEAN_SCHEMA,
     STRING_SCHEMA,
     RouteContract,
-    loose_object_schema,
+    ok_envelope_for,
     ok_envelope_with,
     register_contract,
 )
@@ -47,8 +47,8 @@ from .auth import (
 from .common import (
     _error,
     _ok,
-    _webapp_themes_catalog_payload,
 )
+from .response_schemas import AdminThemesOut
 from .schemas import ImageUrlUploadBody, ThemesSaveBody
 
 logger = logging.getLogger(__name__)
@@ -59,25 +59,30 @@ _IMAGE_URL_UPLOAD_SCHEMA = {
     "required": ["url"],
     "properties": {"url": STRING_SCHEMA},
 }
+
+
+def _webapp_themes_dir_status(themes_dir: str) -> tuple[bool, str]:
+    path = Path(themes_dir).expanduser()
+    return path.exists(), str(path)
+
+
 _IMAGE_MULTIPART_UPLOAD_SCHEMA = {
     "type": "object",
     "required": ["file"],
     "properties": {"file": BINARY_RESPONSE_SCHEMA},
 }
-_THEMES_RESPONSE_SCHEMA = ok_envelope_with(
-    {"exists": BOOLEAN_SCHEMA, "themes_dir": STRING_SCHEMA, "catalog": loose_object_schema()}
-)
+_THEMES_RESPONSE_SCHEMA = ok_envelope_for(AdminThemesOut)
 
 register_contract(
     "admin_themes_get_route",
-    RouteContract(response_schema=_THEMES_RESPONSE_SCHEMA, models=(WebappThemesConfig,)),
+    RouteContract(response_schema=_THEMES_RESPONSE_SCHEMA, models=(AdminThemesOut,)),
 )
 register_contract(
     "admin_themes_save_route",
     RouteContract(
         request_model=ThemesSaveBody,
         response_schema=_THEMES_RESPONSE_SCHEMA,
-        models=(WebappThemesConfig,),
+        models=(ThemesSaveBody, AdminThemesOut),
     ),
 )
 register_contract(
@@ -129,9 +134,9 @@ WEBAPP_LOGO_UPLOAD_CONTENT_TYPES = {
 }
 
 
-def _theme_payload_for_version_compare(theme: Any) -> Dict[str, Any]:
+def _theme_payload_for_version_compare(theme: Any) -> dict[str, Any]:
     if hasattr(theme, "model_dump"):
-        data = cast(Dict[str, Any], theme.model_dump(mode="json", exclude_none=True))
+        data = cast(dict[str, Any], theme.model_dump(mode="json", exclude_none=True))
     elif isinstance(theme, dict):
         data = dict(theme)
     else:
@@ -167,9 +172,7 @@ def _bump_theme_asset_versions(
     return WebappThemesConfig.model_validate(data)
 
 
-def _detect_logo_extension(
-    body: bytes, content_type: str = "", filename: str = ""
-) -> Optional[str]:
+def _detect_logo_extension(body: bytes, content_type: str = "", filename: str = "") -> str | None:
     content_type = (content_type or "").split(";", 1)[0].strip().lower()
     suffix = Path(filename or "").suffix.lower()
     if content_type == "image/png" or body.startswith(b"\x89PNG\r\n\x1a\n"):
@@ -186,9 +189,10 @@ def _detect_logo_extension(
         head = body[:512].lstrip().lower()
         if head.startswith(b"<svg") or b"<svg" in head:
             return ".svg"
-    if content_type == "image/x-icon" or suffix == ".ico":
-        if body.startswith(b"\x00\x00\x01\x00"):
-            return ".ico"
+    if (content_type == "image/x-icon" or suffix == ".ico") and body.startswith(
+        b"\x00\x00\x01\x00"
+    ):
+        return ".ico"
     return suffix if suffix in WEBAPP_LOGO_UPLOAD_CONTENT_TYPES else None
 
 
@@ -205,7 +209,7 @@ def _write_uploaded_logo(body: bytes, content_type: str = "", filename: str = ""
     return f"{WEBAPP_UPLOADED_LOGO_PATH}/{safe_name}"
 
 
-def _uploaded_logo_filename(url: str) -> Optional[str]:
+def _uploaded_logo_filename(url: str) -> str | None:
     parsed = urlsplit(str(url or ""))
     path = parsed.path if parsed.scheme or parsed.netloc else str(url or "")
     prefix = f"{WEBAPP_UPLOADED_LOGO_PATH}/"
@@ -217,7 +221,7 @@ def _uploaded_logo_filename(url: str) -> Optional[str]:
     return None
 
 
-def _favicon_digest(url: str) -> Optional[str]:
+def _favicon_digest(url: str) -> str | None:
     parsed = urlsplit(str(url or ""))
     path = parsed.path if parsed.scheme or parsed.netloc else str(url or "")
     match = re.fullmatch(
@@ -274,7 +278,7 @@ def prune_unused_appearance_assets(
 
 async def _persist_appearance_upload(
     request: web.Request,
-    updates: Dict[str, Any],
+    updates: dict[str, Any],
     actor_id: int,
 ) -> bool:
     settings: Settings = get_settings(request)
@@ -304,7 +308,7 @@ def _image_to_square_icon(source: Image.Image, size: int) -> Image.Image:
     return canvas
 
 
-def _write_favicon_set(body: bytes, content_type: str = "", filename: str = "") -> Dict[str, Any]:
+def _write_favicon_set(body: bytes, content_type: str = "", filename: str = "") -> dict[str, Any]:
     if not body or len(body) > WEBAPP_LOGO_MAX_BYTES:
         raise ValueError("favicon source must be a non-empty image up to 2 MiB")
 
@@ -331,8 +335,8 @@ def _write_favicon_set(body: bytes, content_type: str = "", filename: str = "") 
     if source.width < 1 or source.height < 1 or source.width > 8192 or source.height > 8192:
         raise ValueError("favicon source dimensions are not supported")
 
-    variants: Dict[str, str] = {}
-    png_icons: Dict[int, Image.Image] = {}
+    variants: dict[str, str] = {}
+    png_icons: dict[int, Image.Image] = {}
     for size in WEBAPP_FAVICON_SIZES:
         icon = _image_to_square_icon(source, size)
         png_icons[size] = icon
@@ -422,25 +426,25 @@ async def _fetch_logo_from_url(url: str) -> tuple[bytes, str, str]:
         raise ValueError("logo URL must resolve to a public address")
 
     timeout = ClientTimeout(total=5)
-    async with ClientSession(timeout=timeout, headers={"User-Agent": "Mozilla/5.0"}) as session:
-        async with session.get(
+    async with (
+        ClientSession(timeout=timeout, headers={"User-Agent": "Mozilla/5.0"}) as session,
+        session.get(
             url,
             allow_redirects=False,
             headers={"Accept": "image/avif,image/webp,image/svg+xml,image/png,image/*,*/*;q=0.8"},
-        ) as response:
-            if response.status != 200:
-                raise ValueError(f"logo URL returned HTTP {response.status}")
-            content_type = (
-                (response.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
-            )
-            if content_type and not content_type.startswith("image/"):
-                raise ValueError("logo URL returned non-image content")
-            body = bytearray()
-            async for chunk in response.content.iter_chunked(64 * 1024):
-                body.extend(chunk)
-                if len(body) > WEBAPP_LOGO_MAX_BYTES:
-                    raise ValueError("logo must be up to 2 MiB")
-            return bytes(body), content_type, Path(parsed.path).name
+        ) as response,
+    ):
+        if response.status != 200:
+            raise ValueError(f"logo URL returned HTTP {response.status}")
+        content_type = (response.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+        if content_type and not content_type.startswith("image/"):
+            raise ValueError("logo URL returned non-image content")
+        body = bytearray()
+        async for chunk in response.content.iter_chunked(64 * 1024):
+            body.extend(chunk)
+            if len(body) > WEBAPP_LOGO_MAX_BYTES:
+                raise ValueError("logo must be up to 2 MiB")
+        return bytes(body), content_type, Path(parsed.path).name
 
 
 async def admin_appearance_logo_upload_route(request: web.Request) -> web.Response:
@@ -520,13 +524,17 @@ async def admin_themes_get_route(request: web.Request) -> web.Response:
         env_default_theme=settings.WEBAPP_DEFAULT_THEME,
         theme_dir=settings.WEBAPP_THEMES_DIR,
     )
+    themes_dir_exists, themes_dir = await asyncio.to_thread(
+        _webapp_themes_dir_status,
+        settings.WEBAPP_THEMES_DIR,
+    )
 
     return _ok(
-        {
-            "exists": Path(settings.WEBAPP_THEMES_DIR).expanduser().exists(),
-            "themes_dir": str(Path(settings.WEBAPP_THEMES_DIR).expanduser()),
-            "catalog": _webapp_themes_catalog_payload(catalog),
-        }
+        AdminThemesOut(
+            exists=themes_dir_exists,
+            themes_dir=themes_dir,
+            catalog=catalog,
+        ).to_legacy_payload()
     )
 
 
@@ -558,11 +566,11 @@ async def admin_themes_save_route(request: web.Request) -> web.Response:
         return _error(500, "write_failed", str(exc))
 
     await refresh_webapp_runtime_after_settings_change(request, updates={}, deletes=[])
+    _themes_dir_exists, themes_dir = await asyncio.to_thread(
+        _webapp_themes_dir_status,
+        settings.WEBAPP_THEMES_DIR,
+    )
 
     return _ok(
-        {
-            "exists": True,
-            "themes_dir": str(Path(settings.WEBAPP_THEMES_DIR).expanduser()),
-            "catalog": _webapp_themes_catalog_payload(config),
-        }
+        AdminThemesOut(exists=True, themes_dir=themes_dir, catalog=config).to_legacy_payload()
     )

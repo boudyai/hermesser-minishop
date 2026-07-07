@@ -2,7 +2,8 @@ import asyncio
 import logging
 import sys
 import time
-from typing import Any, Coroutine, Dict, List
+from collections.abc import Coroutine
+from typing import Any
 
 from aiogram import Bot
 from dotenv import load_dotenv
@@ -14,6 +15,7 @@ from bot.app.factories.runtime import build_core_runtime, build_runtime_bootstra
 from bot.handlers.admin.sync_admin import perform_sync
 from bot.infra import events
 from bot.infra.event_payloads import PaymentCanceledPayload
+from bot.infra.observability import report_error
 from bot.infra.redis import close_redis, redis_lock
 from bot.infra.webhook_queue import pop_webhook_event, webhook_queue_depth
 from bot.middlewares.i18n import JsonI18n
@@ -35,20 +37,24 @@ from bot.plugins import (
 )
 from bot.services.backup_worker import BackupWorker
 from bot.services.event_reactions import register_core_reactions
+from bot.services.message_log_notifier import configure_message_log_notifier
 from bot.services.subscription_notification_worker import SubscriptionNotificationWorker
 from bot.services.tariff_worker import TariffTrafficWorker
 from bot.utils.message_queue import init_queue_manager
 from config.settings import Settings, get_settings
 
+logger = logging.getLogger(__name__)
+
 
 async def _build_worker_context(settings: Settings) -> PluginContext:
     runtime = await build_runtime_bootstrap(settings)
+    configure_message_log_notifier(settings, runtime.bot)
     bot_username = "your_bot_username"
     try:
         bot_info = await runtime.bot.get_me()
         bot_username = bot_info.username or bot_username
     except Exception:
-        logging.exception("Worker failed to resolve bot username")
+        logger.exception("Worker failed to resolve bot username")
     init_queue_manager(runtime.bot)
     ctx = build_core_runtime(runtime, bot_username=bot_username).plugin_context
     run_setup(ctx)
@@ -56,45 +62,44 @@ async def _build_worker_context(settings: Settings) -> PluginContext:
     return ctx
 
 
-async def _handle_yookassa_event(ctx: PluginContext, payload: Dict[str, Any]) -> None:
+async def _handle_yookassa_event(ctx: PluginContext, payload: dict[str, Any]) -> None:
     payment_payload = payload.get("payment") or {}
     session_factory = ctx.require_session_factory()
     bot = ctx.require_bot()
     i18n = ctx.require_i18n()
-    async with payment_processing_lock:
-        async with session_factory() as session:
-            if payload.get("event") == YOOKASSA_EVENT_PAYMENT_SUCCEEDED:
-                event_payload = await process_successful_payment(
-                    session,
-                    bot,
-                    payment_payload,
-                    i18n,
-                    ctx.settings,
-                    ctx.require_panel_service(),
-                    ctx.require_subscription_service(),
-                    ctx.require_referral_service(),
-                    ctx.lknpd_service,
+    async with payment_processing_lock, session_factory() as session:
+        if payload.get("event") == YOOKASSA_EVENT_PAYMENT_SUCCEEDED:
+            event_payload = await process_successful_payment(
+                session,
+                bot,
+                payment_payload,
+                i18n,
+                ctx.settings,
+                ctx.require_panel_service(),
+                ctx.require_subscription_service(),
+                ctx.require_referral_service(),
+                ctx.lknpd_service,
+            )
+            await session.commit()
+            if event_payload:
+                await emit_yookassa_success_events(event_payload)
+        elif payload.get("event") == YOOKASSA_EVENT_PAYMENT_CANCELED:
+            event_payload = await process_cancelled_payment(
+                session,
+                bot,
+                payment_payload,
+                i18n,
+                ctx.settings,
+            )
+            await session.commit()
+            if event_payload:
+                await events.emit_model(
+                    PaymentCanceledPayload.model_validate(event_payload),
+                    exclude_unset=True,
                 )
-                await session.commit()
-                if event_payload:
-                    await emit_yookassa_success_events(event_payload)
-            elif payload.get("event") == YOOKASSA_EVENT_PAYMENT_CANCELED:
-                event_payload = await process_cancelled_payment(
-                    session,
-                    bot,
-                    payment_payload,
-                    i18n,
-                    ctx.settings,
-                )
-                await session.commit()
-                if event_payload:
-                    await events.emit_model(
-                        PaymentCanceledPayload.model_validate(event_payload),
-                        exclude_unset=True,
-                    )
 
 
-async def _handle_panel_event(ctx: PluginContext, payload: Dict[str, Any]) -> None:
+async def _handle_panel_event(ctx: PluginContext, payload: dict[str, Any]) -> None:
     meta = payload.get("meta")
     await ctx.require_panel_webhook_service().handle_event(
         str(payload.get("event") or ""),
@@ -103,7 +108,7 @@ async def _handle_panel_event(ctx: PluginContext, payload: Dict[str, Any]) -> No
     )
 
 
-async def _handle_panel_sync_event(ctx: PluginContext, payload: Dict[str, Any]) -> None:
+async def _handle_panel_sync_event(ctx: PluginContext, payload: dict[str, Any]) -> None:
     settings = ctx.settings
     session_factory = ctx.require_session_factory()
     bot = ctx.require_bot()
@@ -123,7 +128,7 @@ async def _handle_panel_sync_event(ctx: PluginContext, payload: Dict[str, Any]) 
                     i18n_instance=i18n,
                 )
         else:
-            logging.info("Queued panel sync skipped because another sync holds the lock")
+            logger.info("Queued panel sync skipped because another sync holds the lock")
     if sync_result is not None:
         await _notify_queued_panel_sync_result(
             bot,
@@ -134,7 +139,7 @@ async def _handle_panel_sync_event(ctx: PluginContext, payload: Dict[str, Any]) 
         )
 
 
-def _core_queue_handlers() -> Dict[str, QueueHandler]:
+def _core_queue_handlers() -> dict[str, QueueHandler]:
     return {
         "yookassa": _handle_yookassa_event,
         "panel": _handle_panel_event,
@@ -142,7 +147,7 @@ def _core_queue_handlers() -> Dict[str, QueueHandler]:
     }
 
 
-async def _webhook_consumer(ctx: PluginContext, handlers: Dict[str, QueueHandler]) -> None:
+async def _webhook_consumer(ctx: PluginContext, handlers: dict[str, QueueHandler]) -> None:
     settings = ctx.settings
     while True:
         event = await pop_webhook_event(settings)
@@ -154,14 +159,23 @@ async def _webhook_consumer(ctx: PluginContext, handlers: Dict[str, QueueHandler
         try:
             handler = handlers.get(str(provider))
             if handler is None:
-                logging.warning("Unknown webhook event provider: %s", provider)
+                logger.warning("Unknown webhook event provider: %s", provider)
             else:
                 await handler(ctx, payload)
-        except Exception:
-            logging.exception("Webhook queue event failed: %s", event.get("event_id"))
+        except Exception as exc:
+            logger.exception("Webhook queue event failed: %s", event.get("event_id"))
+            await report_error(
+                ctx.error_reporter,
+                exc,
+                source="worker.webhook_consumer",
+                attributes={
+                    "event_id": event.get("event_id"),
+                    "provider": str(provider),
+                },
+            )
         finally:
             depth = await webhook_queue_depth(settings)
-            logging.info(
+            logger.info(
                 "metric webhook_event_duration_seconds=%.3f provider=%s queue_depth=%s",
                 time.monotonic() - started,
                 provider,
@@ -173,8 +187,8 @@ async def _notify_queued_panel_sync_result(
     bot: Bot,
     settings: Settings,
     i18n: JsonI18n,
-    payload: Dict[str, Any],
-    sync_result: Dict[str, Any],
+    payload: dict[str, Any],
+    sync_result: dict[str, Any],
 ) -> None:
     status = sync_result.get("status")
     errors = sync_result.get("errors", [])
@@ -194,7 +208,7 @@ async def _notify_queued_panel_sync_result(
             else:
                 await bot.send_message(target_chat_id, _("sync_success_simple"))
         except Exception:
-            logging.exception("Failed to send queued panel sync result to admin")
+            logger.exception("Failed to send queued panel sync result to admin")
 
 
 async def _panel_sync_loop(ctx: PluginContext) -> None:
@@ -217,12 +231,18 @@ async def _panel_sync_loop(ctx: PluginContext) -> None:
                             settings=settings,
                             i18n_instance=i18n,
                         )
-                    logging.info(
+                    logger.info(
                         "metric worker_tick_duration_seconds=%.3f worker=panel_sync",
                         time.monotonic() - started,
                     )
-        except Exception:
-            logging.exception("Panel sync worker tick failed")
+        except Exception as exc:
+            logger.exception("Panel sync worker tick failed")
+            await report_error(
+                ctx.error_reporter,
+                exc,
+                source="worker.panel_sync",
+                attributes={"worker": "panel_sync"},
+            )
         await asyncio.sleep(settings.WORKER_PANEL_SYNC_INTERVAL_SECONDS)
 
 
@@ -256,7 +276,7 @@ def _backup_worker_task(ctx: PluginContext) -> Coroutine[Any, Any, None]:
     ).run()
 
 
-def _core_worker_tasks() -> List[WorkerTaskSpec]:
+def _core_worker_tasks() -> list[WorkerTaskSpec]:
     return [
         WorkerTaskSpec(
             name="SubscriptionNotificationWorker",
@@ -279,13 +299,13 @@ async def main() -> None:
         if spec.enabled is not None and not spec.enabled(settings):
             continue
         tasks.append(asyncio.create_task(spec.factory(ctx), name=spec.name))
-    for idx in range(max(1, settings.WEBHOOK_QUEUE_CONCURRENCY)):
-        tasks.append(
-            asyncio.create_task(
-                _webhook_consumer(ctx, handlers),
-                name=f"WebhookConsumer{idx + 1}",
-            )
+    tasks.extend(
+        asyncio.create_task(
+            _webhook_consumer(ctx, handlers),
+            name=f"WebhookConsumer{idx + 1}",
         )
+        for idx in range(max(1, settings.WEBHOOK_QUEUE_CONCURRENCY))
+    )
     try:
         await asyncio.gather(*tasks)
     finally:
@@ -306,7 +326,7 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
-        logging.info("Worker stopped")
+        logger.info("Worker stopped")
     except Exception as exc:
-        logging.critical("Worker failed: %s", exc, exc_info=True)
+        logger.critical("Worker failed: %s", exc, exc_info=True)
         sys.exit(1)

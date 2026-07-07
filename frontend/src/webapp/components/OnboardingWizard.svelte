@@ -3,7 +3,7 @@
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
 
-  type AnyRecord = Record<string, any>;
+  type UnknownRecord = Record<string, unknown>;
   type ApiUnchecked = (
     path: string,
     options?: Parameters<typeof fetch>[1]
@@ -18,17 +18,17 @@
     methods = [],
     hasActiveTariffSubscription = false,
     openPaymentModal = () => {},
-    t = (key: string, _params?: AnyRecord, fallback?: string) => fallback || key,
+    t = (key: string, _params?: UnknownRecord, fallback?: string) => fallback || key,
   }: {
-    appSettings?: AnyRecord;
-    subscription?: AnyRecord;
+    appSettings?: UnknownRecord;
+    subscription?: UnknownRecord;
     apiUnchecked?: ApiUnchecked;
     currentTariffName?: string;
     hasMultipleTariffs?: boolean;
-    methods?: AnyRecord[];
+    methods?: UnknownRecord[];
     hasActiveTariffSubscription?: boolean;
     openPaymentModal?: (tariffKey?: string) => void;
-    t?: (key: string, params?: AnyRecord, fallback?: string) => string;
+    t?: (key: string, params?: UnknownRecord, fallback?: string) => string;
   } = $props();
 
   const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
@@ -62,8 +62,7 @@
       memoryGb: 4,
       cornllmRubMonthly: 0,
       bulletsKey: "wa_hermes_tariff_basic_bullets",
-      bulletsFallback:
-        "2 vCPU · 4 GB RAM · no included CornLLM balance (top up separately)",
+      bulletsFallback: "2 vCPU · 4 GB RAM · no included CornLLM balance (top up separately)",
     },
     {
       key: "hosting_plus",
@@ -74,8 +73,7 @@
       memoryGb: 4,
       cornllmRubMonthly: 300,
       bulletsKey: "wa_hermes_tariff_plus_bullets",
-      bulletsFallback:
-        "2 vCPU · 4 GB RAM · 300 ₽ CornLLM balance included every month",
+      bulletsFallback: "2 vCPU · 4 GB RAM · 300 ₽ CornLLM balance included every month",
     },
   ];
 
@@ -113,12 +111,16 @@
   // for arbitrary URLs on iOS. The "Open bot" CTA in the success
   // card has to go through the SDK's openTelegramLink, otherwise the
   // user sees the bot row but tapping it does nothing.
+  type TelegramWebAppSdk = {
+    openTelegramLink?: (url: string) => void;
+    openLink?: (url: string) => void;
+  };
+  type TelegramGlobal = { WebApp?: TelegramWebAppSdk };
+  type TelegramWindow = Window & { Telegram?: TelegramGlobal };
+
   function openBotChat(url: string): void {
     if (typeof window === "undefined" || !url) return;
-    const tg = (window as AnyRecord).Telegram as
-      | { WebApp?: { openTelegramLink?: (u: string) => void; openLink?: (u: string) => void } }
-      | undefined;
-    const sdk = tg?.WebApp;
+    const sdk = (window as TelegramWindow).Telegram?.WebApp;
     if (sdk?.openTelegramLink && /^https:\/\/t\.me\//i.test(url)) {
       try {
         sdk.openTelegramLink(url);
@@ -151,35 +153,23 @@
       <li style="display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px;">
         <Check size={15} />
         <span>
-          {t(
-            "wa_hermes_onboarding_bullet_1",
-            {},
-            "Dedicated container: 2 vCPU and 4 GB RAM"
-          )}
+          {t("wa_hermes_onboarding_bullet_1", {}, "Dedicated container: 2 vCPU and 4 GB RAM")}
         </span>
       </li>
       <li style="display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px;">
         <Check size={15} />
         <span>
-          {t(
-            "wa_hermes_onboarding_bullet_2",
-            {},
-            "Memory and files survive restarts"
-          )}
+          {t("wa_hermes_onboarding_bullet_2", {}, "Memory and files survive restarts")}
         </span>
       </li>
       <li style="display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px;">
         <Check size={15} />
         <span>
-          {t(
-            "wa_hermes_onboarding_bullet_3",
-            {},
-            "DeepSeek via CornLLM, paid in rubles"
-          )}
+          {t("wa_hermes_onboarding_bullet_3", {}, "DeepSeek via CornLLM, paid in rubles")}
         </span>
       </li>
     </ul>
-    <Button variant="primary" onclick={() => (step = 2)}>
+    <Button variant="default" onclick={() => (step = 2)}>
       {t("wa_hermes_onboarding_cta_choose", {}, "Choose a plan")}
       <ChevronRight size={16} />
     </Button>
@@ -217,7 +207,9 @@
               text-align: left;
             "
           >
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div
+              style="display: flex; align-items: center; justify-content: space-between; gap: 8px;"
+            >
               <strong>{t(plan.titleKey, {}, plan.titleFallback)}</strong>
               <span style="font-weight: 700;">{plan.priceRub} ₽/мес</span>
             </div>
@@ -239,14 +231,17 @@
         {/each}
       </div>
       <Button
-        variant="primary"
+        variant="default"
         onclick={payWithPlan}
         disabled={methods.length === 0}
         style="margin-top: 12px;"
       >
         {t(
           "wa_hermes_onboarding_cta_pay",
-          { plan: t(selectedPlan.titleKey, {}, selectedPlan.titleFallback), price: selectedPlan.priceRub },
+          {
+            plan: t(selectedPlan.titleKey, {}, selectedPlan.titleFallback),
+            price: selectedPlan.priceRub,
+          },
           `Pay ${selectedPlan.priceRub} ₽ and launch`
         )}
       </Button>
@@ -260,11 +255,7 @@
       </h3>
       <ol style="margin: 0 0 12px; padding-left: 18px; font-size: 13px;">
         <li style="margin-bottom: 6px;">
-          {t(
-            "wa_hermes_onboarding_bot_step_1",
-            {},
-            "Open @BotFather in Telegram and send /newbot"
-          )}
+          {t("wa_hermes_onboarding_bot_step_1", {}, "Open @BotFather in Telegram and send /newbot")}
         </li>
         <li style="margin-bottom: 6px;">
           {t(
@@ -288,11 +279,7 @@
           placeholder="123456789:ABCdefGHI..."
           style="flex: 1; padding: 8px; border: 1px solid var(--border, #ccc); border-radius: 4px; font-size: 14px;"
         />
-        <Button
-          variant="primary"
-          onclick={saveToken}
-          disabled={!botToken.trim() || tokenBusy}
-        >
+        <Button variant="default" onclick={saveToken} disabled={!botToken.trim() || tokenBusy}>
           {tokenBusy
             ? t("wa_hermes_onboarding_saving", {}, "Saving…")
             : t("wa_hermes_onboarding_save", {}, "Save")}
@@ -335,7 +322,7 @@
     </Card>
   {/if}
 
-{#if tokenOk && active}
+  {#if tokenOk && active}
     <Card>
       <h3 style="margin: 0 0 12px; font-size: 16px; color: var(--success, #2e7d32);">
         <Sparkles size={15} style="vertical-align: middle; margin-right: 6px;" />
@@ -350,7 +337,7 @@
       </p>
       {#if subscription?.bot_username}
         <Button
-          variant="primary"
+          variant="default"
           onclick={() => openBotChat(`https://t.me/${subscription?.bot_username}`)}
         >
           {t("wa_open_bot", {}, "Open bot")}

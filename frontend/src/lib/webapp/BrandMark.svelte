@@ -1,12 +1,29 @@
-<script>
+<script lang="ts">
   import { cn } from "../utils.js";
   import { normalizeBrand } from "./browser.js";
 
   const LOGO_LOAD_TIMEOUT_MS = 10000;
 
-  let { brand = {}, logoUrl = "", size = "sm", animate = false, class: className = "" } = $props();
+  import type { BrandConfig } from "./types";
 
-  const SIZE_CLASSES = {
+  type BrandMarkSize = "lg" | "md" | "sm" | "xl";
+  type Props = {
+    brand?: BrandConfig;
+    logoUrl?: string;
+    size?: BrandMarkSize;
+    animate?: boolean;
+    class?: string;
+  };
+
+  let {
+    brand = {},
+    logoUrl = "",
+    size = "sm",
+    animate = false,
+    class: className = "",
+  }: Props = $props();
+
+  const SIZE_CLASSES: Record<BrandMarkSize, string> = {
     sm: "",
     md: "brand-mark-lg",
     lg: "brand-mark-xl",
@@ -16,7 +33,7 @@
   let loaded = $state(false);
   let failed = $state(false);
   let lastLogoUrl = $state("");
-  let logoLoadTimer = null;
+  let logoLoadTimer: number | null = null;
   let logoLoadTimerUrl = "";
 
   const normalizedBrand = $derived(

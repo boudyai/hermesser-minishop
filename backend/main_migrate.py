@@ -9,6 +9,8 @@ from app_logging import configure_logging
 from config.settings import get_settings
 from db.database_setup import init_db, init_db_connection
 
+logger = logging.getLogger(__name__)
+
 
 async def main() -> None:
     settings = get_settings()
@@ -23,5 +25,5 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except Exception as exc:
-        logging.critical("Migration failed: %s", exc, exc_info=True)
+        logger.critical("Migration failed: %s", exc, exc_info=True)
         sys.exit(1)

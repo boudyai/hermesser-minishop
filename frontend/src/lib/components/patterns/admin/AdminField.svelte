@@ -1,7 +1,14 @@
-<script>
+<script lang="ts">
   import { Label } from "$components/ui/primitives.js";
+  import type { Snippet } from "svelte";
 
-  let { label = "", hint = "", children } = $props();
+  type Props = {
+    children?: Snippet;
+    hint?: string;
+    label?: string;
+  };
+
+  let { label = "", hint = "", children }: Props = $props();
 </script>
 
 <Label.Root class="admin-field-label">

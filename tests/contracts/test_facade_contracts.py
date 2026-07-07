@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import ast
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Mapping
 
 import bot.app.web.admin_api
 import bot.app.web.subscription_webapp
@@ -107,7 +107,7 @@ def _resolve_module_expression(expr: ast.AST, aliases: Mapping[str, str]) -> str
 
 
 def test_facade_imports_are_explicit_and_frozen() -> None:
-    _, expected_importers, expected_runtime_importers = _load_baseline()
+    _, expected_importers, _expected_runtime_importers = _load_baseline()
     actual_importers = _collect_facade_importers()
 
     for facade_name, expected in expected_importers.items():
@@ -128,7 +128,7 @@ def test_facade_imports_growth_is_forbidden() -> None:
     }
 
     for facade_name, expected in expected_importers.items():
-        expected_importers_set = set(Path(p).as_posix() for p in expected)
+        expected_importers_set = {Path(p).as_posix() for p in expected}
         allowed_importers = expected_importers_set | legacy_importers[facade_name]
         assert actual_importers[facade_name].issubset(allowed_importers), (
             f"compatibility facade imports grew for {facade_name}: "
@@ -208,20 +208,21 @@ def test_monkeypatch_targets_avoid_facade_imports() -> None:
         import_aliases = _module_import_aliases(tree)
 
         for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
             is_patch_call = False
-            if isinstance(node, ast.Call):
-                func = node.func
-                if isinstance(func, ast.Name) and func.id == "patch":
-                    is_patch_call = True
-                elif isinstance(func, ast.Attribute) and func.attr == "patch":
-                    is_patch_call = True
-                elif (
+            if (
+                (isinstance(func, ast.Name) and func.id == "patch")
+                or (isinstance(func, ast.Attribute) and func.attr == "patch")
+                or (
                     isinstance(func, ast.Attribute)
                     and func.attr == "setattr"
                     and isinstance(func.value, ast.Name)
                     and func.value.id == "monkeypatch"
-                ):
-                    is_patch_call = True
+                )
+            ):
+                is_patch_call = True
 
             if not is_patch_call:
                 continue

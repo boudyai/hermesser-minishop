@@ -1,4 +1,4 @@
-# ruff: noqa: F401,F403,F405,I001
+# ruff: noqa: F401, I001
 import asyncio
 import base64
 import hashlib
@@ -16,7 +16,7 @@ import subprocess
 import time
 from collections import deque
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from aiogram import Bot, Dispatcher
@@ -136,7 +136,7 @@ Disallow: /
 User-agent: Applebot-Extended
 Disallow: /
 """
-_APP_VERSION_CACHE: Optional[str] = None
+_APP_VERSION_CACHE: str | None = None
 WEBAPP_CSRF_EXEMPT_PATHS = {
     "/api/auth/telegram/nonce",
     "/api/auth/token",
@@ -147,7 +147,7 @@ WEBAPP_CSRF_EXEMPT_PATHS = {
     "/api/auth/logout",
 }
 
-_SHARED_HTTP_SESSION: Optional[ClientSession] = None
+_SHARED_HTTP_SESSION: ClientSession | None = None
 _SHARED_HTTP_SESSION_LOCK = asyncio.Lock()
 
 __all__: list[str] = []

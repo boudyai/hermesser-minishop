@@ -1,7 +1,15 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
+  import type { Snippet } from "svelte";
+  import type { HTMLTableAttributes } from "svelte/elements";
 
-  let { skeleton = false, class: className = "", children, ...restProps } = $props();
+  type Props = Omit<HTMLTableAttributes, "children" | "class"> & {
+    children?: Snippet;
+    class?: string;
+    skeleton?: boolean;
+  };
+
+  let { skeleton = false, class: className = "", children, ...restProps }: Props = $props();
 </script>
 
 <div class="admin-table-wrap">

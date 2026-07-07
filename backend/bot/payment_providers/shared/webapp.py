@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +10,8 @@ from db.dal import payment_dal
 from db.models import Payment
 
 from .common import mark_payment_failed_creation, payment_failed, payment_link_response
+
+logger = logging.getLogger(__name__)
 
 
 def _short_repr(value: Any, *, max_length: int = 2000) -> str:
@@ -24,10 +26,10 @@ async def finalize_webapp_link_payment(
     session: AsyncSession,
     payment: Payment,
     api_success: bool,
-    payment_url: Optional[str],
-    provider_payment_id: Optional[str] = None,
-    provider_response: Optional[Any] = None,
-    new_status: Optional[str] = None,
+    payment_url: str | None,
+    provider_payment_id: str | None = None,
+    provider_response: Any | None = None,
+    new_status: str | None = None,
     log_prefix: str,
 ) -> web.Response:
     """The trailing "persist id → return link or fail" used by every link-style webapp creator.
@@ -61,14 +63,14 @@ async def finalize_webapp_link_payment(
             await session.commit()
         except Exception:
             await session.rollback()
-            logging.exception(
+            logger.exception(
                 "%s: failed to persist provider payment id for payment %s.",
                 log_prefix,
                 payment.payment_id,
             )
 
     if not payment_url:
-        logging.error(
+        logger.error(
             "%s: WebApp payment creation failed for payment %s "
             "(user_id=%s, api_success=%s, has_payment_url=%s, "
             "has_provider_payment_id=%s, provider_response=%s).",
@@ -84,7 +86,7 @@ async def finalize_webapp_link_payment(
             await mark_payment_failed_creation(session, payment.payment_id)
         except Exception:
             await session.rollback()
-            logging.exception(
+            logger.exception(
                 "%s: failed to mark payment %s as failed_creation.",
                 log_prefix,
                 payment.payment_id,

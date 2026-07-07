@@ -82,9 +82,8 @@ def _collect_locale_usage(
     for path in paths:
         relative = path.relative_to(REPO_ROOT).as_posix()
         if exclude_admin_frontend and (
-            relative.startswith("frontend/src/admin/")
-            or relative.startswith("frontend/src/lib/admin/")
-            or relative == "frontend/src/adminEntry.js"
+            relative.startswith(("frontend/src/admin/", "frontend/src/lib/admin/"))
+            or relative == "frontend/src/adminEntry.ts"
         ):
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")

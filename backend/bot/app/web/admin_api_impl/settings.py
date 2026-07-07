@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
@@ -11,9 +11,8 @@ from bot.app.web.context import (
 from bot.app.web.request_parsing import parse_body_or_400
 from bot.app.web.route_contracts import (
     INTEGER_SCHEMA,
-    STRING_SCHEMA,
     RouteContract,
-    loose_array_schema,
+    ok_envelope_for,
     ok_envelope_with,
     register_contract,
 )
@@ -35,17 +34,14 @@ from .common import (
     _error_payload,
     _ok,
 )
+from .response_schemas import AdminSettingsOut
 from .schemas import AdminSettingsPatchBody
 
 register_contract(
     "admin_settings_get_route",
     RouteContract(
-        response_schema=ok_envelope_with(
-            {
-                "sections": loose_array_schema(),
-                "features": {"type": "array", "items": STRING_SCHEMA},
-            }
-        )
+        response_schema=ok_envelope_for(AdminSettingsOut),
+        models=(AdminSettingsOut,),
     ),
 )
 register_contract(
@@ -69,7 +65,7 @@ async def admin_settings_get_route(request: web.Request) -> web.Response:
 
     fields = manifest_payload()
     webhook_base_url = str(settings.WEBHOOK_BASE_URL or "").strip().rstrip("/")
-    sections: Dict[str, Dict[str, Any]] = {}
+    sections: dict[str, dict[str, Any]] = {}
     for field in fields:
         key = field["key"]
         section_id = field["section"]

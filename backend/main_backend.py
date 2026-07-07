@@ -9,6 +9,8 @@ from app_logging import configure_logging
 from bot.main_bot import run_bot
 from config.settings import get_settings
 
+logger = logging.getLogger(__name__)
+
 
 async def main() -> None:
     settings = get_settings()
@@ -22,7 +24,7 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
-        logging.info("Backend stopped")
+        logger.info("Backend stopped")
     except Exception as exc:
-        logging.critical("Backend failed: %s", exc, exc_info=True)
+        logger.critical("Backend failed: %s", exc, exc_info=True)
         sys.exit(1)

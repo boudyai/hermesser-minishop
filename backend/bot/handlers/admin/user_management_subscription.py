@@ -1,6 +1,5 @@
 import logging
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from aiogram import types
 from aiogram.fsm.context import FSMContext
@@ -24,6 +23,8 @@ from .user_management_common import (
     _resolve_admin_period_tariff_key,
 )
 from .user_management_info import handle_refresh_user_card
+
+logger = logging.getLogger(__name__)
 
 
 async def handle_traffic_grant_menu(
@@ -123,7 +124,7 @@ async def handle_reset_trial(
         )
 
     except Exception as e:
-        logging.error(f"Error resetting trial for user {user.user_id}: {e}")
+        logger.error("Error resetting trial for user %s: %s", user.user_id, e)
         await session.rollback()
         await callback.answer(_("admin_user_trial_reset_error"), show_alert=True)
 
@@ -185,7 +186,7 @@ async def handle_add_subscription_days_prompt(
     i18n_instance: JsonI18n,
     lang: str,
     *,
-    tariff_key: Optional[str],
+    tariff_key: str | None,
 ) -> None:
     """Prompt admin to enter subscription days to add after tariff resolution."""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -313,7 +314,7 @@ async def handle_change_tariff_apply(
                 "content": f"tariff={resolved_tariff_key}",
                 "is_admin_event": True,
                 "target_user_id": user.user_id,
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": datetime.now(UTC),
             },
         )
         await session.commit()
@@ -331,12 +332,8 @@ async def handle_change_tariff_apply(
             lang,
         )
     except Exception as exc:
-        logging.error(
-            "Error changing tariff for user %s to %s: %s",
-            user.user_id,
-            resolved_tariff_key,
-            exc,
-            exc_info=True,
+        logger.exception(
+            "Error changing tariff for user %s to %s: %s", user.user_id, resolved_tariff_key, exc
         )
         await session.rollback()
         await callback.answer(_("admin_user_tariff_change_error"), show_alert=True)
@@ -385,7 +382,7 @@ async def handle_toggle_ban(
         )
 
     except Exception as e:
-        logging.error(f"Error toggling ban for user {user.user_id}: {e}")
+        logger.error("Error toggling ban for user %s: %s", user.user_id, e)
         await session.rollback()
         await callback.answer(_("admin_user_ban_toggle_error"), show_alert=True)
 
