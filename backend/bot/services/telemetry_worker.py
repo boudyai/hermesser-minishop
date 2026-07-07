@@ -19,10 +19,11 @@ can never delay, block or crash the worker.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import platform
 import uuid
-from typing import Any, Dict, List
+from typing import Any
 
 import aiohttp
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -105,10 +106,8 @@ class TelemetryWorker:
         return max(1, int(self.settings.TELEMETRY_INTERVAL_HOURS or 24)) * 3600
 
     async def _sleep(self, seconds: float) -> None:
-        try:
+        with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(self._stopped.wait(), timeout=seconds)
-        except asyncio.TimeoutError:
-            pass
 
     async def _beacon_tick(self) -> None:
         # A short-lived lock keeps a single beacon per interval even when the
@@ -151,7 +150,7 @@ class TelemetryWorker:
         )
         return installation_id
 
-    def _enabled_payment_providers(self) -> List[str]:
+    def _enabled_payment_providers(self) -> list[str]:
         try:
             from bot.payment_providers import iter_provider_specs
 
@@ -165,7 +164,7 @@ class TelemetryWorker:
             logger.debug("Telemetry: failed to enumerate payment providers", exc_info=True)
             return []
 
-    async def _build_payload(self, session: AsyncSession, installation_id: str) -> Dict[str, Any]:
+    async def _build_payload(self, session: AsyncSession, installation_id: str) -> dict[str, Any]:
         try:
             user_count = await user_dal.count_all_users(session)
         except Exception:
@@ -205,17 +204,19 @@ class TelemetryWorker:
             "properties": properties,
         }
 
-    async def _send(self, payload: Dict[str, Any]) -> None:
+    async def _send(self, payload: dict[str, Any]) -> None:
         url = str(self.settings.TELEMETRY_ENDPOINT or "").strip().rstrip("/") + "/capture/"
         timeout = aiohttp.ClientTimeout(total=HTTP_TIMEOUT_SECONDS)
         try:
-            async with aiohttp.ClientSession(timeout=timeout) as http:
-                async with http.post(url, json=payload) as resp:
-                    if resp.status >= 400:
-                        body = (await resp.text())[:200]
-                        logger.warning("Telemetry beacon rejected: HTTP %s %s", resp.status, body)
-                    else:
-                        logger.debug("Telemetry beacon delivered (HTTP %s)", resp.status)
+            async with (
+                aiohttp.ClientSession(timeout=timeout) as http,
+                http.post(url, json=payload) as resp,
+            ):
+                if resp.status >= 400:
+                    body = (await resp.text())[:200]
+                    logger.warning("Telemetry beacon rejected: HTTP %s %s", resp.status, body)
+                else:
+                    logger.debug("Telemetry beacon delivered (HTTP %s)", resp.status)
         except Exception:
             # Never let telemetry surface as an error to operators.
             logger.debug("Telemetry beacon delivery failed", exc_info=True)

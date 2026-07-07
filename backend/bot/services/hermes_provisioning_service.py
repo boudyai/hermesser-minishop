@@ -15,24 +15,18 @@ from __future__ import annotations
 import json
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import NAMESPACE_DNS, uuid5
 
 import aiohttp
 
-try:
-    from backend.bot.services.panel_api_service import PanelApiService
-    from backend.config.settings import Settings
-except ImportError:
-    # ponytail: VPS container runs with pythonpath=backend, so bare imports work;
-    # local venv uses pythonpath=. so the backend.* prefix is required. Both work.
-    from bot.services.panel_api_service import PanelApiService  # type: ignore[no-redef]
-    from config.settings import Settings  # type: ignore[no-redef]
+from bot.services.panel_api_service import PanelApiService
+from config.settings import Settings
 
 log = logging.getLogger(__name__)
 
 
-def _localize_core_error(settings: Any, status_code: int, body: str) -> Dict[str, Any]:
+def _localize_core_error(settings: Any, status_code: int, body: str) -> dict[str, Any]:
     """Translate a provisioning-core error response via the minishop i18n catalog.
 
     The provisioning-core API returns ``{"detail": {"error_code": ..., "params": ...}}``
@@ -54,9 +48,9 @@ def _localize_core_error(settings: Any, status_code: int, body: str) -> Dict[str
     from bot.middlewares.i18n import get_i18n_instance
 
     i18n = get_i18n_instance()
-    lang = getattr(settings, "DEFAULT_LANGUAGE", "en") or "en"
+    lang = settings.DEFAULT_LANGUAGE or "en"
     raw_params = detail.get("params")
-    params: Dict[str, Any] = raw_params if isinstance(raw_params, dict) else {}
+    params: dict[str, Any] = raw_params if isinstance(raw_params, dict) else {}
     message = i18n.gettext(lang, str(error_code), **params)
     return {
         "error": True,
@@ -78,11 +72,11 @@ class HermesProvisioningService(PanelApiService):
         super().__init__(settings)
         self._core_base_url = (self.base_url or "").rstrip("/")
         self._core_api_key = self.api_key or ""
-        self._core_session: Optional[aiohttp.ClientSession] = None
+        self._core_session: aiohttp.ClientSession | None = None
         # Tenant-state cache: 5s TTL is short enough that the UI reflects
         # in-flight provisioning jobs within a few seconds, while keeping
         # the per-page-load cost at one core hit per tenant.
-        self._tenant_state_cache: Dict[str, tuple[float, Dict[str, Any]]] = {}
+        self._tenant_state_cache: dict[str, tuple[float, dict[str, Any]]] = {}
         self._tenant_state_ttl_seconds: float = 5.0
 
     async def _core_get_session(self) -> aiohttp.ClientSession:
@@ -98,7 +92,7 @@ class HermesProvisioningService(PanelApiService):
             await self._core_session.close()
         await super().close_session()
 
-    def _core_headers(self) -> Dict[str, str]:
+    def _core_headers(self) -> dict[str, str]:
         headers = {"Content-Type": "application/json"}
         if self._core_api_key:
             headers["Authorization"] = f"Bearer {self._core_api_key}"
@@ -115,21 +109,21 @@ class HermesProvisioningService(PanelApiService):
     async def create_panel_user(
         self,
         username_on_panel: str,
-        telegram_id: Optional[int] = None,
-        email: Optional[str] = None,
+        telegram_id: int | None = None,
+        email: str | None = None,
         default_expire_days: int = 1,
         default_traffic_limit_bytes: int = 0,
         default_traffic_limit_strategy: str = "NO_RESET",
-        hwid_device_limit: Optional[int] = None,
-        specific_squad_uuids: Optional[List[str]] = None,
-        external_squad_uuid: Optional[str] = None,
-        bot_token: Optional[str] = None,
-        bot_username: Optional[str] = None,
-        description: Optional[str] = None,
-        tag: Optional[str] = None,
+        hwid_device_limit: int | None = None,
+        specific_squad_uuids: list[str] | None = None,
+        external_squad_uuid: str | None = None,
+        bot_token: str | None = None,
+        bot_username: str | None = None,
+        description: str | None = None,
+        tag: str | None = None,
         status: str = "ACTIVE",
         log_response: bool = False,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         if telegram_id is None:
             log.error("create_panel_user requires telegram_id for hermes tenant creation")
             return {"error": True, "status_code": 400, "message": "telegram_id required"}
@@ -147,7 +141,7 @@ class HermesProvisioningService(PanelApiService):
         # numeric Telegram user ID — provisioner uses it to scope the
         # hosted Hermes bot to the owner (TELEGRAM_ALLOWED_USERS) and
         # to make the customer's DM the platform home channel.
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "user_id": user_id,
             "bot_token": bot_token,
             "owner_telegram_id": int(telegram_id),
@@ -206,8 +200,8 @@ class HermesProvisioningService(PanelApiService):
             return _localize_core_error(self.settings, resp.status, body)
 
     async def update_user_details_on_panel(
-        self, user_uuid: str, update_payload: Dict[str, Any], log_response: bool = False
-    ) -> Optional[Dict[str, Any]]:
+        self, user_uuid: str, update_payload: dict[str, Any], log_response: bool = False
+    ) -> dict[str, Any] | None:
         # Shop tracks expiry in its own Subscription.end_date. Provisioning-core
         # only cares about lifecycle transitions (create/suspend/delete), not
         # every expiry extension. This is a no-op success.
@@ -246,7 +240,7 @@ class HermesProvisioningService(PanelApiService):
 
     async def get_user_by_uuid(
         self, user_uuid: str, log_response: bool = False
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         session = await self._core_get_session()
         async with session.get(f"{self._core_base_url}/shop/tenants/{user_uuid}") as resp:
             if resp.status == 200:
@@ -267,7 +261,7 @@ class HermesProvisioningService(PanelApiService):
 
     async def get_user_by_uuid_lookup(
         self, user_uuid: str, log_response: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         # ponytail: the base class hits /users/{uuid} which requires mTLS; here
         # we have only the shop API key, so route to /shop/tenants/{uuid}
         # instead. The result shape mirrors PanelApiUsersMixin.
@@ -314,20 +308,20 @@ class HermesProvisioningService(PanelApiService):
 
     async def get_users_by_filter(
         self,
-        telegram_id: Optional[int] = None,
-        username: Optional[str] = None,
-        email: Optional[str] = None,
+        telegram_id: int | None = None,
+        username: str | None = None,
+        email: str | None = None,
         log_response: bool = False,
-    ) -> Optional[List[Dict[str, Any]]]:
+    ) -> list[dict[str, Any]] | None:
         # No identity resolution via provisioning-core. The shop uses its own
         # DB (User.panel_user_uuid) for lookups. Return None → caller creates.
         return None
 
     async def get_all_panel_users(
         self,
-        page_size: Optional[int] = None,
+        page_size: int | None = None,
         log_responses: bool = False,
-    ) -> Optional[List[Dict[str, Any]]]:
+    ) -> list[dict[str, Any]] | None:
         return []
 
     # ============================================
@@ -337,39 +331,39 @@ class HermesProvisioningService(PanelApiService):
     async def get_subscription_link(
         self,
         short_uuid_or_sub_uuid: str,
-        client_type: Optional[str] = None,
-    ) -> Optional[str]:
+        client_type: str | None = None,
+    ) -> str | None:
         return ""
 
-    async def get_user_devices(self, user_uuid: str) -> List[Dict[str, Any]]:
+    async def get_user_devices(self, user_uuid: str) -> list[dict[str, Any]]:
         return []
 
     async def disconnect_device(self, user_uuid: str, hwid: str) -> bool:
         return True
 
-    async def get_internal_squads(self) -> List[Dict[str, Any]]:
+    async def get_internal_squads(self) -> list[dict[str, Any]]:
         return []
 
-    async def get_hosts(self) -> List[Dict[str, Any]]:
+    async def get_hosts(self) -> list[dict[str, Any]]:
         return []
 
-    async def encrypt_happ_link(self, raw_link: str) -> Optional[str]:
+    async def encrypt_happ_link(self, raw_link: str) -> str | None:
         return None
 
     async def reset_user_traffic(self, user_uuid: str) -> bool:
         return True
 
-    async def get_system_stats(self) -> Optional[Dict[str, Any]]:
+    async def get_system_stats(self) -> dict[str, Any] | None:
         return None
 
-    async def get_bandwidth_stats(self) -> Optional[Dict[str, Any]]:
+    async def get_bandwidth_stats(self) -> dict[str, Any] | None:
         return None
 
     # ============================================
     # Subscription page config (proxy-era, not in hermes)
     # ============================================
 
-    async def get_subscription_page_config_list(self) -> Optional[Dict[str, Any]]:
+    async def get_subscription_page_config_list(self) -> dict[str, Any] | None:
         # ponytail: the proxy-era Remnawave panel has no hermes equivalent.
         # Returning None here matches the "panel unreachable" contract so
         # the webapp falls back to its built-in guide instead of logging
@@ -378,22 +372,20 @@ class HermesProvisioningService(PanelApiService):
 
     async def get_subscription_page_config_by_short_uuid(
         self, short_uuid: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         return None
 
-    async def get_subscription_page_config_by_uuid(
-        self, config_uuid: str
-    ) -> Optional[Dict[str, Any]]:
+    async def get_subscription_page_config_by_uuid(self, config_uuid: str) -> dict[str, Any] | None:
         return None
 
-    async def get_user_bandwidth_stats(self, user_uuid: str) -> Optional[Dict[str, Any]]:
+    async def get_user_bandwidth_stats(self, user_uuid: str) -> dict[str, Any] | None:
         return None
 
-    async def add_users_to_internal_squad(self, squad_uuid: str, user_uuids: List[str]) -> bool:
+    async def add_users_to_internal_squad(self, squad_uuid: str, user_uuids: list[str]) -> bool:
         return True
 
     async def remove_users_from_internal_squad(
-        self, squad_uuid: str, user_uuids: List[str]
+        self, squad_uuid: str, user_uuids: list[str]
     ) -> bool:
         return True
 
@@ -427,8 +419,8 @@ class HermesProvisioningService(PanelApiService):
         self,
         tenant_id: str,
         bot_token: str,
-        bot_username: Optional[str] = None,
-        owner_telegram_id: Optional[int] = None,
+        bot_username: str | None = None,
+        owner_telegram_id: int | None = None,
     ) -> bool:
         """Apply a freshly-saved bot token to a running tenant.
 
@@ -439,7 +431,7 @@ class HermesProvisioningService(PanelApiService):
         user reloads the status screen, the container is rewriting
         secrets.env and restarting with the new token.
         """
-        payload: Dict[str, Any] = {"bot_token": bot_token}
+        payload: dict[str, Any] = {"bot_token": bot_token}
         if bot_username:
             # ponytail: the core updates tenants.bot_username alongside
             # the encrypted token so the Home card shows the @handle.
@@ -486,7 +478,7 @@ class HermesProvisioningService(PanelApiService):
             log.error("Restart failed for %s: %s %s", tenant_id, resp.status, body[:200])
             return False
 
-    async def get_tenant_quota(self, tenant_id: str) -> Dict[str, Any] | None:
+    async def get_tenant_quota(self, tenant_id: str) -> dict[str, Any] | None:
         session = await self._core_get_session()
         async with session.get(f"{self._core_base_url}/shop/tenants/{tenant_id}/quota") as resp:
             if resp.status == 200:
@@ -509,9 +501,7 @@ class HermesProvisioningService(PanelApiService):
         ) as resp:
             return resp.status == 202
 
-    async def topup_tenant_quota(
-        self, tenant_id: str, amount_usd: float
-    ) -> Optional[Dict[str, Any]]:
+    async def topup_tenant_quota(self, tenant_id: str, amount_usd: float) -> dict[str, Any] | None:
         """Bump the tenant's active LiteLLM key max_budget by `amount_usd`.
 
         Called from the CornLLM topup success path. The core
@@ -535,7 +525,7 @@ class HermesProvisioningService(PanelApiService):
             )
             return None
 
-    async def get_tenant_cornllm_key(self, tenant_id: str) -> Optional[Dict[str, Any]]:
+    async def get_tenant_cornllm_key(self, tenant_id: str) -> dict[str, Any] | None:
         """Fetch the tenant's CornLLM virtual key for the user-facing
         Settings UI. Returns None on 404 (no active key) or 5xx; the
         caller renders the appropriate copy.
@@ -555,7 +545,7 @@ class HermesProvisioningService(PanelApiService):
             )
             return None
 
-    async def get_tenant_state(self, tenant_id: str) -> Optional[Dict[str, Any]]:
+    async def get_tenant_state(self, tenant_id: str) -> dict[str, Any] | None:
         """Fetch tenant runtime state from provisioning-core with short TTL cache.
 
         Returns None if the tenant doesn't exist (404) or the core is unreachable
@@ -570,7 +560,7 @@ class HermesProvisioningService(PanelApiService):
             return cached[1]
         try:
             session = await self._core_get_session()
-        except Exception as exc:  # noqa: BLE001 — best-effort cache
+        except Exception as exc:
             log.warning("Tenant state fetch — session build failed for %s: %s", tenant_id, exc)
             return cached[1] if cached is not None else None
         try:
@@ -583,7 +573,7 @@ class HermesProvisioningService(PanelApiService):
                     # Pydantic-side ``datetime`` conversion is the
                     # producer's job, not the consumer's.
                     last_change = data.get("last_state_change")
-                    result: Dict[str, Any] = {
+                    result: dict[str, Any] = {
                         "tenant_id": str(data.get("tenant_id", tenant_id)),
                         "status": str(data.get("status", "unknown") or "unknown"),
                         "desired_state": str(data.get("desired_state", "unknown") or "unknown"),
@@ -600,7 +590,7 @@ class HermesProvisioningService(PanelApiService):
         except aiohttp.ClientError as exc:
             log.warning("Tenant state fetch network error for %s: %s", tenant_id, exc)
             return cached[1] if cached is not None else None
-        except Exception as exc:  # noqa: BLE001 — defensive
+        except Exception as exc:
             log.warning("Tenant state fetch unexpected error for %s: %s", tenant_id, exc)
             return cached[1] if cached is not None else None
 

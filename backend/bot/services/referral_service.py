@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Any, Dict, Optional, Protocol
+from typing import Any, Protocol
 
 from aiogram import Bot
 from sqlalchemy import text
@@ -11,6 +11,8 @@ from bot.middlewares.i18n import JsonI18n
 from config.settings import Settings
 from db.dal import payment_dal, subscription_dal, user_dal
 
+logger = logging.getLogger(__name__)
+
 
 class _SubscriptionServiceLike(Protocol):
     async def has_active_subscription(self, session: Any, user_id: int) -> bool: ...
@@ -20,7 +22,7 @@ class _SubscriptionServiceLike(Protocol):
         session: Any,
         user_id: int,
         user_model: Any,
-    ) -> tuple[Optional[str], Optional[int], Optional[int], Optional[int]]: ...
+    ) -> tuple[str | None, int | None, int | None, int | None]: ...
 
     async def extend_active_subscription_days(
         self,
@@ -28,7 +30,7 @@ class _SubscriptionServiceLike(Protocol):
         user_id: int,
         bonus_days: int,
         reason: str,
-    ) -> Optional[datetime]: ...
+    ) -> datetime | None: ...
 
 
 class ReferralService:
@@ -49,22 +51,23 @@ class ReferralService:
         session: AsyncSession,
         referee_user_id: int,
         purchased_subscription_months: int,
-        current_payment_db_id: Optional[int] = None,
+        current_payment_db_id: int | None = None,
         skip_if_active_before_payment: bool = True,
-        tariff_key: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        tariff_key: str | None = None,
+    ) -> dict[str, Any]:
 
-        referee_final_end_date: Optional[datetime] = None
-        referee_bonus_applied_days: Optional[int] = None
+        referee_final_end_date: datetime | None = None
+        referee_bonus_applied_days: int | None = None
         inviter_bonus_successfully_applied = False
-        inviter_bonus_end_date: Optional[datetime] = None
-        inviter_bonus_kind: Optional[str] = None
+        inviter_bonus_end_date: datetime | None = None
+        inviter_bonus_kind: str | None = None
 
         try:
             referee_user_model = await user_dal.get_user_by_id(session, referee_user_id)
             if not referee_user_model or referee_user_model.referred_by_id is None:
-                logging.debug(
-                    f"User {referee_user_id} not referred or inviter ID missing. No referral bonuses."  # noqa: E501
+                logger.debug(
+                    "User %s not referred or inviter ID missing. No referral bonuses.",
+                    referee_user_id,
                 )
                 return {"referee_bonus_applied_days": None, "referee_new_end_date": None}
 
@@ -78,13 +81,16 @@ class ReferralService:
                         session, referee_user_id, exclude_payment_id=current_payment_db_id
                     )
                     if succeeded_count and succeeded_count > 0:
-                        logging.info(
-                            f"Referral bonuses skipped for user {referee_user_id}: already has {succeeded_count} succeeded payments."  # noqa: E501
+                        logger.info(
+                            "Referral bonuses skipped for user %s: already has %s succeeded "
+                            "payments.",
+                            referee_user_id,
+                            succeeded_count,
                         )
                         return {"referee_bonus_applied_days": None, "referee_new_end_date": None}
                 except Exception as e_cnt:
-                    logging.error(
-                        f"Failed counting succeeded payments for user {referee_user_id}: {e_cnt}"
+                    logger.error(
+                        "Failed counting succeeded payments for user %s: %s", referee_user_id, e_cnt
                     )
 
             # Additionally, do not award referral bonuses if the user was active at payment time
@@ -94,13 +100,15 @@ class ReferralService:
                     if await self.subscription_service.has_active_subscription(
                         session, referee_user_id
                     ):
-                        logging.info(
-                            f"Referral bonuses skipped for user {referee_user_id}: user currently has an active subscription."  # noqa: E501
+                        logger.info(
+                            "Referral bonuses skipped for user %s: user currently has an active "
+                            "subscription.",
+                            referee_user_id,
                         )
                         return {"referee_bonus_applied_days": None, "referee_new_end_date": None}
                 except Exception as e_sub:
-                    logging.error(
-                        f"Failed to check active subscription for {referee_user_id}: {e_sub}"
+                    logger.error(
+                        "Failed to check active subscription for %s: %s", referee_user_id, e_sub
                     )
 
             inviter_user_id = referee_user_model.referred_by_id
@@ -119,7 +127,7 @@ class ReferralService:
                 purchased_subscription_months,
                 tariff_key=tariff_key,
             )
-            logging.info(
+            logger.info(
                 "Referral bonus payment check: referee_user_id=%s inviter_user_id=%s "
                 "payment_db_id=%s months=%s tariff_key=%s inviter_bonus_days=%s "
                 "referee_bonus_days=%s",
@@ -134,13 +142,14 @@ class ReferralService:
 
             if inviter_bonus_days and inviter_bonus_days > 0:
                 if not inviter_user_model:
-                    logging.warning(
-                        f"Inviter user {inviter_user_id} not found in local DB. Cannot apply inviter bonus."  # noqa: E501
+                    logger.warning(
+                        "Inviter user %s not found in local DB. Cannot apply inviter bonus.",
+                        inviter_user_id,
                     )
                 else:
                     (
                         inviter_panel_uuid,
-                        inviter_panel_sub_link_id,
+                        _inviter_panel_sub_link_id,
                         _,
                         _,
                     ) = await self.subscription_service._get_or_create_panel_user_link_details(
@@ -148,8 +157,10 @@ class ReferralService:
                     )
 
                     if not inviter_panel_uuid:
-                        logging.warning(
-                            f"Failed to get/create panel link for inviter {inviter_user_id}. Cannot apply inviter bonus directly to panel."  # noqa: E501
+                        logger.warning(
+                            "Failed to get/create panel link for inviter %s. Cannot apply inviter "
+                            "bonus directly to panel.",
+                            inviter_user_id,
                         )
 
                     else:
@@ -173,11 +184,13 @@ class ReferralService:
                             inviter_bonus_successfully_applied = True
                             inviter_bonus_end_date = new_end_date_inviter
                             inviter_bonus_kind = "extended" if inviter_active_sub else "new_sub"
-                            logging.info(
-                                f"Bonus of {inviter_bonus_days} days successfully applied/extended for inviter {inviter_user_id}."  # noqa: E501
+                            logger.info(
+                                "Bonus of %s days successfully applied/extended for inviter %s.",
+                                inviter_bonus_days,
+                                inviter_user_id,
                             )
                         else:
-                            logging.warning(
+                            logger.warning(
                                 "Failed to apply inviter referral bonus for inviter %s after "
                                 "payment %s. Bonus not marked successful.",
                                 inviter_user_id,
@@ -196,12 +209,16 @@ class ReferralService:
                 if new_end_date_referee:
                     referee_final_end_date = new_end_date_referee
                     referee_bonus_applied_days = referee_bonus_days
-                    logging.info(
-                        f"Bonus of {referee_bonus_days} days successfully applied to referee {referee_user_id}."  # noqa: E501
+                    logger.info(
+                        "Bonus of %s days successfully applied to referee %s.",
+                        referee_bonus_days,
+                        referee_user_id,
                     )
                 else:
-                    logging.warning(
-                        f"Failed to apply referee bonus for {referee_user_id} (could not extend their new subscription)."  # noqa: E501
+                    logger.warning(
+                        "Failed to apply referee bonus for %s (could not extend their new "
+                        "subscription).",
+                        referee_user_id,
                     )
 
             if referee_bonus_applied_days or inviter_bonus_successfully_applied:
@@ -239,9 +256,8 @@ class ReferralService:
                 "event_payload": referral_event_payload,
             }
         except Exception as e:
-            logging.error(
-                f"Error in apply_referral_bonuses_for_payment for referee {referee_user_id}: {e}",
-                exc_info=True,
+            logger.exception(
+                "Error in apply_referral_bonuses_for_payment for referee %s: %s", referee_user_id, e
             )
 
             raise
@@ -250,15 +266,15 @@ class ReferralService:
         self,
         purchased_subscription_months: int,
         *,
-        tariff_key: Optional[str] = None,
-    ) -> tuple[Optional[int], Optional[int]]:
+        tariff_key: str | None = None,
+    ) -> tuple[int | None, int | None]:
         months = int(purchased_subscription_months)
         tariffs_config = getattr(self.settings, "tariffs_config", None)
         if tariff_key and tariffs_config:
             try:
                 tariff = tariffs_config.require(str(tariff_key))
             except Exception:
-                logging.warning(
+                logger.warning(
                     "Referral bonuses skipped: tariff %s was not found.",
                     tariff_key,
                 )
@@ -277,11 +293,11 @@ class ReferralService:
 
     async def generate_referral_link(
         self, session: AsyncSession, bot_username: str, inviter_user_id: int
-    ) -> Optional[str]:
+    ) -> str | None:
         try:
             user = await user_dal.get_user_by_id(session, inviter_user_id)
             if not user:
-                logging.warning(
+                logger.warning(
                     "Unable to generate referral link: user %s not found.",
                     inviter_user_id,
                 )
@@ -289,7 +305,7 @@ class ReferralService:
 
             referral_code = await user_dal.ensure_referral_code(session, user)
             if not referral_code:
-                logging.warning(
+                logger.warning(
                     "User %s has no referral code even after regeneration attempt.",
                     inviter_user_id,
                 )
@@ -297,11 +313,8 @@ class ReferralService:
 
             return f"https://t.me/{bot_username}?start=ref_u{referral_code}"
         except Exception as exc:
-            logging.error(
-                "Failed to generate referral link for user %s: %s",
-                inviter_user_id,
-                exc,
-                exc_info=True,
+            logger.exception(
+                "Failed to generate referral link for user %s: %s", inviter_user_id, exc
             )
             return None
 
@@ -319,10 +332,10 @@ class ReferralService:
             # Count users who made successful payments (purchased subscription)
             purchased_count_result = await session.execute(
                 text("""
-                    SELECT COUNT(DISTINCT u.user_id) 
-                    FROM users u 
-                    JOIN payments p ON u.user_id = p.user_id 
-                    WHERE u.referred_by_id = :user_id 
+                    SELECT COUNT(DISTINCT u.user_id)
+                    FROM users u
+                    JOIN payments p ON u.user_id = p.user_id
+                    WHERE u.referred_by_id = :user_id
                     AND p.status = 'succeeded'
                 """),
                 {"user_id": user_id},
@@ -331,5 +344,5 @@ class ReferralService:
 
             return {"invited_count": invited_count, "purchased_count": purchased_count}
         except Exception as e:
-            logging.error(f"Error getting referral stats for user {user_id}: {e}")
+            logger.error("Error getting referral stats for user %s: %s", user_id, e)
             return {"invited_count": 0, "purchased_count": 0}

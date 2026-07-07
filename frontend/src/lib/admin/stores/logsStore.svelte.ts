@@ -2,7 +2,6 @@ import { adminErrorMessage } from "../errors.js";
 import {
   buildAdminLogsPath,
   unwrap,
-  type ApiResponse,
   type ApiClient,
   type GetResponse,
 } from "../../webapp/publicApi";
@@ -15,10 +14,7 @@ const LOGS_QUERY_KEY = ["admin", "logs"] as const;
 const LOGS_PAGE_SIZE = 50;
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
-type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
-  path: Path,
-  options?: Parameters<ApiClient["api"]>[1]
-) => Promise<ApiResponse<Path> | AdminErrorResponse>;
+type AdminApi = ApiClient["api"];
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type LogEntry = components["schemas"]["LogOut"];
@@ -45,9 +41,9 @@ export type LogsStore = LogsState & {
 };
 
 class AdminLogsError extends Error {
-  payload: AdminErrorResponse;
+  payload: unknown;
 
-  constructor(message: string, payload: AdminErrorResponse) {
+  constructor(message: string, payload: unknown) {
     super(message);
     this.payload = payload;
   }
@@ -97,7 +93,7 @@ export function createLogsStore({
   }
 
   async function requestLogs(page: number, filter: string): Promise<LogsResponse> {
-    const data = (await api(logsPath(page, filter))) as LogsResponse | AdminErrorResponse;
+    const data = await api(logsPath(page, filter));
     if (!isOkResponse(data)) {
       throw new AdminLogsError(adminErrorMessage(data, at, "load_failed"), data);
     }

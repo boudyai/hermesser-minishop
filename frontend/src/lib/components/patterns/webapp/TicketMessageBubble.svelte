@@ -1,6 +1,20 @@
-<script>
+<script lang="ts">
   import BrandMark from "$lib/webapp/BrandMark.svelte";
   import { LifeBuoy, Lock, MessageSquare, UserRound } from "$components/ui/icons.js";
+
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type Props = {
+    role?: string;
+    body?: string;
+    createdAt?: string;
+    isInternalNote?: boolean;
+    perspective?: "admin" | "user";
+    userAvatarUrl?: string;
+    userInitials?: string;
+    authorName?: string;
+    supportBrand?: Record<string, unknown>;
+    t?: TranslateFn;
+  };
 
   let {
     role = "user",
@@ -13,7 +27,7 @@
     authorName = "",
     supportBrand = {},
     t = (key, _params = {}, fallback = "") => fallback || key,
-  } = $props();
+  }: Props = $props();
 
   const messageRole = $derived(role || "system");
   const serviceMessage = $derived(isInternalNote || messageRole === "system");
@@ -32,7 +46,7 @@
   const showSupportAvatar = $derived(!isInternalNote && messageRole === "admin");
   const showUserAvatar = $derived(!isInternalNote && messageRole === "user");
 
-  function formatTime(value) {
+  function formatTime(value: string): string {
     if (!value) return "";
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "";

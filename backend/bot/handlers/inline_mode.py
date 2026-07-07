@@ -1,5 +1,4 @@
 import logging
-from typing import List, Optional
 
 from aiogram import Bot, Router
 from aiogram.types import (
@@ -13,6 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.middlewares.i18n import JsonI18n
 from bot.services.referral_service import ReferralService
 from config.settings import Settings
+
+logger = logging.getLogger(__name__)
 
 router = Router(name="inline_mode_router")
 
@@ -28,7 +29,7 @@ async def inline_query_handler(
 ) -> None:
     """Handle inline queries for referral links and admin statistics"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
@@ -36,7 +37,7 @@ async def inline_query_handler(
     user_id = inline_query.from_user.id
     query = inline_query.query.lower().strip()
 
-    results: List[InlineQueryResultUnion] = []
+    results: list[InlineQueryResultUnion] = []
 
     # Check if user is admin
     is_admin = user_id in settings.ADMIN_IDS if settings.ADMIN_IDS else False
@@ -73,7 +74,7 @@ async def inline_query_handler(
         )
 
     except Exception as e:
-        logging.error(f"Error handling inline query from user {user_id}: {e}")
+        logger.error("Error handling inline query from user %s: %s", user_id, e)
         # Send empty results in case of error
         await inline_query.answer(results=[], cache_time=10)
 
@@ -86,7 +87,7 @@ async def create_referral_result(
     lang: str,
     settings: Settings,
     session: AsyncSession,
-) -> Optional[InlineQueryResultArticle]:
+) -> InlineQueryResultArticle | None:
     """Create referral link result for inline query"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
 
@@ -102,7 +103,7 @@ async def create_referral_result(
         )
 
         if not referral_link:
-            logging.warning("Could not produce referral link for inline user %s", user_id)
+            logger.warning("Could not produce referral link for inline user %s", user_id)
             return None
 
         # Create message content (use same text as friend message)
@@ -119,16 +120,16 @@ async def create_referral_result(
         )
 
     except Exception as e:
-        logging.error(f"Error creating referral result: {e}")
+        logger.error("Error creating referral result: %s", e)
         return None
 
 
 async def create_admin_stats_results(
     session: AsyncSession, i18n_instance: JsonI18n, lang: str, settings: Settings
-) -> List[InlineQueryResultUnion]:
+) -> list[InlineQueryResultUnion]:
     """Create admin statistics results for inline query"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
-    results: List[InlineQueryResultUnion] = []
+    results: list[InlineQueryResultUnion] = []
 
     try:
         # Quick user stats
@@ -151,14 +152,14 @@ async def create_admin_stats_results(
             results.append(system_stats_result)
 
     except Exception as e:
-        logging.error(f"Error creating admin stats results: {e}")
+        logger.error("Error creating admin stats results: %s", e)
 
     return results
 
 
 async def create_user_stats_result(
     session: AsyncSession, i18n_instance: JsonI18n, lang: str, settings: Settings
-) -> Optional[InlineQueryResultArticle]:
+) -> InlineQueryResultArticle | None:
     """Create user statistics result"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
 
@@ -195,13 +196,13 @@ async def create_user_stats_result(
         )
 
     except Exception as e:
-        logging.error(f"Error creating user stats result: {e}")
+        logger.error("Error creating user stats result: %s", e)
         return None
 
 
 async def create_financial_stats_result(
     session: AsyncSession, i18n_instance: JsonI18n, lang: str, settings: Settings
-) -> Optional[InlineQueryResultArticle]:
+) -> InlineQueryResultArticle | None:
     """Create financial statistics result"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
 
@@ -232,13 +233,13 @@ async def create_financial_stats_result(
         )
 
     except Exception as e:
-        logging.error(f"Error creating financial stats result: {e}")
+        logger.error("Error creating financial stats result: %s", e)
         return None
 
 
 async def create_system_stats_result(
     session: AsyncSession, i18n_instance: JsonI18n, lang: str, settings: Settings
-) -> Optional[InlineQueryResultArticle]:
+) -> InlineQueryResultArticle | None:
     """Create panel statistics result with system/nodes/bandwidth info"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
 
@@ -324,7 +325,7 @@ async def create_system_stats_result(
         )
 
     except Exception as e:
-        logging.error(f"Error creating system stats result: {e}")
+        logger.error("Error creating system stats result: %s", e)
         # Fallback error message
         error_text = _("inline_panel_stats_error")
 

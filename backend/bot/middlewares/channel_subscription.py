@@ -1,5 +1,7 @@
+import contextlib
 import logging
-from typing import Any, Awaitable, Callable, Dict, Optional, cast
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 from aiogram import BaseMiddleware
 from aiogram.types import (
@@ -20,12 +22,16 @@ from bot.utils.channel_subscription import (
 from config.settings import Settings
 from db.dal import user_dal
 
+logger = logging.getLogger(__name__)
+
 
 class ChannelSubscriptionMiddleware(BaseMiddleware):
     """
-    Blocks access to handlers for users who have not yet passed the required channel subscription check.
+    Blocks access to handlers for users who have not yet passed the required channel
+    subscription check.
+
     The /start command is allowed through so that the handler can re-run the verification.
-    """  # noqa: E501
+    """
 
     def __init__(self, settings: Settings, i18n_instance: JsonI18n):
         super().__init__()
@@ -34,9 +40,9 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
 
     async def __call__(
         self,
-        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
         event: TelegramObject,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> Any:
         update = cast(Update, event)
 
@@ -57,7 +63,7 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
             return await handler(event, data)
 
         # Allow /start to reach the handler so the check can be re-run.
-        message_object: Optional[Message] = update.message
+        message_object: Message | None = update.message
         if message_object and message_object.text and message_object.text.startswith("/start"):
             return await handler(event, data)
 
@@ -65,11 +71,10 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
         try:
             db_user = await user_dal.get_user_by_id(session, event_user.id)
         except Exception as db_error:
-            logging.error(
+            logger.exception(
                 "ChannelSubscriptionMiddleware: failed to fetch user %s: %s",
                 event_user.id,
                 db_error,
-                exc_info=True,
             )
             return await handler(event, data)
 
@@ -82,10 +87,10 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
         ):
             return await handler(event, data)
 
-        i18n_payload: Dict[str, Any] = data.get("i18n_data", {})
+        i18n_payload: dict[str, Any] = data.get("i18n_data", {})
         current_lang = str(i18n_payload.get("current_language") or self.settings.DEFAULT_LANGUAGE)
         raw_i18n = i18n_payload.get("i18n_instance")
-        i18n_instance: Optional[JsonI18n] = (
+        i18n_instance: JsonI18n | None = (
             raw_i18n if isinstance(raw_i18n, JsonI18n) else self.i18n_main_instance
         )
 
@@ -127,22 +132,20 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
         callback: CallbackQuery,
         prompt_text: str,
         keyboard: InlineKeyboardMarkup | None,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> None:
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(prompt_text, show_alert=True)
-        except Exception:
-            pass
 
         if callback.message:
             try:
                 await callback.message.answer(prompt_text, reply_markup=keyboard)
             except Exception as send_error:
-                logging.error(
-                    "ChannelSubscriptionMiddleware: failed to send prompt for callback in chat %s: %s",  # noqa: E501
+                logger.exception(
+                    "ChannelSubscriptionMiddleware: failed to send prompt for callback in chat %s: "
+                    "%s",
                     callback.message.chat.id,
                     send_error,
-                    exc_info=True,
                 )
         else:
             bot_instance = data["bot"]

@@ -1,6 +1,5 @@
 import type { BillingPlan, PaymentMethod, TariffCatalogEntry } from "./tariffs";
-
-type WebappRecord = Record<string, unknown>;
+import type { SubscriptionView, WebappRecord } from "./types";
 
 type BillingModalStore = {
   closeDeviceTopupModal: () => void;
@@ -8,9 +7,9 @@ type BillingModalStore = {
   openPaymentModal: (
     tariffMode: boolean,
     singleTariffMode: boolean,
-    tariffCatalog: WebappRecord[],
-    subscription: WebappRecord,
-    plans: WebappRecord[],
+    tariffCatalog: TariffCatalogEntry[],
+    subscription: SubscriptionView,
+    plans: BillingPlan[],
     defaultMethod?: string,
     options?: WebappRecord
   ) => void;
@@ -30,7 +29,7 @@ type BillingModalActionDeps = {
   methods: () => PaymentMethod[];
   plans: () => BillingPlan[];
   singleTariffMode: () => boolean;
-  subscription: () => WebappRecord;
+  subscription: () => SubscriptionView;
   tariffCatalog: () => TariffCatalogEntry[];
   tariffMode: () => boolean;
 };
@@ -54,21 +53,14 @@ export function createBillingModalActions({
     return defaultPaymentMethod(methods());
   }
 
-  function openPaymentModal(preferredTariffKey: string = "") {
-    // ponytail: when the onboarding wizard pre-selects a hosting
-    // plan (hosting_basic / hosting_plus) we forward it through so
-    // the payment modal lands directly on the matching plan with
-    // included_cornllm_balance_rub already wired into the activation
-    // path. Without this the wizard would default to whichever
-    // tariff is_default and the user would never see Plus.
+  function openPaymentModal() {
     billingStore.openPaymentModal(
       tariffMode(),
       singleTariffMode(),
       tariffCatalog(),
       subscription(),
       plans(),
-      currentDefaultPaymentMethod(),
-      preferredTariffKey ? { preferredTariffKey } : {}
+      currentDefaultPaymentMethod()
     );
   }
 

@@ -7,6 +7,7 @@ Feature parity with Mini App for hermes mode. Uses aiogram's auto-injection
 from __future__ import annotations
 
 import logging
+from contextlib import suppress
 from datetime import UTC, datetime
 
 import aiohttp
@@ -98,286 +99,24 @@ def _subscription_is_expired(active: dict | None) -> bool:
 
 
 async def _safe_delete_message(message: types.Message) -> None:
-    try:
+    with suppress(Exception):
         await message.delete()
-    except Exception:
-        pass
 
 
-# ============================================
-# /status
-# ============================================
-
-
-@router.message(Command("status"))
-async def status_command(
-    message: types.Message,
-    settings: Settings,
-    subscription_service: SubscriptionService,
-    session: AsyncSession,
-    i18n_data: dict,
-) -> None:
-    user_id = message.from_user.id
-    if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
-        return
-    await _render_status(
-        message,
-        user_id,
-        settings,
-        subscription_service,
-        session,
-        edit=False,
-        i18n_data=i18n_data,
-    )
-
-
-@router.callback_query(F.data == "tenant:status")
-async def status_callback(
-    callback: types.CallbackQuery,
-    settings: Settings,
-    subscription_service: SubscriptionService,
-    session: AsyncSession,
-    i18n_data: dict,
-) -> None:
-    user_id = callback.from_user.id
-    if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
-        await callback.answer()
-        return
-    await _render_status(
-        callback.message,
-        user_id,
-        settings,
-        subscription_service,
-        session,
-        edit=True,
-        i18n_data=i18n_data,
-    )
-    await callback.answer()
-
-
-async def _render_status(
-    target_message: "types.Message | types.InaccessibleMessage | None",
-    user_id: int,
-    settings: Settings,
-    subscription_service: SubscriptionService,
-    session: AsyncSession,
-    edit: bool,
-    i18n_data: dict | None = None,
-) -> None:
-    if target_message is None:
-        return
-    # ponytail: fetch the active subscription dict ONCE here — both
-    # tenant_id and the panel_status / end_date / status_from_panel
-    # fields come from the same call, and the panel-side lookup it
-    # triggers (remnawave /key/info or users/get) is the slow part.
-    active = await _get_active_subscription_for_status(subscription_service, session, user_id)
-    tenant_id = str((active or {}).get("user_id") or "").strip() or None
-    panel_service = await _get_hermes_panel(subscription_service)
-    i18n = (i18n_data or {}).get("i18n_instance")
-    current_lang = (i18n_data or {}).get("current_language", "ru")
-    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
-
-    if not tenant_id or panel_service is None:
-        text = _(
-            "tg_hermes_status_no_tenant",
-            default="Bot is not running. Open the Mini App to activate.",
-        )
-        await _reply_or_edit(
-            target_message,
-            text,
-            types.InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        types.InlineKeyboardButton(
-                            text=_("back_to_menu", default="Menu"),
-                            callback_data="main_action:back_to_main",
-                        )
-                    ]
-                ]
-            ),
-            edit=edit,
-        )
-        return
-
-    tenant_state = await panel_service.get_tenant_state(tenant_id) or {}
-    tenant_status = str(tenant_state.get("status") or "active").lower()
-
-    # ponytail: subscription state gates container state. A user whose
-    # remnawave sub expired but whose tenant container is still happily
-    # running gets the suspended copy with a Renew button. Without this
-    # we showed "Bot is active", which misled the user about why their
-    # LLM calls were failing. We reuse the existing suspended state —
-    # block + Renew CTA are the same for both an operator-initiated
-    # suspension and an automatic subscription-driven one.
-    if _subscription_is_expired(active):
-        text = _(
-            "tg_hermes_status_subscription_expired",
-            default="Subscription expired. Renew your subscription to start the bot again.",
-        )
-        await _reply_or_edit(
-            target_message,
-            text,
-            types.InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        types.InlineKeyboardButton(
-                            text=_("renew", default="Renew"),
-                            callback_data="main_action:my_subscription",
-                        )
-                    ],
-                    [
-                        types.InlineKeyboardButton(
-                            text=_("back_to_menu", default="Menu"),
-                            callback_data="main_action:back_to_main",
-                        )
-                    ],
-                ]
-            ),
-            edit=edit,
-        )
-        return
-
-    if tenant_status in ("deleting", "deleted", "archived"):
-        text = _(
-            "tg_hermes_status_deleted",
-            default="Bot deleted. Open the Mini App to create a new one.",
-        )
-        await _reply_or_edit(
-            target_message,
-            text,
-            types.InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        types.InlineKeyboardButton(
-                            text=_("create_bot", default="Create bot"),
-                            callback_data="main_action:my_subscription",
-                        )
-                    ],
-                    [
-                        types.InlineKeyboardButton(
-                            text=_("back_to_menu", default="Menu"),
-                            callback_data="main_action:back_to_main",
-                        )
-                    ],
-                ]
-            ),
-            edit=edit,
-        )
-        return
-
-    if tenant_status == "suspended":
-        text = _(
-            "tg_hermes_status_suspended",
-            default="Bot suspended. Renew your subscription to start it again.",
-        )
-        await _reply_or_edit(
-            target_message,
-            text,
-            types.InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        types.InlineKeyboardButton(
-                            text=_("renew", default="Renew"),
-                            callback_data="main_action:my_subscription",
-                        )
-                    ],
-                    [
-                        types.InlineKeyboardButton(
-                            text=_("back_to_menu", default="Menu"),
-                            callback_data="main_action:back_to_main",
-                        )
-                    ],
-                ]
-            ),
-            edit=edit,
-        )
-        return
-
-    if tenant_status in ("provisioning_vm", "provisioning_litellm_key", "created", "error"):
-        text = _(
-            "tg_hermes_status_provisioning",
-            default="Starting your bot… takes ~30 seconds.\nRepeat /status in a minute.",
-        )
-        await _reply_or_edit(
-            target_message,
-            text,
-            types.InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        types.InlineKeyboardButton(
-                            text=_("back_to_menu", default="Menu"),
-                            callback_data="main_action:back_to_main",
-                        )
-                    ]
-                ]
-            ),
-            edit=edit,
-        )
-        return
-
-    # ponytail: bot /status used to fetch the LiteLLM quota and
-    # append a "Budget: spent / max (remaining X)" line. That
-    # confused users — the quota is for the underlying LLM
-    # spend, not a money balance the customer manages, and
-    # showing it in the status card alongside a "Restart" /
-    # "Delete" menu invited support tickets about a metric
-    # they can't top up from this surface. CornLLM top-up
-    # lives in the Mini App Settings card and the admin
-    # user detail; the bot status card just shows bot-level
-    # actions.
-    text = (
-        _(
-            "tg_hermes_status_active",
-            default="Bot is active",
-        )
-        + "\n"
-        + _(
-            "tg_hermes_status_actions_hint",
-            default="Use the buttons below to manage:",
-        )
-    )
-    markup = types.InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                types.InlineKeyboardButton(
-                    text=_("restart", default="Restart"),
-                    callback_data="tenant:restart",
-                ),
-                types.InlineKeyboardButton(
-                    text=_("logs", default="Logs"),
-                    callback_data="tenant:logs",
-                ),
-            ],
-            [
-                types.InlineKeyboardButton(
-                    text=_("suspend", default="Suspend"),
-                    callback_data="tenant:suspend",
-                ),
-                types.InlineKeyboardButton(
-                    text=_("delete", default="Delete"),
-                    callback_data="tenant:delete",
-                ),
-            ],
-            [
-                types.InlineKeyboardButton(
-                    text=_("back_to_menu", default="Menu"),
-                    callback_data="main_action:back_to_main",
-                )
-            ],
-        ]
-    )
-    await _reply_or_edit(target_message, text, markup, edit)
+# /status handlers live in bot.handlers.user.tenant_status.
 
 
 async def _reply_or_edit(
-    message: "types.Message | types.InaccessibleMessage",
+    message: types.Message | types.InaccessibleMessage,
     text: str,
     markup: types.InlineKeyboardMarkup,
     edit: bool,
 ) -> None:
+    if not isinstance(message, types.Message):
+        return
     if edit:
         try:
-            await message.edit_text(text, reply_markup=markup)  # type: ignore[union-attr]
+            await message.edit_text(text, reply_markup=markup)
             return
         except Exception:
             pass
@@ -401,7 +140,7 @@ async def restart_callback(callback: types.CallbackQuery, i18n_data: dict) -> No
 
 
 async def _confirm_restart(
-    target_message: "types.Message | types.InaccessibleMessage | None",
+    target_message: types.Message | types.InaccessibleMessage | None,
     edit: bool,
     i18n_data: dict | None = None,
 ) -> None:
@@ -467,9 +206,9 @@ async def restart_confirm_callback(
             show_alert=True,
         )
         return
-    if callback.message:
+    if isinstance(callback.message, types.Message):
         try:
-            await callback.message.edit_text(  # type: ignore[union-attr]
+            await callback.message.edit_text(
                 queued_msg,
                 reply_markup=types.InlineKeyboardMarkup(
                     inline_keyboard=[
@@ -486,15 +225,13 @@ async def restart_confirm_callback(
                 ),
             )
         except Exception:
-            try:
-                await callback.message.answer(  # type: ignore[union-attr]
+            with suppress(Exception):
+                await callback.message.answer(
                     _(
                         "tg_hermes_restart_queued_inline",
                         default="Restart queued. Bot returns in ~30 seconds.",
                     )
                 )
-            except Exception:
-                pass
 
 
 # ============================================
@@ -596,11 +333,9 @@ async def ensure_bot_creation_entrypoint(
                         "Try again later or open the Mini App."
                     ),
                 )
-            if callback.message:
-                try:
+            if isinstance(callback.message, types.Message):
+                with suppress(Exception):
                     await callback.message.edit_text(text)
-                except Exception:
-                    pass
             return
 
     # No token (or no active subscription): drop into the token FSM.
@@ -658,11 +393,9 @@ async def set_token_callback(
         + "\n\n"
         + _("tg_hermes_token_intro_help", default="Create a bot: open @BotFather → /newbot")
     )
-    if callback.message:
-        try:
+    if isinstance(callback.message, types.Message):
+        with suppress(Exception):
             await callback.message.edit_text(text)
-        except Exception:
-            pass
     await callback.answer()
 
 
@@ -671,7 +404,7 @@ async def token_input(
     message: types.Message,
     state: FSMContext,
     async_session_factory,
-    subscription_service: "SubscriptionService | None" = None,
+    subscription_service: SubscriptionService | None = None,
     i18n_data: dict | None = None,
 ) -> None:
     i18n = (i18n_data or {}).get("i18n_instance")
@@ -690,21 +423,23 @@ async def token_input(
 
     bot_username = ""
     try:
-        async with aiohttp.ClientSession() as http:
-            async with http.get(
+        async with (
+            aiohttp.ClientSession() as http,
+            http.get(
                 f"https://api.telegram.org/bot{token}/getMe",
                 timeout=aiohttp.ClientTimeout(total=10),
-            ) as resp:
-                data = await resp.json()
-                if not data.get("ok"):
-                    await message.answer(
-                        _(
-                            "tg_hermes_token_rejected",
-                            default=("Telegram rejected this token. Double-check with @BotFather."),
-                        )
+            ) as resp,
+        ):
+            data = await resp.json()
+            if not data.get("ok"):
+                await message.answer(
+                    _(
+                        "tg_hermes_token_rejected",
+                        default=("Telegram rejected this token. Double-check with @BotFather."),
                     )
-                    return
-                bot_username = data.get("result", {}).get("username", "")
+                )
+                return
+            bot_username = data.get("result", {}).get("username", "")
     except Exception:
         logger.exception("getMe validation failed for user %s", user_id)
         await message.answer(
@@ -940,7 +675,7 @@ async def logs_refresh_callback(
 
 
 async def _send_logs(
-    target_message: "types.Message | types.InaccessibleMessage | None",
+    target_message: types.Message | types.InaccessibleMessage | None,
     user_id: int,
     settings: Settings,
     subscription_service: SubscriptionService,
@@ -1008,7 +743,7 @@ async def suspend_callback(
 
 
 async def _confirm_suspend(
-    target_message: "types.Message | types.InaccessibleMessage | None",
+    target_message: types.Message | types.InaccessibleMessage | None,
     edit: bool,
     i18n_data: dict | None = None,
 ) -> None:
@@ -1077,9 +812,9 @@ async def suspend_confirm_callback(
         if ok
         else _("tg_hermes_suspend_failed", default="Could not suspend.")
     )
-    if callback.message:
-        try:
-            await callback.message.edit_text(  # type: ignore[union-attr]
+    if isinstance(callback.message, types.Message):
+        with suppress(Exception):
+            await callback.message.edit_text(
                 text,
                 reply_markup=types.InlineKeyboardMarkup(
                     inline_keyboard=[
@@ -1092,8 +827,6 @@ async def suspend_confirm_callback(
                     ]
                 ),
             )
-        except Exception:
-            pass
     await callback.answer()
 
 
@@ -1164,11 +897,9 @@ async def delete_callback(
             ]
         ]
     )
-    if callback.message:
-        try:
-            await callback.message.edit_text(text, reply_markup=markup)  # type: ignore[union-attr]
-        except Exception:
-            pass
+    if isinstance(callback.message, types.Message):
+        with suppress(Exception):
+            await callback.message.edit_text(text, reply_markup=markup)
     await callback.answer()
 
 

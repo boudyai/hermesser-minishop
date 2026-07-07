@@ -1,11 +1,8 @@
 import { adminErrorMessage } from "../errors.js";
 import {
   unwrap,
-  type ApiResponse,
   type ApiClient,
-  type GetResponse,
   type PostPayload,
-  type PostResponse,
   buildAdminBackupsCreatePath,
   buildAdminBackupsPath,
   buildAdminBackupsRestorePath,
@@ -13,16 +10,9 @@ import {
 } from "../../webapp/publicApi";
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
-type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
-  path: Path,
-  options?: Parameters<ApiClient["api"]>[1]
-) => Promise<ApiResponse<Path> | AdminErrorResponse>;
+type AdminApi = ApiClient["api"];
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-type BackupsListResponse = GetResponse<"/api/admin/backups">;
-type BackupCreateResponse = PostResponse<"/api/admin/backups/create">;
-type BackupUploadResponse = PostResponse<"/api/admin/backups/upload">;
-type BackupRestoreResponse = PostResponse<"/api/admin/backups/restore">;
 type BackupRestorePayload = PostPayload<"/api/admin/backups/restore">;
 
 export type BackupArchive = {
@@ -129,7 +119,7 @@ export function createBackupsStore({ api, onToast, at }: BackupsStoreOptions): B
   async function loadArchives(): Promise<void> {
     updateState((s) => ({ ...s, backupsLoading: true }));
     try {
-      const data = (await api(buildAdminBackupsPath())) as BackupsListResponse | AdminErrorResponse;
+      const data = await api(buildAdminBackupsPath());
       if (isOkResponse(data)) {
         const result = unwrap(data);
         updateState((s) => ({
@@ -150,9 +140,9 @@ export function createBackupsStore({ api, onToast, at }: BackupsStoreOptions): B
   async function createBackup(): Promise<BackupArchive | null> {
     updateState((s) => ({ ...s, backupsCreating: true, lastCreated: null }));
     try {
-      const data = (await api(buildAdminBackupsCreatePath(), {
+      const data = await api(buildAdminBackupsCreatePath(), {
         method: "POST",
-      })) as BackupCreateResponse | AdminErrorResponse;
+      });
       if (isOkResponse(data)) {
         const result = unwrap(data);
         updateState((s) => ({ ...s, lastCreated: normalizeRestoreResult(result.result) }));
@@ -175,10 +165,10 @@ export function createBackupsStore({ api, onToast, at }: BackupsStoreOptions): B
     try {
       const body = new FormData();
       body.append("file", file);
-      const data = (await api(buildAdminBackupsUploadPath(), {
+      const data = await api(buildAdminBackupsUploadPath(), {
         method: "POST",
         body,
-      })) as BackupUploadResponse | AdminErrorResponse;
+      });
       if (isOkResponse(data)) {
         const result = unwrap(data);
         onToast(at("backups_upload_done", {}, "Архив загружен"));
@@ -221,10 +211,10 @@ export function createBackupsStore({ api, onToast, at }: BackupsStoreOptions): B
         restore_compose: Boolean(restoreCompose),
         confirm: true,
       };
-      const data = (await api(buildAdminBackupsRestorePath(), {
+      const data = await api(buildAdminBackupsRestorePath(), {
         method: "POST",
         body: JSON.stringify(payload),
-      })) as BackupRestoreResponse | AdminErrorResponse;
+      });
       if (isOkResponse(data)) {
         const result = unwrap(data);
         updateState((s) => ({ ...s, lastRestore: normalizeRestoreResult(result.result) }));

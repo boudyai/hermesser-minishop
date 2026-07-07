@@ -1,5 +1,15 @@
-<script>
+<script lang="ts">
   import Skeleton from "$components/ui/skeleton.svelte";
+
+  type Props = {
+    label?: string;
+    rows?: number;
+    actions?: number;
+    methods?: number;
+    showNote?: boolean;
+    showPayButton?: boolean;
+    showMeta?: boolean;
+  };
 
   let {
     label = "",
@@ -9,7 +19,7 @@
     showNote = false,
     showPayButton = true,
     showMeta = true,
-  } = $props();
+  }: Props = $props();
 </script>
 
 <div class="dialog-skeleton" aria-label={label}>

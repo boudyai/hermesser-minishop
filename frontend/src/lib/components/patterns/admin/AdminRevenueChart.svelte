@@ -1,9 +1,22 @@
-<script>
+<script lang="ts">
   import { tick } from "svelte";
   import uPlot from "uplot";
   import "uplot/dist/uPlot.min.css";
 
-  /** `{ date: ISO date string, amount: number }[]` */
+  type RevenuePoint = { date: string; amount: number };
+  type Props = {
+    /** `{ date: ISO date string, amount: number }[]` */
+    series?: RevenuePoint[];
+    /** Total plot height in CSS px (axes + canvas). */
+    plotHeight?: number;
+    fmtMoney?: (value: number, currency: string) => string;
+    currency?: string;
+    /** uPlot live legend: column header for the time (x) series */
+    legendTimeLabel?: string;
+    /** uPlot live legend: column header for the value (y) series */
+    legendValueLabel?: string;
+  };
+
   let {
     series = [],
     plotHeight = 204,
@@ -11,45 +24,42 @@
     currency = "RUB",
     legendTimeLabel = "Time",
     legendValueLabel = "Value",
-  } = $props();
-  /** Total plot height in CSS px (axes + canvas). */
-  /** uPlot live legend: column header for the time (x) series */
-  /** uPlot live legend: column header for the value (y) series */
+  }: Props = $props();
 
-  let hostEl = $state();
-  let plot;
-  let resizeObserver;
+  let hostEl = $state<HTMLDivElement | undefined>();
+  let plot: uPlot | undefined;
+  let resizeObserver: ResizeObserver | undefined;
   let syncTimer = 0;
   /** Rebuild plot when legend copy changes (language), since series labels are init-only */
   let builtLegendSig = "";
 
-  function readCssColor(name, fallback) {
+  function readCssColor(name: string, fallback: string): string {
     if (typeof document === "undefined") return fallback;
     const scope = hostEl || document.documentElement;
     const raw = getComputedStyle(scope).getPropertyValue(name).trim();
     return raw || fallback;
   }
 
-  function parseDayUnix(iso) {
+  function parseDayUnix(iso: string): number {
     const s = String(iso || "");
     const t = Date.parse(s.includes("T") ? s : `${s}T12:00:00Z`);
     if (!Number.isFinite(t)) return 0;
     return Math.floor(t / 1000);
   }
 
-  function toAlignedData(rows) {
+  function toAlignedData(rows: RevenuePoint[]): uPlot.AlignedData | null {
     if (!rows?.length) return null;
     const xs = rows.map((p) => parseDayUnix(p.date));
     const ys = rows.map((p) => Number(p.amount) || 0);
     return [xs, ys];
   }
 
-  function yAxisTickLabels(values) {
+  function yAxisTickLabels(values: number[]): string[] {
     return values.map((v) => fmtMoney(Number(v), currency));
   }
 
   /** uPlot passes already-formatted tick strings; reserve enough gutter so amounts are not clipped */
-  function yAxisGutterWidth(_u, values) {
+  function yAxisGutterWidth(_u: uPlot, values: string[] | null): number {
     const pad = 14;
     const charPx = 6.1;
     const maxChars = (values || []).reduce((m, v) => Math.max(m, String(v ?? "").length), 0);
@@ -57,12 +67,12 @@
   }
 
   /** Axis `size`: height (x / bottom) or width (y / left) in CSS px — only customize the y gutter */
-  function axisBandSize(_u, values, axisIdx) {
+  function axisBandSize(_u: uPlot, values: string[] | null, axisIdx: number): number {
     if (axisIdx !== 1) return 32;
     return yAxisGutterWidth(_u, values);
   }
 
-  function buildOpts(width) {
+  function buildOpts(width: number): uPlot.Options {
     const w = Math.max(80, Math.floor(width));
     const muted = readCssColor("--admin-muted", "#9aa7a2");
     const border = readCssColor("--admin-border", "rgba(255,255,255,0.12)");
@@ -96,7 +106,7 @@
         { label: legendTimeLabel },
         {
           label: legendValueLabel,
-          paths: uPlot.paths.spline(),
+          paths: uPlot.paths.spline?.(),
           stroke: lineStroke,
           width: 2,
           cap: "round",
@@ -118,7 +128,7 @@
           grid: { show: true, stroke: border, width: 1 },
           ticks: { stroke: border },
           font: "10px system-ui,Segoe UI,sans-serif",
-          values: (u, ticks) => yAxisTickLabels(ticks),
+          values: (_u: uPlot, ticks: number[]) => yAxisTickLabels(ticks),
         },
       ],
     };
@@ -159,7 +169,7 @@
 
   let rafId = 0;
 
-  function attachChartHost(node) {
+  function attachChartHost(node: HTMLDivElement): () => void {
     hostEl = node;
     rafId = requestAnimationFrame(() => {
       void tick().then(() => {

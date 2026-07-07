@@ -1,7 +1,6 @@
-import hmac
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot, F, Router, types
 from aiohttp import web
@@ -11,18 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
-
-if TYPE_CHECKING:
-    from bot.services.referral_service import ReferralService
-    from bot.services.subscription_service_impl.core import SubscriptionService
-else:
-    ReferralService = object
-    SubscriptionService = object
 from config.settings import Settings
-from config.tariffs_config import (
-    default_currency_key_for_settings,
-    default_payment_currency_code_for_settings,
-)
 from db.dal import payment_dal
 
 from ..base import (
@@ -38,33 +26,33 @@ from ..base import (
 )
 from ..shared import (
     PAYMENT_STATUS_PENDING_FINALIZATION,
+    CreatePaymentRequest,
     HttpClientMixin,
+    LinkPaymentDescriptor,
     PaymentSuccessRequest,
-    build_payment_record_payload,
-    create_webapp_payment_record,
+    constant_time_compare,
     decimal_amounts_equal,
-    describe_payment,
     finalize_successful_payment,
-    finalize_webapp_link_payment,
     first_value,
     format_decimal_amount,
     format_number_for_payload,
-    notify_callback_parse_error,
-    notify_payment_record_failure,
-    notify_service_unavailable,
     notify_user_payment_failed,
-    parse_payment_callback,
-    payment_failed,
-    payment_record_amounts,
-    payment_unavailable,
     payment_units_for_activation,
     post_json_request,
-    quote_hwid_callback_parts,
-    render_link_or_fail,
-    render_payment_link,
-    safe_callback_answer,
+    run_callback_payment,
+    run_reuse_webapp_payment,
+    run_webapp_payment,
 )
-from ..shared.app_context import app_optional, app_required
+from ..shared.app_context import app_required
+
+if TYPE_CHECKING:
+    from bot.services.referral_service import ReferralService
+    from bot.services.subscription_service_impl.core import SubscriptionService
+else:
+    ReferralService = object
+    SubscriptionService = object
+
+logger = logging.getLogger(__name__)
 
 _LOG = "platega"
 
@@ -79,8 +67,8 @@ class PlategaConfig(ProviderEnvConfig):
 
     ENABLED: bool = Field(default=False)
     BASE_URL: str = Field(default="https://app.platega.io")
-    MERCHANT_ID: Optional[str] = None
-    SECRET: Optional[str] = None
+    MERCHANT_ID: str | None = None
+    SECRET: str | None = None
     PAYMENT_METHOD: int = Field(default=2)
     SBP_ENABLED: bool = Field(default=False)
     SBP_ADMIN_ONLY_ENABLED: bool = Field(default=False)
@@ -88,8 +76,8 @@ class PlategaConfig(ProviderEnvConfig):
     CRYPTO_ADMIN_ONLY_ENABLED: bool = Field(default=False)
     SBP_METHOD: int = Field(default=2)
     CRYPTO_METHOD: int = Field(default=13)
-    RETURN_URL: Optional[str] = None
-    FAILED_URL: Optional[str] = None
+    RETURN_URL: str | None = None
+    FAILED_URL: str | None = None
     SUPPORTED_CURRENCIES: str = Field(default="RUB")
 
     @field_validator("MERCHANT_ID", "SECRET", "RETURN_URL", "FAILED_URL", mode="before")
@@ -119,12 +107,12 @@ class PlategaSbpPresentation(ProviderEnvConfig):
         extra="ignore",
     )
 
-    WEBAPP_LABEL_RU: Optional[str] = None
-    WEBAPP_LABEL_EN: Optional[str] = None
-    WEBAPP_ICON: Optional[str] = None
-    TELEGRAM_LABEL_RU: Optional[str] = None
-    TELEGRAM_LABEL_EN: Optional[str] = None
-    TELEGRAM_EMOJI: Optional[str] = None
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None
+    TELEGRAM_LABEL_RU: str | None = None
+    TELEGRAM_LABEL_EN: str | None = None
+    TELEGRAM_EMOJI: str | None = None
 
 
 class PlategaCryptoPresentation(ProviderEnvConfig):
@@ -135,12 +123,12 @@ class PlategaCryptoPresentation(ProviderEnvConfig):
         extra="ignore",
     )
 
-    WEBAPP_LABEL_RU: Optional[str] = None
-    WEBAPP_LABEL_EN: Optional[str] = None
-    WEBAPP_ICON: Optional[str] = None
-    TELEGRAM_LABEL_RU: Optional[str] = None
-    TELEGRAM_LABEL_EN: Optional[str] = None
-    TELEGRAM_EMOJI: Optional[str] = None
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None
+    TELEGRAM_LABEL_RU: str | None = None
+    TELEGRAM_LABEL_EN: str | None = None
+    TELEGRAM_EMOJI: str | None = None
 
 
 class PlategaService(HttpClientMixin):
@@ -167,11 +155,11 @@ class PlategaService(HttpClientMixin):
 
         self._init_http_client(total_timeout=lambda: self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
         if not self.configured:
-            logging.warning(
+            logger.warning(
                 "PlategaService initialized but not fully configured. Payments disabled."
             )
         else:
-            logging.info(
+            logger.info(
                 "PlategaService configured. SBP button: %s (method=%s), Crypto button: %s (method=%s)",  # noqa: E501
                 "ON" if config.SBP_ENABLED else "OFF",
                 self.sbp_method,
@@ -196,11 +184,11 @@ class PlategaService(HttpClientMixin):
         return (self.config.BASE_URL or "https://app.platega.io").rstrip("/")
 
     @property
-    def merchant_id(self) -> Optional[str]:
+    def merchant_id(self) -> str | None:
         return self.config.MERCHANT_ID
 
     @property
-    def secret(self) -> Optional[str]:
+    def secret(self) -> str | None:
         return self.config.SECRET
 
     @property
@@ -224,7 +212,7 @@ class PlategaService(HttpClientMixin):
         return self.config.FAILED_URL or self.return_url
 
     @property
-    def _auth_headers(self) -> Dict[str, str]:
+    def _auth_headers(self) -> dict[str, str]:
         return {
             "X-MerchantId": self.merchant_id or "",
             "X-Secret": self.secret or "",
@@ -235,13 +223,13 @@ class PlategaService(HttpClientMixin):
         self,
         *,
         amount: float,
-        currency: Optional[str],
+        currency: str | None,
         description: str,
-        payload: Optional[str] = None,
-        payment_method: Optional[int] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        payload: str | None = None,
+        payment_method: int | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
-            logging.error("PlategaService is not configured. Cannot create transaction.")
+            logger.error("PlategaService is not configured. Cannot create transaction.")
             return False, {"message": "service_not_configured"}
 
         currency_code = normalize_payment_currency_code(
@@ -259,7 +247,7 @@ class PlategaService(HttpClientMixin):
         url = f"{self.base_url}/transaction/process"
         method_id = int(payment_method if payment_method is not None else self.payment_method)
 
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "paymentMethod": method_id,
             "paymentDetails": {"amount": float(amount), "currency": currency_code},
             "description": description,
@@ -275,7 +263,7 @@ class PlategaService(HttpClientMixin):
             "X-Secret": "***" if self._auth_headers.get("X-Secret") else "",
             "Content-Type": self._auth_headers.get("Content-Type"),
         }
-        logging.info(
+        logger.info(
             "Platega create_transaction request: url=%s headers=%s body=%s",
             url,
             safe_headers,
@@ -290,7 +278,7 @@ class PlategaService(HttpClientMixin):
             log_prefix="Platega create_transaction",
         )
 
-    async def get_transaction(self, transaction_id: str) -> Tuple[bool, Dict[str, Any]]:
+    async def get_transaction(self, transaction_id: str) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
             return False, {"message": "service_not_configured"}
 
@@ -306,7 +294,7 @@ class PlategaService(HttpClientMixin):
             ) as response:
                 data = await response.json(content_type=None)
                 if response.status != 200 or not isinstance(data, dict):
-                    logging.warning(
+                    logger.warning(
                         "Platega get_transaction failed: id=%s status=%s body=%s",
                         transaction_id,
                         response.status,
@@ -315,7 +303,7 @@ class PlategaService(HttpClientMixin):
                     return False, {"status": response.status, "message": data}
                 return True, data
         except Exception as exc:
-            logging.exception("Platega get_transaction request failed: id=%s", transaction_id)
+            logger.exception("Platega get_transaction request failed: id=%s", transaction_id)
             return False, {"message": str(exc)}
 
     async def try_reuse_pending_transaction(
@@ -325,7 +313,7 @@ class PlategaService(HttpClientMixin):
         user_id: int,
         sale_mode: str,
         variant: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         transaction_id = str(getattr(payment, "provider_payment_id", None) or "").strip()
         payment_url = str(getattr(payment, "provider_payment_url", None) or "").strip()
         if not transaction_id or not payment_url:
@@ -360,16 +348,16 @@ class PlategaService(HttpClientMixin):
         try:
             data = await request.json()
         except Exception:
-            logging.exception("Platega webhook: failed to parse JSON.")
+            logger.exception("Platega webhook: failed to parse JSON.")
             return web.Response(status=400, text="bad_request")
 
         header_merchant = request.headers.get("X-MerchantId")
         header_secret = request.headers.get("X-Secret")
         if not (
-            hmac.compare_digest(str(header_merchant or ""), str(self.merchant_id or ""))
-            and hmac.compare_digest(str(header_secret or ""), str(self.secret or ""))
+            constant_time_compare(header_merchant, self.merchant_id)
+            and constant_time_compare(header_secret, self.secret)
         ):
-            logging.error("Platega webhook: invalid auth headers")
+            logger.error("Platega webhook: invalid auth headers")
             return web.Response(status=403, text="forbidden")
 
         transaction_id = str(data.get("id") or data.get("transactionId") or "").strip()
@@ -378,13 +366,13 @@ class PlategaService(HttpClientMixin):
         currency = data.get("currency") or self.settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
 
         if not transaction_id or not status:
-            logging.error("Platega webhook: missing transaction id or status in payload: %s", data)
+            logger.error("Platega webhook: missing transaction id or status in payload: %s", data)
             return web.Response(status=400, text="missing_fields")
 
         async with self.async_session_factory() as session:
             payment = await payment_dal.get_payment_by_provider_payment_id(session, transaction_id)
             if not payment:
-                logging.error(
+                logger.error(
                     "Platega webhook: payment not found for transaction %s", transaction_id
                 )
                 return web.Response(status=404, text="payment_not_found")
@@ -401,14 +389,14 @@ class PlategaService(HttpClientMixin):
                 if amount_raw is not None:
                     try:
                         if not decimal_amounts_equal(amount_raw, payment.amount):
-                            logging.warning(
+                            logger.warning(
                                 "Platega webhook: amount mismatch for payment %s (expected %s, got %s)",  # noqa: E501
                                 payment.payment_id,
                                 format_decimal_amount(payment.amount),
                                 format_decimal_amount(amount_raw),
                             )
                     except Exception as exc:
-                        logging.warning(
+                        logger.warning(
                             "Platega webhook: failed to compare amounts for %s: %s",
                             payment.payment_id,
                             exc,
@@ -424,7 +412,7 @@ class PlategaService(HttpClientMixin):
                     await session.commit()
                 except Exception:
                     await session.rollback()
-                    logging.exception(
+                    logger.exception(
                         "Platega webhook: failed to mark payment %s as succeeded.", transaction_id
                     )
                     return web.Response(status=500, text="processing_error")
@@ -464,7 +452,7 @@ class PlategaService(HttpClientMixin):
                     await session.commit()
                 except Exception:
                     await session.rollback()
-                    logging.exception(
+                    logger.exception(
                         "Platega webhook: failed to cancel payment %s.", transaction_id
                     )
                     return web.Response(status=500, text="processing_error")
@@ -477,7 +465,7 @@ class PlategaService(HttpClientMixin):
                 )
                 return web.Response(text="ok_canceled")
 
-            logging.warning(
+            logger.warning(
                 "Platega webhook: unhandled status '%s' for transaction %s", status, transaction_id
             )
             return web.Response(status=202, text="status_ignored")
@@ -489,28 +477,6 @@ async def platega_webhook_route(request: web.Request) -> web.Response:
 
 
 router = Router(name="user_subscription_payments_platega_router")
-
-
-def _resolve_platega_variant(
-    callback_prefix: str, config: PlategaConfig
-) -> Optional[Tuple[str, int]]:
-    """Map the callback prefix to (variant, payment_method_id) or ``None`` if disabled."""
-    if callback_prefix == "pay_platega_crypto":
-        if not (config.CRYPTO_ENABLED or config.CRYPTO_ADMIN_ONLY_ENABLED):
-            return None
-        return "crypto", config.CRYPTO_METHOD
-    if callback_prefix == "pay_platega_sbp":
-        if not (config.SBP_ENABLED or config.SBP_ADMIN_ONLY_ENABLED):
-            return None
-        return "sbp", config.sbp_method_resolved
-    # Legacy "pay_platega:" callback — keep working as SBP.
-    return "sbp", config.sbp_method_resolved
-
-
-def _platega_spec_for_callback_prefix(callback_prefix: str) -> PaymentProviderSpec:
-    if callback_prefix == "pay_platega_crypto":
-        return CRYPTO_SPEC
-    return SBP_SPEC
 
 
 @router.callback_query(
@@ -525,156 +491,14 @@ async def pay_platega_callback_handler(
     platega_service: PlategaService,
     session: AsyncSession,
 ) -> None:
-    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
-    from ..shared import make_translator
-
-    translator = make_translator(i18n, current_lang)
-
-    if not i18n or not callback.message:
-        await notify_callback_parse_error(callback, translator)
-        return
-
     callback_prefix, _, _ = (callback.data or "").partition(":")
-    spec = _platega_spec_for_callback_prefix(callback_prefix)
-    if not spec.is_available_to_user(
-        settings,
-        user_id=callback.from_user.id,
-        require_configured=False,
-    ):
-        await notify_service_unavailable(callback, translator)
-        return
-
-    variant = (
-        _resolve_platega_variant(callback_prefix, platega_service.config)
-        if platega_service
-        else None
-    )
-    if variant is None:
-        await safe_callback_answer(callback)
-        return
-    platega_variant, platega_method_id = variant
-
-    if not platega_service or not platega_service.configured:
-        logging.error("Platega service is not configured or unavailable.")
-        await notify_service_unavailable(callback, translator)
-        return
-
-    parts = parse_payment_callback(callback.data or "")
-    if not parts:
-        logging.error("Invalid pay_platega data in callback: %s", callback.data)
-        await notify_callback_parse_error(callback, translator)
-        return
-    parts, hwid_quote = await quote_hwid_callback_parts(
-        session=session,
-        user_id=callback.from_user.id,
-        parts=parts,
-        subscription_service=platega_service.subscription_service,
-        currency=default_currency_key_for_settings(settings),
-    )
-    if not parts:
-        await notify_callback_parse_error(callback, translator)
-        return
-
-    currency_code = default_payment_currency_code_for_settings(settings)
-    payment_description = describe_payment(translator, parts)
-    record_payload = build_payment_record_payload(
-        user_id=callback.from_user.id,
-        amount=parts.price,
-        currency=currency_code,
-        status="pending_platega",
-        description=payment_description,
-        months=parts.months,
-        provider="platega",
-        sale_mode=parts.sale_mode,
-        hwid_quote=hwid_quote,
-    )
-
-    reuse_amounts = payment_record_amounts(
-        months=parts.months,
-        sale_mode=parts.sale_mode,
-        hwid_device_count=hwid_quote.get("device_count") if hwid_quote else None,
-    )
-    reusable_payment = await payment_dal.find_recent_pending_provider_payment(
-        session,
-        user_id=callback.from_user.id,
-        provider="platega",
-        pending_status="pending_platega",
-        amount=parts.price,
-        currency=currency_code,
-        sale_mode=parts.sale_mode,
-        months=reuse_amounts.months,
-        purchased_gb=reuse_amounts.purchased_gb,
-        purchased_hwid_devices=reuse_amounts.purchased_hwid_devices,
-        tariff_key=reuse_amounts.tariff_key,
-    )
-    if reusable_payment is not None:
-        reusable_url = await platega_service.try_reuse_pending_transaction(
-            reusable_payment,
-            user_id=callback.from_user.id,
-            sale_mode=parts.sale_mode,
-            variant=platega_variant,
-        )
-        if reusable_url:
-            await render_payment_link(
-                callback,
-                translator=translator,
-                current_lang=current_lang,
-                i18n=i18n,
-                parts=parts,
-                payment_url=reusable_url,
-                log_prefix=_LOG,
-            )
-            return
-
-    try:
-        payment_record = await payment_dal.create_payment_record(session, record_payload)
-        await session.commit()
-    except Exception:
-        await session.rollback()
-        logging.exception(
-            "Platega: failed to create payment record for user %s.", callback.from_user.id
-        )
-        await notify_payment_record_failure(callback, translator)
-        return
-
-    payload_meta = json.dumps(
-        {
-            "payment_db_id": payment_record.payment_id,
-            "user_id": callback.from_user.id,
-            "months": parts.months,
-            "sale_mode": parts.sale_mode,
-            "platega_variant": platega_variant,
-        }
-    )
-
-    success, response_data = await platega_service.create_transaction(
-        amount=parts.price,
-        currency=currency_code,
-        description=payment_description,
-        payload=payload_meta,
-        payment_method=platega_method_id,
-    )
-    transaction_id = first_value(response_data, "transactionId", "id")
-    redirect_url = first_value(response_data, "redirect", "url", "paymentUrl")
-    # Platega requires *both* a transaction id and a redirect url to count as a
-    # usable payment — neither field is sufficient on its own. Skipping the
-    # persistence step when the redirect is missing matches the pre-refactor
-    # behavior (we never stored a transaction id without a link).
-    persistable_id = transaction_id if redirect_url else None
-    await render_link_or_fail(
+    await run_callback_payment(
+        _platega_descriptor_for_callback_prefix(callback_prefix),
         callback,
-        translator=translator,
-        current_lang=current_lang,
-        i18n=i18n,
-        parts=parts,
-        session=session,
-        payment=payment_record,
-        api_success=success,
-        payment_url=redirect_url,
-        provider_payment_id=persistable_id,
-        provider_response=response_data,
-        log_prefix=_LOG,
+        settings,
+        i18n_data,
+        platega_service,
+        session,
     )
 
 
@@ -695,94 +519,134 @@ def create_service(ctx: ServiceFactoryContext) -> PlategaService:
     )
 
 
-async def _create_webapp_payment(ctx: WebAppPaymentContext, variant: str) -> web.Response:
-    settings: Settings = app_required(ctx.request, "settings", Settings)
-    service: PlategaService = app_required(ctx.request, "platega_service", PlategaService)
-    if not service or not service.configured:
-        return payment_unavailable()
-    if variant == "platega_crypto":
-        if not (service.config.CRYPTO_ENABLED or service.config.CRYPTO_ADMIN_ONLY_ENABLED):
-            return payment_unavailable()
-        platega_method_id = service.config.CRYPTO_METHOD
-    else:
-        if variant == "platega_sbp" and not (
-            service.config.SBP_ENABLED or service.config.SBP_ADMIN_ONLY_ENABLED
-        ):
-            return payment_unavailable()
-        platega_method_id = service.config.sbp_method_resolved
-
-    try:
-        amounts = payment_record_amounts(
-            months=ctx.months,
-            sale_mode=ctx.sale_mode,
-            traffic_gb=ctx.traffic_gb,
-            hwid_device_count=ctx.hwid_device_count,
-        )
-        payment = await create_webapp_payment_record(
-            ctx,
-            amount=ctx.price,
-            currency=ctx.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
-            status="pending_platega",
-            provider="platega",
-        )
-        payload = json.dumps(
-            {
-                "payment_db_id": payment.payment_id,
-                "user_id": ctx.user_id,
-                "months": amounts.months if not amounts.traffic_sale else 0,
-                "sale_mode": ctx.sale_mode,
-                "traffic_gb": format_number_for_payload(ctx.traffic_gb or ctx.months)
-                if amounts.traffic_sale
-                else None,
-                "hwid_devices": amounts.purchased_hwid_devices,
-                "source": "webapp",
-                "platega_variant": "crypto" if variant == "platega_crypto" else "sbp",
-            }
-        )
-        success, response_data = await service.create_transaction(
-            amount=ctx.price,
-            currency=ctx.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
-            description=ctx.description,
-            payload=payload,
-            payment_method=platega_method_id,
-        )
-    except Exception:
-        await ctx.session.rollback()
-        logging.exception("Platega WebApp payment failed")
-        return payment_failed()
-
-    return await finalize_webapp_link_payment(
-        session=ctx.session,
-        payment=payment,
-        api_success=success,
-        payment_url=(
-            first_value(response_data, "redirect", "url", "paymentUrl") if success else None
-        ),
-        provider_payment_id=first_value(response_data, "transactionId", "id"),
-        provider_response=response_data,
-        log_prefix="Platega",
-    )
-
-
 async def create_sbp_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    return await _create_webapp_payment(ctx, "platega_sbp")
+    return await run_webapp_payment(_SBP_DESCRIPTOR, ctx)
 
 
 async def create_crypto_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    return await _create_webapp_payment(ctx, "platega_crypto")
+    return await run_webapp_payment(_CRYPTO_DESCRIPTOR, ctx)
 
 
-async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
-    service = app_optional(ctx.request, "platega_service", PlategaService)
-    if not service or not service.configured:
+async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> str | None:
+    descriptor = _CRYPTO_DESCRIPTOR if ctx.method == "platega_crypto" else _SBP_DESCRIPTOR
+    return await run_reuse_webapp_payment(descriptor, ctx, payment)
+
+
+def _context_for_variant(
+    variant: str,
+) -> Any:
+    def _callback_context(
+        callback: types.CallbackQuery,
+        parts: Any,
+        service: PlategaService,
+    ) -> dict[str, Any]:
+        return {
+            "platega_variant": variant,
+            "user_id": callback.from_user.id,
+            "sale_mode": parts.sale_mode,
+            "source": "callback",
+        }
+
+    return _callback_context
+
+
+def _webapp_context_for_variant(variant: str) -> Any:
+    def _webapp_context(ctx: WebAppPaymentContext) -> dict[str, Any]:
+        return {
+            "platega_variant": variant,
+            "user_id": ctx.user_id,
+            "sale_mode": ctx.sale_mode,
+            "source": "webapp",
+            "traffic_gb": ctx.traffic_gb,
+            "hwid_device_count": ctx.hwid_device_count,
+        }
+
+    return _webapp_context
+
+
+def _platega_method_id(service: PlategaService, variant: str) -> int:
+    return (
+        service.config.CRYPTO_METHOD if variant == "crypto" else service.config.sbp_method_resolved
+    )
+
+
+async def _create_payment(
+    service: PlategaService,
+    request: CreatePaymentRequest,
+) -> tuple[bool, dict]:
+    context = request.provider_context or {}
+    variant = str(context.get("platega_variant") or "sbp")
+    payload_data: dict[str, Any] = {
+        "payment_db_id": request.payment.payment_id,
+        "user_id": request.user_id,
+        "months": request.months,
+        "sale_mode": request.sale_mode,
+        "platega_variant": variant,
+    }
+    if context.get("source") == "webapp":
+        traffic_gb = getattr(request.payment, "purchased_gb", None)
+        hwid_devices = getattr(request.payment, "purchased_hwid_devices", None)
+        payload_data.update(
+            {
+                "months": request.months if traffic_gb is None else 0,
+                "traffic_gb": format_number_for_payload(traffic_gb)
+                if traffic_gb is not None
+                else None,
+                "hwid_devices": hwid_devices,
+                "source": "webapp",
+            }
+        )
+    return await service.create_transaction(
+        amount=request.amount,
+        currency=request.currency,
+        description=request.description,
+        payload=json.dumps(payload_data),
+        payment_method=_platega_method_id(service, variant),
+    )
+
+
+async def _reuse_payment_with_context(
+    service: PlategaService,
+    payment: Any,
+    context: dict[str, Any] | None,
+) -> str | None:
+    if not context:
         return None
-    variant = "crypto" if ctx.method == "platega_crypto" else "sbp"
     return await service.try_reuse_pending_transaction(
         payment,
-        user_id=ctx.user_id,
-        sale_mode=ctx.sale_mode,
-        variant=variant,
+        user_id=int(context["user_id"]),
+        sale_mode=str(context["sale_mode"]),
+        variant=str(context["platega_variant"]),
     )
+
+
+def _extract_payment_url(response_data: dict) -> str | None:
+    return first_value(response_data, "redirect", "url", "paymentUrl")
+
+
+def _extract_provider_id(response_data: dict) -> str | None:
+    if not _extract_payment_url(response_data):
+        return None
+    return first_value(response_data, "transactionId", "id")
+
+
+def _platega_webapp_available(variant: str) -> Any:
+    def _available(service: PlategaService) -> bool:
+        if not service.configured:
+            return False
+        if variant == "crypto":
+            return bool(service.config.CRYPTO_ENABLED or service.config.CRYPTO_ADMIN_ONLY_ENABLED)
+        return bool(service.config.SBP_ENABLED or service.config.SBP_ADMIN_ONLY_ENABLED)
+
+    return _available
+
+
+def _platega_descriptor_for_callback_prefix(
+    callback_prefix: str,
+) -> LinkPaymentDescriptor[PlategaService]:
+    if callback_prefix == "pay_platega_crypto":
+        return _CRYPTO_DESCRIPTOR
+    return _SBP_DESCRIPTOR
 
 
 def _platega_presentation_manifest(subsection: str, default_icon: str, prefix: str) -> tuple:
@@ -985,3 +849,51 @@ CRYPTO_SPEC = PaymentProviderSpec(
 )
 
 SPECS = (SBP_SPEC, CRYPTO_SPEC)
+
+_SBP_DESCRIPTOR: LinkPaymentDescriptor[PlategaService] = LinkPaymentDescriptor(
+    spec=SBP_SPEC,
+    provider_key="platega",
+    pending_status="pending_platega",
+    display_name="Platega",
+    log_prefix=_LOG,
+    service_app_key="platega_service",
+    service_type=PlategaService,
+    create=_create_payment,
+    reuse=lambda service, payment: service.try_reuse_pending_transaction(
+        payment,
+        user_id=getattr(payment, "user_id", 0),
+        sale_mode=str(getattr(payment, "sale_mode", "") or ""),
+        variant="sbp",
+    ),
+    reuse_with_context=_reuse_payment_with_context,
+    extract_url=_extract_payment_url,
+    extract_provider_id=_extract_provider_id,
+    callback_context=_context_for_variant("sbp"),
+    webapp_context=_webapp_context_for_variant("sbp"),
+    webapp_available=_platega_webapp_available("sbp"),
+)
+
+_CRYPTO_DESCRIPTOR: LinkPaymentDescriptor[PlategaService] = LinkPaymentDescriptor(
+    spec=CRYPTO_SPEC,
+    provider_key="platega",
+    pending_status="pending_platega",
+    display_name="Platega",
+    log_prefix=_LOG,
+    service_app_key="platega_service",
+    service_type=PlategaService,
+    create=_create_payment,
+    reuse=lambda service, payment: service.try_reuse_pending_transaction(
+        payment,
+        user_id=getattr(payment, "user_id", 0),
+        sale_mode=str(getattr(payment, "sale_mode", "") or ""),
+        variant="crypto",
+    ),
+    reuse_with_context=_reuse_payment_with_context,
+    extract_url=_extract_payment_url,
+    extract_provider_id=_extract_provider_id,
+    callback_context=_context_for_variant("crypto"),
+    webapp_context=_webapp_context_for_variant("crypto"),
+    webapp_available=_platega_webapp_available("crypto"),
+)
+
+_DESCRIPTOR = _SBP_DESCRIPTOR

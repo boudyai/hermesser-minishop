@@ -1,10 +1,7 @@
 import type { components } from "../../api/openapi.generated";
 import {
   unwrap,
-  type ApiResponse,
   type ApiClient,
-  type GetResponse,
-  type PostResponse,
   buildAdminSupportStatsPath,
   buildAdminSupportPath,
   buildAdminSupportTicketMessagesPath,
@@ -17,11 +14,7 @@ import { adminErrorMessage } from "../errors.js";
 import { defineRawStateProperty } from "./rawStateProperty";
 import { snapshotForPayload } from "./snapshotForPayload.svelte";
 
-type AdminErrorResponse = { ok?: false; error?: string; message?: string };
-type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
-  path: Path,
-  options?: Parameters<ApiClient["api"]>[1]
-) => Promise<ApiResponse<Path> | AdminErrorResponse>;
+type AdminApi = ApiClient["api"];
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type TicketId = number | string;
@@ -33,11 +26,6 @@ type BaseSupportTicket = components["schemas"]["SupportTicketOut"];
 type AdminSupportTicket = components["schemas"]["AdminSupportTicketOut"];
 type AdminSupportUser = components["schemas"]["AdminSupportUserOut"];
 type AdminSupportUserSnapshot = components["schemas"]["AdminSupportUserSnapshotOut"];
-type AdminSupportTicketsResponse = GetResponse<"/api/admin/support/tickets">;
-type AdminSupportTicketDetailResponse = GetResponse<"/api/admin/support/tickets/{id}">;
-type AdminSupportTicketReplyResponse = PostResponse<"/api/admin/support/tickets/{id}/messages">;
-type AdminSupportTicketPatchResponse = { ok: true; ticket: BaseSupportTicket };
-
 export type SupportStats = components["schemas"]["AdminSupportStatsOut"];
 
 export type SupportFilters = {
@@ -273,8 +261,7 @@ export function createAdminSupportStore({
       for (const [key, value] of Object.entries(filters || {})) {
         if (value) params.set(key, value);
       }
-      const res = (await api(buildAdminSupportTicketsPath(params))) as
-        AdminSupportTicketsResponse | AdminErrorResponse;
+      const res = await api(buildAdminSupportTicketsPath(params));
       if (res?.ok) {
         const payload = unwrap(res);
         updateState((s) => ({ ...s, tickets: asTickets(payload.tickets) }));
@@ -287,8 +274,7 @@ export function createAdminSupportStore({
   async function refreshCurrentTicket(ticketId: TicketId) {
     const id = Number(ticketId);
     if (!id) return null;
-    const res = (await api(buildAdminSupportTicketPath(id))) as
-      AdminSupportTicketDetailResponse | AdminErrorResponse;
+    const res = await api(buildAdminSupportTicketPath(id));
     if (!res?.ok) return res;
     const payload = unwrap(res);
 
@@ -334,8 +320,7 @@ export function createAdminSupportStore({
     }));
     if (!opts.skipPush) pushTicketPath(id);
     try {
-      const res = (await api(buildAdminSupportTicketPath(id))) as
-        AdminSupportTicketDetailResponse | AdminErrorResponse;
+      const res = await api(buildAdminSupportTicketPath(id));
       if (res?.ok) {
         const payload = unwrap(res);
         updateState((s) =>
@@ -386,10 +371,10 @@ export function createAdminSupportStore({
     }
     try {
       const payload: TicketReplyPayload = snapshotForPayload({ body, is_internal_note: internal });
-      const res = (await api(buildAdminSupportTicketMessagesPath(current), {
+      const res = await api(buildAdminSupportTicketMessagesPath(current), {
         method: "POST",
         body: JSON.stringify(payload),
-      })) as AdminSupportTicketReplyResponse | AdminErrorResponse;
+      });
       if (!res?.ok) throw res;
       const response = unwrap(res);
       updateState((s) =>
@@ -418,10 +403,10 @@ export function createAdminSupportStore({
       return s;
     });
     if (!current) return;
-    const res = (await api(buildAdminSupportTicketPath(current), {
+    const res = await api(buildAdminSupportTicketPath(current), {
       method: "PATCH",
       body: JSON.stringify(snapshotForPayload(updates)),
-    })) as AdminSupportTicketPatchResponse | AdminErrorResponse;
+    });
     if (res?.ok) {
       const payload = unwrap(res);
       updateState((s) => ({

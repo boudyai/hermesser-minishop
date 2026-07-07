@@ -27,14 +27,15 @@ _CANONICAL_EMITTER_PATHS = {
 
 
 def _event_models() -> list[type[event_payloads.EventPayload]]:
-    models: list[type[event_payloads.EventPayload]] = []
-    for value in vars(event_payloads).values():
+    models = [
+        value
+        for value in vars(event_payloads).values()
         if (
             isinstance(value, type)
             and issubclass(value, event_payloads.EventPayload)
             and value is not event_payloads.EventPayload
-        ):
-            models.append(value)
+        )
+    ]
     return sorted(models, key=lambda model: model.EVENT_NAME)
 
 

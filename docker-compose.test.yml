@@ -10,6 +10,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 15
+      start_period: 30s
+      start_interval: 1s
 
   test-redis:
     image: redis:7
@@ -18,6 +20,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 15
+      start_period: 30s
+      start_interval: 1s
 
   test-runner:
     image: python:3.12

@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -123,7 +123,7 @@ class UserDalReferralTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(result, referrer)
 
     async def test_mark_trial_eligibility_reset_updates_user_marker(self):
-        reset_at = datetime(2026, 6, 1, tzinfo=timezone.utc)
+        reset_at = datetime(2026, 6, 1, tzinfo=UTC)
         session = SimpleNamespace(execute=AsyncMock(return_value=FakeResult(rowcount=1)))
 
         result = await user_dal.mark_trial_eligibility_reset(session, 42, reset_at=reset_at)
@@ -191,7 +191,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             flush=AsyncMock(),
         )
 
-        with patch("db.dal.user_dal.get_user_by_id", AsyncMock(return_value=user)):
+        with patch("db.dal.user_merge_dal.get_user_by_id", AsyncMock(return_value=user)):
             deleted = await user_dal.delete_user_and_relations(session, 42)
 
         self.assertTrue(deleted)
@@ -295,14 +295,14 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             email="source@example.com",
             telegram_id=111,
             panel_user_uuid="panel-source",
-            email_verified_at=datetime.now(timezone.utc),
+            email_verified_at=datetime.now(UTC),
             username="source-user",
             first_name="Source",
             last_name="User",
             language_code="ru",
             telegram_photo_url="https://example.com/source.jpg",
             channel_subscription_verified=True,
-            channel_subscription_checked_at=datetime.now(timezone.utc),
+            channel_subscription_checked_at=datetime.now(UTC),
             channel_subscription_verified_for=1,
             lifetime_used_traffic_bytes=512,
             referred_by_id=999,
@@ -341,9 +341,9 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             return None
 
         with (
-            patch("db.dal.user_dal.get_user_by_id", side_effect=fake_get_user_by_id),
-            patch("db.dal.user_dal._get_active_subscription_for_user", return_value=None),
-            patch("db.dal.user_dal._get_latest_subscription_for_user", return_value=None),
+            patch("db.dal.user_merge_dal.get_user_by_id", side_effect=fake_get_user_by_id),
+            patch("db.dal.user_merge_dal._get_active_subscription_for_user", return_value=None),
+            patch("db.dal.user_merge_dal._get_latest_subscription_for_user", return_value=None),
         ):
             merged = await user_dal.merge_users(
                 session,
@@ -377,7 +377,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
         session.delete.assert_awaited_once_with(source)
 
     async def test_merge_users_moves_active_email_subscription_onto_expired_telegram_account(self):
-        before = datetime.now(timezone.utc)
+        before = datetime.now(UTC)
         source = SimpleNamespace(
             user_id=-100,
             email="paid@example.com",
@@ -455,13 +455,13 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             return None
 
         with (
-            patch("db.dal.user_dal.get_user_by_id", side_effect=fake_get_user_by_id),
+            patch("db.dal.user_merge_dal.get_user_by_id", side_effect=fake_get_user_by_id),
             patch(
-                "db.dal.user_dal._get_active_subscription_for_user",
+                "db.dal.user_merge_dal._get_active_subscription_for_user",
                 side_effect=fake_get_active_subscription,
             ),
             patch(
-                "db.dal.user_dal._get_latest_subscription_for_user",
+                "db.dal.user_merge_dal._get_latest_subscription_for_user",
                 side_effect=fake_get_latest_subscription,
             ),
         ):

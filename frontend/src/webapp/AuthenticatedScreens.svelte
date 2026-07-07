@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { LanguageOption } from "../lib/webapp/languageView.js";
+  import type { AccountStore } from "../lib/webapp/stores/accountStore.js";
   import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
   import type { SupportStore } from "../lib/webapp/stores/supportStore.js";
 
@@ -12,33 +12,48 @@
   import SupportScreen from "./screens/SupportScreen.svelte";
   import SupportTicketScreen from "./screens/SupportTicketScreen.svelte";
   import TrialActivationScreen from "./screens/TrialActivationScreen.svelte";
+  import type {
+    AppSettings,
+    ApiUnchecked,
+    ActivateTrialAction,
+    BooleanAction,
+    BrandConfig,
+    CopyTextAction,
+    DevicesData,
+    LanguageOption,
+    OpenLinkAction,
+    ReferralBonusDetail,
+    ReferralState,
+    StringAction,
+    SubscriptionView,
+    TermUnitLabel,
+    Translate,
+    TrialActivationResult,
+    UserProfile,
+    WebappRecord,
+    VoidAction,
+  } from "$lib/webapp/types.js";
 
-  type AnyRecord = Record<string, any>;
-  type Action = (...args: any[]) => any;
-  type ApiUnchecked = (
-    path: string,
-    options?: Parameters<typeof fetch>[1]
-  ) => Promise<Record<string, unknown>>;
-  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type LoadDevicesAction = (force?: boolean) => void;
 
   type Props = {
-    accountStore: AnyRecord;
-    activateTrial: Action;
+    accountStore: AccountStore;
+    activateTrial: ActivateTrialAction;
     activeTab?: string;
-    apiUnchecked?: ApiUnchecked;
-    appSettings?: AnyRecord;
-    applyPromo: Action;
+    apiUnchecked: ApiUnchecked;
+    appSettings?: AppSettings;
+    applyPromo: VoidAction;
     autoRenewBusy?: boolean;
-    brand?: AnyRecord;
+    brand?: BrandConfig;
     brandTitle?: string;
     canChangeTariff?: boolean;
-    clearPromoFieldError: Action;
-    copyText: Action;
+    clearPromoFieldError: VoidAction;
+    copyText: CopyTextAction;
     currentLang?: string;
     currentLanguageOption?: LanguageOption | null;
     currentTariffName?: string;
     devicesBusy?: boolean;
-    devicesData?: AnyRecord | null;
+    devicesData?: DevicesData | null;
     devicesEnabled?: boolean;
     devicesErrorCode?: string;
     devicesIsError?: boolean;
@@ -47,12 +62,11 @@
     devicesStore: DevicesStore;
     emailAuthEnabled?: boolean;
     emailLinkStatus?: string;
-    goDevices: Action;
-    goHome: Action;
-    goInvite: Action;
-    goSettings: Action;
-    goSupport: Action;
-    goTrial: Action;
+    goDevices: VoidAction;
+    goHome: VoidAction;
+    goInvite: VoidAction;
+    goSettings: VoidAction;
+    goSupport: VoidAction;
     hasActiveTariffSubscription?: boolean;
     hasMultipleTariffs?: boolean;
     hasUnlinkedIdentity?: boolean;
@@ -63,26 +77,26 @@
     languageMenuOpen?: boolean;
     languageOptions?: LanguageOption[];
     linkEmailBusy?: boolean;
-    linkTelegramAccount: Action;
-    linkTelegramAndActivateTrial: Action;
-    linkTelegramAndClaimReferralWelcome: Action;
+    linkTelegramAccount: VoidAction;
+    linkTelegramAndActivateTrial: VoidAction;
+    linkTelegramAndClaimReferralWelcome: VoidAction;
     linkTelegramBusy?: boolean;
-    loadDevices: Action;
-    methods?: AnyRecord[];
-    openAdminPanel: Action;
-    openAppLink: Action;
-    openConnectLink: Action;
-    openDeviceTopupModal: Action;
-    openExternalLink: Action;
-    openInstallOrConnect: Action;
-    openLinkEmailDialog: Action;
-    openPaymentModal: Action;
-    openPremiumTopupModal: Action;
-    openRegularTopupModal: Action;
-    openSetPasswordDialog: Action;
-    openTariffChangeModal: Action;
-    openTelegramNotificationsBot: Action;
-    openTrialInstallOrConnect: Action;
+    loadDevices: LoadDevicesAction;
+    methods?: WebappRecord[];
+    openAdminPanel: VoidAction;
+    openAppLink: OpenLinkAction;
+    openConnectLink: VoidAction;
+    openDeviceTopupModal: VoidAction;
+    openExternalLink: OpenLinkAction;
+    openInstallOrConnect: VoidAction;
+    openLinkEmailDialog: VoidAction;
+    openPaymentModal: VoidAction;
+    openPremiumTopupModal: VoidAction;
+    openRegularTopupModal: VoidAction;
+    openSetPasswordDialog: VoidAction;
+    openTariffChangeModal: VoidAction;
+    openTelegramNotificationsBot: VoidAction;
+    openTrialInstallOrConnect: VoidAction;
     premiumTrafficTopupBarClickable?: boolean;
     premiumTrafficTopupUnlocked?: boolean;
     primaryPayActionLabel: () => string;
@@ -95,17 +109,17 @@
     promoFieldError?: string;
     promoIsError?: boolean;
     promoStatus?: string;
-    referral?: AnyRecord;
-    referralBonusDetails?: AnyRecord[];
+    referral?: ReferralState;
+    referralBonusDetails?: ReferralBonusDetail[];
     referralOneBonusPerReferee?: boolean;
     referralWelcomeBonusDays?: number;
     regularTrafficTopupBarClickable?: boolean;
     regularTrafficTopupUnlocked?: boolean;
     screen?: string;
     serverStatusUrl?: string;
-    setLanguageMenuOpen: (open: boolean) => void;
-    setPromoCode: (value: string) => void;
-    subscription?: AnyRecord;
+    setLanguageMenuOpen: BooleanAction;
+    setPromoCode: StringAction;
+    subscription?: SubscriptionView;
     supportEnabled?: boolean;
     supportStore: SupportStore;
     supportUnreadCount?: number;
@@ -119,13 +133,13 @@
     telegramNotificationsStatus?: string;
     telegramPlatform?: string;
     telegramProfileName?: string;
-    termUnitLabel: Action;
-    toggleAutoRenew: Action;
+    termUnitLabel: TermUnitLabel;
+    toggleAutoRenew: BooleanAction;
     trafficMode?: boolean;
     trialActivationError?: string;
-    trialActivationResult?: AnyRecord | null;
+    trialActivationResult?: TrialActivationResult | null;
     trialBusy?: boolean;
-    user?: AnyRecord;
+    user?: UserProfile;
     userAgreementUrl?: string;
     userLanguage?: string;
   };
@@ -161,7 +175,6 @@
     goInvite,
     goSettings,
     goSupport,
-    goTrial,
     hasActiveTariffSubscription = false,
     hasMultipleTariffs = false,
     hasUnlinkedIdentity = false,
@@ -270,7 +283,6 @@
       {currentTariffName}
       {hasActiveTariffSubscription}
       {hasMultipleTariffs}
-      {methods}
       {premiumTrafficTopupBarClickable}
       {premiumTrafficTopupUnlocked}
       {regularTrafficTopupBarClickable}
@@ -285,11 +297,11 @@
       {termUnitLabel}
       {trafficMode}
       {trialBusy}
-      {goTrial}
       {activateTrial}
       {toggleAutoRenew}
       {linkTelegramAndActivateTrial}
       {linkTelegramAndClaimReferralWelcome}
+      {methods}
       {openTelegramNotificationsBot}
       openConnectLink={openInstallOrConnect}
       {openPaymentModal}
@@ -340,9 +352,9 @@
       {promoIsError}
       {promoStatus}
       {applyPromo}
-      setPromoCode={setPromoCode as any}
+      {setPromoCode}
       {clearPromoFieldError}
-      copyText={copyText as any}
+      {copyText}
       {t}
     />
   {:else if screen === "devices"}
@@ -380,8 +392,6 @@
   {:else if screen === "settings"}
     <SettingsScreen
       {appSettings}
-      {apiUnchecked}
-      {subscription}
       {currentLang}
       {currentLanguageOption}
       {emailAuthEnabled}
@@ -395,6 +405,7 @@
       {linkEmailBusy}
       {linkTelegramBusy}
       {privacyPolicyUrl}
+      {apiUnchecked}
       {profileAvatarUrl}
       {profileEmail}
       {profileTelegramId}
@@ -405,6 +416,7 @@
       {telegramNotificationsStatus}
       {telegramProfileName}
       {user}
+      {subscription}
       {userAgreementUrl}
       {userLanguage}
       showLogout={!telegramMiniAppContext}

@@ -1,7 +1,16 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
+  import type { Snippet } from "svelte";
+  import type { HTMLAttributes } from "svelte/elements";
+  import type { AdminBadgeVariant } from "./types";
 
-  let { variant = "muted", class: className = "", children, ...restProps } = $props();
+  type Props = Omit<HTMLAttributes<HTMLSpanElement>, "children" | "class"> & {
+    children?: Snippet;
+    class?: string;
+    variant?: AdminBadgeVariant;
+  };
+
+  let { variant = "muted", class: className = "", children, ...restProps }: Props = $props();
 </script>
 
 <span

@@ -35,9 +35,7 @@
           unauthorized: "wa_bot_token_unauthorized",
         };
         const i18nKey = keyByCode[code];
-        error = i18nKey
-          ? t(i18nKey)
-          : t("wa_bot_token_generic_failure", { code });
+        error = i18nKey ? t(i18nKey) : t("wa_bot_token_generic_failure", { code });
         return;
       }
       tokenDraft = "";
@@ -51,15 +49,15 @@
     }
   }
 
-  type AnyRecord = Record<string, any>;
+  type UnknownRecord = Record<string, unknown>;
   let {
     appSettings = {},
     apiUnchecked = missingApi,
-    t = (key: string, _params?: AnyRecord, fallback?: string) => fallback || key,
+    t = (key: string, _params?: UnknownRecord, fallback?: string) => fallback || key,
   }: {
-    appSettings?: AnyRecord;
+    appSettings?: UnknownRecord;
     apiUnchecked?: ApiUnchecked;
-    t?: (key: string, params?: AnyRecord, fallback?: string) => string;
+    t?: (key: string, params?: UnknownRecord, fallback?: string) => string;
   } = $props();
   const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
 </script>
@@ -82,10 +80,8 @@
       >
       <ol style="font-size: 12px; color: var(--muted); padding-left: 20px; margin: 8px 0 0;">
         <li>
-          {t("wa_settings_bot_token_step_1", {}, "Open")} <a
-            href="https://t.me/BotFather"
-            target="_blank">@BotFather</a
-          >
+          {t("wa_settings_bot_token_step_1", {}, "Open")}
+          <a href="https://t.me/BotFather" target="_blank">@BotFather</a>
           {t("wa_settings_bot_token_step_1b", {}, "in Telegram")}
         </li>
         <li>

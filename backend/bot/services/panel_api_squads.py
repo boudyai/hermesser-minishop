@@ -1,6 +1,8 @@
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
+
+logger = logging.getLogger(__name__)
 
 # Static endpoint prefixes used as log/metric labels instead of the raw request
 # path. Endpoints embed user identifiers (telegram id, username, email, uuids),
@@ -8,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 # label keeps only the constant prefix. Longest prefixes first so e.g.
 
 
-def _json_dict(value: object) -> Optional[Dict[str, Any]]:
+def _json_dict(value: object) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
@@ -20,12 +22,12 @@ class PanelApiSquadMutationMixin:
 
         async def _request(
             self, method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
-        ) -> Optional[Dict[str, Any]]: ...
+        ) -> dict[str, Any] | None: ...
         async def _invalidate_squad_caches(self) -> None: ...
-        async def _invalidate_user_cache(self, user_uuid: str) -> None: ...
+        async def _invalidate_user_cache(self, user_uuid: str | None) -> None: ...
         async def _invalidate_all_users_cache(self) -> None: ...
 
-    async def add_users_to_internal_squad(self, squad_uuid: str, user_uuids: List[str]) -> bool:
+    async def add_users_to_internal_squad(self, squad_uuid: str, user_uuids: list[str]) -> bool:
         endpoint = f"/internal-squads/{squad_uuid}/bulk-actions/add-users"
         response_data = await self._request(
             "POST",
@@ -39,11 +41,11 @@ class PanelApiSquadMutationMixin:
                 await self._invalidate_user_cache(user_uuid)
             await self._invalidate_all_users_cache()
             return True
-        logging.error("Failed to add users to squad %s. Response: %s", squad_uuid, response_data)
+        logger.error("Failed to add users to squad %s. Response: %s", squad_uuid, response_data)
         return False
 
     async def remove_users_from_internal_squad(
-        self, squad_uuid: str, user_uuids: List[str]
+        self, squad_uuid: str, user_uuids: list[str]
     ) -> bool:
         endpoint = f"/internal-squads/{squad_uuid}/bulk-actions/remove-users"
         response_data = await self._request(
@@ -58,12 +60,12 @@ class PanelApiSquadMutationMixin:
                 await self._invalidate_user_cache(user_uuid)
             await self._invalidate_all_users_cache()
             return True
-        logging.error(
+        logger.error(
             "Failed to remove users from squad %s. Response: %s", squad_uuid, response_data
         )
         return False
 
-    async def get_nodes_online_lookups(self) -> Dict[str, Dict[str, int]]:
+    async def get_nodes_online_lookups(self) -> dict[str, dict[str, int]]:
         """Live ``usersOnline`` per node from ``GET /nodes`` (node directory).
 
         Newer panels expose Prometheus-style metrics under ``/system/stats/nodes``
@@ -74,8 +76,8 @@ class PanelApiSquadMutationMixin:
         Returns:
             ``{"byUuid": {uuid_lower: int}, "byName": {name_lower: int}}``
         """
-        by_uuid: Dict[str, int] = {}
-        by_name: Dict[str, int] = {}
+        by_uuid: dict[str, int] = {}
+        by_name: dict[str, int] = {}
         page_size = 100
         start = 0
         while True:
@@ -88,7 +90,7 @@ class PanelApiSquadMutationMixin:
             if not response_data or response_data.get("error"):
                 break
             resp = response_data.get("response")
-            batch: List[Dict[str, Any]] = []
+            batch: list[dict[str, Any]] = []
             if isinstance(resp, list):
                 batch = [x for x in resp if isinstance(x, dict)]
             elif isinstance(resp, dict):
@@ -118,14 +120,14 @@ class PanelApiSquadMutationMixin:
             await asyncio.sleep(0.05)
         return {"byUuid": by_uuid, "byName": by_name}
 
-    async def get_nodes_statistics(self) -> Optional[Dict[str, Any]]:
+    async def get_nodes_statistics(self) -> dict[str, Any] | None:
         """Get nodes statistics"""
         response_data = await self._request("GET", "/system/stats/nodes", log_full_response=False)
         if response_data and not response_data.get("error") and "response" in response_data:
             return _json_dict(response_data.get("response"))
         return None
 
-    async def encrypt_happ_link(self, link_to_encrypt: str) -> Optional[str]:
+    async def encrypt_happ_link(self, link_to_encrypt: str) -> str | None:
         """Encrypt a subscription link using the panel's happ crypt4 API.
 
         Returns the encrypted link string or None if encryption failed.
@@ -133,7 +135,7 @@ class PanelApiSquadMutationMixin:
         global _HAPP_ENCRYPT_UNAVAILABLE
 
         if _HAPP_ENCRYPT_UNAVAILABLE:
-            logging.info("Skipping happ crypt4 encryption: panel endpoint is unavailable.")
+            logger.info("Skipping happ crypt4 encryption: panel endpoint is unavailable.")
             return None
         payload = {"linkToEncrypt": link_to_encrypt}
         response_data = await self._request(
@@ -146,10 +148,10 @@ class PanelApiSquadMutationMixin:
         status_code = response_data.get("status_code") if isinstance(response_data, dict) else None
         if status_code in {404, 410}:
             _HAPP_ENCRYPT_UNAVAILABLE = True
-            logging.warning(
+            logger.warning(
                 "Panel happ crypt4 encryption endpoint is unavailable; raw subscription "
                 "links will be used as fallback."
             )
             return None
-        logging.error(f"Failed to encrypt happ link. Response: {response_data}")
+        logger.error("Failed to encrypt happ link. Response: %s", response_data)
         return None

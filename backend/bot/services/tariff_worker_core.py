@@ -1,8 +1,10 @@
 import asyncio
+import contextlib
 import logging
 import time
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
@@ -16,13 +18,15 @@ from bot.services.message_audit import log_user_message_delivery
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.user_email_notifications import send_user_notification_email
-from bot.utils.date_utils import add_months, month_start
+from bot.utils.date_utils import add_months
 from bot.utils.mini_app_url import subscription_mini_app_topup_url
 from config.settings import Settings
 from config.traffic_strategy import normalize_traffic_limit_strategy
 from db.advisory_locks import acquire_subscription_background_sync_lock
 from db.dal import user_dal
 from db.models import Subscription
+
+logger = logging.getLogger(__name__)
 
 PREMIUM_WARNING_LEVEL_OFFSET = 1000
 # Single warning per premium billing period when usage reached or exceeded the quota.
@@ -87,8 +91,8 @@ class TariffWorkerCoreMixin:
         session_factory: sessionmaker,
         panel_service: PanelApiService,
         subscription_service: SubscriptionService,
-        bot: Optional[Bot] = None,
-        i18n: Optional[JsonI18n] = None,
+        bot: Bot | None = None,
+        i18n: JsonI18n | None = None,
     ):
         self.settings = settings
         self.session_factory = session_factory
@@ -100,7 +104,7 @@ class TariffWorkerCoreMixin:
         self._premium_nodes_cache: dict[tuple[str, ...], dict[str, Any]] = {}
         self._premium_node_usage_tick_cache: dict[
             tuple[str, str, str],
-            Optional[dict[str, dict[Any, int]]],
+            dict[str, dict[Any, int]] | None,
         ] = {}
         self._premium_squad_match_cache: dict[tuple[str, tuple[str, ...]], float] = {}
 
@@ -112,7 +116,7 @@ class TariffWorkerCoreMixin:
                 if code:
                     return code
         except Exception:
-            logging.exception("TariffTrafficWorker: failed to load user language for %s", user_id)
+            logger.exception("TariffTrafficWorker: failed to load user language for %s", user_id)
         return str(self.settings.DEFAULT_LANGUAGE)
 
     def _period_tariff_traffic_strategy(self) -> str:
@@ -145,31 +149,163 @@ class TariffWorkerCoreMixin:
         translate: Callable[..., str],
         *,
         kind: str,
-        period_start_at: Optional[datetime],
+        period_start_at: datetime | None,
         reset_available_bytes: int,
         user_lang: str,
+        next_reset_at: datetime | None = None,
     ) -> str:
-        if period_start_at is None:
+        reset_at = next_reset_at
+        if reset_at is None:
+            reset_at = self._next_traffic_reset_after(
+                period_start_at,
+                self._period_tariff_traffic_strategy(),
+            )
+        if reset_at is None:
             return ""
         key = (
             "traffic_warning_premium_next_reset_note"
             if str(kind or "").lower() == "premium"
             else "traffic_warning_regular_next_reset_note"
         )
-        next_reset_at = add_months(month_start(period_start_at), 1)
         return str(
             translate(
                 key,
-                reset_date=hd.quote(self._format_traffic_reset_date(next_reset_at, user_lang)),
+                reset_date=hd.quote(self._format_traffic_reset_date(reset_at, user_lang)),
                 reset_available=hd.quote(self._fmt_bytes(max(0, int(reset_available_bytes or 0)))),
             )
         )
+
+    def _panel_next_traffic_reset_at(
+        self,
+        panel_user_data: dict[str, Any] | None,
+        *,
+        now: datetime | None = None,
+    ) -> datetime | None:
+        if not isinstance(panel_user_data, dict):
+            return None
+        traffic_stats = panel_user_data.get("userTraffic")
+        if not isinstance(traffic_stats, dict):
+            traffic_stats = {}
+        explicit_next = self._first_panel_datetime(
+            panel_user_data,
+            (
+                "nextTrafficResetAt",
+                "next_traffic_reset_at",
+                "trafficNextResetAt",
+                "traffic_next_reset_at",
+            ),
+        )
+        if explicit_next is None:
+            explicit_next = self._first_panel_datetime(
+                traffic_stats,
+                (
+                    "nextTrafficResetAt",
+                    "next_traffic_reset_at",
+                    "trafficNextResetAt",
+                    "traffic_next_reset_at",
+                ),
+            )
+        if explicit_next is not None:
+            return explicit_next
+
+        strategy = (
+            panel_user_data.get("trafficLimitStrategy")
+            or traffic_stats.get("trafficLimitStrategy")
+            or self._period_tariff_traffic_strategy()
+        )
+        last_reset_at = self._first_panel_datetime(
+            panel_user_data,
+            (
+                "lastTrafficResetAt",
+                "last_traffic_reset_at",
+            ),
+        )
+        if last_reset_at is None:
+            last_reset_at = self._first_panel_datetime(
+                traffic_stats,
+                (
+                    "lastTrafficResetAt",
+                    "last_traffic_reset_at",
+                ),
+            )
+        return self._next_traffic_reset_after(last_reset_at, str(strategy or ""), now=now)
+
+    @classmethod
+    def _first_panel_datetime(
+        cls,
+        payload: dict[str, Any],
+        keys: tuple[str, ...],
+    ) -> datetime | None:
+        for key in keys:
+            parsed = cls._parse_panel_datetime(payload.get(key))
+            if parsed is not None:
+                return parsed
+        return None
+
+    @staticmethod
+    def _parse_panel_datetime(value: Any) -> datetime | None:
+        if isinstance(value, datetime):
+            parsed = value
+        elif isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return None
+            if raw.endswith("Z"):
+                raw = raw[:-1] + "+00:00"
+            try:
+                parsed = datetime.fromisoformat(raw)
+            except ValueError:
+                return None
+        else:
+            return None
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=UTC)
+        return parsed.astimezone(UTC)
+
+    def _next_traffic_reset_after(
+        self,
+        period_start_at: datetime | None,
+        strategy: str,
+        *,
+        now: datetime | None = None,
+    ) -> datetime | None:
+        if period_start_at is None:
+            return None
+        normalized_strategy = normalize_traffic_limit_strategy(strategy, default="MONTH")
+        if normalized_strategy == "NO_RESET":
+            return None
+        current = now or datetime.now(UTC)
+        current = current.replace(tzinfo=UTC) if current.tzinfo is None else current.astimezone(UTC)
+        anchor = period_start_at
+        anchor = anchor.replace(tzinfo=UTC) if anchor.tzinfo is None else anchor.astimezone(UTC)
+
+        candidate = self._advance_traffic_reset(anchor, normalized_strategy)
+        if now is None:
+            return candidate
+        for _ in range(512):
+            if candidate > current:
+                return candidate
+            candidate = self._advance_traffic_reset(candidate, normalized_strategy)
+        logger.warning(
+            "TariffTrafficWorker: failed to derive next traffic reset from anchor=%s strategy=%s",
+            anchor.isoformat(),
+            normalized_strategy,
+        )
+        return None
+
+    @staticmethod
+    def _advance_traffic_reset(value: datetime, strategy: str) -> datetime:
+        if strategy == "DAY":
+            return value + timedelta(days=1)
+        if strategy == "WEEK":
+            return value + timedelta(days=7)
+        return add_months(value, 1)
 
     @staticmethod
     def _format_traffic_reset_date(value: datetime, user_lang: str) -> str:
         reset_at = value
         if reset_at.tzinfo is not None:
-            reset_at = reset_at.astimezone(timezone.utc)
+            reset_at = reset_at.astimezone(UTC)
         lang = str(user_lang or "").lower()
         if lang.startswith("ru"):
             return reset_at.strftime("%d.%m.%Y")
@@ -229,7 +365,7 @@ class TariffWorkerCoreMixin:
                     content=audit_content,
                 )
             except Exception:
-                logging.exception(
+                logger.exception(
                     "Failed to send %s traffic reset notice to user %s",
                     kind,
                     user_id,
@@ -240,7 +376,7 @@ class TariffWorkerCoreMixin:
         try:
             user = await user_dal.get_user_by_id(session, user_id)
         except Exception:
-            logging.exception(
+            logger.exception(
                 "TariffTrafficWorker: failed to load user %s for reset email",
                 user_id,
             )
@@ -260,7 +396,7 @@ class TariffWorkerCoreMixin:
             audit_content=f"{audit_content} subject_key={subject_key} warning_key={warning_key}",
         )
 
-    def _traffic_topup_markup(self, user_lang: str, kind: str) -> Optional[InlineKeyboardMarkup]:
+    def _traffic_topup_markup(self, user_lang: str, kind: str) -> InlineKeyboardMarkup | None:
         if not self.bot:
             return None
 
@@ -301,7 +437,7 @@ class TariffWorkerCoreMixin:
         try:
             user = await user_dal.get_user_by_id(session, user_id)
         except Exception:
-            logging.exception("TariffTrafficWorker: failed to load user %s for email", user_id)
+            logger.exception("TariffTrafficWorker: failed to load user %s for email", user_id)
             return
         if not user:
             return
@@ -333,7 +469,7 @@ class TariffWorkerCoreMixin:
                     ttl_seconds=self.settings.TARIFF_WORKER_LOCK_TTL_SECONDS,
                 ) as acquired:
                     if not acquired:
-                        logging.info("TariffTrafficWorker tick skipped: Redis lock is held")
+                        logger.info("TariffTrafficWorker tick skipped: Redis lock is held")
                     else:
                         started = time.monotonic()
                         await self._run_db_tick_with_retry(
@@ -344,19 +480,17 @@ class TariffWorkerCoreMixin:
                             "legacy_throttle_recovery",
                             self.legacy_throttle_recovery_tick,
                         )
-                        logging.info(
+                        logger.info(
                             "metric worker_tick_duration_seconds=%.3f worker=tariff",
                             time.monotonic() - started,
                         )
             except Exception:
-                logging.exception("TariffTrafficWorker tick failed")
-            try:
+                logger.exception("TariffTrafficWorker tick failed")
+            with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(
                     self._stopped.wait(),
                     timeout=self.settings.TARIFF_WORKER_TICK_SECONDS,
                 )
-            except asyncio.TimeoutError:
-                pass
 
     def stop(self) -> None:
         self._stopped.set()
@@ -380,7 +514,7 @@ class TariffWorkerCoreMixin:
                         and self._is_retryable_db_exception(exc)
                     ):
                         delay = TARIFF_WORKER_DB_RETRY_BASE_SLEEP_SECONDS * attempt
-                        logging.warning(
+                        logger.warning(
                             "TariffTrafficWorker %s retrying after database concurrency "
                             "error, attempt %s/%s: %s",
                             tick_name,
@@ -429,7 +563,7 @@ class TariffWorkerCoreMixin:
         status = str(getattr(sub, "status_from_panel", "") or "").strip().upper()
         return provider == "trial" or status == "TRIAL"
 
-    def _trial_premium_tariff(self) -> Optional[_TrialPremiumTariff]:
+    def _trial_premium_tariff(self) -> _TrialPremiumTariff | None:
         premium_squads = self.subscription_service._trial_premium_squad_uuids()
         premium_baseline = self.subscription_service._trial_premium_baseline_bytes()
         if not premium_squads or premium_baseline <= 0:

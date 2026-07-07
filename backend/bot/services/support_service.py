@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Coroutine
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Coroutine, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +22,7 @@ from db.dal import message_log_dal, subscription_dal, support_dal, user_dal
 from db.models import Subscription, SupportTicket, SupportTicketMessage, User
 
 logger = logging.getLogger(__name__)
+_SUPPORT_NOTIFICATION_TASKS: set[asyncio.Task[None]] = set()
 
 
 @dataclass(frozen=True)
@@ -29,16 +31,16 @@ class AdminNotificationDecision:
     send_email: bool
 
 
-def _as_utc(value: Optional[datetime]) -> Optional[datetime]:
+def _as_utc(value: datetime | None) -> datetime | None:
     if value is None:
         return None
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def _notification_due(
-    last_sent_at: Optional[datetime],
+    last_sent_at: datetime | None,
     *,
     now: datetime,
     cooldown_seconds: int,
@@ -56,10 +58,10 @@ def _support_admin_notification_decision(
     ticket: SupportTicket,
     support_settings: SupportSettings,
     *,
-    now: Optional[datetime] = None,
-    admin_email_notifications_enabled: Optional[bool] = None,
+    now: datetime | None = None,
+    admin_email_notifications_enabled: bool | None = None,
 ) -> AdminNotificationDecision:
-    now = _as_utc(now) or datetime.now(timezone.utc)
+    now = _as_utc(now) or datetime.now(UTC)
     unread_count = max(0, int(getattr(ticket, "unread_admin_count", 0) or 0))
     if unread_count <= 0:
         return AdminNotificationDecision(send_telegram=False, send_email=False)
@@ -83,7 +85,7 @@ def _support_admin_notification_decision(
     return AdminNotificationDecision(send_telegram=send_telegram, send_email=send_email)
 
 
-def _format_support_remaining(seconds: int, lang: str, i18n: Optional[JsonI18n] = None) -> str:
+def _format_support_remaining(seconds: int, lang: str, i18n: JsonI18n | None = None) -> str:
     i18n = i18n or get_i18n_instance()
 
     def _t(key: str, en: str, ru: str, **kwargs: object) -> str:
@@ -102,7 +104,8 @@ def _format_support_remaining(seconds: int, lang: str, i18n: Optional[JsonI18n] 
     if seconds <= 0:
         return _t(
             "tg_support_remaining_subscription_inactive",
-            "Subscription inactive", "Подписка не активна",
+            "Subscription inactive",
+            "Подписка не активна",
         )
     days, rem = divmod(seconds, 86400)
     hours, rem = divmod(rem, 3600)
@@ -110,18 +113,23 @@ def _format_support_remaining(seconds: int, lang: str, i18n: Optional[JsonI18n] 
     if days > 0:
         return _t(
             "tg_support_remaining_days_hours",
-            f"{days} d. {hours} h.", f"{days} д. {hours} ч.",
-            days=days, hours=hours,
+            f"{days} d. {hours} h.",
+            f"{days} д. {hours} ч.",
+            days=days,
+            hours=hours,
         )
     if hours > 0:
         return _t(
             "tg_support_remaining_hours_minutes",
-            f"{hours} h. {minutes} min.", f"{hours} ч. {minutes} мин.",
-            hours=hours, minutes=minutes,
+            f"{hours} h. {minutes} min.",
+            f"{hours} ч. {minutes} мин.",
+            hours=hours,
+            minutes=minutes,
         )
     return _t(
         "tg_support_remaining_minutes",
-        f"{max(1, minutes)} min.", f"{max(1, minutes)} мин.",
+        f"{max(1, minutes)} min.",
+        f"{max(1, minutes)} мин.",
         minutes=max(1, minutes),
     )
 
@@ -144,9 +152,9 @@ class SupportService:
         session_factory: sessionmaker,
         settings: Settings,
         bot: Bot,
-        i18n: Optional[JsonI18n],
-        notification_service: Optional[NotificationService] = None,
-        email_auth_service: Optional[EmailAuthService] = None,
+        i18n: JsonI18n | None,
+        notification_service: NotificationService | None = None,
+        email_auth_service: EmailAuthService | None = None,
     ) -> None:
         self.session_factory = session_factory
         self.settings = settings
@@ -171,7 +179,9 @@ class SupportService:
             except Exception:
                 logger.exception(error_message, *error_args)
 
-        asyncio.create_task(_runner(), name="support-notification")
+        task = asyncio.create_task(_runner(), name="support-notification")
+        _SUPPORT_NOTIFICATION_TASKS.add(task)
+        task.add_done_callback(_SUPPORT_NOTIFICATION_TASKS.discard)
 
     async def _ensure_user_allowed(self, session: AsyncSession, user_id: int) -> User:
         user = await user_dal.get_user_by_id(session, user_id)
@@ -249,7 +259,7 @@ class SupportService:
             if message is None:
                 raise TicketNotFound("not_found")
             await session.refresh(ticket)
-            notification_at = datetime.now(timezone.utc)
+            notification_at = datetime.now(UTC)
             admin_email_notifications_enabled = (
                 await self.notification_service.support_admin_email_notifications_enabled()
             )
@@ -348,7 +358,7 @@ class SupportService:
         self,
         admin_id: int,
         ticket_id: int,
-        assigned_admin_id: Optional[int],
+        assigned_admin_id: int | None,
     ) -> SupportTicket:
         return await self._update_and_audit(
             admin_id,
@@ -409,7 +419,7 @@ class SupportService:
             await session.commit()
 
     async def build_user_snapshot(
-        self, user: User, *, session: Optional[AsyncSession] = None
+        self, user: User, *, session: AsyncSession | None = None
     ) -> dict[str, object]:
         owns_session = session is None
         if owns_session:
@@ -436,9 +446,7 @@ class SupportService:
                     tariff_name = str(sub.tariff_key or "")
             end_date = getattr(sub, "end_date", None)
             seconds_left = (
-                max(0, int((end_date - datetime.now(timezone.utc)).total_seconds()))
-                if end_date
-                else 0
+                max(0, int((end_date - datetime.now(UTC)).total_seconds())) if end_date else 0
             )
             return {
                 "user_id": int(user.user_id),
@@ -484,7 +492,7 @@ class SupportService:
                 await session.__aexit__(None, None, None)
 
     @staticmethod
-    def _regular_limit(sub: Optional[Subscription]) -> int:
+    def _regular_limit(sub: Subscription | None) -> int:
         if not sub:
             return 0
         if getattr(sub, "regular_unlimited_override", False):
@@ -496,7 +504,7 @@ class SupportService:
         )
 
     @staticmethod
-    def _premium_limit(sub: Optional[Subscription]) -> int:
+    def _premium_limit(sub: Subscription | None) -> int:
         if not sub:
             return 0
         if getattr(sub, "premium_unlimited_override", False):

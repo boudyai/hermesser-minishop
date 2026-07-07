@@ -8,7 +8,7 @@ returns a fast ack. These tests pin that contract.
 import json
 import unittest
 from types import SimpleNamespace
-from typing import Any, List
+from typing import Any
 from unittest.mock import patch
 
 from aiohttp import web
@@ -41,7 +41,9 @@ def _make_settings() -> SimpleNamespace:
 
 
 def _parse(response: web.Response) -> dict:
-    return json.loads(response.body.decode())
+    assert isinstance(response.body, bytes)
+    data: dict = json.loads(response.body.decode())
+    return data
 
 
 def _patch_admin_auth(monkeypatch_target: Any) -> None:
@@ -51,7 +53,7 @@ def _patch_admin_auth(monkeypatch_target: Any) -> None:
 
 class AdminSyncQueueTests(unittest.IsolatedAsyncioTestCase):
     async def test_returns_queued_when_redis_accepts_event(self):
-        recorded: List[dict] = []
+        recorded: list[dict] = []
 
         async def fake_enqueue(settings, provider, payload, *, event_id=None):
             recorded.append(
@@ -112,9 +114,9 @@ class AdminSyncQueueTests(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(sync_module, "enqueue_webhook_event", fake_enqueue),
             patch.object(sync_module, "_require_admin_user_id", side_effect=deny),
+            self.assertRaises(web.HTTPForbidden),
         ):
-            with self.assertRaises(web.HTTPForbidden):
-                await sync_module.admin_sync_route(_FakeRequest(_make_settings()))
+            await sync_module.admin_sync_route(_FakeRequest(_make_settings()))
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -27,6 +27,7 @@ from bot.keyboards.inline.user_keyboards import (
     tariff_purchase_back_callback,
 )
 from bot.middlewares.i18n import LOCALE_KEY_ALIASES
+from bot.utils.install_links import bot_install_guides_enabled, install_guide_share_links_enabled
 from config.tariffs_config import TariffsConfig
 from tests.support.settings_stub import settings_stub
 
@@ -212,6 +213,10 @@ class UserBotMenuTests(unittest.TestCase):
 
         self.assertEqual(markup.inline_keyboard[0][0].url, "https://sb.example.com/user")
         self.assertIsNone(markup.inline_keyboard[0][0].web_app)
+
+    def test_install_share_links_do_not_require_bot_guides_button(self):
+        self.assertFalse(bot_install_guides_enabled(self.settings))
+        self.assertTrue(install_guide_share_links_enabled(self.settings))
 
     def test_connect_keyboard_opens_install_guide_when_bot_guides_enabled(self):
         self.settings.SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED = True

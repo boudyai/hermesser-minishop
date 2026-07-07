@@ -58,6 +58,10 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=6144
 
+      - name: TypeScript typecheck
+        run: npm run typecheck:ts
+        working-directory: frontend
+
       - name: Check generated API types are in sync
         run: |
           npm run generate:api-types
@@ -188,10 +192,10 @@ jobs:
           cache-dependency-path: backend/requirements.txt
 
       - name: Install backend deps + pytest
-        run: pip install -r backend/requirements.txt pytest
+        run: pip install -r backend/requirements.txt pytest pytest-cov
 
       - name: Run full pytest suite
-        run: python -m pytest -q
+        run: python -m pytest -q --cov --cov-report=xml --cov-fail-under=53
 
   typecheck:
     name: Python typecheck
@@ -213,6 +217,7 @@ jobs:
       - name: Mypy web API and event layers
         run: >-
           python -m mypy
+          --explicit-package-bases
           backend/config
           backend/db
           backend/bot/infra
@@ -226,6 +231,11 @@ jobs:
           backend/bot/app/factories
           backend/bot/app/controllers
           backend/bot/app/web
+          backend/main_backend.py
+          backend/main_worker.py
+          backend/scripts
+          scripts
+          tests
 
   build:
     name: Docker build

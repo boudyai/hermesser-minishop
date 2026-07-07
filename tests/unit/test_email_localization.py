@@ -175,17 +175,17 @@ def _all_rendered_email_variants(language: str) -> list[EmailContent]:
             )
         )
 
-    for days_left in (0, 1, 3):
-        contents.append(
-            render_subscription_expiring(
-                settings,
-                language_code=language,
-                days_left=days_left,
-                end_date_text="2026-06-21 10:00",
-                dashboard_url=dashboard_url,
-                i18n=i18n,
-            )
+    contents.extend(
+        render_subscription_expiring(
+            settings,
+            language_code=language,
+            days_left=days_left,
+            end_date_text="2026-06-21 10:00",
+            dashboard_url=dashboard_url,
+            i18n=i18n,
         )
+        for days_left in (0, 1, 3)
+    )
 
     lifecycle_variants = (
         {"notification_key": "before_2d_autorenew"},
@@ -195,18 +195,18 @@ def _all_rendered_email_variants(language: str) -> list[EmailContent]:
         {"notification_key": "before_days", "days_left": 3},
         {"notification_key": "before_hours", "hours_before": 6},
     )
-    for kwargs in lifecycle_variants:
-        contents.append(
-            render_subscription_lifecycle_notification(
-                settings,
-                language_code=language,
-                message_text="Subscription lifecycle message.",
-                end_date_text="2026-06-21 10:00",
-                dashboard_url=dashboard_url,
-                i18n=i18n,
-                **kwargs,
-            )
+    contents.extend(
+        render_subscription_lifecycle_notification(
+            settings,
+            language_code=language,
+            message_text="Subscription lifecycle message.",
+            end_date_text="2026-06-21 10:00",
+            dashboard_url=dashboard_url,
+            i18n=i18n,
+            **kwargs,
         )
+        for kwargs in lifecycle_variants
+    )
 
     contents.extend(
         [
@@ -440,8 +440,7 @@ def test_docs_email_preview_generator_renders_real_template_html():
         cwd=REPO_ROOT,
         check=True,
         encoding="utf-8",
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         text=True,
     )
     previews = json.loads(result.stdout)

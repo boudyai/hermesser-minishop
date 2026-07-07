@@ -1,17 +1,11 @@
-import logging
-from typing import Any, Optional, Tuple
+from collections.abc import Callable
+from typing import Any
 
 from aiogram import F, Router, types
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.middlewares.i18n import JsonI18n
 from config.settings import Settings
-from config.tariffs_config import (
-    default_currency_key_for_settings,
-    default_payment_currency_code_for_settings,
-)
-from db.dal import payment_dal
 
 from ..base import (
     PaymentProviderSpec,
@@ -20,25 +14,14 @@ from ..base import (
     WebAppPaymentContext,
 )
 from ..shared import (
-    build_payment_record_payload,
-    create_webapp_payment_record,
-    describe_payment,
-    finalize_webapp_link_payment,
+    CreatePaymentRequest,
+    LinkPaymentDescriptor,
     first_value,
-    make_translator,
-    notify_callback_parse_error,
-    notify_payment_record_failure,
-    notify_service_unavailable,
-    parse_payment_callback,
-    payment_failed,
-    payment_record_amounts,
-    payment_unavailable,
-    quote_hwid_callback_parts,
-    render_link_or_fail,
-    render_payment_link,
+    run_callback_payment,
+    run_reuse_webapp_payment,
+    run_webapp_payment,
     safe_callback_answer,
 )
-from ..shared.app_context import app_optional, app_required
 from .config import (
     _WATA_LINK_MAX_TTL_MINUTES,
     _WATA_LINK_MIN_TTL_MINUTES,
@@ -57,10 +40,19 @@ router = Router(name="user_subscription_payments_wata_router")
 _LOG = "wata"
 
 
-def _wata_spec_for_callback_prefix(callback_prefix: str) -> PaymentProviderSpec:
+def _wata_descriptor_for_callback_prefix(
+    callback_prefix: str,
+) -> LinkPaymentDescriptor[WataService]:
     if callback_prefix == "pay_wata_crypto":
-        return CRYPTO_SPEC
-    return SPEC
+        return _CRYPTO_DESCRIPTOR
+    return _DESCRIPTOR
+
+
+def _wata_descriptor_for_method(method: Any) -> LinkPaymentDescriptor[WataService]:
+    normalized = str(method or "").strip().lower()
+    if normalized in {WATA_CRYPTO_PROVIDER, "crypto"}:
+        return _CRYPTO_DESCRIPTOR
+    return _DESCRIPTOR
 
 
 @router.callback_query(F.data.startswith("pay_wata_crypto:"))
@@ -72,181 +64,23 @@ async def pay_wata_callback_handler(
     wata_service: WataService,
     session: AsyncSession,
 ) -> None:
-    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
-    translator = make_translator(i18n, current_lang)
-
-    if not i18n or not callback.message:
-        await notify_callback_parse_error(callback, translator)
-        return
-
     callback_prefix, _, _ = (callback.data or "").partition(":")
-    spec = _wata_spec_for_callback_prefix(callback_prefix)
-    if not spec.is_available_to_user(
-        settings,
-        user_id=callback.from_user.id,
-        require_configured=False,
-    ):
-        await notify_service_unavailable(callback, translator)
-        return
-
-    profile = wata_service.profile_for_method(spec.id) if wata_service else None
-    if not wata_service or not profile or not wata_service.profile_enabled(profile.provider):
-        logging.error("Wata service is not configured or unavailable.")
-        await notify_service_unavailable(callback, translator)
-        return
-
-    parts = parse_payment_callback(callback.data or "")
-    if not parts:
-        logging.error("Invalid pay_wata data in callback: %s", callback.data)
-        await notify_callback_parse_error(callback, translator)
-        return
-    parts, hwid_quote = await quote_hwid_callback_parts(
-        session=session,
-        user_id=callback.from_user.id,
-        parts=parts,
-        subscription_service=wata_service.subscription_service,
-        currency=default_currency_key_for_settings(settings),
-    )
-    if not parts:
-        await notify_callback_parse_error(callback, translator)
-        return
-
-    currency_code = default_payment_currency_code_for_settings(settings)
-    payment_description = describe_payment(translator, parts)
-
-    reuse_amounts = payment_record_amounts(
-        months=parts.months,
-        sale_mode=parts.sale_mode,
-        hwid_device_count=hwid_quote.get("device_count") if hwid_quote else None,
-    )
-    reusable_payment = await payment_dal.find_recent_pending_provider_payment(
-        session,
-        user_id=callback.from_user.id,
-        provider=profile.provider,
-        pending_status="pending_wata",
-        amount=parts.price,
-        currency=currency_code,
-        sale_mode=parts.sale_mode,
-        months=reuse_amounts.months,
-        purchased_gb=reuse_amounts.purchased_gb,
-        purchased_hwid_devices=reuse_amounts.purchased_hwid_devices,
-        tariff_key=reuse_amounts.tariff_key,
-        since_minutes=profile.link_ttl_minutes,
-    )
-    if reusable_payment is not None:
-        reusable_url = await wata_service.try_reuse_pending_link(reusable_payment)
-        if reusable_url:
-            await safe_callback_answer(callback)
-            await render_payment_link(
-                callback,
-                translator=translator,
-                current_lang=current_lang,
-                i18n=i18n,
-                parts=parts,
-                payment_url=reusable_url,
-                log_prefix=_LOG,
-            )
-            return
-
-    record_payload = build_payment_record_payload(
-        user_id=callback.from_user.id,
-        amount=parts.price,
-        currency=currency_code,
-        status="pending_wata",
-        description=payment_description,
-        months=parts.months,
-        provider=profile.provider,
-        sale_mode=parts.sale_mode,
-        hwid_quote=hwid_quote,
-    )
-
-    try:
-        payment_record = await payment_dal.create_payment_record(session, record_payload)
-        await session.commit()
-    except Exception:
-        await session.rollback()
-        logging.exception(
-            "Wata: failed to create payment record for user %s.", callback.from_user.id
-        )
-        await notify_payment_record_failure(callback, translator)
-        return
-
-    await safe_callback_answer(callback)
-
-    success, response_data = await wata_service.create_payment_link(
-        payment_db_id=payment_record.payment_id,
-        amount=parts.price,
-        currency=currency_code,
-        description=payment_description,
-        method=profile.provider,
-    )
-    await render_link_or_fail(
+    await run_callback_payment(
+        _wata_descriptor_for_callback_prefix(callback_prefix),
         callback,
-        translator=translator,
-        current_lang=current_lang,
-        i18n=i18n,
-        parts=parts,
+        settings,
+        i18n_data,
+        wata_service,
         session=session,
-        payment=payment_record,
-        api_success=success,
-        payment_url=first_value(response_data, "url", "paymentUrl", "payment_url"),
-        provider_payment_id=first_value(response_data, "id", "paymentLinkId"),
-        provider_response=response_data,
-        log_prefix=_LOG,
     )
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    settings: Settings = app_required(ctx.request, "settings", Settings)
-    service: WataService = app_required(ctx.request, "wata_service", WataService)
-    profile = service.profile_for_method(ctx.method) if service else None
-    if not service or not profile or not service.profile_enabled(profile.provider):
-        return payment_unavailable()
-
-    currency = ctx.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
-
-    try:
-        payment = await create_webapp_payment_record(
-            ctx,
-            amount=ctx.price,
-            currency=currency,
-            status="pending_wata",
-            provider=profile.provider,
-        )
-        success, response_data = await service.create_payment_link(
-            payment_db_id=payment.payment_id,
-            amount=ctx.price,
-            currency=currency,
-            description=ctx.description,
-            method=profile.provider,
-        )
-    except Exception:
-        await ctx.session.rollback()
-        logging.exception("Wata WebApp payment failed")
-        return payment_failed()
-
-    return await finalize_webapp_link_payment(
-        session=ctx.session,
-        payment=payment,
-        api_success=success,
-        payment_url=first_value(response_data, "url", "paymentUrl", "payment_url")
-        if success
-        else None,
-        provider_payment_id=first_value(response_data, "id", "paymentLinkId"),
-        provider_response=response_data,
-        log_prefix="Wata",
-    )
+    return await run_webapp_payment(_wata_descriptor_for_method(ctx.method), ctx)
 
 
-async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
-    service = app_optional(ctx.request, "wata_service", WataService)
-    profile = service.profile_for_method(ctx.method) if service else None
-    if not service or not profile or not service.profile_enabled(profile.provider):
-        return None
-    if str(getattr(payment, "provider", "") or "").strip().lower() != profile.provider:
-        return None
-    return await service.try_reuse_pending_link(payment)
+async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> str | None:
+    return await run_reuse_webapp_payment(_wata_descriptor_for_method(ctx.method), ctx, payment)
 
 
 def create_service(ctx: ServiceFactoryContext) -> WataService:
@@ -548,7 +382,7 @@ def _wata_crypto_admin_only_enabled(source: Any) -> bool:
     ) and _wata_profile_configured(source, WATA_CRYPTO_PROVIDER)
 
 
-def _wata_supported_currencies(source: Any, provider: str) -> Tuple[str, ...]:
+def _wata_supported_currencies(source: Any, provider: str) -> tuple[str, ...]:
     if isinstance(source, WataConfig):
         return source.profile_for_method(provider).supported_currencies
     return WATA_SUPPORTED_CURRENCIES
@@ -622,3 +456,112 @@ CRYPTO_SPEC = PaymentProviderSpec(
 )
 
 SPECS = (SPEC, CRYPTO_SPEC)
+
+
+def _payment_provider(payment: Any) -> str:
+    return str(getattr(payment, "provider", "") or "").strip().lower()
+
+
+async def _create_payment(
+    service: WataService,
+    request: CreatePaymentRequest,
+) -> tuple[bool, dict[str, Any]]:
+    provider = _payment_provider(request.payment) or WATA_PROVIDER
+    return await service.create_payment_link(
+        payment_db_id=request.payment.payment_id,
+        amount=request.amount,
+        currency=request.currency,
+        description=request.description,
+        method=provider,
+    )
+
+
+async def _reuse_payment(service: WataService, payment: Any) -> str | None:
+    return await service.try_reuse_pending_link(payment)
+
+
+def _profile_enabled(provider: str) -> Callable[[WataService], bool]:
+    def enabled(service: WataService) -> bool:
+        return service.profile_enabled(provider)
+
+    return enabled
+
+
+def _callback_payment_allowed(
+    provider: str,
+) -> Callable[[WataService, Settings, int, Any, str], bool]:
+    def allowed(
+        service: WataService,
+        settings: Settings,
+        user_id: int,
+        amount: Any,
+        currency: str,
+    ) -> bool:
+        return service.profile_enabled(provider)
+
+    return allowed
+
+
+def _callback_reuse_since_minutes(
+    provider: str,
+) -> Callable[[WataService, dict[str, Any] | None], int | None]:
+    def ttl_minutes(service: WataService, context: dict[str, Any] | None) -> int:
+        return service.profile_for_method(provider).link_ttl_minutes
+
+    return ttl_minutes
+
+
+def _reuse_allowed(provider: str) -> Callable[[Any, dict[str, Any] | None], bool]:
+    def allowed(payment: Any, context: dict[str, Any] | None) -> bool:
+        return _payment_provider(payment) == provider
+
+    return allowed
+
+
+def _extract_payment_url(response: dict) -> str | None:
+    return first_value(response, "url", "paymentUrl", "payment_url")
+
+
+def _extract_provider_id(response: dict) -> str | None:
+    return first_value(response, "id", "paymentLinkId")
+
+
+_DESCRIPTOR: LinkPaymentDescriptor[WataService] = LinkPaymentDescriptor(
+    spec=SPEC,
+    provider_key=WATA_PROVIDER,
+    pending_status="pending_wata",
+    display_name="Wata",
+    log_prefix=_LOG,
+    service_app_key="wata_service",
+    service_type=WataService,
+    create=_create_payment,
+    reuse=_reuse_payment,
+    extract_url=_extract_payment_url,
+    extract_provider_id=_extract_provider_id,
+    callback_payment_allowed=_callback_payment_allowed(WATA_PROVIDER),
+    callback_before_create=safe_callback_answer,
+    callback_reuse_since_minutes=_callback_reuse_since_minutes(WATA_PROVIDER),
+    callback_reuse_answer=True,
+    reuse_payment_allowed=_reuse_allowed(WATA_PROVIDER),
+    webapp_available=_profile_enabled(WATA_PROVIDER),
+)
+
+_CRYPTO_DESCRIPTOR: LinkPaymentDescriptor[WataService] = LinkPaymentDescriptor(
+    spec=CRYPTO_SPEC,
+    provider_key=WATA_CRYPTO_PROVIDER,
+    pending_status="pending_wata",
+    display_name="Wata",
+    log_prefix=_LOG,
+    service_app_key="wata_service",
+    service_type=WataService,
+    create=_create_payment,
+    reuse=_reuse_payment,
+    extract_url=_extract_payment_url,
+    extract_provider_id=_extract_provider_id,
+    callback_payment_allowed=_callback_payment_allowed(WATA_CRYPTO_PROVIDER),
+    callback_before_create=safe_callback_answer,
+    callback_reuse_since_minutes=_callback_reuse_since_minutes(WATA_CRYPTO_PROVIDER),
+    callback_reuse_answer=True,
+    reuse_payment_allowed=_reuse_allowed(WATA_CRYPTO_PROVIDER),
+    webapp_available=_profile_enabled(WATA_CRYPTO_PROVIDER),
+)

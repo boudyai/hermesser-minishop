@@ -4,6 +4,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 USER_DETAIL = REPO_ROOT / "frontend/src/admin/sections/UserDetailModal.svelte"
+USER_DETAIL_VIEW = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserDetailView.svelte"
+USER_DETAIL_CSS = REPO_ROOT / "frontend/src/admin/sections/UserDetailModal.css"
 USER_ACTIONS = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserActionsTab.svelte"
 STATS_SECTION = REPO_ROOT / "frontend/src/admin/sections/StatsSection.svelte"
 ADMIN_PANEL = REPO_ROOT / "frontend/src/admin/AdminPanel.svelte"
@@ -13,6 +15,10 @@ USERS_STORE = REPO_ROOT / "frontend/src/lib/admin/stores/usersStore.svelte.ts"
 
 def _source() -> str:
     return USER_DETAIL.read_text(encoding="utf-8")
+
+
+def _view_source() -> str:
+    return USER_DETAIL_VIEW.read_text(encoding="utf-8")
 
 
 def _actions_source() -> str:
@@ -78,10 +84,42 @@ def test_extend_action_styles_fill_the_actions_column():
     assert re.search(r"\.admin-reset-trial-btn\s*{[^}]*width:\s*100%", css, re.S)
 
 
+def test_inactive_tabs_override_specific_tab_display_rules():
+    css = ADMIN_CSS.read_text(encoding="utf-8")
+    user_detail_css = USER_DETAIL_CSS.read_text(encoding="utf-8")
+
+    assert re.search(
+        r"\.admin-tabs-root\s+\.admin-tabs-content\[data-state=\"inactive\"\]\s*{[^}]*display:\s*none",
+        css,
+        re.S,
+    )
+    assert '\n.admin-tabs-content[data-state="inactive"] {' not in css
+    assert ".admin-user-dialog .admin-user-logs-tab" in user_detail_css
+    assert re.search(
+        r"\.admin-user-dialog\s+\.admin-user-logs-tab\s*{[^}]*display:\s*flex",
+        user_detail_css,
+        re.S,
+    )
+
+
 def test_extend_tariff_current_badge_is_localized():
     for language in ("ru", "en"):
         messages = json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text("utf-8"))
         assert messages["admin_user_tariff_current_badge"]
+
+
+def test_user_detail_links_include_install_share_link():
+    source = _view_source()
+
+    assert "openedUserDetail.install_share_url" in source
+    assert "user_label_install_share" in source
+    assert "user_install_share_link_copied" in source
+
+    for language in ("ru", "en"):
+        messages = json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text("utf-8"))
+        assert messages["admin_user_install_share_link_label"]
+        assert messages["admin_user_label_install_share"]
+        assert messages["admin_user_install_share_link_copied"]
 
 
 def test_action_save_buttons_require_dirty_valid_state():

@@ -25,6 +25,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+      start_period: 30s
+      start_interval: 1s
 
   redis:
     image: redis:7-alpine
@@ -39,6 +41,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+      start_period: 30s
+      start_interval: 1s
 
   migrate:
     image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
@@ -86,6 +90,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+      start_interval: 3s
 
   worker:
     image: 3252a8/remnawave-minishop-worker:${IMAGE_TAG:-latest}
@@ -126,6 +131,8 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
+      start_period: 15s
+      start_interval: 2s
 
   nginx:
     image: nginx:1.27-alpine

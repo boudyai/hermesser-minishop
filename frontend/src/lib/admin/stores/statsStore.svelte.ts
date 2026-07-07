@@ -2,9 +2,7 @@ import { adminErrorMessage } from "../errors.js";
 import {
   unwrap,
   type ApiClient,
-  type ApiResponse,
   type GetResponse,
-  type PostResponse,
   buildAdminStatsPath,
   buildAdminSyncPath,
 } from "../../webapp/publicApi";
@@ -12,14 +10,10 @@ import { defineRawStateProperty } from "./rawStateProperty";
 import { fetchAdminQuery, invalidateAdminQuery, type AdminQueryClient } from "./adminQueryCache";
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
-type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
-  path: Path,
-  options?: Parameters<ApiClient["api"]>[1]
-) => Promise<ApiResponse<Path> | AdminErrorResponse>;
+type AdminApi = ApiClient["api"];
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type StatsResponse = GetResponse<"/api/admin/stats">;
-type SyncResponse = PostResponse<"/api/admin/sync">;
 export type StatsState = {
   stats: StatsResponse | null;
   statsLoading: boolean;
@@ -44,9 +38,9 @@ function isOkResponse<T extends { ok: true }>(response: T | AdminErrorResponse):
 const STATS_QUERY_KEY = ["admin", "stats"] as const;
 
 class AdminStatsError extends Error {
-  payload: AdminErrorResponse;
+  payload: unknown;
 
-  constructor(message: string, payload: AdminErrorResponse) {
+  constructor(message: string, payload: unknown) {
     super(message);
     this.payload = payload;
   }
@@ -73,7 +67,7 @@ export function createStatsStore({
   });
 
   async function requestStats(): Promise<StatsResponse> {
-    const data = (await api(buildAdminStatsPath())) as StatsResponse | AdminErrorResponse;
+    const data = await api(buildAdminStatsPath());
     if (!isOkResponse(data)) {
       throw new AdminStatsError(adminErrorMessage(data, at, "load_failed"), data);
     }
@@ -107,8 +101,7 @@ export function createStatsStore({
 
     state.syncBusy = true;
     try {
-      const res = (await api(buildAdminSyncPath(), { method: "POST" })) as
-        SyncResponse | AdminErrorResponse;
+      const res = await api(buildAdminSyncPath(), { method: "POST" });
       if (isOkResponse(res)) {
         invalidateAdminQuery(queryClient, STATS_QUERY_KEY);
         onToast(at("sync_started", {}, "Синхронизация запущена"));

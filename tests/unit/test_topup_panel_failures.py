@@ -15,7 +15,7 @@ the same contract on the three previously-broken paths.
 import json
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -93,32 +93,32 @@ def _make_service(settings: Settings) -> SubscriptionService:
 
 
 def _make_sub(**overrides):
-    base = dict(
-        subscription_id=11,
-        user_id=42,
-        panel_user_uuid="panel-uuid",
-        panel_subscription_uuid="panel-sub",
-        tariff_key="standard",
-        traffic_limit_bytes=100 * GIB,
-        traffic_used_bytes=10 * GIB,
-        topup_balance_bytes=0,
-        tier_baseline_bytes=100 * GIB,
-        regular_bonus_bytes=0,
-        regular_unlimited_override=False,
-        extra_hwid_devices=0,
-        hwid_device_limit=3,
-        premium_baseline_bytes=25 * GIB,
-        premium_topup_balance_bytes=0,
-        premium_topup_used_bytes=0,
-        premium_used_bytes=0,
-        premium_bonus_bytes=0,
-        premium_unlimited_override=False,
-        premium_is_limited=False,
-        premium_period_start_at=None,
-        effective_monthly_price_rub=150,
-        end_date=datetime(2099, 1, 1, tzinfo=timezone.utc),
-        is_active=True,
-    )
+    base = {
+        "subscription_id": 11,
+        "user_id": 42,
+        "panel_user_uuid": "panel-uuid",
+        "panel_subscription_uuid": "panel-sub",
+        "tariff_key": "standard",
+        "traffic_limit_bytes": 100 * GIB,
+        "traffic_used_bytes": 10 * GIB,
+        "topup_balance_bytes": 0,
+        "tier_baseline_bytes": 100 * GIB,
+        "regular_bonus_bytes": 0,
+        "regular_unlimited_override": False,
+        "extra_hwid_devices": 0,
+        "hwid_device_limit": 3,
+        "premium_baseline_bytes": 25 * GIB,
+        "premium_topup_balance_bytes": 0,
+        "premium_topup_used_bytes": 0,
+        "premium_used_bytes": 0,
+        "premium_bonus_bytes": 0,
+        "premium_unlimited_override": False,
+        "premium_is_limited": False,
+        "premium_period_start_at": None,
+        "effective_monthly_price_rub": 150,
+        "end_date": datetime(2099, 1, 1, tzinfo=UTC),
+        "is_active": True,
+    }
     base.update(overrides)
     return SimpleNamespace(**base)
 
@@ -342,12 +342,12 @@ class SwitchTariffPanelFailureTests(unittest.IsolatedAsyncioTestCase):
             service = _make_service(settings)
             sub = _make_sub(
                 tariff_key="standard",
-                end_date=datetime.now(timezone.utc) + timedelta(days=20),
+                end_date=datetime.now(UTC) + timedelta(days=20),
             )
             user = _make_user()
             updated = _make_sub(
                 tariff_key="premium",
-                end_date=datetime.now(timezone.utc) + timedelta(days=10),
+                end_date=datetime.now(UTC) + timedelta(days=10),
                 premium_is_limited=False,
                 effective_monthly_price_rub=300,
             )

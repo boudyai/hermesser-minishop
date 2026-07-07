@@ -2,7 +2,7 @@
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
 
-  type AnyRecord = Record<string, any>;
+  type UnknownRecord = Record<string, unknown>;
   type ApiUnchecked = (
     path: string,
     options?: Parameters<typeof fetch>[1]
@@ -12,12 +12,12 @@
     appSettings = {},
     subscription = {},
     apiUnchecked = missingApi,
-    t = (key: string, _params?: AnyRecord, fallback?: string) => fallback || key,
+    t = (key: string, _params?: UnknownRecord, fallback?: string) => fallback || key,
   }: {
-    appSettings?: AnyRecord;
-    subscription?: AnyRecord;
+    appSettings?: UnknownRecord;
+    subscription?: UnknownRecord;
     apiUnchecked?: ApiUnchecked;
-    t?: (key: string, params?: AnyRecord, fallback?: string) => string;
+    t?: (key: string, params?: UnknownRecord, fallback?: string) => string;
   } = $props();
 
   const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
@@ -62,11 +62,7 @@
   async function suspend() {
     if (
       !confirm(
-        t(
-          "wa_danger_suspend_confirm",
-          {},
-          "Suspend the bot? The CornLLM key will be blocked."
-        )
+        t("wa_danger_suspend_confirm", {}, "Suspend the bot? The CornLLM key will be blocked.")
       )
     )
       return;
@@ -127,7 +123,10 @@
         <Button variant="secondary" onclick={suspend} disabled={busy !== "" || !actionsEnabled}
           >{t("wa_danger_suspend", {}, "⏸ Suspend")}</Button
         >
-        <Button variant="danger" onclick={requestDelete} disabled={busy !== "" || !actionsEnabled}
+        <Button
+          variant="secondary"
+          onclick={requestDelete}
+          disabled={busy !== "" || !actionsEnabled}
           >{t("wa_danger_delete", {}, "Delete bot")}</Button
         >
       </div>
@@ -152,7 +151,7 @@
         />
         <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
           <Button
-            variant="danger"
+            variant="secondary"
             onclick={confirmAndDelete}
             disabled={!deleteEnabled || busy !== ""}
             >{t("wa_danger_confirm", {}, "⛔ Confirm deletion")}</Button

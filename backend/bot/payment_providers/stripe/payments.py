@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aiohttp import web
 
@@ -21,6 +21,8 @@ from ..shared import (
 )
 from ..shared.app_context import app_optional, app_required
 from .service import StripeService
+
+logger = logging.getLogger(__name__)
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
@@ -64,7 +66,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
         )
     except Exception:
         await ctx.session.rollback()
-        logging.exception("Stripe WebApp payment failed")
+        logger.exception("Stripe WebApp payment failed")
         return payment_failed()
 
     return await finalize_webapp_link_payment(
@@ -78,7 +80,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     )
 
 
-async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
+async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> str | None:
     service = app_optional(ctx.request, "stripe_service", StripeService)
     if not service or not service.configured:
         return None

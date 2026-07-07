@@ -25,7 +25,10 @@ from typing import Any, cast
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from bot.app.web.http_contracts import HttpBodyModel, HttpResponseModel
+from bot.payment_providers.base import PaymentProviderPresentation, PaymentProviderSpec
 from bot.services.promo_effects import PromoEffects, summarize_effects, validate_effects
+from config.settings import Settings
+from config.tariffs_config import PackageSet, Tariff, TariffsConfig
 
 
 class PromoCreateBody(HttpBodyModel):
@@ -54,7 +57,7 @@ class PromoCreateBody(HttpBodyModel):
         return str(value or "").strip().lower()
 
     @model_validator(mode="after")
-    def _validate_effects(self) -> "PromoCreateBody":
+    def _validate_effects(self) -> PromoCreateBody:
         validate_effects(self.to_effects())
         return self
 
@@ -118,6 +121,116 @@ class TariffsSaveBody(HttpBodyModel):
         if "catalog" in self.model_fields_set:
             return self.catalog
         return self.model_extra or {}
+
+
+class AdminTariffsCatalogOut(HttpResponseModel):
+    default_tariff: str
+    default_currency: str = "rub"
+    topup_packages_default: PackageSet | None = None
+    tariffs: list[Tariff]
+
+    @classmethod
+    def empty(cls) -> AdminTariffsCatalogOut:
+        return cls(
+            default_tariff="",
+            default_currency="rub",
+            topup_packages_default=PackageSet.model_validate({"rub": [], "stars": []}),
+            tariffs=[],
+        )
+
+    @classmethod
+    def from_config(cls, config: TariffsConfig) -> AdminTariffsCatalogOut:
+        return cls.model_validate(config.model_dump(mode="python", exclude_none=True))
+
+    def to_legacy_payload(self) -> dict[str, Any]:
+        return cast(dict[str, Any], self.model_dump(mode="json", exclude_none=True))
+
+
+class ProviderCurrencySupportOut(HttpResponseModel):
+    id: str
+    provider_key: str
+    provider_label: str
+    settings_path: list[str]
+    label: str
+    telegram_label: str
+    icon: str | None = None
+    enabled: bool
+    configured: bool
+    admin_only: bool
+    price_source: str
+    currencies: list[str] | None = None
+    accepts_any_currency: bool
+    supports_default_currency: bool
+    directly_supports_default_currency: bool
+    default_currency: str
+    note: str
+    docs_url: str | None = None
+
+    @classmethod
+    def from_provider_spec(
+        cls,
+        spec: PaymentProviderSpec,
+        presentation: PaymentProviderPresentation,
+        *,
+        settings: Settings,
+        app: object,
+        default_currency: str,
+    ) -> ProviderCurrencySupportOut:
+        supported = spec.supported_currency_codes(settings)
+        return cls(
+            id=spec.id,
+            provider_key=spec.provider_key,
+            provider_label=cls._provider_label(spec),
+            settings_path=cls._settings_path(spec),
+            label=presentation.webapp_label or spec.label,
+            telegram_label=presentation.telegram_label,
+            icon=presentation.webapp_icon,
+            enabled=spec.is_effectively_enabled(settings),
+            configured=spec.is_service_configured(app),
+            admin_only=spec.is_admin_only_enabled(settings),
+            price_source=spec.price_source,
+            currencies=list(supported) if supported is not None else None,
+            accepts_any_currency=supported is None,
+            supports_default_currency=spec.is_usable_for_payment_currency(
+                settings,
+                default_currency,
+            ),
+            directly_supports_default_currency=spec.supports_currency(
+                settings,
+                default_currency,
+            ),
+            default_currency=default_currency,
+            note=spec.currency_support_note,
+            docs_url=spec.currency_support_url,
+        )
+
+    @staticmethod
+    def _provider_label(spec: PaymentProviderSpec) -> str:
+        if spec.id == "platega_sbp":
+            return "Platega SBP/card"
+        if spec.id == "platega_crypto":
+            return "Platega Crypto"
+        return str(spec.label or spec.id)
+
+    @staticmethod
+    def _settings_path(spec: PaymentProviderSpec) -> list[str]:
+        if spec.id == "platega_sbp":
+            return ["payments", "platega", "sbp"]
+        if spec.id == "platega_crypto":
+            return ["payments", "platega", "crypto"]
+        return ["payments", str(spec.provider_key or spec.id).replace("_", "-")]
+
+
+class AdminTariffsOut(HttpResponseModel):
+    exists: bool
+    path: str
+    catalog: AdminTariffsCatalogOut
+    provider_currency_support: list[ProviderCurrencySupportOut]
+
+    def to_legacy_payload(self) -> dict[str, Any]:
+        payload = cast(dict[str, Any], self.model_dump(mode="json"))
+        payload["catalog"] = self.catalog.to_legacy_payload()
+        return payload
 
 
 class ThemesSaveBody(HttpBodyModel):
@@ -235,7 +348,7 @@ class PromoOut(HttpResponseModel):
         *,
         bot_link: str | None = None,
         webapp_link: str | None = None,
-    ) -> "PromoOut":
+    ) -> PromoOut:
         effects = PromoEffects.from_model(promo)
         return cls(
             id=int(promo.promo_code_id),
@@ -284,7 +397,7 @@ class AdminPanelSyncOut(HttpResponseModel):
     subscriptions_synced: int
 
     @classmethod
-    def from_sync_status(cls, sync_status: Any) -> "AdminPanelSyncOut":
+    def from_sync_status(cls, sync_status: Any) -> AdminPanelSyncOut:
         return cls(
             status=sync_status.status if sync_status else "never_run",
             last_sync_time=sync_status.last_sync_time
@@ -404,7 +517,7 @@ class PromoActivationOut(HttpResponseModel):
     granted_gb: float | None = None
 
     @classmethod
-    def from_orm_activation(cls, activation: Any) -> "PromoActivationOut":
+    def from_orm_activation(cls, activation: Any) -> PromoActivationOut:
         loaded_user = activation.__dict__.get("user")
         loaded_payment = activation.__dict__.get("payment")
         user_label = _display_label(loaded_user, int(activation.user_id)) or str(activation.user_id)
@@ -501,7 +614,7 @@ class PaymentOut(HttpResponseModel):
     created_at: datetime | None = None
 
     @classmethod
-    def from_orm_payment(cls, payment: Any) -> "PaymentOut":
+    def from_orm_payment(cls, payment: Any) -> PaymentOut:
         telegram_id = None
         loaded_user = payment.__dict__.get("user")
         user_label = _payment_user_display_label(loaded_user, int(payment.user_id))
@@ -542,7 +655,7 @@ class PaymentDetailOut(PaymentOut):
     updated_at: datetime | None = None
 
     @classmethod
-    def from_orm_payment_detail(cls, payment: Any) -> "PaymentDetailOut":
+    def from_orm_payment_detail(cls, payment: Any) -> PaymentDetailOut:
         payload = PaymentOut.from_orm_payment(payment).model_dump(mode="json")
         payload.update(
             {
@@ -575,7 +688,7 @@ class AdminUserOut(HttpResponseModel):
     referred_by_id: int | None = None
 
     @classmethod
-    def from_orm_user(cls, user: Any) -> "AdminUserOut":
+    def from_orm_user(cls, user: Any) -> AdminUserOut:
         return cls(
             user_id=int(user.user_id),
             telegram_id=int(user.telegram_id) if user.telegram_id else None,
@@ -612,7 +725,7 @@ class AdminUserTrialOut(HttpResponseModel):
     last_reset_at: str | None = None
 
     @classmethod
-    def from_orm_trial(cls, user: Any, trial_subs: Any) -> "AdminUserTrialOut":
+    def from_orm_trial(cls, user: Any, trial_subs: Any) -> AdminUserTrialOut:
         first_trial_sub = trial_subs[0] if trial_subs else None
         latest_trial_sub = trial_subs[-1] if trial_subs else None
         first_start = getattr(first_trial_sub, "start_date", None)
@@ -665,7 +778,7 @@ class AdminSubscriptionOut(HttpResponseModel):
     is_throttled: bool
 
     @classmethod
-    def from_orm_subscription(cls, sub: Any) -> "AdminSubscriptionOut":
+    def from_orm_subscription(cls, sub: Any) -> AdminSubscriptionOut:
         premium_bonus_bytes = int(getattr(sub, "premium_bonus_bytes", 0) or 0)
         regular_bonus_bytes = int(getattr(sub, "regular_bonus_bytes", 0) or 0)
         premium_limit_bytes = (
@@ -743,7 +856,7 @@ class AdOut(HttpResponseModel):
     stats: dict[str, Any] = Field(default_factory=dict)
 
     @classmethod
-    def from_orm_ad(cls, campaign: Any, totals: dict[str, Any] | None = None) -> "AdOut":
+    def from_orm_ad(cls, campaign: Any, totals: dict[str, Any] | None = None) -> AdOut:
         return cls(
             id=int(campaign.ad_campaign_id),
             source=campaign.source,
@@ -798,7 +911,7 @@ class LogOut(HttpResponseModel):
     timestamp: datetime | None = None
 
     @classmethod
-    def from_orm_log(cls, entry: Any) -> "LogOut":
+    def from_orm_log(cls, entry: Any) -> LogOut:
         author_user = entry.__dict__.get("author_user")
         target_user = entry.__dict__.get("target_user")
         user_id = int(entry.user_id) if entry.user_id is not None else None

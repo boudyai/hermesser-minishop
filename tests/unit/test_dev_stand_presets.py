@@ -33,7 +33,8 @@ def _read_env(path: Path) -> dict[str, str]:
 
 
 def _read_lock(path: Path) -> dict[str, str]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    data: dict[str, str] = json.loads(path.read_text(encoding="utf-8"))
+    return data
 
 
 def test_default_dev_stand_env_matches_latest_lock() -> None:

@@ -14,29 +14,28 @@
   import Card from "$components/ui/card.svelte";
   import { AttentionDot } from "$components/ui/index.js";
   import { LanguageSelect } from "$components/patterns/webapp/index.js";
-  import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
-  import EnvEditor from "../components/EnvEditor.svelte";
   import BotTokenInput from "../components/BotTokenInput.svelte";
   import CornllmKeyCard from "../components/CornllmKeyCard.svelte";
+  import EnvEditor from "../components/EnvEditor.svelte";
   import TenantDangerZone from "../components/TenantDangerZone.svelte";
+  import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
+  import type {
+    ApiUnchecked,
+    AppSettings,
+    LanguageOption,
+    OpenLinkAction,
+    StringAction,
+    SubscriptionView,
+    Translate,
+    UserProfile,
+    VoidAction,
+  } from "$lib/webapp/types.js";
 
-  type AnyRecord = Record<string, any>;
-  type ApiUnchecked = (
-    path: string,
-    options?: Parameters<typeof fetch>[1]
-  ) => Promise<Record<string, unknown>>;
-  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-  type VoidAction = () => void;
-  type LanguageOption = {
-    value: string;
-    label: string;
-    flag?: string;
-  };
+  const missingApi: ApiUnchecked = async () => ({ ok: false, error: "api_unavailable" });
 
   type Props = {
-    appSettings?: AnyRecord;
+    appSettings?: AppSettings;
     apiUnchecked?: ApiUnchecked;
-    subscription?: AnyRecord;
     currentLang?: string;
     currentLanguageOption?: LanguageOption | null;
     emailAuthEnabled?: boolean;
@@ -59,7 +58,8 @@
     telegramNotificationsStartLink?: string;
     telegramNotificationsStatus?: string;
     telegramProfileName?: string;
-    user?: AnyRecord;
+    subscription?: SubscriptionView;
+    user?: UserProfile;
     userAgreementUrl?: string;
     userLanguage?: string;
     showLogout?: boolean;
@@ -67,18 +67,17 @@
     openTelegramNotificationsBot?: VoidAction;
     logout?: VoidAction;
     openAdminPanel?: VoidAction;
-    openExternalLink?: (url: string) => void;
+    openExternalLink?: OpenLinkAction;
     openLinkEmailDialog?: VoidAction;
     openSetPasswordDialog?: VoidAction;
     setLanguageMenuOpen?: (open: boolean) => void;
     t?: Translate;
-    updateAccountLanguage?: (language: string) => void;
+    updateAccountLanguage?: StringAction;
   };
 
   let {
     appSettings = {},
-    apiUnchecked,
-    subscription = {},
+    apiUnchecked = missingApi,
     currentLang = "ru",
     currentLanguageOption = null,
     emailAuthEnabled = true,
@@ -101,6 +100,7 @@
     telegramNotificationsStartLink = "",
     telegramNotificationsStatus = "unknown",
     telegramProfileName = "",
+    subscription = {},
     user = {},
     userAgreementUrl = "",
     userLanguage = "",
@@ -119,7 +119,6 @@
 
   const showEmailAccount = $derived(emailAuthEnabled || Boolean(user?.email));
   const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
-  const hasActiveTenant = $derived(hermesMode ? Boolean(subscription?.active) : true);
 </script>
 
 <main class="content with-nav">
@@ -144,14 +143,6 @@
       <small>{profileTelegramId}</small>
     </div>
   </Card>
-  {#if hasActiveTenant}
-    <EnvEditor {apiUnchecked} {t} />
-  {/if}
-  <BotTokenInput {appSettings} {apiUnchecked} {t} />
-  {#if hasActiveTenant && hermesMode}
-    <CornllmKeyCard {appSettings} {subscription} {apiUnchecked} {t} />
-  {/if}
-  <TenantDangerZone {appSettings} {subscription} {apiUnchecked} {t} />
   {#if telegramNotificationsNeedPrompt}
     <TelegramNotificationsBanner
       startLink={telegramNotificationsStartLink}
@@ -171,8 +162,8 @@
       >
         <Shield size={21} />
         <span>
-          <strong>{t("wa_settings_admin_panel", {}, "Admin panel")}</strong>
-          <small>{t("wa_settings_admin_panel_hint", {}, "Manage the app")}</small>
+          <strong>{t("wa_settings_admin_panel", {}, "Админ-панель")}</strong>
+          <small>{t("wa_settings_admin_panel_hint", {}, "Управление приложением")}</small>
         </span>
         <ArrowRight size={17} />
       </button>
@@ -240,6 +231,14 @@
     {/if}
     <div class="settings-divider" aria-hidden="true"></div>
   </div>
+  {#if hermesMode}
+    <div class="settings-hermes-block">
+      <BotTokenInput {appSettings} {apiUnchecked} {t} />
+      <CornllmKeyCard {subscription} {appSettings} {apiUnchecked} {t} />
+      <EnvEditor {apiUnchecked} {t} />
+      <TenantDangerZone {appSettings} {subscription} {apiUnchecked} {t} />
+    </div>
+  {/if}
   <div class="settings-list" class:settings-list--language-open={languageMenuOpen}>
     <LanguageSelect
       bind:open={languageMenuOpen}

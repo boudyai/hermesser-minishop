@@ -1,8 +1,17 @@
-<script>
+<script lang="ts">
   import { AdminBadge, AdminButton, AdminSelect } from "$components/patterns/admin/index.js";
   import { CheckCheck } from "$components/ui/icons.js";
+  import type { SupportTicketLike, TranslateFn } from "./types";
 
-  let { ticket, at = (key) => key, onPatch = () => {}, onClose = () => {} } = $props();
+  type PatchableKey = "category" | "priority" | "status";
+  type Props = {
+    ticket: SupportTicketLike | null;
+    at?: TranslateFn;
+    onPatch?: (updates: Partial<Record<PatchableKey, string>>) => void;
+    onClose?: () => void;
+  };
+
+  let { ticket, at = (key) => key, onPatch = () => {}, onClose = () => {} }: Props = $props();
 
   const statusOptions = $derived(
     ["open", "awaiting_user", "awaiting_admin", "resolved", "closed"].map((item) => ({
@@ -29,7 +38,7 @@
     ticket?.priority === "urgent" ? "danger" : ticket?.priority === "high" ? "warning" : "muted"
   );
 
-  function patch(key, value) {
+  function patch(key: PatchableKey, value: string) {
     if (!ticket || ticket[key] === value) return;
     onPatch({ [key]: value });
   }

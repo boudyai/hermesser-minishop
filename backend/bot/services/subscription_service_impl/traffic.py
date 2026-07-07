@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,13 +13,15 @@ from db.models import Subscription
 from ._typing import SubscriptionServiceMixinContract
 from .hwid_limits import HwidDeviceLimits
 
+logger = logging.getLogger(__name__)
+
 
 class TrafficMixin(SubscriptionServiceMixinContract):
     async def _resolve_hwid_device_limits(
         self,
         session: AsyncSession,
         sub: Subscription,
-        tariff: Optional[Tariff],
+        tariff: Tariff | None,
     ) -> HwidDeviceLimits:
         base = (
             int(sub.hwid_device_limit)
@@ -38,10 +40,10 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         payment_amount: float,
         payment_db_id: int,
         provider: str = "yookassa",
-        tariff_key: Optional[str] = None,
+        tariff_key: str | None = None,
         sale_mode: str = "traffic",
-        promo_code_id_from_payment: Optional[int] = None,
-    ) -> Optional[Dict[str, Any]]:
+        promo_code_id_from_payment: int | None = None,
+    ) -> dict[str, Any] | None:
         """Activate or extend a traffic-based package instead of a time-based subscription."""
         tariff = self._resolve_tariff(tariff_key, "traffic") if self._tariffs_config() else None
         charged_gb = float(traffic_gb)
@@ -89,7 +91,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         )
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user:
-            logging.error("User %s not found for traffic package activation", user_id)
+            logger.error("User %s not found for traffic package activation", user_id)
             return None
 
         (
@@ -100,7 +102,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         ) = await self._get_or_create_panel_user_link_details(session, user_id, db_user)
 
         if not panel_user_uuid or not panel_sub_link_id:
-            logging.error(
+            logger.error(
                 "Failed to ensure panel linkage for user %s during traffic activation", user_id
             )
             return None
@@ -126,7 +128,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         new_balance = remaining_bytes + purchase_bytes
         new_limit = int(current_used or 0) + new_balance
 
-        start_date = datetime.now(timezone.utc)
+        start_date = datetime.now(UTC)
         # Set a far-future expiry to satisfy panel requirements; keep the latest known expiry if it's further.  # noqa: E501
         far_future = self._far_future()
         final_end_date = far_future
@@ -170,9 +172,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         try:
             new_or_updated_sub = await subscription_dal.upsert_subscription(session, sub_payload)
         except Exception as exc:
-            logging.error(
-                "Failed to upsert traffic subscription for user %s: %s", user_id, exc, exc_info=True
-            )
+            logger.exception("Failed to upsert traffic subscription for user %s: %s", user_id, exc)
             return None
 
         panel_update_payload = self._build_panel_update_payload(
@@ -192,7 +192,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             panel_user_uuid, panel_update_payload
         )
         if not updated_panel_user or updated_panel_user.get("error"):
-            logging.warning(
+            logger.warning(
                 "Panel user details update FAILED for traffic package user %s. Response: %s",
                 panel_user_uuid,
                 updated_panel_user,
@@ -286,12 +286,12 @@ class TrafficMixin(SubscriptionServiceMixinContract):
                 source="admin_premium_override",
             )
             if not panel_updated:
-                logging.warning(
+                logger.warning(
                     "sync_premium_squad_access_to_panel: panel update failed for user %s",
                     user_id,
                 )
         except Exception:
-            logging.exception(
+            logger.exception(
                 "sync_premium_squad_access_to_panel: failed to push squads for user %s", user_id
             )
 
@@ -346,4 +346,4 @@ class TrafficMixin(SubscriptionServiceMixinContract):
                 db_user.panel_user_uuid, panel_payload
             )
         except Exception:
-            logging.exception("sync_main_traffic_limit_to_panel failed for user %s", user_id)
+            logger.exception("sync_main_traffic_limit_to_panel failed for user %s", user_id)

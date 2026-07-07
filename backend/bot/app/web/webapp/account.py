@@ -1,7 +1,7 @@
 import hashlib
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import aiohttp
 from aiohttp import web
@@ -10,6 +10,7 @@ from sqlalchemy.orm import sessionmaker
 from bot.app.web.context import (
     get_email_auth_service,
     get_i18n,
+    get_optional_subscription_service,
     get_session_factory,
     get_settings,
 )
@@ -114,13 +115,13 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
     code = str(email_payload.code or "")
     email_service: EmailAuthService = get_email_auth_service(request)
     async_session_factory: sessionmaker = get_session_factory(request)
-    merge_notice: Optional[Dict[str, Any]] = None
-    source_panel_uuid: Optional[str] = None
+    merge_notice: dict[str, Any] | None = None
+    source_panel_uuid: str | None = None
     final_user_id = user_id
-    final_telegram_id: Optional[int] = None
-    final_username: Optional[str] = None
-    final_first_name: Optional[str] = None
-    final_panel_uuid: Optional[str] = None
+    final_telegram_id: int | None = None
+    final_username: str | None = None
+    final_first_name: str | None = None
+    final_panel_uuid: str | None = None
     should_notify_email_linked = False
 
     async with async_session_factory() as session:
@@ -171,7 +172,7 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
                     settings=settings,
                 )
             current_user.email = email
-            current_user.email_verified_at = datetime.now(timezone.utc)
+            current_user.email_verified_at = datetime.now(UTC)
             if not merge_notice:
                 await _sync_panel_identity_for_user(request, current_user)
             await session.commit()
@@ -216,7 +217,7 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
     await _invalidate_webapp_user_caches(settings, user_id, final_user_id, include_devices=True)
 
     token = create_webapp_session_token(settings, int(final_user_id))
-    response_payload: Dict[str, Any] = {"ok": True}
+    response_payload: dict[str, Any] = {"ok": True}
     if merge_notice:
         response_payload["account_merge"] = merge_notice
         response_payload["user_id"] = final_user_id
@@ -292,7 +293,7 @@ async def account_password_confirm_route(request: web.Request) -> web.Response:
                 )
 
             db_user.password_hash = _hash_email_password(str(password_payload.password))
-            db_user.password_set_at = datetime.now(timezone.utc)
+            db_user.password_set_at = datetime.now(UTC)
             await session.flush()
             await session.commit()
         except Exception:
@@ -314,14 +315,14 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
         return _json_error(401, "invalid_auth", "Invalid Telegram auth data")
 
     async_session_factory: sessionmaker = get_session_factory(request)
-    merge_notice: Optional[Dict[str, Any]] = None
-    source_panel_uuid: Optional[str] = None
+    merge_notice: dict[str, Any] | None = None
+    source_panel_uuid: str | None = None
     final_user_id = user_id
-    final_telegram_id: Optional[int] = None
-    final_email: Optional[str] = None
-    final_username: Optional[str] = None
-    final_first_name: Optional[str] = None
-    final_panel_uuid: Optional[str] = None
+    final_telegram_id: int | None = None
+    final_email: str | None = None
+    final_username: str | None = None
+    final_first_name: str | None = None
+    final_panel_uuid: str | None = None
     should_notify_telegram_linked = False
     async with async_session_factory() as session:
         try:
@@ -399,7 +400,7 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
     await _probe_telegram_notifications_for_user_id(request, int(final_user_id))
 
     token = create_webapp_session_token(settings, int(final_user_id))
-    response_payload: Dict[str, Any] = {
+    response_payload: dict[str, Any] = {
         "ok": True,
         "user_id": int(final_user_id),
         "telegram_id": final_telegram_id,
@@ -498,22 +499,25 @@ async def account_bot_token_route(request: web.Request) -> web.Response:
     if not token or ":" not in token or not token.split(":", 1)[0].isdigit():
         return _json_error(400, "invalid_bot_token", "Invalid bot token format")
 
-    # Validate via Telegram getMe — rejects dead/revoked tokens before we store them.
     try:
-        async with aiohttp.ClientSession() as http_session:
-            async with http_session.get(
+        async with (
+            aiohttp.ClientSession() as http_session,
+            http_session.get(
                 f"https://api.telegram.org/bot{token}/getMe",
                 timeout=aiohttp.ClientTimeout(total=10),
-            ) as resp:
-                data = await resp.json()
-                if not data.get("ok"):
-                    return _json_error(400, "invalid_bot_token", "Telegram rejected this token")
-                bot_username = data.get("result", {}).get("username", "")
+            ) as resp,
+        ):
+            data = await resp.json()
+            if not data.get("ok"):
+                return _json_error(400, "invalid_bot_token", "Telegram rejected this token")
+            bot_username = str(data.get("result", {}).get("username") or "")
     except Exception:
         logger.exception("getMe validation failed for user %s", user_id)
         return _json_error(502, "telegram_check_failed", "Could not verify token with Telegram")
 
     async_session_factory: sessionmaker = get_session_factory(request)
+    tenant_uuid = ""
+    applied_to_tenant = False
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
@@ -521,21 +525,12 @@ async def account_bot_token_route(request: web.Request) -> web.Response:
             return _json_error(403, "access_denied", "Access denied")
         db_user.pending_bot_token = token
         db_user.pending_bot_username = bot_username or db_user.pending_bot_username
-        await session.commit()
-        # ponytail: if a tenant already exists, push the new token to
-        # provisioning-core so the worker drains an update_secrets job
-        # right now. Without this, the token is just stored locally and
-        # the running bot keeps using the old one until the next trial
-        # / paid activation. The update is best-effort — failure is
-        # surfaced in the response so the user knows to retry.
-        applied_to_tenant = False
         tenant_uuid = str(db_user.panel_user_uuid or "").strip()
+        await session.commit()
+
         if tenant_uuid:
             try:
-                from bot.app.web.context import get_optional_subscription_service
-                from bot.services.hermes_provisioning_service import (
-                    HermesProvisioningService,
-                )
+                from bot.services.hermes_provisioning_service import HermesProvisioningService
 
                 subscription_service = get_optional_subscription_service(request)
                 panel_service = (
@@ -559,19 +554,16 @@ async def account_bot_token_route(request: web.Request) -> web.Response:
                 )
 
     await _invalidate_webapp_user_caches(settings, user_id)
-    payload: Dict[str, Any] = {"ok": True, "bot_username": bot_username}
+    payload: dict[str, Any] = {"ok": True, "bot_username": bot_username}
     if tenant_uuid:
         payload["tenant_id"] = tenant_uuid
         payload["applied_to_tenant"] = applied_to_tenant
         if not applied_to_tenant:
-            # ponytail: the token is saved locally and will apply at the
-            # next trial/paid activation, but the running bot still uses
-            # the old token. Surface this so the UI can warn the user.
             payload["warning"] = "token_saved_but_not_applied"
     return json_response(payload)
 
 
-def _telegram_photo_url_value(telegram_user: Dict[str, Any]) -> Optional[str]:
+def _telegram_photo_url_value(telegram_user: dict[str, Any]) -> str | None:
     raw_value = telegram_user.get("photo_url")
     if not raw_value:
         return None

@@ -3,12 +3,15 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple, Union
+from collections.abc import Callable, Mapping
+from typing import Any
 
 from aiohttp import ClientError, ClientSession, ClientTimeout, TraceConfig
 
+logger = logging.getLogger(__name__)
+
 SuccessCheck = Callable[[int, Any], bool]
-TimeoutSource = Union[float, Callable[[], float]]
+TimeoutSource = float | Callable[[], float]
 _TRANSPORT_ATTEMPTS = 2
 _DEFAULT_TIMEOUT_SECONDS = 20.0
 
@@ -18,7 +21,7 @@ def http_ok(status: int, _body: Any) -> bool:
     return status == 200
 
 
-def _trace_request_ctx(trace_config_ctx: Any) -> Optional[dict]:
+def _trace_request_ctx(trace_config_ctx: Any) -> dict | None:
     ctx = getattr(trace_config_ctx, "trace_request_ctx", None)
     return ctx if isinstance(ctx, dict) else None
 
@@ -48,10 +51,10 @@ async def post_json_request(
     url: str,
     *,
     body: Any,
-    headers: Optional[Mapping[str, str]] = None,
+    headers: Mapping[str, str] | None = None,
     log_prefix: str,
     is_success: SuccessCheck = http_ok,
-) -> Tuple[bool, Dict[str, Any]]:
+) -> tuple[bool, dict[str, Any]]:
     """Centralized JSON-POST every HTTP-API provider used to inline ~25 lines for.
 
     On transport failure, JSON decode failure, or rejected ``is_success`` check,
@@ -71,14 +74,14 @@ async def post_json_request(
                 try:
                     response_data = json.loads(response_text) if response_text else {}
                 except json.JSONDecodeError:
-                    logging.error("%s: invalid JSON response: %s", log_prefix, response_text)
+                    logger.error("%s: invalid JSON response: %s", log_prefix, response_text)
                     return False, {
                         "status": response.status,
                         "message": "invalid_json",
                         "raw": response_text,
                     }
                 if not is_success(response.status, response_data):
-                    logging.error(
+                    logger.error(
                         "%s: API returned error (status=%s, body=%s)",
                         log_prefix,
                         response.status,
@@ -88,20 +91,20 @@ async def post_json_request(
                 return True, response_data
         except Exception as exc:
             if attempt < _TRANSPORT_ATTEMPTS and _should_retry_transport_error(exc, trace_ctx):
-                logging.warning(
-                    "%s: transport failed before request headers were sent; retrying (%s/%s): %s",  # noqa: E501
+                logger.warning(
+                    "%s: transport failed before request headers were sent; retrying (%s/%s): %s",
                     log_prefix,
                     attempt + 1,
                     _TRANSPORT_ATTEMPTS,
                     exc,
                 )
                 continue
-            logging.exception("%s: request failed.", log_prefix)
+            logger.exception("%s: request failed.", log_prefix)
             return False, {"message": str(exc)}
     return False, {"message": "request_failed"}
 
 
-def first_value(data: Optional[Mapping[str, Any]], *keys: str) -> Optional[str]:
+def first_value(data: Mapping[str, Any] | None, *keys: str) -> str | None:
     """Return the first non-empty value among ``keys`` (cast to ``str``)."""
     if not data:
         return None
@@ -129,9 +132,9 @@ class HttpClientMixin:
     """
 
     _timeout_source: TimeoutSource
-    _session: Optional[ClientSession]
-    _stale_sessions: List[ClientSession]
-    _session_cleanup_tasks: Set["asyncio.Task[None]"]
+    _session: ClientSession | None
+    _stale_sessions: list[ClientSession]
+    _session_cleanup_tasks: set[asyncio.Task[None]]
 
     def _init_http_client(self, *, total_timeout: TimeoutSource = _DEFAULT_TIMEOUT_SECONDS) -> None:
         self._timeout_source = total_timeout

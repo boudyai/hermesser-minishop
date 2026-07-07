@@ -1,7 +1,7 @@
 import json
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from aiohttp import web
@@ -41,6 +41,7 @@ from .assets import (
 from .common import (
     _coerce_int_or_none,
     _ensure_cached_telegram_avatar,
+    _format_bytes,
     _format_months_title,
     _format_number_for_payload,
     _format_remaining,
@@ -68,7 +69,7 @@ __all__ = [
 ]
 
 
-async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, Any]:
+async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, Any]:
     settings: Settings = get_settings(request)
     async_session_factory: sessionmaker = get_session_factory(request)
     subscription_service: SubscriptionService = get_subscription_service(request)
@@ -86,7 +87,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
 
         active = await subscription_service.get_active_subscription_details(session, user_id)
         referral_code = await user_dal.ensure_referral_code(session, db_user)
-        referral_service: Optional[ReferralService] = get_referral_service(request)
+        referral_service: ReferralService | None = get_referral_service(request)
         bot_username = get_bot_username(request)
         referral_link = None
         if referral_service and bot_username:
@@ -120,9 +121,20 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
         )
         install_share_token = (
             await subscription_dal.ensure_install_share_token(session, local_sub)
-            if active and local_sub
+            if active
+            and local_sub
+            and str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes"
             else None
         )
+        tenant_state: dict[str, Any] | None = None
+        if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes":
+            tenant_uuid = str(db_user.panel_user_uuid or "").strip()
+            get_tenant_state = getattr(subscription_service.panel_service, "get_tenant_state", None)
+            if tenant_uuid and callable(get_tenant_state):
+                try:
+                    tenant_state = await get_tenant_state(tenant_uuid)
+                except Exception:
+                    logger.exception("Failed to load Hermes tenant state for user %s", user_id)
         trial_base_available = bool(
             settings.TRIAL_ENABLED
             and settings.TRIAL_DURATION_DAYS > 0
@@ -169,24 +181,6 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
         getattr(db_user, "telegram_notifications_status", None)
     )
     telegram_notifications_link = telegram_notifications_start_link(get_bot_username(request))
-
-    # Best-effort: in hermes mode pull the tenant's runtime state from
-    # provisioning-core. The service caches for 5s, so a single page load
-    # is one core hit at most. Failure to fetch is non-fatal — we surface
-    # null fields and the UI falls back to its no-state copy.
-    tenant_state: Optional[Dict[str, Any]] = None
-    panel_service = getattr(subscription_service, "panel_service", None)
-    if (
-        str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
-        and db_user.panel_user_uuid
-        and panel_service is not None
-        and hasattr(panel_service, "get_tenant_state")
-    ):
-        try:
-            tenant_state = await panel_service.get_tenant_state(str(db_user.panel_user_uuid))
-        except Exception as exc:  # noqa: BLE001 — best-effort
-            logger.debug("hermes tenant state fetch failed: %s", exc)
-            tenant_state = None
     return {
         "user": {
             "id": user_id,
@@ -274,21 +268,23 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             "subscription_purchase_description": settings.subscription_purchase_description(lang),
             "subscription_guides_enabled": subscription_guides_available(settings),
             "email_auth_enabled": settings.email_auth_configured,
-            "panel_write_mode": str(getattr(settings.panel_settings, "write_mode", "") or ""),
+            "panel_write_mode": str(
+                getattr(settings.panel_settings, "write_mode", "") or "remnawave"
+            ),
             "has_bot_token": bool(getattr(db_user, "pending_bot_token", None)),
         },
     }
 
 
-def _legacy_referral_bonus_periods(settings: Settings) -> List[int]:
+def _legacy_referral_bonus_periods(settings: Settings) -> list[int]:
     if settings.traffic_sale_mode:
         return []
 
     return sorted(int(months) for months in settings.subscription_options)
 
 
-def _serialize_tariff_period_referral_bonus_details(tariff: Any, lang: str) -> List[Dict[str, Any]]:
-    details: List[Dict[str, Any]] = []
+def _serialize_tariff_period_referral_bonus_details(tariff: Any, lang: str) -> list[dict[str, Any]]:
+    details: list[dict[str, Any]] = []
     for months in sorted(int(month) for month in tariff.enabled_periods):
         inviter_days = tariff.referral_inviter_bonus_days(months)
         friend_days = tariff.referral_referee_bonus_days(months)
@@ -308,7 +304,7 @@ def _serialize_tariff_period_referral_bonus_details(tariff: Any, lang: str) -> L
     return details
 
 
-def _serialize_tariff_referral_bonus_details(settings: Settings, lang: str) -> List[Dict[str, Any]]:
+def _serialize_tariff_referral_bonus_details(settings: Settings, lang: str) -> list[dict[str, Any]]:
     tariffs_config = settings.tariffs_config
     if not tariffs_config:
         return []
@@ -323,7 +319,7 @@ def _serialize_tariff_referral_bonus_details(settings: Settings, lang: str) -> L
             else []
         )
 
-    summaries: List[Dict[str, Any]] = []
+    summaries: list[dict[str, Any]] = []
     for tariff in period_tariffs:
         details = _serialize_tariff_period_referral_bonus_details(tariff, lang)
         if not details:
@@ -347,11 +343,11 @@ def _serialize_tariff_referral_bonus_details(settings: Settings, lang: str) -> L
     return summaries
 
 
-def _serialize_referral_bonus_details(settings: Settings, lang: str) -> List[Dict[str, Any]]:
+def _serialize_referral_bonus_details(settings: Settings, lang: str) -> list[dict[str, Any]]:
     if settings.tariffs_config:
         return _serialize_tariff_referral_bonus_details(settings, lang)
 
-    details: List[Dict[str, Any]] = []
+    details: list[dict[str, Any]] = []
     for months in _legacy_referral_bonus_periods(settings):
         inviter_days = settings.referral_bonus_inviter.get(months)
         friend_days = settings.referral_bonus_referee.get(months)
@@ -369,9 +365,9 @@ def _serialize_referral_bonus_details(settings: Settings, lang: str) -> List[Dic
 
 
 def _build_webapp_referral_link(
-    base_url: Optional[str],
-    referral_code: Optional[str],
-) -> Optional[str]:
+    base_url: str | None,
+    referral_code: str | None,
+) -> str | None:
     if not base_url or not referral_code:
         return None
     parts = urlsplit(base_url)
@@ -391,13 +387,13 @@ def _build_webapp_referral_link(
 def _serialize_subscription(
     request_or_settings: Any,
     settings_or_active: Any,
-    active_or_local_sub: Optional[Any] = None,
-    local_sub_or_lang: Optional[Any] = None,
-    lang: Optional[str] = None,
+    active_or_local_sub: Any | None = None,
+    local_sub_or_lang: Any | None = None,
+    lang: str | None = None,
     *,
-    install_share_token: Optional[str] = None,
-    tenant_state: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    install_share_token: str | None = None,
+    tenant_state: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     if lang is None:
         request = None
         settings = request_or_settings
@@ -410,13 +406,6 @@ def _serialize_subscription(
         active = active_or_local_sub
         local_sub = local_sub_or_lang
 
-    # Ponytail: in hermes mode the runtime tenant lifecycle (provisioning_vm,
-    # payment_expiring, error, …) is owned by provisioning-core, not the
-    # shop-side Subscription row. The async call site in _build_user_payload
-    # fetches it once and threads it through here; the sync call site in
-    # tests passes ``tenant_state=None`` and gets stable null fields back.
-    tenant_runtime_fields = _tenant_runtime_fields(tenant_state)
-
     if not active:
         return {
             "active": False,
@@ -426,26 +415,30 @@ def _serialize_subscription(
             "config_link": None,
             "connect_url": None,
             "panel_short_uuid": None,
+            "tenant_id": _tenant_runtime_field(tenant_state, "tenant_id"),
+            "bot_username": None,
             "install_share_token": None,
             "install_share_url": None,
-            **tenant_runtime_fields,
+            **_tenant_runtime_fields(tenant_state),
         }
 
     end_date = active.get("end_date")
     if end_date and end_date.tzinfo is None:
-        end_date = end_date.replace(tzinfo=timezone.utc)
+        end_date = end_date.replace(tzinfo=UTC)
 
     seconds_left = 0
     if end_date:
         seconds_left = max(
             0,
-            int((end_date - datetime.now(timezone.utc)).total_seconds()),
+            int((end_date - datetime.now(UTC)).total_seconds()),
         )
 
     can_topup_regular_traffic = False
     can_topup_premium_traffic = False
     can_topup_traffic = False
     can_topup_devices = False
+    topup_always_available = False
+    premium_topup_always_available = False
     if settings.tariffs_config and active.get("tariff_key"):
         try:
             tariff = settings.tariffs_config.require(str(active.get("tariff_key")))
@@ -457,6 +450,8 @@ def _serialize_subscription(
                 and tariff.premium_topup_packages.has_any()
             )
             can_topup_traffic = bool(can_topup_regular_traffic or can_topup_premium_traffic)
+            topup_always_available = bool(tariff.topup_always_available)
+            premium_topup_always_available = bool(tariff.premium_topup_always_available)
             max_devices = _coerce_int_or_none(active.get("max_devices"))
             # max_devices == 0 or None means unlimited — top-up is pointless in that case.
             can_topup_devices = bool(
@@ -469,18 +464,23 @@ def _serialize_subscription(
             can_topup_premium_traffic = False
             can_topup_traffic = False
             can_topup_devices = False
+            topup_always_available = False
+            premium_topup_always_available = False
 
     panel_short_uuid = str(active.get("panel_short_uuid") or "").strip()
     bot_username = str(active.get("bot_username") or "").strip()
-    share_token = str(
-        install_share_token or getattr(local_sub, "install_share_token", "") or ""
-    ).strip()
+    hermes_mode = str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
+    share_token = (
+        ""
+        if hermes_mode
+        else str(install_share_token or getattr(local_sub, "install_share_token", "") or "").strip()
+    )
     extra_hwid_valid_until = active.get("extra_hwid_devices_valid_until")
     if extra_hwid_valid_until and extra_hwid_valid_until.tzinfo is None:
-        extra_hwid_valid_until = extra_hwid_valid_until.replace(tzinfo=timezone.utc)
+        extra_hwid_valid_until = extra_hwid_valid_until.replace(tzinfo=UTC)
     extra_hwid_next_valid_from = active.get("extra_hwid_devices_next_valid_from")
     if extra_hwid_next_valid_from and extra_hwid_next_valid_from.tzinfo is None:
-        extra_hwid_next_valid_from = extra_hwid_next_valid_from.replace(tzinfo=timezone.utc)
+        extra_hwid_next_valid_from = extra_hwid_next_valid_from.replace(tzinfo=UTC)
     extra_hwid_count = _coerce_int_or_none(active.get("extra_hwid_devices")) or 0
     device_topup_renewal_available = bool(
         extra_hwid_count > 0
@@ -513,76 +513,6 @@ def _serialize_subscription(
         except Exception:
             auto_renew_supported = False
             auto_renew_service_active = False
-    # ponytail: the old code hardcoded config_link/traffic_*/premium_*/max_devices
-    # to None/0/False for every active subscription. The comment said
-    # "hermes mode" but the zeroing was unconditional, which silently
-    # stripped real proxy data from non-hermes responses too. Now we
-    # read from `active` (already None for hermes at layer 1) and only
-    # override when in hermes mode to enforce the no-proxy-fields contract
-    # on the wire.
-    hermes_mode = str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
-    config_link = active.get("config_link")
-    connect_url = active.get("connect_button_url")
-    traffic_limit_bytes = active.get("traffic_limit_bytes")
-    traffic_used_bytes = active.get("traffic_used_bytes")
-    traffic_limit_strategy = active.get("traffic_limit_strategy") or ""
-    premium_title = active.get("premium_title")
-    tier_baseline_bytes = active.get("tier_baseline_bytes")
-    topup_balance_bytes = active.get("topup_balance_bytes")
-    premium_limit_bytes = active.get("premium_limit_bytes")
-    premium_used_bytes = active.get("premium_used_bytes")
-    premium_baseline_bytes = active.get("premium_baseline_bytes")
-    premium_topup_balance_bytes = active.get("premium_topup_balance_bytes")
-    premium_topup_used_bytes = active.get("premium_topup_used_bytes")
-    premium_bonus_bytes = active.get("premium_bonus_bytes")
-    regular_bonus_bytes = active.get("regular_bonus_bytes")
-    regular_unlimited_override = bool(active.get("regular_unlimited_override"))
-    premium_unlimited_override = bool(active.get("premium_unlimited_override"))
-    premium_is_limited = bool(active.get("premium_is_limited"))
-    premium_squad_labels = active.get("premium_squad_labels") or []
-    premium_node_labels = active.get("premium_node_labels") or []
-    period_start_at = active.get("period_start_at")
-    is_throttled = bool(active.get("is_throttled"))
-    max_devices = active.get("max_devices")
-
-    if hermes_mode:
-        # No proxy data on the wire in hermes mode — explicit overrides
-        # keep the contract stable even if `active` ever leaks values.
-        config_link = None
-        connect_url = None
-        traffic_limit_bytes = 0
-        traffic_used_bytes = 0
-        traffic_limit_strategy = ""
-        premium_title = None
-        tier_baseline_bytes = 0
-        topup_balance_bytes = 0
-        premium_limit_bytes = 0
-        premium_used_bytes = 0
-        premium_baseline_bytes = 0
-        premium_topup_balance_bytes = 0
-        premium_topup_used_bytes = 0
-        premium_bonus_bytes = 0
-        regular_bonus_bytes = 0
-        regular_unlimited_override = False
-        premium_unlimited_override = False
-        premium_is_limited = False
-        premium_squad_labels = []
-        premium_node_labels = []
-        period_start_at = None
-        is_throttled = False
-        max_devices = 0
-
-    # ponytail: in Hermes mode the public /s/{token} install-guide share
-    # link is suppressed — the visitor would land on a bot they don't own.
-    # The token still gets persisted on the subscription row when other
-    # flows (proxy shop) generate it, but we never expose it on the wire.
-    serialized_share_token = (
-        None if hermes_mode else subscription_dal.normalize_install_share_token(share_token) or None
-    )
-    serialized_share_url = (
-        None if hermes_mode else _build_install_share_link(request, settings, share_token)
-    )
-
     return {
         "active": seconds_left > 0,
         "status": active.get("status_from_panel") or "UNKNOWN",
@@ -590,46 +520,54 @@ def _serialize_subscription(
         "end_date_text": end_date.strftime("%d.%m.%Y %H:%M") if end_date else "N/A",
         "days_left": seconds_left // 86400,
         "remaining_text": _format_remaining(seconds_left, lang),
-        "tenant_id": panel_short_uuid or None,
-        "install_share_token": serialized_share_token,
-        "install_share_url": serialized_share_url,
+        "config_link": active.get("config_link"),
+        "connect_url": active.get("connect_button_url") or active.get("config_link"),
+        "panel_short_uuid": panel_short_uuid or None,
+        "tenant_id": _tenant_runtime_field(tenant_state, "tenant_id")
+        or str(getattr(local_sub, "panel_user_uuid", "") or "").strip()
+        or None,
+        "bot_username": bot_username or None,
+        "install_share_token": subscription_dal.normalize_install_share_token(share_token) or None,
+        "install_share_url": _build_install_share_link(request, settings, share_token),
+        "traffic_limit": _format_bytes(active.get("traffic_limit_bytes"), zero_as_unlimited=True),
+        "traffic_used": _format_bytes(active.get("traffic_used_bytes")),
+        "traffic_limit_bytes": _coerce_int_or_none(active.get("traffic_limit_bytes")),
+        "traffic_used_bytes": _coerce_int_or_none(active.get("traffic_used_bytes")),
         "tariff_key": active.get("tariff_key"),
         "tariff_name": active.get("tariff_name"),
         "tariff_description": active.get("tariff_description"),
+        "premium_title": active.get("premium_title"),
         "billing_model": active.get("billing_model"),
-        "config_link": config_link,
-        "connect_url": connect_url,
-        "panel_short_uuid": panel_short_uuid or None,
-        "bot_username": bot_username or None,
-        "traffic_limit": traffic_limit_bytes,
-        "traffic_used": traffic_used_bytes,
-        "traffic_limit_bytes": traffic_limit_bytes,
-        "traffic_used_bytes": traffic_used_bytes,
-        "premium_title": premium_title,
-        "traffic_limit_strategy": traffic_limit_strategy,
-        "tier_baseline_bytes": tier_baseline_bytes,
-        "topup_balance_bytes": topup_balance_bytes,
-        "premium_limit": premium_limit_bytes,
-        "premium_used": premium_used_bytes,
-        "premium_limit_bytes": premium_limit_bytes,
-        "premium_used_bytes": premium_used_bytes,
-        "premium_baseline_bytes": premium_baseline_bytes,
-        "premium_topup_balance_bytes": premium_topup_balance_bytes,
-        "premium_topup_used_bytes": premium_topup_used_bytes,
-        "premium_bonus_bytes": premium_bonus_bytes,
-        "regular_bonus_bytes": regular_bonus_bytes,
-        "regular_unlimited_override": regular_unlimited_override,
-        "premium_unlimited_override": premium_unlimited_override,
-        "premium_is_limited": premium_is_limited,
-        "premium_squad_labels": premium_squad_labels,
-        "premium_node_labels": premium_node_labels,
+        "traffic_limit_strategy": str(active.get("traffic_limit_strategy") or ""),
+        "tier_baseline_bytes": _coerce_int_or_none(active.get("tier_baseline_bytes")),
+        "topup_balance_bytes": _coerce_int_or_none(active.get("topup_balance_bytes")),
+        "premium_limit": _format_bytes(active.get("premium_limit_bytes"), zero_as_unlimited=True),
+        "premium_used": _format_bytes(active.get("premium_used_bytes")),
+        "premium_limit_bytes": _coerce_int_or_none(active.get("premium_limit_bytes")),
+        "premium_used_bytes": _coerce_int_or_none(active.get("premium_used_bytes")),
+        "premium_baseline_bytes": _coerce_int_or_none(active.get("premium_baseline_bytes")),
+        "premium_topup_balance_bytes": _coerce_int_or_none(
+            active.get("premium_topup_balance_bytes")
+        ),
+        "premium_topup_used_bytes": _coerce_int_or_none(active.get("premium_topup_used_bytes")),
+        "premium_bonus_bytes": _coerce_int_or_none(active.get("premium_bonus_bytes")) or 0,
+        "regular_bonus_bytes": _coerce_int_or_none(active.get("regular_bonus_bytes")) or 0,
+        "regular_unlimited_override": bool(active.get("regular_unlimited_override")),
+        "premium_unlimited_override": bool(active.get("premium_unlimited_override")),
+        "premium_is_limited": bool(active.get("premium_is_limited")),
+        "premium_squad_labels": list(active.get("premium_squad_labels") or []),
+        "premium_node_labels": list(active.get("premium_node_labels") or []),
         "can_topup_traffic": can_topup_traffic,
         "can_topup_regular_traffic": can_topup_regular_traffic,
         "can_topup_premium_traffic": can_topup_premium_traffic,
         "can_topup_devices": can_topup_devices,
-        "period_start_at": period_start_at,
-        "is_throttled": is_throttled,
-        "max_devices": max_devices,
+        "topup_always_available": topup_always_available,
+        "premium_topup_always_available": premium_topup_always_available,
+        "period_start_at": active.get("period_start_at").isoformat()
+        if active.get("period_start_at")
+        else None,
+        "is_throttled": bool(active.get("is_throttled")),
+        "max_devices": _coerce_int_or_none(active.get("max_devices")),
         "base_hwid_device_limit": _coerce_int_or_none(active.get("base_hwid_device_limit")),
         "extra_hwid_devices": extra_hwid_count,
         "extra_hwid_devices_valid_until": extra_hwid_valid_until.isoformat()
@@ -649,46 +587,42 @@ def _serialize_subscription(
         "auto_renew_can_enable": bool(auto_renew_supported and auto_renew_service_active),
         "auto_renew_provider_label": auto_renew_provider_label,
         "provider": getattr(local_sub, "provider", None),
-        **tenant_runtime_fields,
+        **_tenant_runtime_fields(tenant_state),
     }
 
 
-def _tenant_runtime_fields(state: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Project a tenant runtime state dict into the subscription payload shape.
+def _tenant_runtime_field(tenant_state: dict[str, Any] | None, key: str) -> str | None:
+    if not tenant_state:
+        return None
+    value = tenant_state.get(key)
+    if value is None:
+        return None
+    return str(value)
 
-    All fields are nullable: when the panel service can't be reached or the
-    tenant doesn't exist yet (e.g. mid-trial before provisioning), we surface
-    ``None`` rather than omit them so the contract stays stable.
-    """
-    if not state:
-        return {
-            "tenant_status": None,
-            "tenant_desired_state": None,
-            "tenant_actual_state": None,
-            "tenant_last_state_change": None,
-        }
+
+def _tenant_runtime_fields(tenant_state: dict[str, Any] | None) -> dict[str, str | None]:
     return {
-        "tenant_status": str(state.get("status") or "unknown"),
-        "tenant_desired_state": state.get("desired_state"),
-        "tenant_actual_state": state.get("actual_state"),
-        "tenant_last_state_change": state.get("last_state_change"),
+        "tenant_status": _tenant_runtime_field(tenant_state, "status"),
+        "tenant_desired_state": _tenant_runtime_field(tenant_state, "desired_state"),
+        "tenant_actual_state": _tenant_runtime_field(tenant_state, "actual_state"),
+        "tenant_last_state_change": _tenant_runtime_field(tenant_state, "last_state_change"),
     }
 
 
-def _webapp_iso_datetime(value: Optional[Any]) -> Optional[str]:
+def _webapp_iso_datetime(value: Any | None) -> str | None:
     if not value:
         return None
     if isinstance(value, datetime):
-        normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        normalized = value if value.tzinfo else value.replace(tzinfo=UTC)
         return normalized.isoformat()
     return str(value)
 
 
-def _webapp_datetime_text(value: Optional[Any]) -> Optional[str]:
+def _webapp_datetime_text(value: Any | None) -> str | None:
     if not value:
         return None
     if isinstance(value, datetime):
-        normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        normalized = value if value.tzinfo else value.replace(tzinfo=UTC)
         return normalized.strftime("%d.%m.%Y %H:%M")
     return str(value)
 
@@ -699,9 +633,9 @@ async def _attach_hwid_renewal_quotes_to_plans(
     *,
     user_id: int,
     settings: Settings,
-    active: Optional[Dict[str, Any]],
-    local_sub: Optional[Any],
-    plans: List[Dict[str, Any]],
+    active: dict[str, Any] | None,
+    local_sub: Any | None,
+    plans: list[dict[str, Any]],
 ) -> None:
     quote_method = getattr(subscription_service, "quote_hwid_device_renewal_for_subscription", None)
     if not callable(quote_method):
@@ -772,10 +706,10 @@ async def _attach_hwid_renewal_quotes_to_plans(
 
 
 def _build_install_share_link(
-    request: Optional[web.Request],
+    request: web.Request | None,
     settings: Settings,
     share_token: str,
-) -> Optional[str]:
+) -> str | None:
     share_token = subscription_dal.normalize_install_share_token(share_token)
     if not share_token or request is None:
         return None
@@ -799,11 +733,11 @@ def _serialize_plans(
     settings: Settings,
     lang: str,
     *,
-    subscription_options: Optional[Dict[int, float]] = None,
-    stars_subscription_options: Optional[Dict[int, int]] = None,
-    traffic_packages: Optional[Dict[float, float]] = None,
-    stars_traffic_packages: Optional[Dict[float, int]] = None,
-) -> List[Dict[str, Any]]:
+    subscription_options: dict[int, float] | None = None,
+    stars_subscription_options: dict[int, int] | None = None,
+    traffic_packages: dict[float, float] | None = None,
+    stars_traffic_packages: dict[float, int] | None = None,
+) -> list[dict[str, Any]]:
     tariffs_config = settings.tariffs_config
     if tariffs_config:
         default_currency = default_currency_key_for_settings(settings)
@@ -827,15 +761,6 @@ def _serialize_plans(
                 )
                 if tariff.billing_model == "period"
                 else [],
-                # Hosting fields — non-Remnaweave, used by the Mini App
-                # onboarding wizard to display resource hints and the
-                # monthly CornLLM credit. Both default to 0/None for the
-                # proxy traffic tariffs so legacy mode is unaffected.
-                "vcpu": getattr(tariff, "vcpu", None),
-                "memory_gb": getattr(tariff, "memory_gb", None),
-                "included_cornllm_balance_rub": float(
-                    getattr(tariff, "included_cornllm_balance_rub", 0.0) or 0.0
-                ),
             }
             if tariff.billing_model == "period":
                 # Render periods in the configured order (enabled_periods is the
@@ -877,7 +802,7 @@ def _serialize_plans(
                 # Preserve the configured package order (default-currency list first,
                 # then any Stars-only volumes) so admins can reorder via drag & drop.
                 # Matches the bot keyboard, which iterates the package list as-is.
-                ordered_gb: List[float] = []
+                ordered_gb: list[float] = []
                 for traffic_gb in list(currency_packages) + list(stars_packages):
                     if traffic_gb not in ordered_gb:
                         ordered_gb.append(traffic_gb)

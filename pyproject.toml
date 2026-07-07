@@ -1,5 +1,5 @@
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 line-length = 100
 exclude = [
     ".git",
@@ -12,13 +12,30 @@ exclude = [
 [tool.ruff.lint]
 select = [
     "E", # pycodestyle errors
+    "W", # pycodestyle warnings
     "F", # pyflakes
     "I", # isort
+    "UP", # pyupgrade
+    "B", # flake8-bugbear
+    "ASYNC", # flake8-async
+    "DTZ", # flake8-datetimez
+    "C4", # flake8-comprehensions
+    "SIM", # flake8-simplify
+    "PIE", # flake8-pie
+    "PERF", # Perflint
+    "RUF", # Ruff-specific rules
+    "LOG", # flake8-logging
+    "G", # flake8-logging-format
+    "PLE", # Pylint errors
+    "T10", # flake8-debugger
 ]
 ignore = [
     "E731", # lambda assignment (common in handlers)
     "E712", # `== True` / `== False` in SQLAlchemy filters
     "E711", # `== None` on ORM columns (use `.is_(None)` in refactors)
+    "RUF001", # intentional Russian UI/localization strings use Cyrillic homoglyphs
+    "RUF002", # intentional Russian docstrings use Cyrillic homoglyphs
+    "RUF003", # intentional Russian comments use Cyrillic homoglyphs
 ]
 
 [tool.ruff.lint.isort]
@@ -37,14 +54,22 @@ warn_unused_configs = true
 
 [tool.coverage.run]
 source = ["backend"]
+branch = true
+# Offline migration tooling: the legacy importer runs against another bot's
+# database dump outside the test DB, so it is characterized at the CLI/mapping
+# layer (tests/unit/test_import_legacy_cli.py) rather than line-covered here.
 omit = [
     "backend/scripts/import_legacy.py",
+    "backend/scripts/legacy_import/*",
     "scripts/import_legacy.py",
     "*/__pycache__/*",
 ]
 
 [tool.coverage.report]
 show_missing = true
+# Branch coverage (branch = true above) reads lower than line coverage. Measured
+# 53.92% on 2026-07-03; ratcheted to measured - 1. This number only goes up.
+fail_under = 53
 
 [[tool.mypy.overrides]]
 module = "db.*"
@@ -65,11 +90,22 @@ module = [
     "bot.payment_providers.*",
     "bot.handlers.*",
     "bot.app.web.*",
-    "web.http_contracts",
-    "web.route_contracts",
-    "web.openapi",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
+warn_return_any = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+# Covers both script roots: root scripts/ resolves as scripts.* (namespace package
+# under the repo root via --explicit-package-bases), backend/scripts as backend.scripts.*.
+module = ["scripts", "scripts.*", "backend.scripts", "backend.scripts.*"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_return_any = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*", "tests"]
 warn_return_any = true
 no_implicit_optional = true

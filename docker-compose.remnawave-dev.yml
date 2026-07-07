@@ -57,6 +57,7 @@ services:
       timeout: 5s
       retries: 12
       start_period: 45s
+      start_interval: 2s
     depends_on:
       remnawave-db:
         condition: service_healthy
@@ -84,6 +85,8 @@ services:
       interval: 3s
       timeout: 10s
       retries: 10
+      start_period: 30s
+      start_interval: 1s
 
   remnawave-redis:
     image: valkey/valkey:9-alpine
@@ -103,6 +106,8 @@ services:
       interval: 3s
       timeout: 3s
       retries: 10
+      start_period: 30s
+      start_interval: 1s
 
   remnawave-subscription-page:
     image: remnawave/subscription-page:${REMNAWAVE_SUBSCRIPTION_PAGE_VERSION:-7.2.6}
@@ -123,6 +128,7 @@ services:
     depends_on:
       remnawave-dev-seed:
         condition: service_completed_successfully
+        required: false
 
   remnawave-dev-seed:
     image: postgres:17.6

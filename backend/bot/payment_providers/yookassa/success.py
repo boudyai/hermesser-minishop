@@ -1,7 +1,7 @@
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,13 +18,6 @@ from bot.infra.payment_events import build_payment_succeeded_payload
 from bot.middlewares.i18n import JsonI18n
 from bot.services.lknpd_service import LknpdService
 from bot.services.panel_api_service import PanelApiService
-
-if TYPE_CHECKING:
-    from bot.services.referral_service import ReferralService
-    from bot.services.subscription_service_impl.core import SubscriptionService
-else:
-    ReferralService = object
-    SubscriptionService = object
 from bot.utils.config_link import prepare_config_links
 from bot.utils.install_links import ensure_user_install_guide_links
 from config.settings import Settings
@@ -44,6 +37,15 @@ from ..shared import (
 from ..shared import (
     sale_mode_tariff_key as _sale_mode_tariff_key,
 )
+
+if TYPE_CHECKING:
+    from bot.services.referral_service import ReferralService
+    from bot.services.subscription_service_impl.core import SubscriptionService
+else:
+    ReferralService = object
+    SubscriptionService = object
+
+logger = logging.getLogger(__name__)
 
 payment_processing_lock = asyncio.Lock()
 
@@ -91,11 +93,11 @@ async def emit_yookassa_success_events(event_payload: dict) -> None:
         await send_success_message_to_user(**deferred_success_message)
 
 
-def _metadata_value_present(value: Optional[Any]) -> bool:
+def _metadata_value_present(value: Any | None) -> bool:
     return value is not None and str(value).strip() != ""
 
 
-def _metadata_int(value: Optional[Any]) -> Optional[int]:
+def _metadata_int(value: Any | None) -> int | None:
     if not _metadata_value_present(value):
         return None
     try:
@@ -104,7 +106,7 @@ def _metadata_int(value: Optional[Any]) -> Optional[int]:
         return None
 
 
-def _metadata_float(value: Optional[Any]) -> Optional[float]:
+def _metadata_float(value: Any | None) -> float | None:
     if not _metadata_value_present(value):
         return None
     try:
@@ -113,7 +115,7 @@ def _metadata_float(value: Optional[Any]) -> Optional[float]:
         return None
 
 
-def _metadata_datetime(value: Optional[Any]) -> Optional[datetime]:
+def _metadata_datetime(value: Any | None) -> datetime | None:
     if not _metadata_value_present(value):
         return None
     try:
@@ -121,17 +123,17 @@ def _metadata_datetime(value: Optional[Any]) -> Optional[datetime]:
     except (TypeError, ValueError):
         return None
     if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
+        return parsed.replace(tzinfo=UTC)
     return parsed
 
 
 def _resolve_yookassa_activation_amounts(
     *,
     sale_mode_base: str,
-    subscription_months_raw: Optional[Any],
-    traffic_gb_raw: Optional[Any],
-    hwid_devices_raw: Optional[Any],
-) -> tuple[float, float, int, int, Optional[float]]:
+    subscription_months_raw: Any | None,
+    traffic_gb_raw: Any | None,
+    hwid_devices_raw: Any | None,
+) -> tuple[float, float, int, int, float | None]:
     subscription_months = float(subscription_months_raw or 0)
     traffic_amount_gb = (
         float(traffic_gb_raw or 0)
@@ -176,8 +178,8 @@ async def process_successful_payment(
     panel_service: PanelApiService,
     subscription_service: SubscriptionService,
     referral_service: ReferralService,
-    lknpd_service: Optional[LknpdService] = None,
-) -> Optional[dict[str, Any]]:
+    lknpd_service: LknpdService | None = None,
+) -> dict[str, Any] | None:
     metadata_raw = payment_info_from_webhook.get("metadata")
     metadata = metadata_raw if isinstance(metadata_raw, dict) else {}
     user_id_str = metadata.get("user_id")
@@ -203,8 +205,10 @@ async def process_successful_payment(
         )
         or (not payment_db_id_str and not auto_renew_subscription_id_str)
     ):
-        logging.error(
-            f"Missing crucial metadata for payment: {payment_info_from_webhook.get('id')}, metadata: {metadata}"  # noqa: E501
+        logger.error(
+            "Missing crucial metadata for payment: %s, metadata: %s",
+            payment_info_from_webhook.get("id"),
+            metadata,
         )
         return None
 
@@ -248,8 +252,10 @@ async def process_successful_payment(
         if payment_db_id is not None:
             payment_record = await payment_dal.get_payment_by_db_id(session, payment_db_id)
             if not payment_record:
-                logging.error(
-                    f"Payment record {payment_db_id} not found for YK ID {yk_payment_id_from_hook}."
+                logger.error(
+                    "Payment record %s not found for YK ID %s.",
+                    payment_db_id,
+                    yk_payment_id_from_hook,
                 )
                 return None
 
@@ -285,7 +291,7 @@ async def process_successful_payment(
             promo_code_id = _metadata_int(getattr(payment_record, "promo_code_id", None))
 
         if _is_hwid_device_sale_base(sale_mode_base) and hwid_devices_count <= 0:
-            logging.error(
+            logger.error(
                 "YooKassa HWID payment %s has invalid device count in metadata: %s",
                 yk_payment_id_from_hook,
                 metadata,
@@ -298,25 +304,28 @@ async def process_successful_payment(
                     yk_payment_id_from_hook,
                 )
             return None
-        if sale_mode_base == "subscription" and hwid_devices_count > 0:
-            if (
+        if (
+            sale_mode_base == "subscription"
+            and hwid_devices_count > 0
+            and (
                 not hwid_valid_from
                 or not hwid_valid_until
                 or hwid_valid_from >= hwid_valid_until
                 or hwid_full_price is None
-            ):
-                logging.error(
-                    "YooKassa subscription+HWID payment %s has invalid HWID metadata: %s",
-                    yk_payment_id_from_hook,
-                    metadata,
-                )
-                return None
+            )
+        ):
+            logger.error(
+                "YooKassa subscription+HWID payment %s has invalid HWID metadata: %s",
+                yk_payment_id_from_hook,
+                metadata,
+            )
+            return None
 
         # If this is an auto-renewal (no payment_db_id in metadata), ensure a payment record exists
         if payment_db_id is None and auto_renew_subscription_id_str:
             try:
                 if not yk_payment_id_from_hook:
-                    logging.error(
+                    logger.error(
                         "Auto-renew webhook missing YooKassa payment id; cannot ensure payment record."  # noqa: E501
                     )
                     return None
@@ -349,22 +358,29 @@ async def process_successful_payment(
                     )
                 payment_db_id = payment_record.payment_id
             except Exception as e_ensure:
-                logging.error(
-                    f"Failed to ensure payment record for auto-renew webhook (YK {payment_info_from_webhook.get('id')}): {e_ensure}",  # noqa: E501
-                    exc_info=True,
+                logger.exception(
+                    "Failed to ensure payment record for auto-renew webhook (YK %s): %s",
+                    payment_info_from_webhook.get("id"),
+                    e_ensure,
                 )
                 return None
 
         if payment_record and payment_record.status == "succeeded":
-            logging.info(
-                f"Skipping duplicate YooKassa webhook for payment {payment_db_id} (YK: {yk_payment_id_from_hook})."  # noqa: E501
+            logger.info(
+                "Skipping duplicate YooKassa webhook for payment %s (YK: %s).",
+                payment_db_id,
+                yk_payment_id_from_hook,
             )
             return None
 
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user:
-            logging.error(
-                f"User {user_id} not found in DB during successful payment processing for YK ID {payment_info_from_webhook.get('id')}. Payment record {payment_db_id}."  # noqa: E501
+            logger.error(
+                "User %s not found in DB during successful payment processing for YK ID %s. "
+                "Payment record %s.",
+                user_id,
+                payment_info_from_webhook.get("id"),
+                payment_db_id,
             )
 
             await payment_dal.update_payment_status_by_db_id(
@@ -374,7 +390,7 @@ async def process_successful_payment(
             return None
 
     except (TypeError, ValueError) as e:
-        logging.error(f"Invalid metadata format for payment processing: {metadata} - {e}")
+        logger.error("Invalid metadata format for payment processing: %s - %s", metadata, e)
 
         if payment_db_id_str and payment_db_id_str.isdigit():
             try:
@@ -385,7 +401,7 @@ async def process_successful_payment(
                     payment_info_from_webhook.get("id"),
                 )
             except Exception as e_upd:
-                logging.error(f"Failed to update payment status after metadata error: {e_upd}")
+                logger.error("Failed to update payment status after metadata error: %s", e_upd)
         return None
 
     try:
@@ -460,9 +476,9 @@ async def process_successful_payment(
                         set_default=True,
                     )
                 except Exception:
-                    logging.exception("Failed to persist multi-card YooKassa method from webhook")
+                    logger.exception("Failed to persist multi-card YooKassa method from webhook")
         except Exception:
-            logging.exception("Failed to persist YooKassa payment method from webhook")
+            logger.exception("Failed to persist YooKassa payment method from webhook")
         activation_details = await subscription_service.activate_subscription(
             session,
             user_id,
@@ -479,8 +495,10 @@ async def process_successful_payment(
         if not activation_details or (
             sale_mode_base == "subscription" and not activation_details.get("end_date")
         ):
-            logging.error(
-                f"Failed to activate subscription for user {user_id} after payment {yk_payment_id_from_hook}"  # noqa: E501
+            logger.error(
+                "Failed to activate subscription for user %s after payment %s",
+                user_id,
+                yk_payment_id_from_hook,
             )
             raise Exception(f"Subscription Error: Failed to activate for user {user_id}")
 
@@ -491,8 +509,10 @@ async def process_successful_payment(
             yk_payment_id=yk_payment_id_from_hook,
         )
         if not updated_payment_record:
-            logging.error(
-                f"Failed to update payment record {payment_db_id} for yk_id {yk_payment_id_from_hook}"  # noqa: E501
+            logger.error(
+                "Failed to update payment record %s for yk_id %s",
+                payment_db_id,
+                yk_payment_id_from_hook,
             )
             raise Exception(f"DB Error: Could not update payment record {payment_db_id}")
 
@@ -565,7 +585,7 @@ async def process_successful_payment(
             )
         if deferred_events:
             payment_succeeded_payload[DEFERRED_EVENTS_KEY] = deferred_events
-        applied_referee_bonus_days_from_referral: Optional[int] = None
+        applied_referee_bonus_days_from_referral: int | None = None
         if referral_bonus_info and referral_bonus_info.get("referee_new_end_date"):
             final_end_date_for_user = referral_bonus_info["referee_new_end_date"]
             applied_referee_bonus_days_from_referral = referral_bonus_info.get(
@@ -606,10 +626,10 @@ async def process_successful_payment(
                     item_name=receipt_item_name,
                     amount=payment_value,
                     quantity=1.0,
-                    operation_time=datetime.now(timezone.utc),
+                    operation_time=datetime.now(UTC),
                 )
             except Exception:
-                logging.exception(
+                logger.exception(
                     "Failed to send LKNPD receipt for payment %s",
                     yk_payment_id_from_hook,
                 )
@@ -630,8 +650,10 @@ async def process_successful_payment(
             and not final_end_date_for_user
             and not is_traffic_sale_base(sale_mode_base)
         ):
-            logging.error(
-                f"Critical error: final_end_date_for_user is None for user {user_id} after successful payment logic."  # noqa: E501
+            logger.error(
+                "Critical error: final_end_date_for_user is None for user %s after successful "
+                "payment logic.",
+                user_id,
             )
             details_message = _("payment_successful_error_details")
             include_keyboard = True
@@ -691,9 +713,10 @@ async def process_successful_payment(
         return payment_succeeded_payload
 
     except Exception as e_process:
-        logging.error(
-            f"Error during process_successful_payment main try block for user {user_id}: {e_process}",  # noqa: E501
-            exc_info=True,
+        logger.exception(
+            "Error during process_successful_payment main try block for user %s: %s",
+            user_id,
+            e_process,
         )
 
         raise
@@ -705,7 +728,7 @@ async def process_cancelled_payment(
     payment_info_from_webhook: dict[str, Any],
     i18n: JsonI18n,
     settings: Settings,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
 
     metadata_raw = payment_info_from_webhook.get("metadata")
     metadata = metadata_raw if isinstance(metadata_raw, dict) else {}
@@ -713,15 +736,15 @@ async def process_cancelled_payment(
     payment_db_id_str = metadata.get("payment_db_id")
 
     if not user_id_str or not payment_db_id_str:
-        logging.warning(
-            f"Missing metadata in cancelled payment webhook: {payment_info_from_webhook.get('id')}"
+        logger.warning(
+            "Missing metadata in cancelled payment webhook: %s", payment_info_from_webhook.get("id")
         )
         return None
     try:
         user_id = int(user_id_str)
         payment_db_id = int(payment_db_id_str)
     except ValueError:
-        logging.error(f"Invalid metadata in cancelled payment webhook: {metadata}")
+        logger.error("Invalid metadata in cancelled payment webhook: %s", metadata)
         return None
 
     try:
@@ -733,8 +756,11 @@ async def process_cancelled_payment(
         )
 
         if updated_payment:
-            logging.info(
-                f"Payment {payment_db_id} (YK: {payment_info_from_webhook.get('id')}) status updated to cancelled for user {user_id}."  # noqa: E501
+            logger.info(
+                "Payment %s (YK: %s) status updated to cancelled for user %s.",
+                payment_db_id,
+                payment_info_from_webhook.get("id"),
+                user_id,
             )
             payload: dict[str, Any] = PaymentCanceledPayload(
                 user_id=user_id,
@@ -745,14 +771,18 @@ async def process_cancelled_payment(
             ).to_payload(exclude_unset=True)
             return payload
         else:
-            logging.warning(
-                f"Could not find payment record {payment_db_id} to update status to cancelled for user {user_id}."  # noqa: E501
+            logger.warning(
+                "Could not find payment record %s to update status to cancelled for user %s.",
+                payment_db_id,
+                user_id,
             )
 
     except Exception as e_process_cancel:
-        logging.error(
-            f"Error processing cancelled payment for user {user_id}, payment_db_id {payment_db_id}: {e_process_cancel}",  # noqa: E501
-            exc_info=True,
+        logger.exception(
+            "Error processing cancelled payment for user %s, payment_db_id %s: %s",
+            user_id,
+            payment_db_id,
+            e_process_cancel,
         )
         raise
     return None

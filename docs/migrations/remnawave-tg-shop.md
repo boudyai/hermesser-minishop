@@ -39,7 +39,7 @@ Wizard поддерживает два способа переноса:
 
 `remnawave-tg-shop` и `remnawave-minishop` имеют совместимую историю схемы.
 После переноса старой PostgreSQL-БД сервис `migrate` накатывает недостающие
-миграции из `backend/db/migrator.py`: сначала применяются `Base.metadata`,
+миграции из `backend/db/migrator/`: сначала применяются `Base.metadata`,
 затем последовательные записи `schema_migrations`. Это one-shot сервис: он
 должен завершиться с кодом `0`, после чего стартуют `backend` и `worker`.
 

@@ -4,37 +4,30 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.utils.mini_app_url import subscription_mini_app_install_url
+from bot.utils.mini_app_url import (
+    subscription_mini_app_install_url,
+    subscription_public_install_url,
+)
 from config.settings import Settings
 from config.subscription_guides_config import subscription_guides_available
 from db.dal import subscription_dal
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True)
 class InstallGuideLinks:
-    personal_url: Optional[str] = None
-    public_share_url: Optional[str] = None
+    personal_url: str | None = None
+    public_share_url: str | None = None
 
 
 def _is_hermes_mode(settings: Settings) -> bool:
-    # ponytail: hosted Hermes tenants are linked from the customer's Telegram
-    # bot via the bot token they already have. Public /s/{token} install
-    # guides still exist for the proxy shop, but the share-link UX was
-    # confusing on the host-agent side (we redirect to a bot that the
-    # visitor doesn't own). Suppress share-link generation in Hermes mode
-    # so the UI never has a button to render.
     try:
-        return (
-            str(
-                getattr(getattr(settings, "panel_settings", None), "write_mode", "")
-                or ""
-            ).lower()
-            == "hermes"
-        )
+        return str(settings.panel_settings.write_mode or "").lower() == "hermes"
     except Exception:
         return False
 
@@ -47,28 +40,29 @@ def bot_install_guides_enabled(settings: Settings) -> bool:
     )
 
 
-def bot_install_guide_url(settings: Settings) -> Optional[str]:
+def bot_install_guide_url(settings: Settings) -> str | None:
     if not bot_install_guides_enabled(settings):
         return None
     install_url = subscription_mini_app_install_url(settings)
     return install_url if isinstance(install_url, str) else None
 
 
-async def ensure_user_install_guide_links(
+def install_guide_share_links_enabled(settings: Settings) -> bool:
+    return bool(
+        subscription_guides_available(settings) and subscription_mini_app_install_url(settings)
+    )
+
+
+async def ensure_user_install_guide_share_url(
     session: AsyncSession,
     settings: Settings,
     user_id: int,
-    panel_user_uuid: Optional[str] = None,
-    local_subscription: Optional[Any] = None,
-) -> InstallGuideLinks:
-    personal_url = bot_install_guide_url(settings)
-    if not personal_url:
-        return InstallGuideLinks()
+    panel_user_uuid: str | None = None,
+    local_subscription: Any | None = None,
+) -> str | None:
+    if _is_hermes_mode(settings) or not install_guide_share_links_enabled(settings):
+        return None
 
-    if _is_hermes_mode(settings):
-        return InstallGuideLinks(personal_url=personal_url)
-
-    public_share_url = None
     try:
         local_sub = (
             local_subscription
@@ -79,21 +73,40 @@ async def ensure_user_install_guide_links(
                 panel_user_uuid,
             )
         )
-        if local_sub is not None:
-            share_token = await subscription_dal.ensure_install_share_token(session, local_sub)
-            from bot.utils.mini_app_url import subscription_public_install_url
-
-            public_share_url = subscription_public_install_url(settings, share_token)
+        if local_sub is None:
+            return None
+        share_token = await subscription_dal.ensure_install_share_token(session, local_sub)
+        return subscription_public_install_url(settings, share_token)
     except Exception:
-        logging.exception("Failed to resolve install guide share link for user %s.", user_id)
+        logger.exception("Failed to resolve install guide share link for user %s.", user_id)
+        return None
 
+
+async def ensure_user_install_guide_links(
+    session: AsyncSession,
+    settings: Settings,
+    user_id: int,
+    panel_user_uuid: str | None = None,
+    local_subscription: Any | None = None,
+) -> InstallGuideLinks:
+    personal_url = bot_install_guide_url(settings)
+    if not personal_url:
+        return InstallGuideLinks()
+
+    public_share_url = await ensure_user_install_guide_share_url(
+        session,
+        settings,
+        user_id,
+        panel_user_uuid,
+        local_subscription=local_subscription,
+    )
     return InstallGuideLinks(personal_url=personal_url, public_share_url=public_share_url)
 
 
 def append_install_share_link_text(
     text: str,
     translator: Any,
-    public_share_url: Optional[str],
+    public_share_url: str | None,
 ) -> str:
     if not public_share_url:
         return text

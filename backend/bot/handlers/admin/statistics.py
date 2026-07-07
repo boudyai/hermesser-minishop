@@ -1,6 +1,5 @@
 import html
 import logging
-from typing import Dict, List, Optional
 
 from aiogram import Router, types
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,12 +17,12 @@ from config.tariffs_config import default_payment_currency_code_for_settings
 from db.dal import panel_sync_dal, payment_dal, user_dal
 from db.models import PanelSyncStatus, Payment
 
+logger = logging.getLogger(__name__)
+
 router = Router(name="admin_statistics_router")
 
 
-def _format_rating_user_label(
-    user_row: Dict[str, object], bot_username: Optional[str] = None
-) -> str:
+def _format_rating_user_label(user_row: dict[str, object], bot_username: str | None = None) -> str:
     user_id = int(str(user_row.get("user_id", 0) or 0))
     username = user_row.get("username")
     first_name = user_row.get("first_name")
@@ -37,7 +36,7 @@ def _format_rating_user_label(
             f"{user_id_html}</a>"
         )
 
-    parts: List[str] = []
+    parts: list[str] = []
     if username:
         parts.append(f"@{html.escape(str(username))}")
     elif first_name:
@@ -55,7 +54,7 @@ async def show_statistics_handler(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error displaying statistics.", show_alert=True)
         return
@@ -105,8 +104,11 @@ async def show_statistics_handler(
             bandwidth_stats = await panel_service.get_bandwidth_stats()
             nodes_stats = await panel_service.get_nodes_statistics()
 
-            logging.info(
-                f"Panel stats response: system={system_stats}, bandwidth={bandwidth_stats}, nodes={nodes_stats}"  # noqa: E501
+            logger.info(
+                "Panel stats response: system=%s, bandwidth=%s, nodes=%s",
+                system_stats,
+                bandwidth_stats,
+                nodes_stats,
             )
 
             if system_stats:
@@ -191,9 +193,9 @@ async def show_statistics_handler(
                 stats_text_parts.append(f"🔗 {_('admin_panel_nodes_label')}: <b>{total_online}</b>")
 
     except Exception as e:
-        logging.error(f"Failed to fetch panel statistics: {e}", exc_info=True)
+        logger.exception("Failed to fetch panel statistics: %s", e)
         stats_text_parts.append(f"❌ {_('admin_panel_stats_fetch_error')}")
-        stats_text_parts.append(f"⚠️ {_('admin_panel_stats_error_details')}: {str(e)}")
+        stats_text_parts.append(f"⚠️ {_('admin_panel_stats_error_details')}: {e!s}")
 
     # Financial statistics
     financial_stats = await payment_dal.get_financial_statistics(session)
@@ -213,7 +215,7 @@ async def show_statistics_handler(
         f"🏆 {_('admin_financial_all_time_label')}: <b>{financial_stats['all_time_revenue']:.2f} {currency}</b>"  # noqa: E501
     )
 
-    last_payments_models: List[Payment] = await payment_dal.get_recent_payment_logs_with_user(
+    last_payments_models: list[Payment] = await payment_dal.get_recent_payment_logs_with_user(
         session, limit=5
     )
     if last_payments_models:
@@ -251,9 +253,7 @@ async def show_statistics_handler(
     else:
         stats_text_parts.append(f"\n{_('admin_stats_no_payments_found')}")
 
-    sync_status_model: Optional[PanelSyncStatus] = await panel_sync_dal.get_panel_sync_status(
-        session
-    )
+    sync_status_model: PanelSyncStatus | None = await panel_sync_dal.get_panel_sync_status(session)
     if sync_status_model and sync_status_model.status != "never_run":
         stats_text_parts.append(f"\n<b>{_('admin_stats_last_sync_header')}</b>")
 
@@ -284,7 +284,7 @@ async def show_statistics_handler(
             parse_mode="HTML",
         )
     except Exception as e_edit:
-        logging.error(f"Error editing message for statistics: {e_edit}", exc_info=True)
+        logger.exception("Error editing message for statistics: %s", e_edit)
 
         max_chunk_size = 4000
         for i in range(0, len(final_text), max_chunk_size):
@@ -299,7 +299,7 @@ async def show_statistics_handler(
                     parse_mode="HTML",
                 )
             except Exception as e_chunk:
-                logging.error(f"Failed to send statistics chunk: {e_chunk}")
+                logger.error("Failed to send statistics chunk: %s", e_chunk)
                 if i == 0:
                     await callback_message(callback).answer(
                         _("error_displaying_statistics"),
@@ -315,7 +315,7 @@ async def show_user_ratings_handler(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error displaying ratings.", show_alert=True)
         return
@@ -324,12 +324,12 @@ async def show_user_ratings_handler(
     await callback.answer()
 
     top_limit = 10
-    bot_username: Optional[str] = None
+    bot_username: str | None = None
     try:
         me = await callback_bot(callback).get_me()
         bot_username = me.username
     except Exception as e_get_me:
-        logging.warning("Failed to resolve bot username for ratings links: %s", e_get_me)
+        logger.warning("Failed to resolve bot username for ratings links: %s", e_get_me)
 
     traffic_top = await user_dal.get_top_users_by_traffic_used(session, limit=top_limit)
     lifetime_traffic_top = await user_dal.get_top_users_by_lifetime_traffic_used(
@@ -338,7 +338,7 @@ async def show_user_ratings_handler(
     invited_top = await user_dal.get_top_users_by_referrals_count(session, limit=top_limit)
     revenue_top = await user_dal.get_top_users_by_referral_revenue(session, limit=top_limit)
 
-    text_parts: List[str] = [
+    text_parts: list[str] = [
         _("admin_user_ratings_header", top_limit=top_limit),
         "",
         f"<b>{_('admin_user_ratings_traffic_month_title')}</b>",

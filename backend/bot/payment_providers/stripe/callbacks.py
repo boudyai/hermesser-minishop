@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aiogram import F, types
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +32,8 @@ from ..shared import (
 from .router import router
 from .service import StripeService
 
+logger = logging.getLogger(__name__)
+
 _LOG = "stripe"
 
 
@@ -44,7 +46,7 @@ async def pay_stripe_callback_handler(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     translator = make_translator(i18n, current_lang)
 
     if not i18n or not callback.message:
@@ -129,7 +131,7 @@ async def pay_stripe_callback_handler(
         await session.commit()
     except Exception:
         await session.rollback()
-        logging.exception(
+        logger.exception(
             "Stripe: failed to create payment record for user %s.",
             callback.from_user.id,
         )

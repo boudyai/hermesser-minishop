@@ -23,7 +23,6 @@
   import type { SettingField, SettingsSavedPayload } from "$lib/admin/stores/settingsStore";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-  type ComponentCallback = (...args: never[]) => void;
 
   let {
     at,
@@ -145,10 +144,10 @@
     trialPremiumSquadSelectKey += 1;
   }
 
-  const handleTrialTrafficStrategySelect = ((value: string) =>
-    setSetting("TRIAL_TRAFFIC_STRATEGY", value)) as ComponentCallback;
-  const handleTrialSquadSelectChange = handleTrialSquadSelect as ComponentCallback;
-  const handleTrialPremiumSquadSelectChange = handleTrialPremiumSquadSelect as ComponentCallback;
+  const handleTrialTrafficStrategySelect = (value: string) =>
+    setSetting("TRIAL_TRAFFIC_STRATEGY", value);
+  const handleTrialSquadSelectChange = handleTrialSquadSelect;
+  const handleTrialPremiumSquadSelectChange = handleTrialPremiumSquadSelect;
 
   function removeTrialSquad(uuid: string): void {
     setCsvList(

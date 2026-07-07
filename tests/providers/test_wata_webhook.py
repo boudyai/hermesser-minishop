@@ -1,6 +1,6 @@
 import asyncio
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 from bot.payment_providers.shared import PAYMENT_STATUS_PENDING_FINALIZATION
@@ -52,7 +52,7 @@ def _payment(**overrides):
         "subscription_duration_months": 1,
         "sale_mode": "subscription",
         "user": None,
-        "created_at": datetime.now(timezone.utc),
+        "created_at": datetime.now(UTC),
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -83,6 +83,13 @@ def _service(session, **config_overrides):
         referral_service=SimpleNamespace(),
         default_return_url="test_bot",
     )
+
+
+async def _run_and_close(service, awaitable):
+    try:
+        return await awaitable
+    finally:
+        await service.close()
 
 
 def test_wata_created_webhook_returns_ok_and_persists_transaction_id(monkeypatch):
@@ -484,11 +491,14 @@ def test_create_payment_link_uses_clean_iso_expiration_without_microseconds(monk
     service = _service(_FakeSession())
 
     success, _ = asyncio.run(
-        service.create_payment_link(
-            payment_db_id=465,
-            amount=199.5,
-            currency="RUB",
-            description="Оплата подписки на 1 мес.",
+        _run_and_close(
+            service,
+            service.create_payment_link(
+                payment_db_id=465,
+                amount=199.5,
+                currency="RUB",
+                description="Оплата подписки на 1 мес.",
+            ),
         )
     )
     assert success is True
@@ -499,7 +509,7 @@ def test_create_payment_link_uses_clean_iso_expiration_without_microseconds(monk
     assert "+" not in expiration, expiration
     expiration_dt = _parse_wata_datetime(expiration)
     assert expiration_dt is not None
-    ttl_delta = expiration_dt - datetime.now(timezone.utc)
+    ttl_delta = expiration_dt - datetime.now(UTC)
     assert timedelta(minutes=14, seconds=30) <= ttl_delta <= timedelta(minutes=15, seconds=30)
 
 
@@ -524,12 +534,15 @@ def test_create_crypto_payment_link_uses_crypto_terminal_credentials(monkeypatch
     )
 
     success, _ = asyncio.run(
-        service.create_payment_link(
-            payment_db_id=465,
-            amount=199.5,
-            currency="RUB",
-            description="Crypto payment",
-            method="wata_crypto",
+        _run_and_close(
+            service,
+            service.create_payment_link(
+                payment_db_id=465,
+                amount=199.5,
+                currency="RUB",
+                description="Crypto payment",
+                method="wata_crypto",
+            ),
         )
     )
 
@@ -540,7 +553,7 @@ def test_create_crypto_payment_link_uses_crypto_terminal_credentials(monkeypatch
     assert captured["log_prefix"] == "Wata crypto create_payment_link"
     expiration = _parse_wata_datetime(captured["body"]["expirationDateTime"])
     assert expiration is not None
-    ttl_delta = expiration - datetime.now(timezone.utc)
+    ttl_delta = expiration - datetime.now(UTC)
     assert timedelta(minutes=44, seconds=30) <= ttl_delta <= timedelta(minutes=45, seconds=30)
 
 
@@ -722,7 +735,7 @@ def test_refresh_marks_expired_wata_link_as_canceled(monkeypatch):
     payment = _payment(
         provider="wata",
         provider_payment_id="link-id",
-        created_at=datetime.now(timezone.utc) - timedelta(minutes=16),
+        created_at=datetime.now(UTC) - timedelta(minutes=16),
     )
     updates = []
 

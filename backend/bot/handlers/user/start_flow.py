@@ -1,7 +1,7 @@
+import contextlib
 import logging
 import re
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from aiogram import F, types
 from aiogram.filters import CommandStart
@@ -36,6 +36,8 @@ from .start_common import (
 )
 from .start_menus import send_main_menu
 
+logger = logging.getLogger(__name__)
+
 
 @router.message(CommandStart())
 @router.message(CommandStart(magic=F.args.regexp(r"^ref_([A-Za-z0-9_-]{1,64})$").as_("ref_match")))
@@ -61,17 +63,17 @@ async def start_command_handler(
     subscription_service: SubscriptionService,
     referral_service: ReferralService,
     session: AsyncSession,
-    ref_match: Optional[re.Match] = None,
-    promo_match: Optional[re.Match] = None,
-    page_ref_match: Optional[re.Match] = None,
-    ad_param_match: Optional[re.Match] = None,
-    admin_user_match: Optional[re.Match] = None,
-    ticket_match: Optional[re.Match] = None,
-    notifications_match: Optional[re.Match] = None,
+    ref_match: re.Match | None = None,
+    promo_match: re.Match | None = None,
+    page_ref_match: re.Match | None = None,
+    ad_param_match: re.Match | None = None,
+    admin_user_match: re.Match | None = None,
+    ticket_match: re.Match | None = None,
+    notifications_match: re.Match | None = None,
 ) -> None:
     await state.clear()
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     user = message_from_user(message)
@@ -118,11 +120,10 @@ async def start_command_handler(
             )
             return
         except Exception as e_admin_card:
-            logging.error(
+            logger.exception(
                 "Failed to open admin user card via deep-link for %s: %s",
                 target_user_id,
                 e_admin_card,
-                exc_info=True,
             )
             await message.answer(_("admin_user_card_error"))
             return
@@ -152,31 +153,31 @@ async def start_command_handler(
             )
             return
 
-    referred_by_user_id: Optional[int] = None
-    raw_ref_value: Optional[str] = None
-    promo_code_to_apply: Optional[str] = None
+    referred_by_user_id: int | None = None
+    raw_ref_value: str | None = None
+    promo_code_to_apply: str | None = None
     should_open_referral_from_start = False
-    ad_start_param: Optional[str] = None
+    ad_start_param: str | None = None
     notifications_start_requested = bool(notifications_match)
 
     if ref_match:
         raw_ref_value = ref_match.group(1)
     elif promo_match:
         promo_code_to_apply = promo_match.group(1)
-        logging.info(f"User {user_id} started with promo code: {promo_code_to_apply}")
+        logger.info("User %s started with promo code: %s", user_id, promo_code_to_apply)
     elif notifications_start_requested:
-        logging.info("User %s started bot from notifications deep-link.", user_id)
+        logger.info("User %s started bot from notifications deep-link.", user_id)
     elif page_ref_match:
         should_open_referral_from_start = True
-        logging.info(f"User {user_id} started with page_ref deep-link.")
+        logger.info("User %s started with page_ref deep-link.", user_id)
     elif ad_param_match:
         ad_start_param = ad_param_match.group(1)
-        logging.info(f"User {user_id} started with ad start param: {ad_start_param}")
+        logger.info("User %s started with ad start param: %s", user_id, ad_start_param)
 
     sanitized_username = sanitize_username(user.username)
     sanitized_first_name = sanitize_display_name(user.first_name)
     sanitized_last_name = sanitize_display_name(user.last_name)
-    notification_status_now = datetime.now(timezone.utc)
+    notification_status_now = datetime.now(UTC)
 
     db_user = await user_dal.get_user_by_id(session, user_id)
     is_existing_user = db_user is not None
@@ -210,7 +211,7 @@ async def start_command_handler(
             "last_name": sanitized_last_name,
             "language_code": current_lang,
             "referred_by_id": referred_by_user_id,
-            "registration_date": datetime.now(timezone.utc),
+            "registration_date": datetime.now(UTC),
             "telegram_notifications_status": TELEGRAM_NOTIFICATIONS_ENABLED,
             "telegram_notifications_checked_at": notification_status_now,
             "telegram_notifications_enabled_at": notification_status_now,
@@ -224,15 +225,14 @@ async def start_command_handler(
                     await session.commit()
                 except Exception as commit_error:
                     await session.rollback()
-                    logging.error(
-                        f"Failed to commit new user {user_id}: {commit_error}",
-                        exc_info=True,
-                    )
+                    logger.exception("Failed to commit new user %s: %s", user_id, commit_error)
                     await message.answer(_("error_occurred_processing_request"))
                     return
 
-                logging.info(
-                    f"New user {user_id} added to session. Referred by: {referred_by_user_id or 'N/A'}."  # noqa: E501
+                logger.info(
+                    "New user %s added to session. Referred by: %s.",
+                    user_id,
+                    referred_by_user_id or "N/A",
                 )
 
                 # Auto-grant referral welcome bonus to newly registered referred users.
@@ -256,7 +256,7 @@ async def start_command_handler(
                             # Mark the welcome bonus as claimed so it cannot be
                             # re-granted later (e.g. via the WebApp claim route
                             # once this grant expires).
-                            db_user.referral_welcome_bonus_claimed_at = datetime.now(timezone.utc)
+                            db_user.referral_welcome_bonus_claimed_at = datetime.now(UTC)
                             await session.commit()
                             await events.emit_model(
                                 ReferralBonusGrantedPayload(
@@ -269,7 +269,7 @@ async def start_command_handler(
                                 ),
                                 exclude_unset=True,
                             )
-                            logging.info(
+                            logger.info(
                                 "Referral welcome bonus applied: user %s got %s days, new end date %s.",  # noqa: E501
                                 user_id,
                                 referral_welcome_days,
@@ -285,22 +285,21 @@ async def start_command_handler(
                             )
                         else:
                             await session.rollback()
-                            logging.warning(
+                            logger.warning(
                                 "Referral welcome bonus was not applied for user %s (referred by %s).",  # noqa: E501
                                 user_id,
                                 referred_by_user_id,
                             )
                     except Exception as referral_bonus_error:
                         await session.rollback()
-                        logging.error(
+                        logger.exception(
                             "Failed to apply referral welcome bonus for user %s: %s",
                             user_id,
                             referral_bonus_error,
-                            exc_info=True,
                         )
 
         except Exception as e_create:
-            logging.error(f"Failed to add new user {user_id} to session: {e_create}", exc_info=True)
+            logger.exception("Failed to add new user %s to session: %s", user_id, e_create)
             await message.answer(_("error_occurred_processing_request"))
             return
     else:
@@ -334,11 +333,10 @@ async def start_command_handler(
             try:
                 await user_dal.update_user(session, user_id, update_payload)
 
-                logging.info(f"Updated existing user {user_id} in session: {update_payload}")
+                logger.info("Updated existing user %s in session: %s", user_id, update_payload)
             except Exception as e_update:
-                logging.error(
-                    f"Failed to update existing user {user_id} in session: {e_update}",
-                    exc_info=True,
+                logger.exception(
+                    "Failed to update existing user %s in session: %s", user_id, e_update
                 )
 
     # Attribute user to ad campaign if start param provided
@@ -353,11 +351,11 @@ async def start_command_handler(
                 )
                 await session.commit()
         except Exception as e_attr:
-            logging.error(f"Failed to attribute user {user_id} to ad '{ad_start_param}': {e_attr}")
-            try:
+            logger.error(
+                "Failed to attribute user %s to ad '%s': %s", user_id, ad_start_param, e_attr
+            )
+            with contextlib.suppress(Exception):
                 await session.rollback()
-            except Exception:
-                pass
 
     if not await ensure_required_channel_subscription(
         message, settings, i18n, current_lang, session, db_user
@@ -426,7 +424,9 @@ async def start_command_handler(
 
             if success:
                 await session.commit()
-                logging.info(f"Auto-applied promo code '{promo_code_to_apply}' for user {user_id}")
+                logger.info(
+                    "Auto-applied promo code '%s' for user %s", promo_code_to_apply, user_id
+                )
 
                 # Get updated subscription details
                 active = await subscription_service.get_active_subscription_details(
@@ -457,7 +457,7 @@ async def start_command_handler(
                         )
                     except Exception:
                         await session.rollback()
-                        logging.exception(
+                        logger.exception(
                             "Failed to persist install guide share token for promo user %s.",
                             user_id,
                         )
@@ -482,15 +482,21 @@ async def start_command_handler(
                 return
             else:
                 await session.commit()
-                logging.warning(
-                    f"Failed to auto-apply promo code '{promo_code_to_apply}' for user {user_id}: {result}"  # noqa: E501
+                logger.warning(
+                    "Failed to auto-apply promo code '%s' for user %s: %s",
+                    promo_code_to_apply,
+                    user_id,
+                    result,
                 )
                 await message.answer(str(result), parse_mode="HTML")
                 # Continue to show main menu if promo failed
 
         except Exception as e:
-            logging.error(
-                f"Error auto-applying promo code '{promo_code_to_apply}' for user {user_id}: {e}"
+            logger.error(
+                "Error auto-applying promo code '%s' for user %s: %s",
+                promo_code_to_apply,
+                user_id,
+                e,
             )
             await session.rollback()
 

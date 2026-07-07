@@ -13,6 +13,7 @@
   import { FileText, User } from "$components/ui/icons.js";
   import { TableHandler } from "@vincjo/datatables";
   import type { PaymentOut } from "../../lib/admin/stores/paymentsStore";
+  import type { AdminBadgeVariant } from "$components/patterns/admin/types";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
@@ -26,7 +27,7 @@
     at?: TranslateFn;
     fmtDate?: (value: string | null | undefined) => string;
     fmtMoney?: (value: number, currency?: string | null) => string;
-    paymentStatusVariant?: (status: string | null | undefined) => string;
+    paymentStatusVariant?: (status: string | null | undefined) => AdminBadgeVariant;
     onOpenUserCard?: (userId: number) => void;
   } = $props();
 

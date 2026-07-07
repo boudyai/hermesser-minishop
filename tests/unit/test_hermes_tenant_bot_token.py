@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any, Dict, Optional
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import aiohttp
@@ -53,12 +53,12 @@ def _await(coro: Any) -> Any:
 
 
 class _FakeResponse:
-    def __init__(self, status: int, payload: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, status: int, payload: dict[str, Any] | None = None) -> None:
         self.status = status
         self._payload = payload
         self._text_value = "" if payload is None else json.dumps(payload)
 
-    async def __aenter__(self) -> "_FakeResponse":
+    async def __aenter__(self) -> _FakeResponse:
         return self
 
     async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
@@ -70,13 +70,13 @@ class _FakeResponse:
 
 def _patched_session(
     service: HermesProvisioningService, fake: _FakeResponse
-) -> list[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Patch ``_core_get_session`` so the next ``.put(...)`` returns ``fake``.
 
     Returns a list that captures each call's JSON body so tests can
     assert what was sent.
     """
-    captured: list[Dict[str, Any]] = []
+    captured: list[dict[str, Any]] = []
 
     def put(url: str, *args: Any, **kwargs: Any) -> _FakeResponse:
         if "json" in kwargs:

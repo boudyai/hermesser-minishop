@@ -3,7 +3,7 @@
   import Card from "$components/ui/card.svelte";
   import { RefreshCw, Activity, FileText } from "$components/ui/icons.js";
 
-  type AnyRecord = Record<string, any>;
+  type UnknownRecord = Record<string, unknown>;
   type ApiUnchecked = (
     path: string,
     options?: Parameters<typeof fetch>[1]
@@ -13,16 +13,12 @@
     subscription = {},
     appSettings = {},
     apiUnchecked = missingApi,
-    t = (key: string, _params?: AnyRecord, fallback?: string) => fallback || key,
+    t = (key: string, _params?: UnknownRecord, fallback?: string) => fallback || key,
   }: {
-    subscription?: AnyRecord;
-    appSettings?: AnyRecord;
+    subscription?: UnknownRecord;
+    appSettings?: UnknownRecord;
     apiUnchecked?: ApiUnchecked;
-    t?: (
-      key: string,
-      params?: AnyRecord,
-      fallback?: string
-    ) => string;
+    t?: (key: string, params?: UnknownRecord, fallback?: string) => string;
   } = $props();
 
   const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
@@ -93,11 +89,7 @@
     confirmRestart = false;
     try {
       await callApi("/tenant/restart", "POST");
-      info = t(
-        "wa_hermes_restart_queued",
-        {},
-        "Restart queued. Bot returns in ~30 seconds."
-      );
+      info = t("wa_hermes_restart_queued", {}, "Restart queued. Bot returns in ~30 seconds.");
     } catch (e) {
       error = e instanceof Error ? e.message : "Restart failed";
     } finally {
@@ -182,17 +174,9 @@
   // instead of letting them click and see 409 errors.
   const stateNotice = $derived.by(() => {
     if (tenantStatus === "deleting")
-      return t(
-        "wa_hermes_status_card_deleting",
-        {},
-        "Deleting… actions unavailable"
-      );
+      return t("wa_hermes_status_card_deleting", {}, "Deleting… actions unavailable");
     if (tenantStatus === "suspended")
-      return t(
-        "wa_hermes_status_card_suspended",
-        {},
-        "Suspended. Resume via your subscription."
-      );
+      return t("wa_hermes_status_card_suspended", {}, "Suspended. Resume via your subscription.");
     if (tenantStatus === "deleted" || tenantStatus === "archived")
       return t("wa_hermes_status_card_deleted", {}, "Deleted. Create a new bot.");
     return null;
@@ -245,8 +229,7 @@
           <div><strong>{fmtRub(quotaMax)}</strong></div>
         </div>
         <div>
-          <small style="color: var(--muted);"
-            >{t("admin_cornllm_balance_spent", {}, "Spent")}</small
+          <small style="color: var(--muted);">{t("admin_cornllm_balance_spent", {}, "Spent")}</small
           >
           <div><strong>{fmtRub(quotaSpent)}</strong></div>
         </div>
@@ -269,8 +252,8 @@
           {t("tg_hermes_logs_refresh_button", {}, "Refresh logs")}
         </Button>
         <pre
-          style="margin-top: 8px; padding: 8px; background: var(--surface-subtle); border: 1px solid var(--surface-subtle-border); border-radius: 8px; font-family: ui-monospace, monospace; font-size: 11px; max-height: 240px; overflow: auto; white-space: pre-wrap; word-break: break-all;"
-          >{logs || t("logs_empty", {}, "(empty)")}</pre>
+          style="margin-top: 8px; padding: 8px; background: var(--surface-subtle); border: 1px solid var(--surface-subtle-border); border-radius: 8px; font-family: ui-monospace, monospace; font-size: 11px; max-height: 240px; overflow: auto; white-space: pre-wrap; word-break: break-all;">{logs ||
+            t("logs_empty", {}, "(empty)")}</pre>
       </div>
     {/if}
     {#if confirmRestart}
@@ -285,7 +268,7 @@
           )}
         </p>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <Button variant="primary" onclick={confirmRestartAction} disabled={busy}>
+          <Button variant="default" onclick={confirmRestartAction} disabled={busy}>
             <RefreshCw size={14} class={busyAction === "restart" ? "spinning" : ""} />
             {t("wa_hermes_restart_confirm_button", {}, "Yes, restart")}
           </Button>

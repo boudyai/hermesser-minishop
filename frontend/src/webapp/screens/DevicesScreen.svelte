@@ -9,29 +9,13 @@
     devicesLimitLabel,
     devicesPercent,
   } from "../../lib/webapp/devicesLabels.js";
-
-  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-  type DeviceRecord = Record<string, unknown> & {
-    can_disconnect?: boolean;
-    created_at_text?: string;
-    display_name?: string;
-    hwid_short?: string;
-    index?: number;
-    platform_label?: string;
-    token?: string;
-    user_agent?: string;
-  };
-  type DevicesData = Record<string, unknown> & {
-    devices?: DeviceRecord[];
-    max_devices?: number | null;
-  };
-  type SubscriptionData = Record<string, unknown> & {
-    active?: boolean;
-    can_topup_devices?: boolean;
-    extra_hwid_devices?: number;
-    extra_hwid_devices_valid_until_text?: string;
-    max_devices?: number | null;
-  };
+  import type {
+    DeviceView,
+    DevicesData,
+    SubscriptionView,
+    Translate,
+    VoidAction,
+  } from "$lib/webapp/types.js";
 
   type Props = {
     devicesBusy?: boolean;
@@ -40,10 +24,10 @@
     devicesIsError?: boolean;
     devicesLoaded?: boolean;
     devicesStatus?: string;
-    subscription?: SubscriptionData;
+    subscription?: SubscriptionView;
     loadDevices?: (force?: boolean) => void;
-    openDeviceDisconnectDialog?: (device: DeviceRecord) => void;
-    openDeviceTopupModal?: () => void;
+    openDeviceDisconnectDialog?: (device: DeviceView) => void;
+    openDeviceTopupModal?: VoidAction;
     t?: Translate;
   };
 
@@ -64,7 +48,8 @@
   const deviceList = $derived(Array.isArray(devicesData?.devices) ? devicesData.devices : []);
   const hasDevices = $derived(deviceList.length > 0);
   const subscriptionNotActiveError = $derived(
-    devicesErrorCode === "subscription_not_active" || devicesStatus === t("wa_subscription_not_active")
+    devicesErrorCode === "subscription_not_active" ||
+      devicesStatus === t("wa_subscription_not_active")
   );
   const hideDevicesSummary = $derived(!subscription?.active && !hasDevices);
   const showInactiveDevicesNotice = $derived(

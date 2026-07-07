@@ -1,6 +1,7 @@
 import json
 import re
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -148,11 +149,14 @@ def _manifest_by_key() -> dict[str, dict]:
 
 
 def _manifest_items() -> list[dict]:
-    return manifest_payload()
+    return cast(list[dict], manifest_payload())
 
 
 def _locale(language: str) -> dict[str, str]:
-    return json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text(encoding="utf-8"))
+    return cast(
+        dict[str, str],
+        json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text(encoding="utf-8")),
+    )
 
 
 def _has_locale_key(messages: dict[str, str], key: str) -> bool:
@@ -166,7 +170,7 @@ def test_webapp_title_is_first_general_admin_setting():
 
     assert field["section"] == "general"
     assert field["section_order"] == 1
-    assert [item["key"] for item in items if item["section"] == "general"][0] == "WEBAPP_TITLE"
+    assert next(item["key"] for item in items if item["section"] == "general") == "WEBAPP_TITLE"
 
 
 def test_server_status_url_is_admin_editable():
@@ -456,9 +460,7 @@ def test_legacy_tariff_settings_are_separated_from_payment_settings():
 
 def test_platega_settings_share_one_admin_subsection():
     manifest = _manifest_by_key()
-    platega_keys = [
-        key for key in manifest if key.startswith("PLATEGA_") or key.startswith("PAYMENT_PLATEGA_")
-    ]
+    platega_keys = [key for key in manifest if key.startswith(("PLATEGA_", "PAYMENT_PLATEGA_"))]
 
     assert platega_keys
     assert {manifest[key]["subsection"] for key in platega_keys} == {"Platega"}
@@ -466,9 +468,7 @@ def test_platega_settings_share_one_admin_subsection():
 
 def test_wata_settings_share_one_admin_subsection():
     manifest = _manifest_by_key()
-    wata_keys = [
-        key for key in manifest if key.startswith("WATA_") or key.startswith("PAYMENT_WATA_")
-    ]
+    wata_keys = [key for key in manifest if key.startswith(("WATA_", "PAYMENT_WATA_"))]
 
     assert wata_keys
     assert {manifest[key]["subsection"] for key in wata_keys} == {"Wata"}

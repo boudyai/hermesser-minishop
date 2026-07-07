@@ -1,7 +1,6 @@
 import logging
 import os
 import secrets
-from typing import Optional
 
 from pydantic import Field, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -18,6 +17,8 @@ from config.settings_models import (
     SupportSettings,
     WebAppSettings,
 )
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_RU = (
     "Покупая или продлевая хостинг AI-агента Hermes в Telegram, вы получаете "
@@ -168,7 +169,7 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     DB_POOL_TIMEOUT_SECONDS: int = Field(default=30)
     DB_POOL_RECYCLE_SECONDS: int = Field(default=1800)
 
-    REDIS_URL: Optional[str] = Field(default=None)
+    REDIS_URL: str | None = Field(default=None)
     REDIS_KEY_PREFIX: str = Field(default="remnawave-tg-shop")
     WEBAPP_ME_CACHE_TTL_SECONDS: int = Field(default=15)
     WEBAPP_DEVICES_CACHE_TTL_SECONDS: int = Field(default=5)
@@ -224,11 +225,11 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     BACKUP_LOCK_TTL_SECONDS: int = Field(default=2 * 60 * 60)
     BACKUP_DIR: str = Field(default="data/backups")
     BACKUP_LOCAL_RETENTION: int = Field(default=100)
-    BACKUP_CHAT_ID: Optional[int] = Field(
+    BACKUP_CHAT_ID: int | None = Field(
         default=None,
         description="Telegram chat ID for backup archives. Falls back to LOG_CHAT_ID.",
     )
-    BACKUP_THREAD_ID: Optional[int] = Field(
+    BACKUP_THREAD_ID: int | None = Field(
         default=None,
         description="Telegram topic/thread ID for backup archives. Falls back to LOG_THREAD_ID.",
     )
@@ -238,8 +239,8 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     BACKUP_PG_RESTORE_PATH: str = Field(default="pg_restore")
     BACKUP_PG_RESTORE_TIMEOUT_SECONDS: int = Field(default=30 * 60)
     BACKUP_COMPOSE_ENABLED: bool = Field(default=True)
-    BACKUP_COMPOSE_SOURCE_DIR: Optional[str] = Field(default="/app/compose-source")
-    BACKUP_COMPOSE_RESTORE_DIR: Optional[str] = Field(default=None)
+    BACKUP_COMPOSE_SOURCE_DIR: str | None = Field(default="/app/compose-source")
+    BACKUP_COMPOSE_RESTORE_DIR: str | None = Field(default=None)
     BACKUP_COMPOSE_EXCLUDE_DIRS: str = Field(
         default=".git,node_modules,__pycache__,.pytest_cache,.ruff_cache,postgres-data,redis-data,shop-data,backups"
     )
@@ -247,24 +248,24 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     DEFAULT_LANGUAGE: str = Field(default="ru")
     DEFAULT_CURRENCY_SYMBOL: str = Field(default="RUB")
 
-    SUPPORT_LINK: Optional[str] = Field(default=None)
-    SERVER_STATUS_URL: Optional[str] = Field(default=None)
-    PRIVACY_POLICY_URL: Optional[str] = Field(default=None)
-    USER_AGREEMENT_URL: Optional[str] = Field(default=None)
-    REQUIRED_CHANNEL_ID: Optional[int] = Field(
+    SUPPORT_LINK: str | None = Field(default=None)
+    SERVER_STATUS_URL: str | None = Field(default=None)
+    PRIVACY_POLICY_URL: str | None = Field(default=None)
+    USER_AGREEMENT_URL: str | None = Field(default=None)
+    REQUIRED_CHANNEL_ID: int | None = Field(
         default=None, description="Telegram channel ID the user must join to access the bot"
     )
-    REQUIRED_CHANNEL_LINK: Optional[str] = Field(
+    REQUIRED_CHANNEL_LINK: str | None = Field(
         default=None,
         description="Public username or invite link to the required channel for join button",
     )
 
-    LKNPD_INN: Optional[str] = Field(
+    LKNPD_INN: str | None = Field(
         default=None,
         alias="NALOGO_INN",
         description="INN for lknpd.nalog.ru (self-employed) authentication",
     )
-    LKNPD_PASSWORD: Optional[str] = Field(
+    LKNPD_PASSWORD: str | None = Field(
         default=None,
         alias="NALOGO_PASSWORD",
         description="Password for lknpd.nalog.ru (self-employed) authentication",
@@ -285,15 +286,15 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
         description="Receipt item name for traffic packages. Use {gb} placeholder for traffic amount.",  # noqa: E501
     )
 
-    WEBHOOK_BASE_URL: Optional[str] = None
-    TRUSTED_PROXIES: Optional[str] = Field(
+    WEBHOOK_BASE_URL: str | None = None
+    TRUSTED_PROXIES: str | None = Field(
         default=DEFAULT_TRUSTED_PROXIES,
         description="Comma-separated list of reverse proxy IPs or CIDRs trusted to forward X-Forwarded-For.",  # noqa: E501
     )
 
     STARS_ENABLED: bool = Field(default=True)
     STARS_ADMIN_ONLY_ENABLED: bool = Field(default=False)
-    PAYMENT_METHODS_ORDER: Optional[str] = Field(
+    PAYMENT_METHODS_ORDER: str | None = Field(
         default=None,
         description="Comma-separated list of payment methods to show (e.g., severpay,wata,freekassa,yookassa,platega,stars,cryptopay,heleket,paykilla,lava,pally,cloudpayments,stripe)",  # noqa: E501
     )
@@ -320,24 +321,24 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     MONTH_6_ENABLED: bool = Field(default=True, alias="6_MONTHS_ENABLED")
     MONTH_12_ENABLED: bool = Field(default=True, alias="12_MONTHS_ENABLED")
 
-    RUB_PRICE_1_MONTH: Optional[int] = Field(default=200)
-    RUB_PRICE_3_MONTHS: Optional[int] = Field(default=600)
-    RUB_PRICE_6_MONTHS: Optional[int] = Field(default=1200)
-    RUB_PRICE_12_MONTHS: Optional[int] = Field(default=2400)
+    RUB_PRICE_1_MONTH: int | None = Field(default=200)
+    RUB_PRICE_3_MONTHS: int | None = Field(default=600)
+    RUB_PRICE_6_MONTHS: int | None = Field(default=1200)
+    RUB_PRICE_12_MONTHS: int | None = Field(default=2400)
     PROMO_DURATION_MULTIPLIER_MAX: float = Field(default=12.0)
     PROMO_TRAFFIC_MULTIPLIER_MAX: float = Field(default=12.0)
 
-    STARS_PRICE_1_MONTH: Optional[int] = Field(default=None)
-    STARS_PRICE_3_MONTHS: Optional[int] = Field(default=None)
-    STARS_PRICE_6_MONTHS: Optional[int] = Field(default=None)
-    STARS_PRICE_12_MONTHS: Optional[int] = Field(default=None)
-    PANEL_WEBHOOK_SECRET: Optional[str] = Field(default=None)
+    STARS_PRICE_1_MONTH: int | None = Field(default=None)
+    STARS_PRICE_3_MONTHS: int | None = Field(default=None)
+    STARS_PRICE_6_MONTHS: int | None = Field(default=None)
+    STARS_PRICE_12_MONTHS: int | None = Field(default=None)
+    PANEL_WEBHOOK_SECRET: str | None = Field(default=None)
 
-    TRAFFIC_PACKAGES: Optional[str] = Field(
+    TRAFFIC_PACKAGES: str | None = Field(
         default=None,
         description="Comma-separated list of traffic packages in the format '<GB>:<price>', e.g. '10:199,50:799'",  # noqa: E501
     )
-    STARS_TRAFFIC_PACKAGES: Optional[str] = Field(
+    STARS_TRAFFIC_PACKAGES: str | None = Field(
         default=None,
         description="Comma-separated list of traffic packages priced in Stars, e.g. '5:500,20:1500'",  # noqa: E501
     )
@@ -355,29 +356,29 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     SUBSCRIPTION_NOTIFY_HOURS_BEFORE: int = Field(default=3)
     SUBSCRIPTION_NOTIFICATION_WORKER_TICK_SECONDS: int = Field(default=300)
 
-    REFERRAL_BONUS_DAYS_INVITER_1_MONTH: Optional[int] = Field(
+    REFERRAL_BONUS_DAYS_INVITER_1_MONTH: int | None = Field(
         default=3, alias="REFERRAL_BONUS_DAYS_1_MONTH"
     )
-    REFERRAL_BONUS_DAYS_INVITER_3_MONTHS: Optional[int] = Field(
+    REFERRAL_BONUS_DAYS_INVITER_3_MONTHS: int | None = Field(
         default=7, alias="REFERRAL_BONUS_DAYS_3_MONTHS"
     )
-    REFERRAL_BONUS_DAYS_INVITER_6_MONTHS: Optional[int] = Field(
+    REFERRAL_BONUS_DAYS_INVITER_6_MONTHS: int | None = Field(
         default=15, alias="REFERRAL_BONUS_DAYS_6_MONTHS"
     )
-    REFERRAL_BONUS_DAYS_INVITER_12_MONTHS: Optional[int] = Field(
+    REFERRAL_BONUS_DAYS_INVITER_12_MONTHS: int | None = Field(
         default=30, alias="REFERRAL_BONUS_DAYS_12_MONTHS"
     )
 
-    REFERRAL_BONUS_DAYS_REFEREE_1_MONTH: Optional[int] = Field(
+    REFERRAL_BONUS_DAYS_REFEREE_1_MONTH: int | None = Field(
         default=1, alias="REFEREE_BONUS_DAYS_1_MONTH"
     )
-    REFERRAL_BONUS_DAYS_REFEREE_3_MONTHS: Optional[int] = Field(
+    REFERRAL_BONUS_DAYS_REFEREE_3_MONTHS: int | None = Field(
         default=3, alias="REFEREE_BONUS_DAYS_3_MONTHS"
     )
-    REFERRAL_BONUS_DAYS_REFEREE_6_MONTHS: Optional[int] = Field(
+    REFERRAL_BONUS_DAYS_REFEREE_6_MONTHS: int | None = Field(
         default=7, alias="REFEREE_BONUS_DAYS_6_MONTHS"
     )
-    REFERRAL_BONUS_DAYS_REFEREE_12_MONTHS: Optional[int] = Field(
+    REFERRAL_BONUS_DAYS_REFEREE_12_MONTHS: int | None = Field(
         default=15, alias="REFEREE_BONUS_DAYS_12_MONTHS"
     )
 
@@ -411,11 +412,11 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
         default=False,
         description="Try exact legacy Remnashop promo codes before uppercase normalization.",
     )
-    MIGRATION_REMNASHOP_IMPORTED_AT: Optional[str] = Field(
+    MIGRATION_REMNASHOP_IMPORTED_AT: str | None = Field(
         default=None,
         description="Timestamp of the latest Remnashop import run, managed by the import script.",
     )
-    MIGRATION_REMNASHOP_NOTES: Optional[str] = Field(
+    MIGRATION_REMNASHOP_NOTES: str | None = Field(
         default=None,
         description="Operator notes for instances migrated from Remnashop.",
     )
@@ -464,24 +465,24 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
             "When panel dry-run is enabled, return synthetic users for create-user attempts."
         ),
     )
-    PANEL_API_URL: Optional[str] = None
-    PANEL_API_KEY: Optional[str] = None
-    PANEL_API_COOKIE: Optional[str] = None
-    USER_TRAFFIC_LIMIT_GB: Optional[float] = Field(default=0.0)
+    PANEL_API_URL: str | None = None
+    PANEL_API_KEY: str | None = None
+    PANEL_API_COOKIE: str | None = None
+    USER_TRAFFIC_LIMIT_GB: float | None = Field(default=0.0)
     USER_TRAFFIC_STRATEGY: str = Field(default="NO_RESET")
-    USER_SQUAD_UUIDS: Optional[str] = Field(
+    USER_SQUAD_UUIDS: str | None = Field(
         default=None,
         description="Comma-separated UUIDs of internal squads to assign to new panel users",
     )
-    USER_EXTERNAL_SQUAD_UUID: Optional[str] = Field(
+    USER_EXTERNAL_SQUAD_UUID: str | None = Field(
         default=None,
         description="UUID of the external squad to assign to new panel users (optional)",
     )
 
     TRIAL_ENABLED: bool = Field(default=True)
     TRIAL_DURATION_DAYS: int = Field(default=3)
-    TRIAL_TRAFFIC_LIMIT_GB: Optional[float] = Field(default=5.0)
-    TRIAL_PREMIUM_TRAFFIC_LIMIT_GB: Optional[float] = Field(
+    TRIAL_TRAFFIC_LIMIT_GB: float | None = Field(default=5.0)
+    TRIAL_PREMIUM_TRAFFIC_LIMIT_GB: float | None = Field(
         default=0.0,
         description=(
             "Separate premium traffic limit for trial subscriptions. "
@@ -496,14 +497,14 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
             "Disposable email domains are still blocked until Telegram is linked."
         ),
     )
-    TRIAL_SQUAD_UUIDS: Optional[str] = Field(
+    TRIAL_SQUAD_UUIDS: str | None = Field(
         default=None,
         description=(
             "Comma-separated UUIDs of internal squads to assign during trial activation. "
             "Falls back to USER_SQUAD_UUIDS when empty."
         ),
     )
-    TRIAL_PREMIUM_SQUAD_UUIDS: Optional[str] = Field(
+    TRIAL_PREMIUM_SQUAD_UUIDS: str | None = Field(
         default=None,
         description=(
             "Comma-separated premium internal squad UUIDs to assign during trial activation. "
@@ -514,7 +515,7 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     CRYPT4_ENABLED: bool = Field(
         default=False, description="Enable happ crypt4 encryption for subscription URLs"
     )
-    CRYPT4_REDIRECT_URL: Optional[str] = Field(
+    CRYPT4_REDIRECT_URL: str | None = Field(
         default=None,
         description="Base redirect URL used for the connect button when crypt4 is enabled",
     )
@@ -541,16 +542,16 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
             "<key>/theme.json with optional CSS/assets next to it."
         ),
     )
-    WEBAPP_DEFAULT_THEME: Optional[str] = Field(
+    WEBAPP_DEFAULT_THEME: str | None = Field(
         default=None,
         description=(
             "Override the descriptor-marked default theme when set to an existing theme key."
         ),
     )
-    WEBAPP_LOGO_URL: Optional[str] = Field(default=None)
+    WEBAPP_LOGO_URL: str | None = Field(default=None)
     WEBAPP_FAVICON_USE_CUSTOM: bool = Field(default=False)
-    WEBAPP_FAVICON_URL: Optional[str] = Field(default=None)
-    WEBAPP_LOGO_FAVICON_URL: Optional[str] = Field(default=None)
+    WEBAPP_FAVICON_URL: str | None = Field(default=None)
+    WEBAPP_LOGO_FAVICON_URL: str | None = Field(default=None)
     SUBSCRIPTION_GUIDES_ENABLED: bool = Field(
         default=True,
         description="Show embedded install instructions inside the subscription Mini App.",
@@ -585,27 +586,27 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     WEBAPP_SESSION_TTL_SECONDS: int = Field(default=24 * 60 * 60)
     WEBAPP_AUTH_MAX_AGE_SECONDS: int = Field(default=24 * 60 * 60)
     WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int = Field(default=10 * 60)
-    TELEGRAM_OAUTH_CLIENT_ID: Optional[int] = Field(
+    TELEGRAM_OAUTH_CLIENT_ID: int | None = Field(
         default=None,
         description="Telegram Web Login Client ID from BotFather. Defaults to the numeric bot ID from BOT_TOKEN.",  # noqa: E501
     )
-    TELEGRAM_OAUTH_CLIENT_SECRET: Optional[str] = Field(
+    TELEGRAM_OAUTH_CLIENT_SECRET: str | None = Field(
         default=None,
         description="Telegram Web Login Client Secret from BotFather. Reserved for full OIDC authorization code integrations.",  # noqa: E501
     )
-    TELEGRAM_OAUTH_REQUEST_ACCESS: Optional[str] = Field(
+    TELEGRAM_OAUTH_REQUEST_ACCESS: str | None = Field(
         default="write",
         description="Comma-separated Telegram Login permissions to request: write,phone. Leave empty to request only OpenID profile.",  # noqa: E501
     )
 
     SMTP_HOST: str = Field(default="smtp-relay.brevo.com")
     SMTP_PORT: int = Field(default=587)
-    SMTP_FALLBACK_PORTS: Optional[str] = Field(default="2525,465")
+    SMTP_FALLBACK_PORTS: str | None = Field(default="2525,465")
     SMTP_TIMEOUT_SECONDS: int = Field(default=30)
-    SMTP_USERNAME: Optional[str] = Field(default=None)
-    SMTP_PASSWORD: Optional[str] = Field(default=None)
-    SMTP_FROM_EMAIL: Optional[str] = Field(default=None)
-    SMTP_FROM_NAME: Optional[str] = Field(default=None)
+    SMTP_USERNAME: str | None = Field(default=None)
+    SMTP_PASSWORD: str | None = Field(default=None)
+    SMTP_FROM_EMAIL: str | None = Field(default=None)
+    SMTP_FROM_NAME: str | None = Field(default=None)
     DISPOSABLE_EMAIL_DOMAINS: str = Field(
         default=DEFAULT_DISPOSABLE_EMAIL_DOMAINS,
         description=(
@@ -644,7 +645,7 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED: bool = Field(default=False)
     SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS: int = Field(default=5 * 60)
     SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS: int = Field(default=30 * 60)
-    SUBSCRIPTION_MINI_APP_URL: Optional[str] = Field(default=None)
+    SUBSCRIPTION_MINI_APP_URL: str | None = Field(default=None)
     TELEGRAM_BOT_MENU_DISABLED: bool = Field(
         default=False,
         description=(
@@ -653,7 +654,7 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
         ),
     )
 
-    START_COMMAND_DESCRIPTION: Optional[str] = Field(default=None)
+    START_COMMAND_DESCRIPTION: str | None = Field(default=None)
     DISABLE_WELCOME_MESSAGE: bool = Field(
         default=False, description="Disable welcome message on /start command"
     )
@@ -668,7 +669,7 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     MY_DEVICES_SECTION_ENABLED: bool = Field(
         default=False, description="Enable the My Devices section in the subscription menu"
     )
-    USER_HWID_DEVICE_LIMIT: Optional[int] = Field(
+    USER_HWID_DEVICE_LIMIT: int | None = Field(
         default=None, description="Default hardware device limit for panel users (0 = unlimited)"
     )
 
@@ -691,13 +692,13 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
         default="INFO",
         description="Global log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
     )
-    LOG_CHAT_ID: Optional[int] = Field(
+    LOG_CHAT_ID: int | None = Field(
         default=None, description="Telegram chat/group ID for sending notifications"
     )
-    LOG_THREAD_ID: Optional[int] = Field(
+    LOG_THREAD_ID: int | None = Field(
         default=None, description="Thread ID for supergroup messages (optional)"
     )
-    LOG_SUPPORT_THREAD_ID: Optional[int] = Field(
+    LOG_SUPPORT_THREAD_ID: int | None = Field(
         default=None, description="Thread ID for support ticket log messages"
     )
 
@@ -767,50 +768,54 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     )
 
 
-_settings_instance: Optional[Settings] = None
+_settings_instance: Settings | None = None
 
 
 def get_settings() -> Settings:
     global _settings_instance
     if _settings_instance is None:
         try:
+            # Third-party boundary: pydantic-settings fills required fields
+            # (BOT_TOKEN, POSTGRES_*) from the environment inside __init__, but
+            # dataclass_transform makes mypy demand them as named arguments.
+            # model_validate({}) would satisfy mypy yet skip the env sources.
             _settings_instance = Settings()  # type: ignore[call-arg]
             if not _settings_instance.ADMIN_IDS:
-                logging.warning(
+                logger.warning(
                     "CRITICAL: ADMIN_IDS not set or contains no valid integer IDs in .env. "
                     "Admin functionality will be restricted."
                 )
 
             if not _settings_instance.PANEL_API_URL:
-                logging.warning(
+                logger.warning(
                     "CRITICAL: PANEL_API_URL is not set. Panel integration will not work."
                 )
             if _settings_instance.panel_dry_run_enabled:
-                logging.warning(
+                logger.warning(
                     "PANEL_WRITE_MODE dry-run is enabled: Remnawave write requests will be "
                     "validated and logged without changing panel users."
                 )
             if not os.getenv("WEBAPP_SESSION_SECRET"):
-                logging.warning(
+                logger.warning(
                     "WEBAPP_SESSION_SECRET is not set. A generated secret will be used for this process only."  # noqa: E501
                 )
             if not os.getenv("WEBHOOK_SECRET_TOKEN"):
-                logging.warning(
+                logger.warning(
                     "WEBHOOK_SECRET_TOKEN is not set. A generated secret will be used for this process only."  # noqa: E501
                 )
             if (_settings_instance.LKNPD_INN or _settings_instance.LKNPD_PASSWORD) and not (
                 _settings_instance.LKNPD_INN and _settings_instance.LKNPD_PASSWORD
             ):
-                logging.warning(
+                logger.warning(
                     "WARNING: LKNPD credentials are incomplete. Receipt sending will be disabled."
                 )
 
         except ValidationError as e:
-            logging.critical(f"Pydantic validation error while loading settings: {e}")
+            logger.critical("Pydantic validation error while loading settings: %s", e)
 
             raise SystemExit(
                 f"CRITICAL SETTINGS ERROR: {e}. Please check your .env file and Settings model."
-            )
+            ) from e
     return _settings_instance
 
 

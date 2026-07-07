@@ -28,10 +28,10 @@ type TelegramLoginDeps = Parameters<typeof createTelegramLoginActions>[0];
 type PublicInstallSubscription = ReturnType<ConnectDeps["getPublicInstallSubscription"]>;
 
 type ExternalLinkActions = {
-  openAppLaunchTarget: () => void;
+  openAppLaunchTarget: (target?: string) => boolean | void;
   openAppLink: (url: string) => void;
   openExternalLink: (url: string) => void;
-  refreshAppLaunchTarget: () => void;
+  refreshAppLaunchTarget: () => string;
 };
 
 type SupportStore = {

@@ -3,6 +3,7 @@ import json
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from typing import ClassVar
 from unittest.mock import AsyncMock, patch
 
 from aiohttp import web
@@ -38,7 +39,7 @@ class _AsyncSessionFactory:
 
 
 class _I18n:
-    locales_data = {
+    locales_data: ClassVar[dict[str, dict[str, str]]] = {
         "en": {
             "wa_app_launch_title": "Localized launch",
             "wa_app_launch_opening_hint": "Localized opening hint",
@@ -58,11 +59,13 @@ class _I18n:
 
 
 def _route_map(app: web.Application) -> dict[tuple[str, str], str]:
-    return {
-        (route.method, route.resource.canonical): route.handler.__name__
-        for route in app.router.routes()
-        if route.method != "HEAD"
-    }
+    routes: dict[tuple[str, str], str] = {}
+    for route in app.router.routes():
+        resource = route.resource
+        if route.method == "HEAD" or resource is None:
+            continue
+        routes[(route.method, resource.canonical)] = route.handler.__name__
+    return routes
 
 
 class WebAppRouteContractTests(unittest.TestCase):

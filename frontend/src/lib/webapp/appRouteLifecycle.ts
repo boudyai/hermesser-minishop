@@ -1,10 +1,6 @@
 import { isPasswordLoginPath } from "./passwordLoginRoute.js";
 import { activeTabForWebappSection, resolveAvailableWebappSection } from "./sectionAvailability.js";
-import {
-  adminSectionFromPath,
-  normalizeSection,
-  sectionFromPath,
-} from "./routes.js";
+import { adminSectionFromPath, normalizeSection, sectionFromPath } from "./routes.js";
 
 // ponytail: public install-mode was retired on 2026-07-04 alongside the
 // /s/{token} share-link flow. Old messages may still contain the URL

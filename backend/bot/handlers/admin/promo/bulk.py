@@ -3,8 +3,7 @@ import io
 import logging
 import random
 import string
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from aiogram import F, Router, types
 from aiogram.filters import StateFilter
@@ -23,6 +22,8 @@ from bot.utils.callback_answer import callback_message, message_bot
 from config.settings import Settings
 from db.dal import promo_code_dal
 
+logger = logging.getLogger(__name__)
+
 router = Router(name="promo_bulk_router")
 
 
@@ -34,7 +35,7 @@ async def create_bulk_promo_prompt_handler(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error preparing bulk promo creation.", show_alert=True)
         return
@@ -50,7 +51,7 @@ async def create_bulk_promo_prompt_handler(
             parse_mode="HTML",
         )
     except Exception as e:
-        logging.warning(f"Could not edit message for bulk promo prompt: {e}. Sending new.")
+        logger.warning("Could not edit message for bulk promo prompt: %s. Sending new.", e)
         await callback_message(callback).answer(
             prompt_text,
             reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
@@ -72,7 +73,7 @@ async def process_bulk_promo_quantity_handler(
     message: types.Message, state: FSMContext, i18n_data: dict, settings: Settings
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -99,7 +100,7 @@ async def process_bulk_promo_quantity_handler(
     except ValueError:
         await message.answer(_("admin_promo_invalid_number"))
     except Exception as e:
-        logging.error(f"Error processing bulk promo quantity: {e}")
+        logger.error("Error processing bulk promo quantity: %s", e)
         await message.answer(_("error_occurred_try_again"))
 
 
@@ -109,7 +110,7 @@ async def process_bulk_promo_bonus_days_handler(
     message: types.Message, state: FSMContext, i18n_data: dict, settings: Settings
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -141,7 +142,7 @@ async def process_bulk_promo_bonus_days_handler(
     except ValueError:
         await message.answer(_("admin_promo_invalid_number"))
     except Exception as e:
-        logging.error(f"Error processing bulk promo bonus days: {e}")
+        logger.error("Error processing bulk promo bonus days: %s", e)
         await message.answer(_("error_occurred_try_again"))
 
 
@@ -151,7 +152,7 @@ async def process_bulk_promo_max_activations_handler(
     message: types.Message, state: FSMContext, i18n_data: dict, settings: Settings
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -197,7 +198,7 @@ async def process_bulk_promo_max_activations_handler(
     except ValueError:
         await message.answer(_("admin_promo_invalid_number"))
     except Exception as e:
-        logging.error(f"Error processing bulk promo max activations: {e}")
+        logger.error("Error processing bulk promo max activations: %s", e)
         await message.answer(_("error_occurred_try_again"))
 
 
@@ -226,7 +227,7 @@ async def process_bulk_promo_set_validity(
     callback: types.CallbackQuery, state: FSMContext, i18n_data: dict, settings: Settings
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error processing validity.", show_alert=True)
         return
@@ -265,7 +266,7 @@ async def process_bulk_promo_validity_days_handler(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -283,7 +284,7 @@ async def process_bulk_promo_validity_days_handler(
     except ValueError:
         await message.answer(_("admin_promo_invalid_number"))
     except Exception as e:
-        logging.error(f"Error processing bulk promo validity days: {e}")
+        logger.error("Error processing bulk promo validity days: %s", e)
         await message.answer(_("error_occurred_try_again"))
 
 
@@ -296,7 +297,7 @@ async def create_bulk_promo_codes_final(
 ) -> None:
     """Final step - create multiple promo codes in database"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
@@ -338,7 +339,7 @@ async def create_bulk_promo_codes_final(
                     attempts += 1
 
                 if attempts >= 10:
-                    failed_codes.append(_("tg_admin_promo_failed_generate", index=i + 1))
+                    failed_codes.append(f"Код #{i + 1} (не удалось сгенерировать уникальный)")
                     continue
 
                 # Prepare promo code data
@@ -350,12 +351,12 @@ async def create_bulk_promo_codes_final(
                     "current_activations": 0,
                     "is_active": True,
                     "created_by_admin_id": created_by_admin_id,
-                    "created_at": datetime.now(timezone.utc),
+                    "created_at": datetime.now(UTC),
                 }
 
                 # Set validity
                 if data.get("validity_days"):
-                    promo_data["valid_until"] = datetime.now(timezone.utc) + timedelta(
+                    promo_data["valid_until"] = datetime.now(UTC) + timedelta(
                         days=data["validity_days"]
                     )
                 else:
@@ -366,7 +367,7 @@ async def create_bulk_promo_codes_final(
                 created_codes.append(created_promo.code)
 
             except Exception as e:
-                logging.error(f"Error creating bulk promo code #{i + 1}: {e}")
+                logger.error("Error creating bulk promo code #%s: %s", i + 1, e)
                 failed_codes.append(_("tg_admin_promo_failed_code", index=i + 1, error=str(e)[:50]))
 
         await session.commit()
@@ -378,7 +379,7 @@ async def create_bulk_promo_codes_final(
         ]
 
         if data.get("validity_days"):
-            validity_text = _("tg_admin_promo_validity_days", days=data["validity_days"])
+            validity_text = f"{data['validity_days']} дней"
         else:
             validity_text = _("admin_promo_unlimited")
 
@@ -394,8 +395,8 @@ async def create_bulk_promo_codes_final(
         # Create CSV file with promo codes if any were created
         csv_file = None
         if created_codes:
-            success_lines.append(_("tg_admin_bulk_promo_created_count", count=len(created_codes)))
-            success_lines.append(_("tg_admin_bulk_promo_csv_sent_note"))
+            success_lines.append(f"\n🎟 <b>Создано {len(created_codes)} промокодов</b>")
+            success_lines.append("📄 CSV файл с промокодами отправлен отдельным сообщением")
 
             # Create CSV file
             output = io.StringIO()
@@ -404,12 +405,12 @@ async def create_bulk_promo_codes_final(
             # CSV headers
             writer.writerow(
                 [
-                    _("admin_promo_csv_code"),
-                    _("tg_admin_promo_csv_bonus_days"),
-                    _("tg_admin_promo_csv_max_activations"),
-                    _("tg_admin_promo_csv_validity"),
-                    _("tg_admin_promo_csv_start_command"),
-                    _("tg_admin_promo_csv_activation_link"),
+                    "Промокод",
+                    "Бонусные дни",
+                    "Макс. активации",
+                    "Действителен до",
+                    "Команда для старта",
+                    "Ссылка для активации",
                 ]
             )
 
@@ -423,14 +424,14 @@ async def create_bulk_promo_codes_final(
                 bot_info = await bot.get_me()
                 bot_username = bot_info.username or "your_bot"
             except Exception as e:
-                logging.error(f"Failed to get bot username for CSV links: {e}")
+                logger.error("Failed to get bot username for CSV links: %s", e)
                 bot_username = "your_bot"
 
             for code in created_codes:
                 # Determine validity info
                 if data.get("validity_days"):
                     valid_until = (
-                        datetime.now(timezone.utc) + timedelta(days=data["validity_days"])
+                        datetime.now(UTC) + timedelta(days=data["validity_days"])
                     ).strftime("%Y-%m-%d %H:%M:%S")
                 else:
                     valid_until = _("admin_promo_unlimited")
@@ -452,21 +453,15 @@ async def create_bulk_promo_codes_final(
             output.seek(0)
 
             # Create file for sending
-            filename = f"bulk_promo_codes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            filename = f"bulk_promo_codes_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.csv"
             csv_file = types.BufferedInputFile(
                 output.getvalue().encode("utf-8-sig"),  # BOM for correct Excel display
                 filename=filename,
             )
 
         if failed_codes:
-            success_lines.append(
-                _(
-                    "tg_admin_bulk_promo_errors_header",
-                    count=len(failed_codes),
-                )
-            )
-            for error in failed_codes[:5]:  # Show first 5 errors
-                success_lines.append(error)
+            success_lines.append(_("tg_admin_bulk_promo_errors_header", count=len(failed_codes)))
+            success_lines.extend(failed_codes[:5])
             if len(failed_codes) > 5:
                 success_lines.append(
                     _("tg_admin_bulk_promo_more_errors", count=len(failed_codes) - 5)
@@ -499,17 +494,13 @@ async def create_bulk_promo_codes_final(
 
         # Send CSV file if created
         if csv_file:
-            csv_caption = _(
-                "tg_admin_bulk_promo_csv_caption",
-                count=len(created_codes),
-                days=data["bonus_days"],
-            )
+            csv_caption = f"📄 Промокоды для массового создания\n💫 Всего: {len(created_codes)} промокодов\n🎁 Бонус: {data['bonus_days']} дней каждый"  # noqa: E501
             await message_obj.answer_document(csv_file, caption=csv_caption)
 
         await state.clear()
 
     except Exception as e:
-        logging.error(f"Error creating bulk promo codes: {e}")
+        logger.error("Error creating bulk promo codes: %s", e)
         error_text = _("error_occurred_try_again")
 
         if isinstance(callback_or_message, types.CallbackQuery):
@@ -538,7 +529,7 @@ async def cancel_bulk_promo_creation_state_to_menu(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error cancelling.", show_alert=True)
         return

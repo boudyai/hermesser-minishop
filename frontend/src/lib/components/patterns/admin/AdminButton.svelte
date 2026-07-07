@@ -1,6 +1,23 @@
-<script>
+<script lang="ts">
   import { cva } from "class-variance-authority";
   import { cn } from "$lib/utils.js";
+  import type { Snippet } from "svelte";
+  import type { HTMLButtonAttributes } from "svelte/elements";
+
+  type AdminButtonVariant = "danger" | "dangerSoft" | "default" | "ghost" | "icon" | "primary";
+  type AdminButtonSize = "default" | "icon" | "sm";
+  type Props = Omit<
+    HTMLButtonAttributes,
+    "children" | "class" | "disabled" | "onclick" | "type"
+  > & {
+    children?: Snippet;
+    class?: string;
+    disabled?: boolean;
+    onclick?: (event: MouseEvent) => void;
+    size?: AdminButtonSize;
+    type?: HTMLButtonAttributes["type"];
+    variant?: AdminButtonVariant;
+  };
 
   let {
     type = "button",
@@ -11,7 +28,7 @@
     class: className = "",
     children,
     ...restProps
-  } = $props();
+  }: Props = $props();
 
   const buttonVariants = cva("admin-btn", {
     variants: {

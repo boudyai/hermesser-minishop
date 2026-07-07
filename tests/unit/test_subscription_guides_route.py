@@ -1,7 +1,7 @@
 import asyncio
 import json
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -212,6 +212,63 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
         panel_service.get_subscription_page_config_by_uuid.assert_awaited_once_with(custom_uuid)
         panel_service.get_subscription_page_config_list.assert_not_called()
 
+    async def test_retries_with_fresh_short_uuid_when_local_one_is_stale_after_link_reset(self):
+        custom_uuid = "11111111-1111-1111-1111-111111111111"
+        resolved_config = json.loads(default_subscription_guides_config_text())
+        resolved_config["platforms"]["windows"]["apps"][0]["name"] = "Fresh Squad App"
+
+        def _config_by_short_uuid(short_uuid, request_headers=None):
+            if short_uuid == "fresh-short":
+                return {"subpageConfigUuid": custom_uuid, "webpageAllowed": True}
+            return None
+
+        panel_service = SimpleNamespace(
+            get_user_by_uuid=AsyncMock(
+                return_value={
+                    "shortUuid": "fresh-short",
+                    "subscriptionUrl": "https://sb.example.test/fresh-short",
+                }
+            ),
+            get_subscription_page_config_by_short_uuid=AsyncMock(side_effect=_config_by_short_uuid),
+            get_subscription_page_config_by_uuid=AsyncMock(
+                return_value={"uuid": custom_uuid, "config": resolved_config}
+            ),
+            get_subscription_page_config_list=AsyncMock(),
+        )
+        request = self._request(self._settings(), panel_service)
+        db_user = SimpleNamespace(panel_user_uuid="panel-user")
+        # The local DB still holds the short UUID revoked via the panel.
+        local_sub = SimpleNamespace(panel_subscription_uuid="stale-short")
+
+        with (
+            self._auth_patch(),
+            patch.object(guides.user_dal, "get_user_by_id", AsyncMock(return_value=db_user)),
+            patch.object(
+                guides.subscription_dal,
+                "get_active_subscription_by_user_id",
+                AsyncMock(return_value=local_sub),
+            ),
+        ):
+            response = await guides.subscription_guides_route(request)
+
+        body = json.loads(response.text)
+        self.assertTrue(body["enabled"])
+        self.assertEqual(body["source"], "panel")
+        windows_apps = [app["name"] for app in body["config"]["platforms"]["windows"]["apps"]]
+        self.assertIn("Fresh Squad App", windows_apps)
+        panel_service.get_user_by_uuid.assert_awaited_once_with("panel-user")
+        self.assertEqual(
+            panel_service.get_subscription_page_config_by_short_uuid.await_count,
+            2,
+        )
+        short_uuid_calls = [
+            call.args[0]
+            for call in panel_service.get_subscription_page_config_by_short_uuid.await_args_list
+        ]
+        self.assertEqual(short_uuid_calls, ["stale-short", "fresh-short"])
+        panel_service.get_subscription_page_config_by_uuid.assert_awaited_once_with(custom_uuid)
+        panel_service.get_subscription_page_config_list.assert_not_called()
+
     async def test_resolved_panel_config_is_cached_for_same_short_uuid(self):
         custom_uuid = "11111111-1111-1111-1111-111111111111"
         resolved_config = json.loads(default_subscription_guides_config_text())
@@ -389,7 +446,7 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
         default_uuid = "00000000-0000-0000-0000-000000000000"
         default_config = json.loads(default_subscription_guides_config_text())
         windows_apps = json.loads(json.dumps(default_config["platforms"]["windows"]["apps"][:3]))
-        for app, name in zip(windows_apps, ("INCY", "Happ", "Throne")):
+        for app, name in zip(windows_apps, ("INCY", "Happ", "Throne"), strict=True):
             app["name"] = name
         default_config["platforms"]["windows"]["apps"] = windows_apps
         panel_service = SimpleNamespace(
@@ -512,7 +569,7 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
             panel_user_uuid="panel-user",
             install_share_token=share_token,
             is_active=True,
-            end_date=datetime.now(timezone.utc) + timedelta(days=3),
+            end_date=datetime.now(UTC) + timedelta(days=3),
         )
 
         with patch.object(
@@ -573,7 +630,7 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
             panel_user_uuid="panel-user",
             install_share_token=share_token,
             is_active=True,
-            end_date=datetime.now(timezone.utc) + timedelta(days=3),
+            end_date=datetime.now(UTC) + timedelta(days=3),
         )
         get_sub = AsyncMock(return_value=local_sub)
 
@@ -644,7 +701,7 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
             panel_user_uuid="panel-user",
             install_share_token=share_token,
             is_active=False,
-            end_date=datetime.now(timezone.utc) + timedelta(days=3),
+            end_date=datetime.now(UTC) + timedelta(days=3),
         )
 
         with patch.object(

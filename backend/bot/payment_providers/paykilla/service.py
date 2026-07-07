@@ -1,24 +1,15 @@
-import hmac
 import json
 import logging
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
-
-if TYPE_CHECKING:
-    from bot.services.referral_service import ReferralService
-    from bot.services.subscription_service_impl.core import SubscriptionService
-else:
-    ReferralService = object
-    SubscriptionService = object
-from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
 from db.dal import payment_dal
 
@@ -31,6 +22,8 @@ from ..shared import (
     PAYMENT_STATUS_PENDING_FINALIZATION,
     HttpClientMixin,
     PaymentSuccessRequest,
+    check_webhook_source_ip,
+    constant_time_compare,
     decimal_amounts_equal,
     finalize_successful_payment,
     first_value,
@@ -58,6 +51,15 @@ from .config import (
     _webhook_signature,
 )
 
+if TYPE_CHECKING:
+    from bot.services.referral_service import ReferralService
+    from bot.services.subscription_service_impl.core import SubscriptionService
+else:
+    ReferralService = object
+    SubscriptionService = object
+
+logger = logging.getLogger(__name__)
+
 
 class PaykillaService(HttpClientMixin):
     def __init__(
@@ -80,12 +82,12 @@ class PaykillaService(HttpClientMixin):
         self.subscription_service = subscription_service
         self.referral_service = referral_service
         self._default_return_url = default_return_url
-        self._exchange_rate_cache: Dict[tuple[str, str], tuple[float, Decimal]] = {}
-        self._currency_cache: tuple[float, List[Dict[str, Any]]] = (0, [])
+        self._exchange_rate_cache: dict[tuple[str, str], tuple[float, Decimal]] = {}
+        self._currency_cache: tuple[float, list[dict[str, Any]]] = (0, [])
 
         self._init_http_client(total_timeout=lambda: self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
         if not self.configured:
-            logging.warning(
+            logger.warning(
                 "PaykillaService initialized but not fully configured. Payments disabled."
             )
 
@@ -161,7 +163,7 @@ class PaykillaService(HttpClientMixin):
             except json.JSONDecodeError as exc:
                 raise ValueError("exchange_rate_invalid_json") from exc
             if response.status != 200 or response_data.get("result") != "success":
-                logging.error(
+                logger.error(
                     "Paykilla exchange rate request failed "
                     "(status=%s, body=%s, source=%s, target=%s)",
                     response.status,
@@ -179,7 +181,7 @@ class PaykillaService(HttpClientMixin):
         cache[cache_key] = (now, rate)
         return rate
 
-    async def _paykilla_currencies(self) -> List[Dict[str, Any]]:
+    async def _paykilla_currencies(self) -> list[dict[str, Any]]:
         cache_seconds = int(self.config.EXCHANGE_RATE_CACHE_SECONDS)
         now = time.time()
         cached_at, cached_data = getattr(self, "_currency_cache", (0, []))
@@ -194,26 +196,26 @@ class PaykillaService(HttpClientMixin):
                 try:
                     response_data = json.loads(response_text) if response_text else []
                 except json.JSONDecodeError:
-                    logging.warning(
+                    logger.warning(
                         "Paykilla currency metadata request returned invalid JSON: %s",
                         response_text,
                     )
                     return cached_data
                 if response.status != 200 or not isinstance(response_data, list):
-                    logging.warning(
+                    logger.warning(
                         "Paykilla currency metadata request failed (status=%s, body=%s)",
                         response.status,
                         response_data,
                     )
                     return cached_data
         except Exception:
-            logging.exception("Paykilla currency metadata request failed.")
+            logger.exception("Paykilla currency metadata request failed.")
             return cached_data
 
         self._currency_cache = (now, response_data)
         return response_data
 
-    async def _currency_info_for(self, currency: str) -> Optional[Dict[str, Any]]:
+    async def _currency_info_for(self, currency: str) -> dict[str, Any] | None:
         currency = normalize_payment_currency_code(currency)
         for item in await self._paykilla_currencies():
             if not isinstance(item, dict):
@@ -224,7 +226,7 @@ class PaykillaService(HttpClientMixin):
 
     async def _invoice_amount_bounds_error(
         self, *, amount: Decimal, currency: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         info = await self._currency_info_for(currency)
         if not info:
             return None
@@ -257,7 +259,7 @@ class PaykillaService(HttpClientMixin):
 
         rate = await self._exchange_rate(payment_currency, invoice_currency)
         converted_amount = format_decimal_amount(invoice_amount * rate)
-        logging.info(
+        logger.info(
             "Paykilla invoice currency conversion: payment=%s %s, invoice=%s %s, rate=%s",
             invoice_amount,
             payment_currency,
@@ -269,7 +271,7 @@ class PaykillaService(HttpClientMixin):
 
     async def _configured_minimum_error(
         self, *, amount: float, payment_currency: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         min_amount = _config_min_payment_amount(self.config)
         if min_amount <= 0:
             return None
@@ -297,12 +299,12 @@ class PaykillaService(HttpClientMixin):
         *,
         payment_db_id: int,
         amount: Any,
-        currency: Optional[str],
+        currency: str | None,
         description: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         currency_code = normalize_payment_currency_code(currency or self.currency)
         invoice_text = _invoice_text(getattr(self.settings, "WEBAPP_TITLE", None), payment_db_id)
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "type": _invoice_type_for(self.config, currency_code),
             "purpose": invoice_text,
             "currency": currency_code,
@@ -314,9 +316,7 @@ class PaykillaService(HttpClientMixin):
             "description": invoice_text,
         }
         if self.config.LIFETIME_SECONDS:
-            expires_at = datetime.now(timezone.utc) + timedelta(
-                seconds=int(self.config.LIFETIME_SECONDS)
-            )
+            expires_at = datetime.now(UTC) + timedelta(seconds=int(self.config.LIFETIME_SECONDS))
             body["expiredAt"] = expires_at.isoformat().replace("+00:00", "Z")
         return body
 
@@ -325,12 +325,12 @@ class PaykillaService(HttpClientMixin):
         *,
         payment_db_id: int,
         amount: float,
-        currency: Optional[str],
+        currency: str | None,
         description: str,
-        url_callback: Optional[str] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        url_callback: str | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
-            logging.error("PaykillaService is not configured. Cannot create payment link.")
+            logger.error("PaykillaService is not configured. Cannot create payment link.")
             return False, {"message": "service_not_configured"}
 
         currency_code = normalize_payment_currency_code(currency or self.currency)
@@ -348,7 +348,7 @@ class PaykillaService(HttpClientMixin):
                 payment_currency=currency_code,
             )
             if minimum_error:
-                logging.error(
+                logger.error(
                     "Paykilla create_payment_link: payment amount below configured minimum "
                     "(details=%s)",
                     minimum_error,
@@ -359,7 +359,7 @@ class PaykillaService(HttpClientMixin):
                 payment_currency=currency_code,
             )
         except Exception as exc:
-            logging.exception(
+            logger.exception(
                 "Paykilla create_payment_link: failed to resolve invoice currency "
                 "(amount=%s currency=%s target=%s).",
                 amount,
@@ -373,7 +373,7 @@ class PaykillaService(HttpClientMixin):
             currency=invoice_currency,
         )
         if bounds_error:
-            logging.error(
+            logger.error(
                 "Paykilla create_payment_link: invoice amount violates PayKilla limits "
                 "(details=%s, payment_amount=%s, payment_currency=%s)",
                 bounds_error,
@@ -403,7 +403,7 @@ class PaykillaService(HttpClientMixin):
                 try:
                     response_data = json.loads(response_text) if response_text else {}
                 except json.JSONDecodeError:
-                    logging.error("Paykilla create_payment_link: invalid JSON: %s", response_text)
+                    logger.error("Paykilla create_payment_link: invalid JSON: %s", response_text)
                     return False, {
                         "status": response.status,
                         "message": "invalid_json",
@@ -412,7 +412,7 @@ class PaykillaService(HttpClientMixin):
                 invoice = _response_invoice_data(response_data)
                 invoice_id = first_value(invoice, "id")
                 if response.status not in {200, 201} or not invoice_id:
-                    logging.error(
+                    logger.error(
                         "Paykilla create_payment_link: API error "
                         "(status=%s, body=%s, request_body=%s)",
                         response.status,
@@ -423,10 +423,10 @@ class PaykillaService(HttpClientMixin):
                 invoice["payment_url"] = f"{self.widget_url}/{invoice_id}"
                 return True, invoice
         except Exception as exc:
-            logging.exception("Paykilla create_payment_link: request failed.")
+            logger.exception("Paykilla create_payment_link: request failed.")
             return False, {"message": str(exc)}
 
-    async def get_invoice_details(self, invoice_id: str) -> Tuple[bool, Dict[str, Any]]:
+    async def get_invoice_details(self, invoice_id: str) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
             return False, {"message": "service_not_configured"}
 
@@ -448,7 +448,7 @@ class PaykillaService(HttpClientMixin):
                 try:
                     response_data = json.loads(response_text) if response_text else {}
                 except json.JSONDecodeError:
-                    logging.error("Paykilla get_invoice_details: invalid JSON: %s", response_text)
+                    logger.error("Paykilla get_invoice_details: invalid JSON: %s", response_text)
                     return False, {
                         "status": response.status,
                         "message": "invalid_json",
@@ -456,7 +456,7 @@ class PaykillaService(HttpClientMixin):
                     }
                 invoice = _response_invoice_data(response_data)
                 if response.status != 200 or not first_value(invoice, "id"):
-                    logging.warning(
+                    logger.warning(
                         "Paykilla get_invoice_details failed: id=%s status=%s body=%s",
                         invoice_id,
                         response.status,
@@ -465,10 +465,10 @@ class PaykillaService(HttpClientMixin):
                     return False, {"status": response.status, "message": response_data}
                 return True, invoice
         except Exception as exc:
-            logging.exception("Paykilla get_invoice_details request failed: id=%s", invoice_id)
+            logger.exception("Paykilla get_invoice_details request failed: id=%s", invoice_id)
             return False, {"message": str(exc)}
 
-    async def try_reuse_pending_invoice(self, payment: Any) -> Optional[str]:
+    async def try_reuse_pending_invoice(self, payment: Any) -> str | None:
         invoice_id = str(getattr(payment, "provider_payment_id", None) or "").strip()
         if not invoice_id:
             return None
@@ -484,7 +484,7 @@ class PaykillaService(HttpClientMixin):
             return None
         return f"{self.widget_url}/{invoice_id}"
 
-    def _webhook_url_for_request(self, request: web.Request) -> Optional[str]:
+    def _webhook_url_for_request(self, request: web.Request) -> str | None:
         configured = self.config.full_webhook_url(getattr(self.settings, "WEBHOOK_BASE_URL", None))
         if configured:
             return configured
@@ -500,8 +500,8 @@ class PaykillaService(HttpClientMixin):
         api_key = str(request.headers.get("X-API-KEY") or "").strip()
         if not timestamp or not signature:
             return False
-        if api_key and not hmac.compare_digest(api_key, self.api_key):
-            logging.warning("Paykilla webhook: X-API-KEY does not match configured API key.")
+        if api_key and not constant_time_compare(api_key, self.api_key):
+            logger.warning("Paykilla webhook: X-API-KEY does not match configured API key.")
             return False
         try:
             timestamp_ms = int(timestamp)
@@ -510,7 +510,7 @@ class PaykillaService(HttpClientMixin):
             return False
         now_ms = int(time.time() * 1000)
         if abs(now_ms - timestamp_ms) > max(recv_window_ms, 1000):
-            logging.warning(
+            logger.warning(
                 "Paykilla webhook: timestamp outside recv window "
                 "(timestamp=%s now=%s recvWindow=%s).",
                 timestamp_ms,
@@ -520,7 +520,7 @@ class PaykillaService(HttpClientMixin):
             return False
         webhook_url = self._webhook_url_for_request(request)
         if not webhook_url:
-            logging.warning("Paykilla webhook: cannot resolve webhook URL for signature.")
+            logger.warning("Paykilla webhook: cannot resolve webhook URL for signature.")
             return False
         expected = _webhook_signature(
             timestamp=timestamp,
@@ -529,9 +529,9 @@ class PaykillaService(HttpClientMixin):
             raw_body=raw_body,
             secret_key=self.secret_key,
         )
-        if hmac.compare_digest(expected, signature):
+        if constant_time_compare(expected, signature):
             return True
-        logging.warning(
+        logger.warning(
             "Paykilla webhook: invalid signature (received=%s expected=%s url=%s).",
             _signature_preview(signature),
             _signature_preview(expected),
@@ -543,13 +543,18 @@ class PaykillaService(HttpClientMixin):
         if not self.configured:
             return web.Response(status=503, text="paykilla_disabled")
 
-        client_ip = request_client_ip(request, trusted_proxies=self.settings.trusted_proxies)
         trusted = self.config.trusted_ips_list
-        if trusted and not ip_in_allowlist(client_ip, trusted):
-            logging.warning(
+        ip_check = check_webhook_source_ip(
+            request,
+            trusted_ips=trusted,
+            trusted_proxies=self.settings.trusted_proxies,
+            allow_empty=True,
+        )
+        if not ip_check.allowed:
+            logger.warning(
                 "Paykilla webhook denied from unauthorized IP source "
                 "(client_ip=%s remote=%s x_forwarded_for=%s trusted_ip_count=%d).",
-                client_ip,
+                ip_check.client_ip,
                 request.remote,
                 request.headers.get("X-Forwarded-For"),
                 len(trusted),
@@ -566,7 +571,7 @@ class PaykillaService(HttpClientMixin):
         try:
             payload = json.loads(raw_body.decode("utf-8"))
         except Exception:
-            logging.exception("Paykilla webhook: failed to parse JSON.")
+            logger.exception("Paykilla webhook: failed to parse JSON.")
             return web.Response(status=400, text="bad_request")
 
         if not isinstance(payload, dict):
@@ -575,16 +580,16 @@ class PaykillaService(HttpClientMixin):
         event_type = str(payload.get("eventType") or "").strip().upper()
         data = payload.get("data")
         if not event_type or not isinstance(data, dict):
-            logging.error("Paykilla webhook: missing event envelope fields: %s", payload)
+            logger.error("Paykilla webhook: missing event envelope fields: %s", payload)
             return web.Response(status=400, text="missing_fields")
 
         if event_type not in _SUCCESS_EVENTS and event_type not in _FAILED_EVENTS:
-            logging.info("Paykilla webhook: intermediate event '%s' ignored.", event_type)
+            logger.info("Paykilla webhook: intermediate event '%s' ignored.", event_type)
             return web.Response(text="status_ignored")
 
         data_type = str(data.get("type") or "").strip().upper()
         if data_type and data_type != "INVOICE":
-            logging.info(
+            logger.info(
                 "Paykilla webhook: non-invoice event '%s' ignored (type=%s).",
                 event_type,
                 data_type,
@@ -597,7 +602,7 @@ class PaykillaService(HttpClientMixin):
         invoice_currency = normalize_payment_currency_code(data.get("currency") or self.currency)
 
         if not (invoice_id or client_order_id):
-            logging.error("Paykilla webhook: missing invoice ids: %s", payload)
+            logger.error("Paykilla webhook: missing invoice ids: %s", payload)
             return web.Response(status=400, text="missing_fields")
 
         async with self.async_session_factory() as session:
@@ -607,7 +612,7 @@ class PaykillaService(HttpClientMixin):
                 provider_payment_id=invoice_id or None,
             )
             if not payment:
-                logging.error(
+                logger.error(
                     "Paykilla webhook: payment not found (clientOrderId=%s, invoice_id=%s)",
                     client_order_id,
                     invoice_id,
@@ -624,7 +629,7 @@ class PaykillaService(HttpClientMixin):
                 if amount_raw is not None and invoice_currency == payment_currency:
                     try:
                         if not decimal_amounts_equal(amount_raw, payment.amount):
-                            logging.warning(
+                            logger.warning(
                                 "Paykilla webhook: amount mismatch for payment %s "
                                 "(expected %s, got %s)",
                                 payment.payment_id,
@@ -632,13 +637,13 @@ class PaykillaService(HttpClientMixin):
                                 format_decimal_amount(amount_raw),
                             )
                     except Exception as exc:
-                        logging.warning(
+                        logger.warning(
                             "Paykilla webhook: failed to compare amounts for %s: %s",
                             payment.payment_id,
                             exc,
                         )
                 elif amount_raw is not None:
-                    logging.info(
+                    logger.info(
                         "Paykilla webhook: invoice amount is in %s while payment record is in %s; "
                         "skipping direct amount comparison for payment %s.",
                         invoice_currency,
@@ -656,7 +661,7 @@ class PaykillaService(HttpClientMixin):
                     await session.commit()
                 except Exception:
                     await session.rollback()
-                    logging.exception(
+                    logger.exception(
                         "Paykilla webhook: failed to mark payment %s as succeeded.",
                         resolved_id,
                     )
@@ -703,7 +708,7 @@ class PaykillaService(HttpClientMixin):
                     await session.commit()
                 except Exception:
                     await session.rollback()
-                    logging.exception(
+                    logger.exception(
                         "Paykilla webhook: failed to mark payment %s as failed.",
                         resolved_id,
                     )

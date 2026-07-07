@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,11 +10,13 @@ from db.dal import subscription_dal, user_dal
 
 from ._typing import SubscriptionServiceMixinContract
 
+logger = logging.getLogger(__name__)
+
 
 class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
     async def activate_trial_subscription(
-        self, session: AsyncSession, user_id: int, bot_token: Optional[str] = None
-    ) -> Optional[Dict[str, Any]]:
+        self, session: AsyncSession, user_id: int, bot_token: str | None = None
+    ) -> dict[str, Any] | None:
         if not self.settings.TRIAL_ENABLED or self.settings.TRIAL_DURATION_DAYS <= 0:
             return {
                 "eligible": False,
@@ -24,7 +26,7 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
 
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user:
-            logging.error(f"User {user_id} not found in DB, cannot activate trial.")
+            logger.error("User %s not found in DB, cannot activate trial.", user_id)
             return {
                 "eligible": False,
                 "activated": False,
@@ -42,20 +44,20 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
             panel_user_uuid,
             panel_sub_link_id,
             panel_short_uuid,
-            panel_user_created_now,
+            _panel_user_created_now,
         ) = await self._get_or_create_panel_user_link_details(
             session, user_id, db_user, bot_token=bot_token
         )
 
         if not panel_user_uuid or not panel_sub_link_id:
-            logging.error(f"Failed to get panel link details for trial user {user_id}.")
+            logger.error("Failed to get panel link details for trial user %s.", user_id)
             return {
                 "eligible": True,
                 "activated": False,
                 "message_key": "trial_activation_failed_panel_link",
             }
 
-        start_date = datetime.now(timezone.utc)
+        start_date = datetime.now(UTC)
         end_date = start_date + timedelta(days=self.settings.TRIAL_DURATION_DAYS)
 
         await subscription_dal.deactivate_other_active_subscriptions(
@@ -86,9 +88,8 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
         try:
             await subscription_dal.upsert_subscription(session, trial_sub_data)
         except Exception as e_upsert:
-            logging.error(
-                f"Failed to upsert trial subscription for user {user_id}: {e_upsert}",
-                exc_info=True,
+            logger.exception(
+                "Failed to upsert trial subscription for user %s: %s", user_id, e_upsert
             )
             await session.rollback()
             return {
@@ -119,8 +120,10 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
             panel_user_uuid, panel_update_payload
         )
         if not updated_panel_user or updated_panel_user.get("error"):
-            logging.warning(
-                f"Panel user details update FAILED for trial user {panel_user_uuid}. Response: {updated_panel_user}"  # noqa: E501
+            logger.warning(
+                "Panel user details update FAILED for trial user %s. Response: %s",
+                panel_user_uuid,
+                updated_panel_user,
             )
             await session.rollback()
             return {

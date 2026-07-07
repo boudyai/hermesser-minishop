@@ -1,8 +1,16 @@
-<script>
+<script lang="ts">
   import { AdminBadge } from "$components/patterns/admin/index.js";
   import { MessageSquare } from "$components/ui/icons.js";
+  import type { SupportTicketLike, SupportUserLike, TranslateFn } from "./types";
 
-  let { ticket, active = false, at = (key) => key, onOpen = () => {} } = $props();
+  type Props = {
+    ticket: SupportTicketLike;
+    active?: boolean;
+    at?: TranslateFn;
+    onOpen?: (ticket: SupportTicketLike) => void;
+  };
+
+  let { ticket, active = false, at = (key) => key, onOpen = () => {} }: Props = $props();
 
   const user = $derived(ticket?.user || {});
   const timeLabel = $derived(
@@ -23,7 +31,7 @@
     ticket?.priority === "urgent" ? "danger" : ticket?.priority === "high" ? "warning" : "muted"
   );
 
-  function computeInitials(u) {
+  function computeInitials(u: SupportUserLike): string {
     const source =
       [u?.first_name, u?.last_name].filter(Boolean).join(" ").trim() ||
       u?.username ||
@@ -35,7 +43,7 @@
     return (clean.slice(0, 2) || "U").toUpperCase();
   }
 
-  function formatTime(value) {
+  function formatTime(value: string | null | undefined): string {
     if (!value) return "";
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "";

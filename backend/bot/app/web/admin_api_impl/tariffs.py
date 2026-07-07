@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List
+from pathlib import Path
 
 from aiohttp import web
 from pydantic import ValidationError
@@ -9,12 +9,8 @@ from bot.app.web.context import (
 )
 from bot.app.web.request_parsing import parse_body_or_400
 from bot.app.web.route_contracts import (
-    BOOLEAN_SCHEMA,
-    STRING_SCHEMA,
     RouteContract,
-    loose_array_schema,
-    loose_object_schema,
-    ok_envelope_with,
+    ok_envelope_for,
     register_contract,
 )
 from bot.app.web.webapp.cache_helpers import refresh_webapp_runtime_after_settings_change
@@ -28,32 +24,29 @@ from .common import (
     _error,
     _ok,
     _tariffs_config_path,
-    _tariffs_config_payload,
     _write_tariffs_config_file,
 )
-from .schemas import TariffsSaveBody
+from .schemas import (
+    AdminTariffsCatalogOut,
+    AdminTariffsOut,
+    ProviderCurrencySupportOut,
+    TariffsSaveBody,
+)
 
 logger = logging.getLogger(__name__)
 
-_TARIFFS_RESPONSE_SCHEMA = ok_envelope_with(
-    {
-        "exists": BOOLEAN_SCHEMA,
-        "path": STRING_SCHEMA,
-        "catalog": loose_object_schema(),
-        "provider_currency_support": loose_array_schema(),
-    }
-)
+_TARIFFS_RESPONSE_SCHEMA = ok_envelope_for(AdminTariffsOut)
 
 register_contract(
     "admin_tariffs_get_route",
-    RouteContract(response_schema=_TARIFFS_RESPONSE_SCHEMA, models=(TariffsConfig,)),
+    RouteContract(response_schema=_TARIFFS_RESPONSE_SCHEMA, models=(AdminTariffsOut,)),
 )
 register_contract(
     "admin_tariffs_save_route",
     RouteContract(
         request_model=TariffsSaveBody,
         response_schema=_TARIFFS_RESPONSE_SCHEMA,
-        models=(TariffsConfig,),
+        models=(TariffsSaveBody, AdminTariffsOut),
     ),
 )
 
@@ -69,32 +62,7 @@ async def admin_tariffs_get_route(request: web.Request) -> web.Response:
         logger.warning("Invalid tariffs config requested from admin UI: %s", exc)
         return _error(400, "invalid_tariffs_config", str(exc))
 
-    if config is None:
-        return _ok(
-            {
-                "exists": path.exists(),
-                "path": str(path),
-                "catalog": {
-                    "default_tariff": "",
-                    "default_currency": "rub",
-                    "topup_packages_default": {"rub": [], "stars": []},
-                    "tariffs": [],
-                },
-                "provider_currency_support": _provider_currency_support_payload(
-                    settings,
-                    request.app,
-                ),
-            }
-        )
-
-    return _ok(
-        {
-            "exists": True,
-            "path": str(path),
-            "catalog": _tariffs_config_payload(config),
-            "provider_currency_support": _provider_currency_support_payload(settings, request.app),
-        }
-    )
+    return _ok(_tariffs_response_payload(settings, request.app, path=path, config=config))
 
 
 async def admin_tariffs_save_route(request: web.Request) -> web.Response:
@@ -119,69 +87,46 @@ async def admin_tariffs_save_route(request: web.Request) -> web.Response:
 
     await refresh_webapp_runtime_after_settings_change(request, updates={}, deletes=[])
 
-    return _ok(
-        {
-            "exists": True,
-            "path": str(path),
-            "catalog": _tariffs_config_payload(config),
-            "provider_currency_support": _provider_currency_support_payload(settings, request.app),
-        }
+    return _ok(_tariffs_response_payload(settings, request.app, path=path, config=config))
+
+
+def _tariffs_response_payload(
+    settings: Settings,
+    app: web.Application,
+    *,
+    path: Path,
+    config: TariffsConfig | None,
+) -> dict[str, object]:
+    catalog = (
+        AdminTariffsCatalogOut.from_config(config)
+        if config is not None
+        else AdminTariffsCatalogOut.empty()
     )
+    return AdminTariffsOut(
+        exists=True if config is not None else path.exists(),
+        path=str(path),
+        catalog=catalog,
+        provider_currency_support=_provider_currency_support_payload(settings, app),
+    ).to_legacy_payload()
 
 
 def _provider_currency_support_payload(
     settings: Settings,
     app: web.Application,
-) -> List[Dict[str, Any]]:
+) -> list[ProviderCurrencySupportOut]:
     from bot.payment_providers import iter_provider_specs, resolve_provider_presentation
 
     default_currency = default_payment_currency_code_for_settings(settings)
-    providers: List[Dict[str, Any]] = []
+    providers: list[ProviderCurrencySupportOut] = []
     for spec in iter_provider_specs():
         presentation = resolve_provider_presentation(spec, settings)
-        supported = spec.supported_currency_codes(settings)
         providers.append(
-            {
-                "id": spec.id,
-                "provider_key": spec.provider_key,
-                "provider_label": _provider_currency_support_label(spec),
-                "settings_path": _provider_settings_path(spec),
-                "label": presentation.webapp_label or spec.label,
-                "telegram_label": presentation.telegram_label,
-                "icon": presentation.webapp_icon,
-                "enabled": spec.is_effectively_enabled(settings),
-                "configured": spec.is_service_configured(app),
-                "admin_only": spec.is_admin_only_enabled(settings),
-                "price_source": spec.price_source,
-                "currencies": list(supported) if supported is not None else None,
-                "accepts_any_currency": supported is None,
-                "supports_default_currency": spec.is_usable_for_payment_currency(
-                    settings,
-                    default_currency,
-                ),
-                "directly_supports_default_currency": spec.supports_currency(
-                    settings,
-                    default_currency,
-                ),
-                "default_currency": default_currency,
-                "note": spec.currency_support_note,
-                "docs_url": spec.currency_support_url,
-            }
+            ProviderCurrencySupportOut.from_provider_spec(
+                spec,
+                presentation,
+                settings=settings,
+                app=app,
+                default_currency=default_currency,
+            )
         )
     return providers
-
-
-def _provider_currency_support_label(spec: Any) -> str:
-    if spec.id == "platega_sbp":
-        return "Platega SBP/card"
-    if spec.id == "platega_crypto":
-        return "Platega Crypto"
-    return str(spec.label or spec.id)
-
-
-def _provider_settings_path(spec: Any) -> List[str]:
-    if spec.id == "platega_sbp":
-        return ["payments", "platega", "sbp"]
-    if spec.id == "platega_crypto":
-        return ["payments", "platega", "crypto"]
-    return ["payments", str(spec.provider_key or spec.id).replace("_", "-")]

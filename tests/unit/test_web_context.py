@@ -1,7 +1,9 @@
 import asyncio
 import unittest
+import warnings
 
 from aiohttp import web
+from aiohttp.web_exceptions import NotAppKeyWarning
 
 from bot.app.web.context import (
     EMAIL_AUTH_SERVICE,
@@ -19,6 +21,12 @@ from bot.app.web.context import (
     set_service_context,
     set_webapp_logo_cache,
 )
+
+
+def _set_legacy_app_value(app: web.Application, key: str, value: object) -> None:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", NotAppKeyWarning)
+        app[key] = value
 
 
 class WebContextTests(unittest.TestCase):
@@ -40,8 +48,12 @@ class WebContextTests(unittest.TestCase):
 
     def test_compat_string_cache_is_promoted_to_appkey_on_first_typed_access(self):
         app = web.Application()
-        app["subscription_guides_config_cache"] = {"fingerprint": ("stale",), "status": None}
-        app["subscription_guides_config_lock"] = asyncio.Lock()
+        _set_legacy_app_value(
+            app,
+            "subscription_guides_config_cache",
+            {"fingerprint": ("stale",), "status": None},
+        )
+        _set_legacy_app_value(app, "subscription_guides_config_lock", asyncio.Lock())
 
         cache = get_or_create_subscription_guides_config_cache(app)
         lock = get_or_create_subscription_guides_config_lock(app)

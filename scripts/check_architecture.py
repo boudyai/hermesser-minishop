@@ -13,7 +13,8 @@ CONFIG_PATH = ROOT / "scripts" / "architecture_gates.json"
 
 
 def _load_config() -> dict:
-    return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    config: dict = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    return config
 
 
 def _to_posix(path: Path) -> str:
@@ -24,7 +25,7 @@ def _is_allowed(path: str, allowlist: list[str]) -> bool:
     return any(fnmatch.fnmatch(path, pattern) for pattern in allowlist)
 
 
-def _iter_text_files(scope: str, extensions: set[str]):
+def _iter_text_files(scope: str, extensions: set[str]) -> list[Path]:
     base = ROOT / scope
     if not base.exists():
         return []
@@ -208,11 +209,12 @@ def _collect_api_routes(cfg: dict, issues: list[str]) -> list[tuple[str, str]]:
                 if not path.startswith("/api/"):
                     continue
 
+                handler_node = node.args[handler_arg_index]
                 handler_name: str | None = None
-                if isinstance(node.args[handler_arg_index], ast.Name):
-                    handler_name = node.args[1].id
+                if isinstance(handler_node, ast.Name):
+                    handler_name = handler_node.id
                 else:
-                    handler_name = _string_value(node.args[handler_arg_index])
+                    handler_name = _string_value(handler_node)
                 if handler_name is None:
                     continue
 
@@ -264,7 +266,8 @@ def _check_module_size(cfg: dict, issues: list[str]) -> None:
     for scope in cfg["module_size"]["scopes"]:
         for file in _iter_text_files(scope, extensions):
             rel = _to_posix(file)
-            lines = sum(1 for _ in file.open(encoding="utf-8", errors="ignore"))
+            with file.open(encoding="utf-8", errors="ignore") as handle:
+                lines = sum(1 for _ in handle)
             if lines <= max_lines:
                 continue
             if _is_allowed(rel, allowlist):
@@ -354,7 +357,11 @@ def _check_frontend_weak_typing(cfg: dict, issues: list[str]) -> None:
     if not checks:
         return
 
-    pattern = re.compile(r"\b(?:as\s+any|Record<\s*string\s*,\s*any\s*>|\bAnyRecord\b)")
+    pattern = re.compile(
+        r"\b(?:as\s+any|Record<\s*string\s*,\s*any\s*>|\bAnyRecord\b)"
+        r"|\(\s*\.\.\.[A-Za-z_$][\w$]*\s*:\s*any\[\]\s*\)\s*=>\s*any\b"
+        r"|:\s*any\b"
+    )
     extensions = set(checks["extensions"])
     allowlist = list(checks.get("allowlist", []))
     allowed_counts = checks.get("allowed_counts", {})
@@ -393,7 +400,8 @@ def _check_frontend_weak_typing(cfg: dict, issues: list[str]) -> None:
             if count > allowed:
                 issues.append(
                     f"[frontend-weak-typing] {rel}: found {count} weak typing patterns, "
-                    f"allowed {allowed} (as any / Record<string, any> / AnyRecord)"
+                    f"allowed {allowed} (as any / Record<string, any> / AnyRecord / "
+                    "callback any / : any)"
                 )
             elif count < allowed:
                 issues.append(
@@ -407,6 +415,58 @@ def _check_frontend_weak_typing(cfg: dict, issues: list[str]) -> None:
                 f"[frontend-weak-typing] {rel}: allowed_counts entry permits {allowed} weak typing "
                 "patterns, but none remain"
             )
+
+
+def _check_first_party_js(cfg: dict, issues: list[str]) -> None:
+    checks = cfg.get("first_party_js")
+    if not checks:
+        return
+
+    allowlist = set(checks.get("allowlist", []))
+    actual_js: set[str] = set()
+
+    for scope in checks.get("scopes", []):
+        for file in _iter_text_files(scope, {".js"}):
+            rel = _to_posix(file)
+            actual_js.add(rel)
+            if rel not in allowlist:
+                issues.append(
+                    f"[first-party-js] {rel}: first-party JS is forbidden; write TypeScript "
+                    "(only generated artifacts may stay .js)"
+                )
+
+    issues.extend(
+        f"[first-party-js] {rel}: allowlist entry is stale"
+        for rel in sorted(allowlist)
+        if rel not in actual_js
+    )
+
+
+def _check_svelte_lang_ts(cfg: dict, issues: list[str]) -> None:
+    checks = cfg.get("svelte_lang_ts")
+    if not checks:
+        return
+
+    allowlist = set(checks.get("allowlist", []))
+    script_lang_ts = re.compile(r"<script\b[^>]*\blang\s*=\s*([\"'])ts\1")
+    actual_untyped: set[str] = set()
+
+    for scope in checks.get("scopes", []):
+        for file in _iter_text_files(scope, {".svelte"}):
+            rel = _to_posix(file)
+            content = file.read_text(encoding="utf-8", errors="ignore")
+            if script_lang_ts.search(content):
+                continue
+
+            actual_untyped.add(rel)
+            if rel not in allowlist:
+                issues.append(f'[svelte-lang-ts] {rel}: missing <script lang="ts">')
+
+    issues.extend(
+        f"[svelte-lang-ts] {rel}: allowlist entry is stale"
+        for rel in sorted(allowlist)
+        if rel not in actual_untyped
+    )
 
 
 def _check_frontend_api_calls(cfg: dict, issues: list[str]) -> None:
@@ -485,8 +545,8 @@ def _collect_facade_importers(facade_modules: set[str], file: Path) -> set[str]:
                 if module == facade or module.startswith(f"{facade}."):
                     imports.add(facade)
                     continue
-                for alias in aliases:
-                    imported_path = f"{module}.{alias}"
+                for alias_name in aliases:
+                    imported_path = f"{module}.{alias_name}"
                     if imported_path == facade or imported_path.startswith(f"{facade}."):
                         imports.add(facade)
                         break
@@ -632,6 +692,8 @@ def main() -> int:
     _check_raw_json_response(config, issues)
     _check_loose_schemas(config, issues)
     _check_frontend_weak_typing(config, issues)
+    _check_first_party_js(config, issues)
+    _check_svelte_lang_ts(config, issues)
     _check_frontend_api_calls(config, issues)
     _check_runtime_all_exports(config, issues)
     _check_runtime_import_contract(config, issues)

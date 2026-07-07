@@ -27,6 +27,8 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
+      start_period: 15s
+      start_interval: 2s
 
   backend:
     container_name: remnawave-minishop-backend
@@ -67,6 +69,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+      start_interval: 3s
 
   worker:
     container_name: remnawave-minishop-worker
@@ -138,6 +141,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+      start_period: 30s
+      start_interval: 1s
 
   redis:
     image: redis:7-alpine
@@ -153,6 +158,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+      start_period: 30s
+      start_interval: 1s
 
 networks:
   remnawave-shop:

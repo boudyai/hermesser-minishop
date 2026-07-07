@@ -15,12 +15,10 @@ inconsistent on the status card.
 
 from __future__ import annotations
 
-from typing import Optional
-
 RUB_PER_USD = 100.0
 
 
-def usd_to_rub(usd: float | int | None) -> Optional[float]:
+def usd_to_rub(usd: float | int | None) -> float | None:
     """USD → RUB (kopeck-precision float). Returns None if input is None."""
     if usd is None:
         return None
@@ -46,7 +44,7 @@ def format_rub(
     if rub is None:
         return default
     if abs(rub - round(rub)) < 1e-6:
-        return f"{int(round(rub))}{suffix}"
+        return f"{round(rub)}{suffix}"
     return f"{rub:.2f}{suffix}"
 
 
@@ -67,7 +65,7 @@ def derive_remaining_usd(
     spent_usd: float | int | None,
     *,
     cached_remaining_usd: float | int | None = None,
-) -> Optional[float]:
+) -> float | None:
     """Return the remaining USD value, preferring a live derivation.
 
     ``max_budget - spent`` is the source of truth whenever both are

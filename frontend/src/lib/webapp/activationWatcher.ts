@@ -1,5 +1,5 @@
 import type { LoadDataOptions } from "./dataClient";
-import { activationPaymentFailed } from "./activationHandoff.js";
+import { activationPaymentFailed } from "./activationHandoff";
 
 const ACTIVATION_PENDING_WATCH_INTERVAL_MS = 2000;
 const ACTIVATION_PENDING_WATCH_MAX_ATTEMPTS = 45;

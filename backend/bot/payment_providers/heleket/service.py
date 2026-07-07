@@ -1,11 +1,10 @@
 import base64
 import hashlib
-import hmac
 import json
 import logging
 import time
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot, F, Router, types
 from aiohttp import web
@@ -15,14 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
-
-if TYPE_CHECKING:
-    from bot.services.referral_service import ReferralService
-    from bot.services.subscription_service_impl.core import SubscriptionService
-else:
-    ReferralService = object
-    SubscriptionService = object
-from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
 from config.tariffs_config import (
     default_payment_currency_code_for_settings,
@@ -46,6 +37,8 @@ from ..shared import (
     HttpClientMixin,
     LinkPaymentDescriptor,
     PaymentSuccessRequest,
+    check_webhook_source_ip,
+    constant_time_compare,
     decimal_amounts_equal,
     finalize_successful_payment,
     first_value,
@@ -60,6 +53,15 @@ from ..shared import (
 from ..shared.app_context import app_required
 from .constants import HELEKET_DEFAULT_SUPPORTED_CURRENCIES
 from .manifest import _CONFIG_MANIFEST, _PRESENTATION_MANIFEST
+
+if TYPE_CHECKING:
+    from bot.services.referral_service import ReferralService
+    from bot.services.subscription_service_impl.core import SubscriptionService
+else:
+    ReferralService = object
+    SubscriptionService = object
+
+logger = logging.getLogger(__name__)
 
 router = Router(name="user_subscription_payments_heleket_router")
 _LOG = "heleket"
@@ -79,14 +81,14 @@ class HeleketConfig(ProviderEnvConfig):
     )
 
     ENABLED: bool = Field(default=False)
-    MERCHANT_ID: Optional[str] = None
-    API_KEY: Optional[str] = None
+    MERCHANT_ID: str | None = None
+    API_KEY: str | None = None
     BASE_URL: str = Field(default="https://api.heleket.com")
     CURRENCY: str = Field(default="RUB")
-    TO_CURRENCY: Optional[str] = None
-    NETWORK: Optional[str] = None
-    RETURN_URL: Optional[str] = None
-    SUCCESS_URL: Optional[str] = None
+    TO_CURRENCY: str | None = None
+    NETWORK: str | None = None
+    RETURN_URL: str | None = None
+    SUCCESS_URL: str | None = None
     LIFETIME_SECONDS: int = Field(default=3600)
     VERIFY_WEBHOOK_SIGNATURE: bool = Field(default=True)
     TRUSTED_IPS: str = Field(default="31.133.220.8")
@@ -122,13 +124,13 @@ class HeleketConfig(ProviderEnvConfig):
     def webhook_path(self) -> str:
         return "/webhook/heleket"
 
-    def full_webhook_url(self, base: Optional[str]) -> Optional[str]:
+    def full_webhook_url(self, base: str | None) -> str | None:
         if not base:
             return None
         return f"{base.rstrip('/')}{self.webhook_path}"
 
     @property
-    def trusted_ips_list(self) -> List[str]:
+    def trusted_ips_list(self) -> list[str]:
         return [item.strip() for item in (self.TRUSTED_IPS or "").split(",") if item.strip()]
 
 
@@ -142,16 +144,16 @@ class HeleketPresentation(ProviderEnvConfig):
         extra="ignore",
     )
 
-    WEBAPP_LABEL_RU: Optional[str] = None
-    WEBAPP_LABEL_EN: Optional[str] = None
-    WEBAPP_ICON: Optional[str] = None
-    TELEGRAM_LABEL_RU: Optional[str] = None
-    TELEGRAM_LABEL_EN: Optional[str] = None
-    TELEGRAM_EMOJI: Optional[str] = None
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None
+    TELEGRAM_LABEL_RU: str | None = None
+    TELEGRAM_LABEL_EN: str | None = None
+    TELEGRAM_EMOJI: str | None = None
 
 
 def _serialize_for_signature(
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     *,
     ensure_ascii: bool = False,
     escape_slashes: bool = True,
@@ -168,7 +170,7 @@ def _serialize_for_signature(
 
 
 def _compute_signature(
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     api_key: str,
     *,
     ensure_ascii: bool = False,
@@ -183,14 +185,14 @@ def _compute_signature(
     return hashlib.md5((b64 + str(api_key or "")).encode("utf-8")).hexdigest()
 
 
-def _signature_candidates(payload: Dict[str, Any], api_key: str) -> List[Tuple[str, str, str]]:
+def _signature_candidates(payload: dict[str, Any], api_key: str) -> list[tuple[str, str, str]]:
     variants = (
         ("php_unicode_slash", False, True),
         ("unicode_no_slash", False, False),
         ("ascii_slash", True, True),
         ("ascii_no_slash", True, False),
     )
-    candidates: List[Tuple[str, str, str]] = []
+    candidates: list[tuple[str, str, str]] = []
     seen: set[str] = set()
     for name, ensure_ascii, escape_slashes in variants:
         signature = _compute_signature(
@@ -242,7 +244,7 @@ class HeleketService(HttpClientMixin):
 
         self._init_http_client(total_timeout=lambda: self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
         if not self.configured:
-            logging.warning(
+            logger.warning(
                 "HeleketService initialized but not fully configured. Payments disabled."
             )
 
@@ -271,11 +273,11 @@ class HeleketService(HttpClientMixin):
         return (self.config.CURRENCY or "RUB").upper()
 
     @property
-    def to_currency(self) -> Optional[str]:
+    def to_currency(self) -> str | None:
         return (self.config.TO_CURRENCY or "").strip() or None
 
     @property
-    def network(self) -> Optional[str]:
+    def network(self) -> str | None:
         return (self.config.NETWORK or "").strip() or None
 
     @property
@@ -299,12 +301,12 @@ class HeleketService(HttpClientMixin):
         *,
         payment_db_id: int,
         amount: float,
-        currency: Optional[str],
+        currency: str | None,
         description: str,
-        url_callback: Optional[str],
-    ) -> Tuple[bool, Dict[str, Any]]:
+        url_callback: str | None,
+    ) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
-            logging.error("HeleketService is not configured. Cannot create payment link.")
+            logger.error("HeleketService is not configured. Cannot create payment link.")
             return False, {"message": "service_not_configured"}
 
         currency_code = normalize_payment_currency_code(currency or self.currency)
@@ -316,7 +318,7 @@ class HeleketService(HttpClientMixin):
                 "supported_currencies": list(supported),
             }
 
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "amount": str(format_decimal_amount(amount)),
             "currency": currency_code,
             "order_id": str(payment_db_id),
@@ -350,7 +352,7 @@ class HeleketService(HttpClientMixin):
                 try:
                     response_data = json.loads(response_text) if response_text else {}
                 except json.JSONDecodeError:
-                    logging.error("Heleket create_payment_link: invalid JSON: %s", response_text)
+                    logger.error("Heleket create_payment_link: invalid JSON: %s", response_text)
                     return False, {
                         "status": response.status,
                         "message": "invalid_json",
@@ -358,7 +360,7 @@ class HeleketService(HttpClientMixin):
                     }
                 state = response_data.get("state") if isinstance(response_data, dict) else None
                 if response.status != 200 or state != 0:
-                    logging.error(
+                    logger.error(
                         "Heleket create_payment_link: API error (status=%s, body=%s)",
                         response.status,
                         response_data,
@@ -366,10 +368,10 @@ class HeleketService(HttpClientMixin):
                     return False, {"status": response.status, "message": response_data}
                 return True, response_data
         except Exception as exc:
-            logging.exception("Heleket create_payment_link: request failed.")
+            logger.exception("Heleket create_payment_link: request failed.")
             return False, {"message": str(exc)}
 
-    async def get_payment_info(self, payment_uuid: str) -> Tuple[bool, Dict[str, Any]]:
+    async def get_payment_info(self, payment_uuid: str) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
             return False, {"message": "service_not_configured"}
 
@@ -393,7 +395,7 @@ class HeleketService(HttpClientMixin):
                 response_data = await response.json(content_type=None)
                 state = response_data.get("state") if isinstance(response_data, dict) else None
                 if response.status != 200 or state != 0:
-                    logging.warning(
+                    logger.warning(
                         "Heleket get_payment_info failed: uuid=%s status=%s body=%s",
                         payment_uuid,
                         response.status,
@@ -403,10 +405,10 @@ class HeleketService(HttpClientMixin):
                 result = response_data.get("result") or {}
                 return isinstance(result, dict), result
         except Exception as exc:
-            logging.exception("Heleket get_payment_info request failed: uuid=%s", payment_uuid)
+            logger.exception("Heleket get_payment_info request failed: uuid=%s", payment_uuid)
             return False, {"message": str(exc)}
 
-    async def try_reuse_pending_payment(self, payment: Any) -> Optional[str]:
+    async def try_reuse_pending_payment(self, payment: Any) -> str | None:
         payment_uuid = str(getattr(payment, "provider_payment_id", None) or "").strip()
         if not payment_uuid:
             return None
@@ -433,18 +435,18 @@ class HeleketService(HttpClientMixin):
             or None
         )
 
-    def _verify_signature(self, payload: Dict[str, Any]) -> bool:
+    def _verify_signature(self, payload: dict[str, Any]) -> bool:
         received = payload.get("sign")
         if not isinstance(received, str) or not received:
             return False
         data = OrderedDict((k, v) for k, v in payload.items() if k != "sign")
         candidates = _signature_candidates(data, self.api_key)
         for name, expected, _canonical in candidates:
-            if hmac.compare_digest(expected, received):
+            if constant_time_compare(expected, received):
                 if name != "php_unicode_slash":
-                    logging.info("Heleket webhook: signature matched variant %s.", name)
+                    logger.info("Heleket webhook: signature matched variant %s.", name)
                 return True
-        logging.warning(
+        logger.warning(
             "Heleket webhook: invalid signature "
             "(received=%s expected=%s canonical_json_sha256=%s api_key_len=%s).",
             _signature_preview(received),
@@ -461,13 +463,18 @@ class HeleketService(HttpClientMixin):
         if not self.configured:
             return web.Response(status=503, text="heleket_disabled")
 
-        client_ip = request_client_ip(request, trusted_proxies=self.settings.trusted_proxies)
         trusted = self.config.trusted_ips_list
-        if trusted and not ip_in_allowlist(client_ip, trusted):
-            logging.warning(
+        ip_check = check_webhook_source_ip(
+            request,
+            trusted_ips=trusted,
+            trusted_proxies=self.settings.trusted_proxies,
+            allow_empty=True,
+        )
+        if not ip_check.allowed:
+            logger.warning(
                 "Heleket webhook denied from unauthorized IP source "
                 "(client_ip=%s remote=%s x_forwarded_for=%s).",
-                client_ip,
+                ip_check.client_ip,
                 request.remote,
                 request.headers.get("X-Forwarded-For"),
             )
@@ -477,7 +484,7 @@ class HeleketService(HttpClientMixin):
         try:
             payload = json.loads(raw_body.decode("utf-8"))
         except Exception:
-            logging.exception("Heleket webhook: failed to parse JSON.")
+            logger.exception("Heleket webhook: failed to parse JSON.")
             return web.Response(status=400, text="bad_request")
 
         if not isinstance(payload, dict):
@@ -493,7 +500,7 @@ class HeleketService(HttpClientMixin):
         currency = payload.get("currency") or self.currency
 
         if not status or not (uuid_value or order_id_raw):
-            logging.error("Heleket webhook: missing status or ids: %s", payload)
+            logger.error("Heleket webhook: missing status or ids: %s", payload)
             return web.Response(status=400, text="missing_fields")
 
         async with self.async_session_factory() as session:
@@ -503,7 +510,7 @@ class HeleketService(HttpClientMixin):
                 provider_payment_id=uuid_value or None,
             )
             if not payment:
-                logging.error(
+                logger.error(
                     "Heleket webhook: payment not found (order_id=%s, uuid=%s)",
                     order_id_raw,
                     uuid_value,
@@ -519,7 +526,7 @@ class HeleketService(HttpClientMixin):
                 if amount_raw is not None:
                     try:
                         if not decimal_amounts_equal(amount_raw, payment.amount):
-                            logging.warning(
+                            logger.warning(
                                 "Heleket webhook: amount mismatch for payment %s "
                                 "(expected %s, got %s)",
                                 payment.payment_id,
@@ -527,7 +534,7 @@ class HeleketService(HttpClientMixin):
                                 format_decimal_amount(amount_raw),
                             )
                     except Exception as exc:
-                        logging.warning(
+                        logger.warning(
                             "Heleket webhook: failed to compare amounts for %s: %s",
                             payment.payment_id,
                             exc,
@@ -543,7 +550,7 @@ class HeleketService(HttpClientMixin):
                     await session.commit()
                 except Exception:
                     await session.rollback()
-                    logging.exception(
+                    logger.exception(
                         "Heleket webhook: failed to mark payment %s as succeeded.",
                         resolved_id,
                     )
@@ -590,7 +597,7 @@ class HeleketService(HttpClientMixin):
                     await session.commit()
                 except Exception:
                     await session.rollback()
-                    logging.exception(
+                    logger.exception(
                         "Heleket webhook: failed to mark payment %s as failed.",
                         resolved_id,
                     )
@@ -604,7 +611,7 @@ class HeleketService(HttpClientMixin):
                 )
                 return web.Response(text="ok")
 
-            logging.info(
+            logger.info(
                 "Heleket webhook: intermediate status '%s' for payment %s",
                 status,
                 resolved_id,
@@ -627,7 +634,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     return await run_webapp_payment(_DESCRIPTOR, ctx)
 
 
-async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
+async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> str | None:
     return await run_reuse_webapp_payment(_DESCRIPTOR, ctx, payment)
 
 
@@ -701,7 +708,7 @@ async def _create_payment(service: HeleketService, req: CreatePaymentRequest) ->
     )
 
 
-async def _reuse_payment(service: HeleketService, payment: Any) -> Optional[str]:
+async def _reuse_payment(service: HeleketService, payment: Any) -> str | None:
     return await service.try_reuse_pending_payment(payment)
 
 
@@ -717,7 +724,7 @@ _DESCRIPTOR: LinkPaymentDescriptor[HeleketService] = LinkPaymentDescriptor(
     reuse=_reuse_payment,
     extract_url=lambda r: first_value(_unwrap_result(r), "url"),
     extract_provider_id=lambda r: first_value(_unwrap_result(r), "uuid"),
-    webapp_currency=lambda ctx, settings: (
+    webapp_currency=lambda ctx, settings, service: (
         ctx.currency or default_payment_currency_code_for_settings(settings)
     ),
 )

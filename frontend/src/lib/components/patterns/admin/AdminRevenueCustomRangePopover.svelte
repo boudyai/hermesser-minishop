@@ -1,9 +1,23 @@
-<script>
+<script lang="ts">
   import { Popover, RangeCalendar } from "bits-ui";
-  import { parseDate } from "@internationalized/date";
+  import { parseDate, type DateValue } from "@internationalized/date";
   import Button from "$components/ui/button.svelte";
   import { ChevronLeft, ChevronRight } from "$components/ui/icons.js";
   import { cn } from "$lib/utils.js";
+
+  type AppliedRange = { fromIso: string; toIso: string };
+  type Props = {
+    open?: boolean;
+    minIso?: string;
+    maxIso?: string;
+    committedFrom?: string;
+    committedTo?: string;
+    title?: string;
+    applyLabel?: string;
+    triggerLabel?: string;
+    isActive?: boolean;
+    onApply?: (range: AppliedRange) => void;
+  };
 
   let {
     open = $bindable(false),
@@ -16,9 +30,11 @@
     triggerLabel = "",
     isActive = false,
     onApply = () => {},
-  } = $props();
+  }: Props = $props();
 
-  let value = $state({ start: undefined, end: undefined });
+  type CalendarRange = { start: DateValue | undefined; end: DateValue | undefined };
+
+  let value = $state<CalendarRange>({ start: undefined, end: undefined });
   let prevOpen = $state(false);
 
   function seedFromBounds() {
@@ -45,7 +61,7 @@
     prevOpen = open;
   });
 
-  function calendarDateToIso(d) {
+  function calendarDateToIso(d: DateValue | undefined): string {
     if (!d || typeof d !== "object") return "";
     const y = d.year;
     const m = String(d.month).padStart(2, "0");

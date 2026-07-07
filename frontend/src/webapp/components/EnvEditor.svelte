@@ -32,8 +32,7 @@
         envContent = typeof data.env_content === "string" ? data.env_content : "";
         originalContent = envContent;
       } else {
-        error =
-          t("wa_settings_env_load_failed", {}, "Failed to load configuration");
+        error = t("wa_settings_env_load_failed", {}, "Failed to load configuration");
       }
     } catch {
       error = t("wa_settings_env_load_failed", {}, "Failed to load configuration");
@@ -85,8 +84,11 @@
         bind:value={envContent}
         spellcheck="false"
         style="width:100%;min-height:200px;font-family:monospace;font-size:0.85rem;padding:0.75rem;border-radius:8px;border:1px solid var(--border, #333);background:var(--surface, #1a1a1a);color:var(--text, #eee);resize:vertical"
-        placeholder={t("wa_settings_env_placeholder", {}, "# Add your environment variables here\nBROWSERBASE_API_KEY=...\nCAMOFOX_URL=http://...")}
-      ></textarea>
+        placeholder={t(
+          "wa_settings_env_placeholder",
+          {},
+          "# Add your environment variables here\nBROWSERBASE_API_KEY=...\nCAMOFOX_URL=http://..."
+        )}></textarea>
     </div>
 
     {#if error}
@@ -98,7 +100,7 @@
       </small>
     {/if}
 
-    <Button variant="primary" size="md" onclick={save} disabled={!dirty || saving}>
+    <Button variant="default" onclick={save} disabled={!dirty || saving}>
       <Save size={16} />
       {saving
         ? t("wa_settings_env_saving", {}, "Saving...")

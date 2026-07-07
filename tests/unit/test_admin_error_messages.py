@@ -3,11 +3,11 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ERRORS_JS = REPO_ROOT / "frontend" / "src" / "lib" / "admin" / "errors.js"
+ERRORS_TS = REPO_ROOT / "frontend" / "src" / "lib" / "admin" / "errors.ts"
 
 
 def test_admin_error_message_locale_keys_exist():
-    source = ERRORS_JS.read_text(encoding="utf-8")
+    source = ERRORS_TS.read_text(encoding="utf-8")
     keys = set(re.findall(r'"(error_[a-z0-9_]+)"', source))
 
     assert keys

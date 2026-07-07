@@ -1,6 +1,8 @@
+import contextlib
 import logging
 import time
-from typing import Any, Awaitable, Callable, Dict, Optional, cast
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
@@ -12,19 +14,21 @@ from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from config.settings import Settings
 from db.dal import user_dal
 
-_LOCAL_PROFILE_SYNC_CHECKS: Dict[int, float] = {}
+logger = logging.getLogger(__name__)
+
+_LOCAL_PROFILE_SYNC_CHECKS: dict[int, float] = {}
 
 
 class ProfileSyncMiddleware(BaseMiddleware):
     async def __call__(
         self,
-        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
         event: TelegramObject,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> Any:
-        session = cast(Optional[AsyncSession], data.get("session"))
-        tg_user: Optional[TgUser] = data.get("event_from_user")
-        settings: Optional[Settings] = data.get("settings")
+        session = cast(AsyncSession | None, data.get("session"))
+        tg_user: TgUser | None = data.get("event_from_user")
+        settings: Settings | None = data.get("settings")
 
         if session and tg_user:
             if settings and await _profile_sync_recently_checked(settings, int(tg_user.id)):
@@ -35,7 +39,7 @@ class ProfileSyncMiddleware(BaseMiddleware):
                 if not db_user:
                     db_user = await user_dal.get_user_by_id(session, tg_user.id)
                 if db_user:
-                    update_payload: Dict[str, Any] = {}
+                    update_payload: dict[str, Any] = {}
                     sanitized_username = sanitize_username(tg_user.username)
                     sanitized_first_name = sanitize_display_name(tg_user.first_name)
                     sanitized_last_name = sanitize_display_name(tg_user.last_name)
@@ -51,8 +55,10 @@ class ProfileSyncMiddleware(BaseMiddleware):
 
                     if update_payload:
                         await user_dal.update_user(session, db_user.user_id, update_payload)
-                        logging.info(
-                            f"ProfileSyncMiddleware: Updated user {tg_user.id} profile fields: {list(update_payload.keys())}"  # noqa: E501
+                        logger.info(
+                            "ProfileSyncMiddleware: Updated user %s profile fields: %s",
+                            tg_user.id,
+                            list(update_payload.keys()),
                         )
 
                         # Keep panel identity fields fresh, but do not rewrite
@@ -71,13 +77,17 @@ class ProfileSyncMiddleware(BaseMiddleware):
                                     panel_payload,
                                 )
                         except Exception as e_upd_desc:
-                            logging.warning(
-                                f"ProfileSyncMiddleware: Failed to update panel identity for user {tg_user.id}: {e_upd_desc}"  # noqa: E501
+                            logger.warning(
+                                "ProfileSyncMiddleware: Failed to update panel identity for user "
+                                "%s: %s",
+                                tg_user.id,
+                                e_upd_desc,
                             )
             except Exception as e:
-                logging.error(
-                    f"ProfileSyncMiddleware: Failed to sync profile for user {getattr(tg_user, 'id', 'N/A')}: {e}",  # noqa: E501
-                    exc_info=True,
+                logger.exception(
+                    "ProfileSyncMiddleware: Failed to sync profile for user %s: %s",
+                    getattr(tg_user, "id", "N/A"),
+                    e,
                 )
             finally:
                 if settings:
@@ -114,7 +124,5 @@ async def _mark_profile_sync_checked(settings: Settings, telegram_id: int) -> No
 
     _LOCAL_PROFILE_SYNC_CHECKS[telegram_id] = time.monotonic() + ttl_seconds
     key = redis_key(settings, "cache", "profile-sync", telegram_id)
-    try:
+    with contextlib.suppress(Exception):
         await cache_set_json(settings, key, {"checked": True}, ttl_seconds)
-    except Exception:
-        pass

@@ -1,16 +1,14 @@
 <script lang="ts">
   import { getSettingsStore, getThemesStore } from "$lib/admin/context";
-  import { FileText, RefreshCw, Save } from "$components/ui/icons.js";
-  import { AdminBadge, AdminButton, AdminEmptyState } from "$components/patterns/admin/index.js";
-  import { FileInput, Input } from "$components/ui/index.js";
-  import { Switch } from "$components/ui/primitives.js";
-  import { onDestroy, onMount } from "svelte";
+  import { RefreshCw, Save } from "$components/ui/icons.js";
+  import { AdminButton, AdminEmptyState } from "$components/patterns/admin/index.js";
+  import { onMount } from "svelte";
 
   import {
     firstFontFamily,
     localizedThemeName,
     writeThemePreviewDraft,
-  } from "$lib/webapp/themeStyle.js";
+  } from "$lib/webapp/themeStyle";
   import {
     DEFAULT_THEME_KEY,
     DEFAULT_THEME_VARIANTS,
@@ -28,6 +26,7 @@
     TokenMap,
   } from "$lib/admin/appearanceOptions";
   import "./AppearanceSection.css";
+  import AppearanceBrandCard from "./appearance/AppearanceBrandCard.svelte";
   import AppearanceDefaultThemeEditor from "./appearance/AppearanceDefaultThemeEditor.svelte";
   import AppearanceCustomThemes from "./appearance/AppearanceCustomThemes.svelte";
   import type {
@@ -68,23 +67,7 @@
     "WEBAPP_LOGO_FAVICON_URL",
     "WEBAPP_ENABLED",
   ]);
-  let logoFileInput = $state<HTMLInputElement | null>(null);
-  let faviconFileInput = $state<HTMLInputElement | null>(null);
   let customGoogleFontName = $state("");
-  let logoSourceUrl = $state("");
-  let faviconSourceUrl = $state("");
-  let logoPreviewNonce = $state(0);
-  let faviconPreviewNonce = $state(0);
-  let logoPreviewFailed = $state(false);
-  let faviconPreviewFailed = $state(false);
-  let lastPreviewLogoUrl = $state("");
-  let lastPreviewFaviconUrl = $state("");
-  let lastPersistedUseCustomFavicon = $state<boolean | undefined>();
-  let faviconUseCustomDraft = $state(false);
-  let pendingLogoPreviewUrl = $state("");
-  let pendingFaviconPreviewUrl = $state("");
-  let pendingObjectUrl = $state("");
-  let pendingFaviconObjectUrl = $state("");
 
   const settingsSections = $derived(settingsStore.settingsSections);
   const settingsLoading = $derived(settingsStore.settingsLoading);
@@ -99,28 +82,7 @@
   const appearanceFields: SettingField[] = $derived(
     settingsSections.find((section: SettingsSection) => section.id === "appearance")?.fields || []
   );
-  const fieldMap = $derived(new Map(appearanceFields.map((field) => [field.key, field])));
   const activeKey = $derived(themesCatalog.default_theme);
-  const logoUrl = $derived(stringValueForKey("WEBAPP_LOGO_URL"));
-  const currentLogoUrl = $derived(pendingLogoPreviewUrl || logoUrl || brand?.logoUrl || "");
-  const previewLogoUrl = $derived(
-    logoPreviewNonce && currentLogoUrl ? withLogoCacheBust(currentLogoUrl) : currentLogoUrl
-  );
-  const persistedUseCustomFavicon = $derived(
-    boolValue(valueForKey("WEBAPP_FAVICON_USE_CUSTOM", appFaviconUseCustom))
-  );
-  const useCustomFavicon = $derived(faviconUseCustomDraft);
-  const faviconUrl = $derived(stringValueForKey("WEBAPP_FAVICON_URL", appFaviconUrl));
-  const logoFaviconUrl = $derived(stringValueForKey("WEBAPP_LOGO_FAVICON_URL"));
-  const generatedFaviconUrl = $derived(logoFaviconUrl || appFaviconUrl || previewLogoUrl || "");
-  const currentFaviconUrl = $derived(
-    useCustomFavicon ? pendingFaviconPreviewUrl || faviconUrl || "" : generatedFaviconUrl
-  );
-  const previewFaviconUrl = $derived(
-    faviconPreviewNonce && currentFaviconUrl
-      ? withCacheBust(currentFaviconUrl, faviconPreviewNonce)
-      : currentFaviconUrl
-  );
   const dirtyCount = $derived(
     Object.keys(settingsDirty || {}).filter((key) => isAppearanceSettingKey(key)).length
   );
@@ -145,96 +107,8 @@
   );
   const defaultThemeIsCurrent = $derived(activeKey === DEFAULT_THEME_KEY);
 
-  $effect.pre(() => {
-    if (
-      !Object.prototype.hasOwnProperty.call(settingsDirty, "WEBAPP_FAVICON_USE_CUSTOM") &&
-      lastPersistedUseCustomFavicon !== persistedUseCustomFavicon
-    ) {
-      faviconUseCustomDraft = persistedUseCustomFavicon;
-      lastPersistedUseCustomFavicon = persistedUseCustomFavicon;
-    }
-  });
-
-  $effect(() => {
-    if (previewLogoUrl !== lastPreviewLogoUrl) {
-      lastPreviewLogoUrl = previewLogoUrl;
-      logoPreviewFailed = false;
-    }
-  });
-
-  $effect(() => {
-    if (previewFaviconUrl !== lastPreviewFaviconUrl) {
-      lastPreviewFaviconUrl = previewFaviconUrl;
-      faviconPreviewFailed = false;
-    }
-  });
-
-  function valueForKey(key: string, fallback: unknown = ""): unknown {
-    if (settingsDirty[key]?.deleted) return "";
-    if (Object.prototype.hasOwnProperty.call(settingsDirty, key)) {
-      return settingsDirty[key].value;
-    }
-    const field = fieldMap.get(key);
-    if (!field) return fallback;
-    return field.value ?? fallback;
-  }
-
-  function stringValueForKey(key: string, fallback = ""): string {
-    const value = valueForKey(key, fallback);
-    return value == null ? "" : String(value);
-  }
-
   function isAppearanceSettingKey(key: string): boolean {
     return APPEARANCE_SETTING_KEYS.has(key) || appearanceFields.some((field) => field.key === key);
-  }
-
-  function boolValue(value: unknown): boolean {
-    if (typeof value === "boolean") return value;
-    if (typeof value === "number") return value !== 0;
-    if (typeof value === "string") {
-      return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
-    }
-    return Boolean(value);
-  }
-
-  function withLogoCacheBust(url: string): string {
-    return withCacheBust(url, logoPreviewNonce);
-  }
-
-  function withCacheBust(url: string, nonce: number): string {
-    if (!url || url.startsWith("data:") || url.startsWith("blob:")) return url;
-    const separator = url.includes("?") ? "&" : "?";
-    return `${url}${separator}v=${nonce}`;
-  }
-
-  function clearPendingObjectUrl(): void {
-    if (pendingObjectUrl && typeof URL !== "undefined") {
-      URL.revokeObjectURL(pendingObjectUrl);
-    }
-    pendingObjectUrl = "";
-  }
-
-  function clearPendingFaviconObjectUrl(): void {
-    if (pendingFaviconObjectUrl && typeof URL !== "undefined") {
-      URL.revokeObjectURL(pendingFaviconObjectUrl);
-    }
-    pendingFaviconObjectUrl = "";
-  }
-
-  function setPendingLogoPreview(url: string, objectUrl = ""): void {
-    clearPendingObjectUrl();
-    pendingObjectUrl = objectUrl;
-    pendingLogoPreviewUrl = url;
-    logoPreviewFailed = false;
-    logoPreviewNonce = Date.now();
-  }
-
-  function setPendingFaviconPreview(url: string, objectUrl = ""): void {
-    clearPendingFaviconObjectUrl();
-    pendingFaviconObjectUrl = objectUrl;
-    pendingFaviconPreviewUrl = url;
-    faviconPreviewFailed = false;
-    faviconPreviewNonce = Date.now();
   }
 
   function themeTitle(theme: ThemeEntry): string {
@@ -447,24 +321,12 @@
     themesStore.setThemeHomeLogoScale(DEFAULT_THEME_KEY, mode, value);
   }
 
-  function applyUploadedAppearanceField(
-    key: string,
-    value: unknown,
-    persisted: boolean | undefined
-  ): void {
-    if (persisted === false) {
-      settingsStore.markDirty(key, value);
-      return;
-    }
-    settingsStore.setFieldValue(key, value);
-  }
-
   function homeLogoScale(theme: ThemeEntry, mode: LogoMode): number {
     return Number(themesStore.resolveThemeHomeLogoScale(theme, mode)) || 0;
   }
 
-  function defaultFontSelectHandler(tokenKey: string): SelectCallback {
-    return ((value: string) => setDefaultFont(tokenKey, value)) as SelectCallback;
+  function defaultFontSelectHandler(tokenKey: string): (value: string) => void {
+    return (value: string) => setDefaultFont(tokenKey, value);
   }
 
   function defaultLogoScaleSelectHandler(mode: LogoMode): SelectCallback {
@@ -501,90 +363,6 @@
 
   function openThemeAccentPicker(theme: ThemeEntry): void {
     themesStore.setThemeAccent(theme.key, pickerHex(theme.tokens?.accent || "#00fe7a"));
-  }
-
-  function handleLogoFileChange(event: Event): void {
-    const input = event.currentTarget as HTMLInputElement | null;
-    const file = input?.files?.[0];
-    if (!file) return;
-    if (typeof URL !== "undefined") {
-      const objectUrl = URL.createObjectURL(file);
-      setPendingLogoPreview(objectUrl, objectUrl);
-    }
-    themesStore.uploadLogoFile(file).then((uploaded) => {
-      const uploadedUrl = uploaded?.logoUrl || "";
-      const persisted = uploaded?.persisted;
-      if (!uploadedUrl) {
-        pendingLogoPreviewUrl = "";
-        clearPendingObjectUrl();
-        return;
-      }
-      applyUploadedAppearanceField("WEBAPP_LOGO_URL", uploadedUrl, persisted);
-      if (uploaded?.faviconUrl) {
-        applyUploadedAppearanceField("WEBAPP_LOGO_FAVICON_URL", uploaded.faviconUrl, persisted);
-      }
-      if (logoFileInput) logoFileInput.value = "";
-    });
-  }
-
-  function uploadLogoFromUrl(): void {
-    themesStore.uploadLogoUrl(logoSourceUrl).then((uploaded) => {
-      const uploadedUrl = uploaded?.logoUrl || "";
-      const persisted = uploaded?.persisted;
-      if (!uploadedUrl) return;
-      setPendingLogoPreview(uploadedUrl);
-      logoSourceUrl = "";
-      applyUploadedAppearanceField("WEBAPP_LOGO_URL", uploadedUrl, persisted);
-      if (uploaded?.faviconUrl) {
-        applyUploadedAppearanceField("WEBAPP_LOGO_FAVICON_URL", uploaded.faviconUrl, persisted);
-      }
-    });
-  }
-
-  function handleFaviconFileChange(event: Event): void {
-    const input = event.currentTarget as HTMLInputElement | null;
-    const file = input?.files?.[0];
-    if (!file) return;
-    if (typeof URL !== "undefined") {
-      const objectUrl = URL.createObjectURL(file);
-      setPendingFaviconPreview(objectUrl, objectUrl);
-    }
-    themesStore.uploadFaviconFile(file).then((uploaded) => {
-      const uploadedUrl = uploaded?.faviconUrl || "";
-      const persisted = uploaded?.persisted;
-      if (!uploadedUrl) {
-        pendingFaviconPreviewUrl = "";
-        clearPendingFaviconObjectUrl();
-        return;
-      }
-      applyUploadedAppearanceField("WEBAPP_FAVICON_URL", uploadedUrl, persisted);
-      applyUploadedAppearanceField("WEBAPP_FAVICON_USE_CUSTOM", true, persisted);
-      faviconUseCustomDraft = true;
-      if (faviconFileInput) faviconFileInput.value = "";
-    });
-  }
-
-  function uploadFaviconFromUrl(): void {
-    themesStore.uploadFaviconUrl(faviconSourceUrl).then((uploaded) => {
-      const uploadedUrl = uploaded?.faviconUrl || "";
-      const persisted = uploaded?.persisted;
-      if (!uploadedUrl) return;
-      setPendingFaviconPreview(uploadedUrl);
-      faviconSourceUrl = "";
-      applyUploadedAppearanceField("WEBAPP_FAVICON_URL", uploadedUrl, persisted);
-      applyUploadedAppearanceField("WEBAPP_FAVICON_USE_CUSTOM", true, persisted);
-      faviconUseCustomDraft = true;
-    });
-  }
-
-  function setCustomFavicon(enabled: boolean): void {
-    const nextEnabled = Boolean(enabled);
-    faviconUseCustomDraft = nextEnabled;
-    settingsStore.markDirty("WEBAPP_FAVICON_USE_CUSTOM", nextEnabled);
-    if (!nextEnabled) {
-      pendingFaviconPreviewUrl = "";
-      clearPendingFaviconObjectUrl();
-    }
   }
 
   async function saveAppearance(): Promise<void> {
@@ -692,173 +470,22 @@
     themesStore.loadThemes();
     settingsStore.loadSettings();
   });
-
-  onDestroy(() => {
-    clearPendingObjectUrl();
-    clearPendingFaviconObjectUrl();
-  });
 </script>
 
 {#if themesLoading || settingsLoading}
   <AdminEmptyState>{at("loading", {}, "Загрузка…")}</AdminEmptyState>
 {:else}
   <div class="appearance-stack">
-    <article class="admin-card">
-      <header class="admin-card-head">
-        <div>
-          <h3>{at("appearance_brand_title", {}, "Логотип")}</h3>
-          <small>{at("appearance_brand_sub", {}, "Загрузите логотип файлом или по ссылке")}</small>
-        </div>
-        <div class="admin-editor-section-actions">
-          {#if appearanceDirtyCount}
-            <AdminBadge variant="warning">
-              {at(
-                "settings_dirty_count",
-                { count: appearanceDirtyCount },
-                `Изменений: ${appearanceDirtyCount}`
-              )}
-            </AdminBadge>
-          {/if}
-          <AdminButton
-            size="sm"
-            variant="primary"
-            onclick={saveAppearance}
-            disabled={settingsSaving || themesSaving}
-          >
-            <Save size={13} />
-            {settingsSaving || themesSaving
-              ? at("btn_saving", {}, "Сохранение...")
-              : at("btn_save", {}, "Сохранить")}
-          </AdminButton>
-        </div>
-      </header>
-      <div class="admin-card-body appearance-logo-grid">
-        <div class="appearance-logo-preview">
-          {#if previewLogoUrl && !logoPreviewFailed}
-            <img
-              class="appearance-logo-image"
-              src={previewLogoUrl}
-              alt=""
-              loading="eager"
-              decoding="async"
-              onerror={() => {
-                logoPreviewFailed = true;
-              }}
-            />
-          {:else}
-            <span class="appearance-logo-empty" aria-hidden="true"></span>
-          {/if}
-        </div>
-
-        <div class="appearance-controls">
-          <section class="appearance-control-card">
-            <FileInput
-              bind:element={logoFileInput}
-              class="appearance-file-input"
-              accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/x-icon"
-              onchange={handleLogoFileChange}
-            />
-            <AdminButton
-              class="appearance-control"
-              size="sm"
-              onclick={() => logoFileInput?.click()}
-              disabled={themesSaving}
-            >
-              <FileText size={13} />
-              {at("appearance_logo_upload_file", {}, "Загрузить файл")}
-            </AdminButton>
-            <div class="appearance-url-row">
-              <Input
-                class="input appearance-control"
-                type="url"
-                placeholder="https://example.com/logo.png"
-                bind:value={logoSourceUrl}
-              />
-              <AdminButton
-                class="appearance-control"
-                size="sm"
-                onclick={uploadLogoFromUrl}
-                disabled={themesSaving || !logoSourceUrl.trim()}
-              >
-                {at("appearance_logo_upload_url", {}, "По ссылке")}
-              </AdminButton>
-            </div>
-          </section>
-        </div>
-      </div>
-
-      <div class="admin-card-body appearance-logo-grid appearance-favicon-grid">
-        <div class="appearance-logo-preview appearance-favicon-preview">
-          {#if previewFaviconUrl && !faviconPreviewFailed}
-            <img
-              class="appearance-logo-image"
-              src={previewFaviconUrl}
-              alt=""
-              loading="eager"
-              decoding="async"
-              onerror={() => {
-                faviconPreviewFailed = true;
-              }}
-            />
-          {:else}
-            <span class="appearance-logo-empty" aria-hidden="true"></span>
-          {/if}
-        </div>
-
-        <div class="appearance-controls">
-          <section class="appearance-control-card">
-            <label class="appearance-switch">
-              <Switch.Root
-                aria-label={at(
-                  "appearance_use_custom_favicon",
-                  {},
-                  "Использовать отдельную favicon"
-                )}
-                bind:checked={faviconUseCustomDraft}
-                onCheckedChange={setCustomFavicon}
-                class="admin-switch-root"
-              >
-                <Switch.Thumb class="admin-switch-thumb" />
-              </Switch.Root>
-              <span
-                >{at("appearance_use_custom_favicon", {}, "Использовать отдельную favicon")}</span
-              >
-            </label>
-            <FileInput
-              bind:element={faviconFileInput}
-              class="appearance-file-input"
-              accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/x-icon,.ico"
-              onchange={handleFaviconFileChange}
-            />
-            <AdminButton
-              class="appearance-control"
-              size="sm"
-              onclick={() => faviconFileInput?.click()}
-              disabled={themesSaving}
-            >
-              <FileText size={13} />
-              {at("appearance_favicon_upload_file", {}, "Загрузить favicon")}
-            </AdminButton>
-            <div class="appearance-url-row">
-              <Input
-                class="input appearance-control"
-                type="url"
-                placeholder="https://example.com/icon.png"
-                bind:value={faviconSourceUrl}
-              />
-              <AdminButton
-                class="appearance-control"
-                size="sm"
-                onclick={uploadFaviconFromUrl}
-                disabled={themesSaving || !faviconSourceUrl.trim()}
-              >
-                {at("appearance_favicon_upload_url", {}, "По ссылке")}
-              </AdminButton>
-            </div>
-          </section>
-        </div>
-      </div>
-    </article>
+    <AppearanceBrandCard
+      {at}
+      {brand}
+      {appFaviconUrl}
+      {appFaviconUseCustom}
+      {appearanceDirtyCount}
+      {settingsSaving}
+      {themesSaving}
+      onSave={saveAppearance}
+    />
 
     <article class="admin-card">
       <header class="admin-card-head">

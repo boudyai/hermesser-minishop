@@ -1,7 +1,11 @@
-<script>
+<script lang="ts">
   import { Gift, Home, Settings } from "$components/ui/icons.js";
 
-  let { active = "home" } = $props();
+  type Props = {
+    active?: "home" | "invite" | "settings";
+  };
+
+  let { active = "home" }: Props = $props();
 </script>
 
 <nav class="bottom-nav static">

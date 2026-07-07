@@ -8,38 +8,44 @@
   import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
   import PaymentDialogs from "./PaymentDialogs.svelte";
   import TariffDialogs from "./TariffDialogs.svelte";
-
-  type AnyRecord = Record<string, any>;
-  type Action = (...args: any[]) => any;
-  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  import type {
+    PaymentMethod,
+    PlanView,
+    SubscriptionView,
+    TariffView,
+    TermUnitLabel,
+    Translate,
+    UserProfile,
+    VoidAction,
+  } from "$lib/webapp/types.js";
 
   type Props = {
     accountStore: AccountStore;
     activationSuccessDialogOpen?: boolean;
     activationSuccessUseInstallGuides?: boolean;
-    backToTariffList: Action;
+    backToTariffList: VoidAction;
     billingStore: BillingStore;
-    closeActivationSuccessDialog: Action;
-    closeDeviceTopupModal: Action;
-    continueWithSelectedTariff: Action;
+    closeActivationSuccessDialog: VoidAction;
+    closeDeviceTopupModal: VoidAction;
+    continueWithSelectedTariff: VoidAction;
     devicesStore: DevicesStore;
-    disconnectDevice: Action;
+    disconnectDevice: VoidAction;
     emailAuthEnabled?: boolean;
     hasMultipleTariffs?: boolean;
-    methods?: AnyRecord[];
-    plans?: AnyRecord[];
-    selectTariff: Action;
-    selectedTariff?: AnyRecord | null;
-    selectedTariffPlans?: AnyRecord[];
+    methods?: PaymentMethod[];
+    plans?: PlanView[];
+    selectTariff: (tariff: TariffView) => void;
+    selectedTariff?: TariffView | null;
+    selectedTariffPlans?: PlanView[];
     singleTariffMode?: boolean;
-    subscription?: AnyRecord;
+    subscription?: SubscriptionView;
     subscriptionPurchaseDescription?: string;
     t: Translate;
-    tariffCatalog?: AnyRecord[];
+    tariffCatalog?: TariffView[];
     tariffMode?: boolean;
-    termUnitLabel: Action;
+    termUnitLabel: TermUnitLabel;
     trafficMode?: boolean;
-    user?: AnyRecord;
+    user?: UserProfile;
   };
 
   let {

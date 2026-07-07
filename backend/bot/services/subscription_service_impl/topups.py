@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,6 +9,8 @@ from bot.services.payment_promo import consume_payment_promo, load_payment_promo
 from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
 
 from ._typing import SubscriptionServiceMixinContract
+
+logger = logging.getLogger(__name__)
 
 
 class TopupMixin(SubscriptionServiceMixinContract):
@@ -21,8 +23,8 @@ class TopupMixin(SubscriptionServiceMixinContract):
         payment_amount: float,
         payment_db_id: int,
         provider: str = "yookassa",
-        promo_code_id_from_payment: Optional[int] = None,
-    ) -> Optional[Dict[str, Any]]:
+        promo_code_id_from_payment: int | None = None,
+    ) -> dict[str, Any] | None:
         tariff = self._resolve_tariff(tariff_key)
         if tariff.billing_model == "traffic":
             return await self._activate_traffic_package(
@@ -134,7 +136,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
             db_user.panel_user_uuid, panel_payload
         )
         if not updated_panel or updated_panel.get("error"):
-            logging.warning(
+            logger.warning(
                 "Panel user details update FAILED for traffic top-up user %s. Response: %s",
                 user_id,
                 updated_panel,
@@ -173,11 +175,11 @@ class TopupMixin(SubscriptionServiceMixinContract):
         payment_amount: float,
         payment_db_id: int,
         provider: str = "yookassa",
-        promo_code_id_from_payment: Optional[int] = None,
-    ) -> Optional[Dict[str, Any]]:
+        promo_code_id_from_payment: int | None = None,
+    ) -> dict[str, Any] | None:
         tariff = self._resolve_tariff(tariff_key)
         if not tariff or not tariff.premium_squad_uuids:
-            logging.error(
+            logger.error(
                 "Premium top-up requires a tariff with premium squads for user %s", user_id
             )
             return None
@@ -235,7 +237,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
             return None
 
         purchase_bytes = self.gb_to_bytes(granted_gb)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         premium_period_start = self._premium_accounting_period_start(sub, now)
         same_period = self._same_premium_accounting_period(sub, premium_period_start, now)
         previous_topup_used = int(sub.premium_topup_used_bytes or 0) if same_period else 0
@@ -285,7 +287,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
             source="premium_topup",
         )
         if not panel_updated:
-            logging.warning(
+            logger.warning(
                 "Panel user details update FAILED for premium top-up user %s.",
                 user_id,
             )
@@ -323,7 +325,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
         payment_db_id: int,
         payment_amount: float,
         provider: str = "yookassa",
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Credit a paid CornLLM (LiteLLM) topup to the user's tenant.
 
         sale_mode == "cornllm_topup" only fires in Hermes mode. The
@@ -341,7 +343,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
         from bot.services.hermes_provisioning_service import HermesProvisioningService
 
         if payment_amount is None or float(payment_amount) <= 0:
-            logging.error(
+            logger.error(
                 "CornLLM topup for user %s requires positive payment_amount, got %r",
                 user_id,
                 payment_amount,
@@ -349,7 +351,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
             return None
         amount_usd = round(float(payment_amount) / 100.0, 2)
         if amount_usd <= 0:
-            logging.error(
+            logger.error(
                 "CornLLM topup amount rounds to zero: payment_amount=%r",
                 payment_amount,
             )
@@ -357,7 +359,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
 
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or not db_user.panel_user_uuid:
-            logging.error(
+            logger.error(
                 "CornLLM topup requires a saved panel_user_uuid for user %s",
                 user_id,
             )
@@ -366,7 +368,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
 
         panel_service = getattr(self, "panel_service", None)
         if not isinstance(panel_service, HermesProvisioningService):
-            logging.error("CornLLM topup is only available in Hermes mode (user %s)", user_id)
+            logger.error("CornLLM topup is only available in Hermes mode (user %s)", user_id)
             return None
 
         await self._record_payment_context(
@@ -403,12 +405,12 @@ class TopupMixin(SubscriptionServiceMixinContract):
         session: AsyncSession,
         user_id: int,
         traffic_gb: float,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Credit regular traffic to a user as if they purchased a top-up."""
         try:
             gb_value = float(traffic_gb)
         except (TypeError, ValueError):
-            logging.error("admin_grant_topup: invalid traffic_gb=%r", traffic_gb)
+            logger.error("admin_grant_topup: invalid traffic_gb=%r", traffic_gb)
             return None
         if gb_value <= 0:
             return None
@@ -471,7 +473,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
                 db_user.panel_user_uuid, panel_payload
             )
         except Exception:
-            logging.exception("admin_grant_topup: failed to push panel update for user %s", user_id)
+            logger.exception("admin_grant_topup: failed to push panel update for user %s", user_id)
         await tariff_dal.create_traffic_topup(
             session,
             subscription_id=sub.subscription_id,
@@ -491,12 +493,12 @@ class TopupMixin(SubscriptionServiceMixinContract):
         session: AsyncSession,
         user_id: int,
         traffic_gb: float,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Credit premium-squad traffic to a user as if they purchased a premium top-up."""
         try:
             gb_value = float(traffic_gb)
         except (TypeError, ValueError):
-            logging.error("admin_grant_premium_topup: invalid traffic_gb=%r", traffic_gb)
+            logger.error("admin_grant_premium_topup: invalid traffic_gb=%r", traffic_gb)
             return None
         if gb_value <= 0:
             return None
@@ -511,7 +513,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
             return None
         tariff = self._resolve_tariff(sub.tariff_key) if sub.tariff_key else None
         if not tariff or not tariff.premium_squad_uuids:
-            logging.error(
+            logger.error(
                 "admin_grant_premium_topup: tariff %s has no premium squads (user %s)",
                 getattr(tariff, "key", None),
                 user_id,
@@ -519,7 +521,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
             return None
 
         purchase_bytes = self.gb_to_bytes(gb_value)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         premium_period_start = self._premium_accounting_period_start(sub, now)
         same_period = self._same_premium_accounting_period(sub, premium_period_start, now)
         previous_topup_used = int(sub.premium_topup_used_bytes or 0) if same_period else 0
@@ -568,12 +570,12 @@ class TopupMixin(SubscriptionServiceMixinContract):
                 source="admin_premium_topup",
             )
             if not panel_updated:
-                logging.warning(
+                logger.warning(
                     "admin_grant_premium_topup: panel update failed for user %s",
                     user_id,
                 )
         except Exception:
-            logging.exception(
+            logger.exception(
                 "admin_grant_premium_topup: failed to push panel update for user %s",
                 user_id,
             )
@@ -596,7 +598,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
     async def _sync_panel_squads_if_needed(
         self,
         panel_user_uuid: str,
-        desired_squads: List[str],
+        desired_squads: list[str],
         *,
         user_id: int,
         source: str,
@@ -625,15 +627,15 @@ class TopupMixin(SubscriptionServiceMixinContract):
     async def _panel_squads_match(
         self,
         panel_user_uuid: str,
-        desired_squads: List[str],
-    ) -> tuple[Optional[bool], Optional[set[str]]]:
+        desired_squads: list[str],
+    ) -> tuple[bool | None, set[str] | None]:
         try:
             panel_user = await self.panel_service.get_user_by_uuid(
                 panel_user_uuid,
                 log_response=False,
             )
         except Exception:
-            logging.exception(
+            logger.exception(
                 "Failed to fetch panel user %s before premium squad update",
                 panel_user_uuid,
             )
@@ -646,7 +648,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
     @classmethod
     def _panel_active_squad_uuid_set(
         cls,
-        panel_user: Optional[dict],
+        panel_user: dict | None,
     ) -> tuple[bool, set[str]]:
         if not isinstance(panel_user, dict):
             return False, set()
@@ -688,10 +690,10 @@ class TopupMixin(SubscriptionServiceMixinContract):
         source: str,
         user_id: int,
         panel_uuid: str,
-        current_set: Optional[set[str]],
+        current_set: set[str] | None,
         desired_set: set[str],
     ) -> None:
-        logging.info(
+        logger.info(
             "Sync panel PATCH: source=%s user_id=%s telegram_id=%s panel_uuid=%s "
             "panel_view=full_fetch reasons=activeInternalSquads_mismatch "
             "fields=activeInternalSquads payload_fields=activeInternalSquads changes=%s",
@@ -699,15 +701,11 @@ class TopupMixin(SubscriptionServiceMixinContract):
             user_id,
             user_id,
             panel_uuid,
-            "activeInternalSquads:%s->%s"
-            % (
-                self._format_panel_squad_set(current_set),
-                self._format_panel_squad_set(desired_set),
-            ),
+            f"activeInternalSquads:{self._format_panel_squad_set(current_set)}->{self._format_panel_squad_set(desired_set)}",
         )
 
     @staticmethod
-    def _format_panel_squad_set(value: Optional[set[str]]) -> str:
+    def _format_panel_squad_set(value: set[str] | None) -> str:
         if value is None:
             return "missing"
         values = sorted(str(item) for item in value)

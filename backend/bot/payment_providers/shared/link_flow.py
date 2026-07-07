@@ -17,8 +17,9 @@ factories are referenced by ``SPEC``; only the duplicated body moves.
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Generic, Optional, Protocol, Tuple, TypeVar
+from typing import Any, Protocol, TypeVar
 
 from aiogram import types
 from aiohttp import web
@@ -42,6 +43,7 @@ from .callbacks import (
     quote_hwid_callback_parts,
     render_link_or_fail,
     render_payment_link,
+    safe_callback_answer,
 )
 from .common import (
     build_payment_record_payload,
@@ -52,6 +54,8 @@ from .common import (
     payment_unavailable,
 )
 from .webapp import finalize_webapp_link_payment
+
+logger = logging.getLogger(__name__)
 
 
 class LinkFlowService(Protocol):
@@ -67,7 +71,7 @@ class LinkFlowService(Protocol):
 ServiceT = TypeVar("ServiceT", bound=LinkFlowService)
 
 # Returned by every provider ``create_*`` call: (api_success, raw_response_dict).
-CreateResult = Tuple[bool, dict]
+CreateResult = tuple[bool, dict]
 
 
 @dataclass(frozen=True)
@@ -85,10 +89,14 @@ class CreatePaymentRequest:
     amount: Any
     currency: str
     description: str
+    months: float
+    sale_mode: str
+    language: str | None = None
+    provider_context: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
-class LinkPaymentDescriptor(Generic[ServiceT]):
+class LinkPaymentDescriptor[ServiceT: LinkFlowService]:
     """Per-provider seams for the shared link-payment engine.
 
     ``provider_key`` / ``pending_status`` are persisted strings — never change
@@ -106,26 +114,82 @@ class LinkPaymentDescriptor(Generic[ServiceT]):
     service_app_key: str
     service_type: type[ServiceT]
     create: Callable[[ServiceT, CreatePaymentRequest], Awaitable[CreateResult]]
-    reuse: Callable[[ServiceT, Any], Awaitable[Optional[str]]]
-    extract_url: Callable[[dict], Optional[str]]
-    extract_provider_id: Callable[[dict], Optional[str]]
+    reuse: Callable[[ServiceT, Any], Awaitable[str | None]]
+    extract_url: Callable[[dict], str | None]
+    extract_provider_id: Callable[[dict], str | None]
+    callback_currency: Callable[[ServiceT, Settings], str] | None = None
+    callback_payment_allowed: Callable[[ServiceT, Settings, int, Any, str], bool] | None = None
+    callback_lead_text: (
+        Callable[[CreatePaymentRequest, dict, Callable[..., str]], str | None] | None
+    ) = None
+    callback_before_create: Callable[[types.CallbackQuery], Awaitable[None]] | None = None
+    callback_context: (
+        Callable[[types.CallbackQuery, Any, ServiceT], dict[str, Any] | None] | None
+    ) = None
+    webapp_context: Callable[[WebAppPaymentContext], dict[str, Any] | None] | None = None
+    reuse_payment_allowed: Callable[[Any, dict[str, Any] | None], bool] | None = None
+    reuse_with_context: (
+        Callable[[ServiceT, Any, dict[str, Any] | None], Awaitable[str | None]] | None
+    ) = None
+    callback_reuse_since_minutes: Callable[[ServiceT, dict[str, Any] | None], int | None] | None = (
+        None
+    )
+    callback_reuse_enabled: bool = True
+    callback_reuse_answer: bool = False
+    webapp_available: Callable[[ServiceT], bool] | None = None
     # Optional per-provider webapp currency policy. When unset, the webapp flow
     # uses ``ctx.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB"`` (the
     # common case). Providers whose webapp resolution differs supply their own.
-    webapp_currency: Optional[Callable[[WebAppPaymentContext, Settings], str]] = None
+    webapp_currency: Callable[[WebAppPaymentContext, Settings, ServiceT], str] | None = None
 
 
-def _resolve_webapp_currency(
+def _resolve_callback_currency[ServiceT: LinkFlowService](
+    descriptor: LinkPaymentDescriptor[ServiceT],
+    service: ServiceT,
+    settings: Settings,
+) -> str:
+    if descriptor.callback_currency is not None:
+        return descriptor.callback_currency(service, settings)
+    return default_payment_currency_code_for_settings(settings)
+
+
+def _resolve_webapp_currency[ServiceT: LinkFlowService](
     descriptor: LinkPaymentDescriptor[ServiceT],
     ctx: WebAppPaymentContext,
     settings: Settings,
+    service: ServiceT,
 ) -> str:
     if descriptor.webapp_currency is not None:
-        return descriptor.webapp_currency(ctx, settings)
+        return descriptor.webapp_currency(ctx, settings, service)
     return ctx.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
 
 
-async def run_callback_payment(
+def _webapp_service_available[ServiceT: LinkFlowService](
+    descriptor: LinkPaymentDescriptor[ServiceT],
+    service: ServiceT,
+) -> bool:
+    if descriptor.webapp_available is not None:
+        return descriptor.webapp_available(service)
+    return bool(service.configured)
+
+
+async def _reuse_payment[ServiceT: LinkFlowService](
+    descriptor: LinkPaymentDescriptor[ServiceT],
+    service: ServiceT,
+    payment: Any,
+    provider_context: dict[str, Any] | None,
+) -> str | None:
+    if descriptor.reuse_payment_allowed is not None and not descriptor.reuse_payment_allowed(
+        payment,
+        provider_context,
+    ):
+        return None
+    if descriptor.reuse_with_context is not None:
+        return await descriptor.reuse_with_context(service, payment, provider_context)
+    return await descriptor.reuse(service, payment)
+
+
+async def run_callback_payment[ServiceT: LinkFlowService](
     descriptor: LinkPaymentDescriptor[ServiceT],
     callback: types.CallbackQuery,
     settings: Settings,
@@ -151,13 +215,13 @@ async def run_callback_payment(
         return
 
     if not service or not service.configured:
-        logging.error("%s service is not configured or unavailable.", descriptor.display_name)
+        logger.error("%s service is not configured or unavailable.", descriptor.display_name)
         await notify_service_unavailable(callback, translator)
         return
 
     parts = parse_payment_callback(callback.data or "")
     if not parts:
-        logging.error(
+        logger.error(
             "Invalid %s data in callback: %s", descriptor.spec.callback_prefix, callback.data
         )
         await notify_callback_parse_error(callback, translator)
@@ -173,7 +237,21 @@ async def run_callback_payment(
         await notify_callback_parse_error(callback, translator)
         return
 
-    currency_code = default_payment_currency_code_for_settings(settings)
+    currency_code = _resolve_callback_currency(descriptor, service, settings)
+    if descriptor.callback_payment_allowed is not None and not descriptor.callback_payment_allowed(
+        service,
+        settings,
+        callback.from_user.id,
+        parts.price,
+        currency_code,
+    ):
+        await notify_service_unavailable(callback, translator)
+        return
+    provider_context = (
+        descriptor.callback_context(callback, parts, service)
+        if descriptor.callback_context is not None
+        else None
+    )
     payment_description = describe_payment(translator, parts)
     record_payload = build_payment_record_payload(
         user_id=callback.from_user.id,
@@ -187,27 +265,42 @@ async def run_callback_payment(
         hwid_quote=hwid_quote,
     )
 
-    reuse_amounts = payment_record_amounts(
-        months=parts.months,
-        sale_mode=parts.sale_mode,
-        hwid_device_count=hwid_quote.get("device_count") if hwid_quote else None,
-    )
-    reusable_payment = await payment_dal.find_recent_pending_provider_payment(
-        session,
-        user_id=callback.from_user.id,
-        provider=descriptor.provider_key,
-        pending_status=descriptor.pending_status,
-        amount=parts.price,
-        currency=currency_code,
-        sale_mode=parts.sale_mode,
-        months=reuse_amounts.months,
-        purchased_gb=reuse_amounts.purchased_gb,
-        purchased_hwid_devices=reuse_amounts.purchased_hwid_devices,
-        tariff_key=reuse_amounts.tariff_key,
-    )
+    reusable_payment = None
+    if descriptor.callback_reuse_enabled:
+        reuse_amounts = payment_record_amounts(
+            months=parts.months,
+            sale_mode=parts.sale_mode,
+            hwid_device_count=hwid_quote.get("device_count") if hwid_quote else None,
+        )
+        reuse_since_minutes = (
+            descriptor.callback_reuse_since_minutes(service, provider_context)
+            if descriptor.callback_reuse_since_minutes is not None
+            else None
+        )
+        reusable_payment = await payment_dal.find_recent_pending_provider_payment(
+            session,
+            user_id=callback.from_user.id,
+            provider=descriptor.provider_key,
+            pending_status=descriptor.pending_status,
+            amount=parts.price,
+            currency=currency_code,
+            sale_mode=parts.sale_mode,
+            months=reuse_amounts.months,
+            purchased_gb=reuse_amounts.purchased_gb,
+            purchased_hwid_devices=reuse_amounts.purchased_hwid_devices,
+            tariff_key=reuse_amounts.tariff_key,
+            since_minutes=reuse_since_minutes,
+        )
     if reusable_payment is not None:
-        reusable_url = await descriptor.reuse(service, reusable_payment)
+        reusable_url = await _reuse_payment(
+            descriptor,
+            service,
+            reusable_payment,
+            provider_context,
+        )
         if reusable_url:
+            if descriptor.callback_reuse_answer:
+                await safe_callback_answer(callback)
             await render_payment_link(
                 callback,
                 translator=translator,
@@ -224,7 +317,7 @@ async def run_callback_payment(
         await session.commit()
     except Exception:
         await session.rollback()
-        logging.exception(
+        logger.exception(
             "%s: failed to create payment record for user %s.",
             descriptor.display_name,
             callback.from_user.id,
@@ -232,15 +325,25 @@ async def run_callback_payment(
         await notify_payment_record_failure(callback, translator)
         return
 
-    success, response_data = await descriptor.create(
-        service,
-        CreatePaymentRequest(
-            payment=payment_record,
-            user_id=callback.from_user.id,
-            amount=parts.price,
-            currency=currency_code,
-            description=payment_description,
-        ),
+    if descriptor.callback_before_create is not None:
+        await descriptor.callback_before_create(callback)
+
+    create_request = CreatePaymentRequest(
+        payment=payment_record,
+        user_id=callback.from_user.id,
+        amount=parts.price,
+        currency=currency_code,
+        description=payment_description,
+        months=float(parts.months),
+        sale_mode=str(parts.sale_mode),
+        language=current_lang,
+        provider_context=provider_context,
+    )
+    success, response_data = await descriptor.create(service, create_request)
+    lead_text = (
+        descriptor.callback_lead_text(create_request, response_data, translator)
+        if success and descriptor.callback_lead_text is not None
+        else None
     )
     await render_link_or_fail(
         callback,
@@ -254,21 +357,25 @@ async def run_callback_payment(
         payment_url=descriptor.extract_url(response_data),
         provider_payment_id=descriptor.extract_provider_id(response_data),
         provider_response=response_data,
+        lead_text=lead_text,
         log_prefix=descriptor.log_prefix,
     )
 
 
-async def run_webapp_payment(
+async def run_webapp_payment[ServiceT: LinkFlowService](
     descriptor: LinkPaymentDescriptor[ServiceT],
     ctx: WebAppPaymentContext,
 ) -> web.Response:
     """Shared body of every link provider's ``create_webapp_payment``."""
     settings = app_required(ctx.request, "settings", Settings)
     service = app_required(ctx.request, descriptor.service_app_key, descriptor.service_type)
-    if not service or not service.configured:
+    if not service or not _webapp_service_available(descriptor, service):
         return payment_unavailable()
 
-    currency = _resolve_webapp_currency(descriptor, ctx, settings)
+    currency = _resolve_webapp_currency(descriptor, ctx, settings, service)
+    provider_context = (
+        descriptor.webapp_context(ctx) if descriptor.webapp_context is not None else None
+    )
     try:
         payment = await create_webapp_payment_record(
             ctx,
@@ -285,11 +392,14 @@ async def run_webapp_payment(
                 amount=ctx.price,
                 currency=currency,
                 description=ctx.description,
+                months=float(getattr(ctx, "months", 0) or 0),
+                sale_mode=str(getattr(ctx, "sale_mode", "") or ""),
+                provider_context=provider_context,
             ),
         )
     except Exception:
         await ctx.session.rollback()
-        logging.exception("%s WebApp payment failed", descriptor.display_name)
+        logger.exception("%s WebApp payment failed", descriptor.display_name)
         return payment_failed()
 
     return await finalize_webapp_link_payment(
@@ -303,13 +413,16 @@ async def run_webapp_payment(
     )
 
 
-async def run_reuse_webapp_payment(
+async def run_reuse_webapp_payment[ServiceT: LinkFlowService](
     descriptor: LinkPaymentDescriptor[ServiceT],
     ctx: WebAppPaymentContext,
     payment: Any,
-) -> Optional[str]:
+) -> str | None:
     """Shared body of every link provider's ``reuse_webapp_payment``."""
     service = app_optional(ctx.request, descriptor.service_app_key, descriptor.service_type)
     if not service or not service.configured:
         return None
-    return await descriptor.reuse(service, payment)
+    provider_context = (
+        descriptor.webapp_context(ctx) if descriptor.webapp_context is not None else None
+    )
+    return await _reuse_payment(descriptor, service, payment, provider_context)

@@ -4,7 +4,6 @@ import {
   buildAdminPaymentsPath,
   unwrap,
   type ApiClient,
-  type ApiResponse,
   type GetResponse,
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
@@ -18,10 +17,7 @@ const PAYMENTS_QUERY_KEY = ["admin", "payments"] as const;
 const PAYMENT_DETAIL_QUERY_KEY = ["admin", "payments", "detail"] as const;
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
-type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
-  path: Path,
-  options?: Parameters<ApiClient["api"]>[1]
-) => Promise<ApiResponse<Path> | AdminErrorResponse>;
+type AdminApi = ApiClient["api"];
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type PaymentsListResponse = GetResponse<"/api/admin/payments">;
@@ -70,9 +66,9 @@ function hasPaymentId(value: unknown): value is AdminPayment | PaymentOut {
 }
 
 class AdminPaymentsError extends Error {
-  payload: AdminErrorResponse;
+  payload: unknown;
 
-  constructor(message: string, payload: AdminErrorResponse) {
+  constructor(message: string, payload: unknown) {
     super(message);
     this.payload = payload;
   }
@@ -130,14 +126,14 @@ export function createPaymentsStore({
   }
 
   async function requestPayments(page: number): Promise<PaymentsListResponse> {
-    const data = (await api(
+    const data = await api(
       buildAdminPaymentsPath(
         new URLSearchParams({
           page: String(page),
           page_size: String(PAYMENTS_PAGE_SIZE),
         })
       )
-    )) as PaymentsListResponse | AdminErrorResponse;
+    );
     if (!isOkResponse(data)) {
       throw new AdminPaymentsError(adminErrorMessage(data, at, "load_failed"), data);
     }
@@ -154,8 +150,7 @@ export function createPaymentsStore({
   }
 
   async function requestPaymentDetail(paymentId: number): Promise<PaymentDetailResponse> {
-    const res = (await api(buildAdminPaymentPath(paymentId))) as
-      PaymentDetailResponse | AdminErrorResponse;
+    const res = await api(buildAdminPaymentPath(paymentId));
     if (!isOkResponse(res)) {
       throw new AdminPaymentsError(
         adminErrorMessage(res, at, at("payment_load_failed", {}, "Не удалось загрузить платёж")),

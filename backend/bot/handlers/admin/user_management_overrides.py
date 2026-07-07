@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timezone
-from typing import Callable, Optional
+from collections.abc import Callable
+from datetime import UTC, datetime
 
 from aiogram import types
 from aiogram.fsm.context import FSMContext
@@ -18,6 +18,8 @@ from db.dal import message_log_dal, subscription_dal
 from db.models import User
 
 from .user_management_info import handle_refresh_user_card
+
+logger = logging.getLogger(__name__)
 
 
 async def handle_premium_override_menu(
@@ -125,7 +127,7 @@ async def handle_premium_override_apply(
                 "content": (f"unlimited={bool(unlimited)} bonus_bytes={int(bonus_bytes or 0)}"),
                 "is_admin_event": True,
                 "target_user_id": user.user_id,
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": datetime.now(UTC),
             },
         )
         await session.commit()
@@ -138,9 +140,7 @@ async def handle_premium_override_apply(
             callback, user, subscription_service, session, settings, i18n_instance, lang
         )
     except Exception as exc:
-        logging.error(
-            "Failed to apply premium override for user %s: %s", user.user_id, exc, exc_info=True
-        )
+        logger.exception("Failed to apply premium override for user %s: %s", user.user_id, exc)
         await session.rollback()
         await callback.answer(_("admin_premium_override_save_error"), show_alert=True)
 
@@ -166,7 +166,7 @@ async def handle_premium_override_bonus_prompt(
 
 def _admin_hwid_limit_state_text(
     get_text: Callable[..., str],
-    hwid_device_limit: Optional[int],
+    hwid_device_limit: int | None,
     extra_hwid_devices: int = 0,
 ) -> str:
     if hwid_device_limit is None:
@@ -256,7 +256,7 @@ async def handle_hwid_limit_apply(
     i18n_instance: JsonI18n,
     lang: str,
     *,
-    hwid_device_limit: Optional[int],
+    hwid_device_limit: int | None,
 ) -> None:
     """Persist a HWID device base limit override and push it to the panel."""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -285,7 +285,7 @@ async def handle_hwid_limit_apply(
                 ),
                 "is_admin_event": True,
                 "target_user_id": user.user_id,
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": datetime.now(UTC),
             },
         )
         await session.commit()
@@ -295,12 +295,7 @@ async def handle_hwid_limit_apply(
             callback, user, subscription_service, session, settings, i18n_instance, lang
         )
     except Exception as exc:
-        logging.error(
-            "Failed to apply HWID device limit for user %s: %s",
-            user.user_id,
-            exc,
-            exc_info=True,
-        )
+        logger.exception("Failed to apply HWID device limit for user %s: %s", user.user_id, exc)
         await session.rollback()
         await callback.answer(_("admin_hwid_limit_save_error"), show_alert=True)
 

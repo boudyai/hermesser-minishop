@@ -1,13 +1,5 @@
 {
   "admin_api_impl_runtime": [],
   "subscription_service_impl_runtime": [],
-  "webapp_runtime": [
-    "backend/bot/app/web/webapp/assets.py",
-    "backend/bot/app/web/webapp/assets_branding.py",
-    "backend/bot/app/web/webapp/assets_static.py",
-    "backend/bot/app/web/webapp/assets_theme.py",
-    "backend/bot/app/web/webapp/auth_common.py",
-    "backend/bot/app/web/webapp/billing_options.py",
-    "backend/bot/app/web/webapp/common.py"
-  ]
+  "webapp_runtime": []
 }

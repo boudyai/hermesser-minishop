@@ -119,7 +119,7 @@
     isDefaultTokenDirty: (tokenKey: string) => boolean;
     tokenTextValue: (tokenKey: string, tokens?: TokenMap) => string;
     fontItemsWithCurrent: (items: FontOption[], value: unknown) => FontOption[];
-    defaultFontSelectHandler: (tokenKey: string) => SelectCallback;
+    defaultFontSelectHandler: (tokenKey: string) => (value: string) => void;
     applyCustomGoogleFont: (tokenKey: string, kind?: "sans" | "mono") => void;
     radiusNumber: (tokens?: TokenMap) => number;
     defaultRadiusRangeHandler: SelectCallback;
@@ -262,7 +262,7 @@
                   FONT_OPTIONS,
                   tokenTextValue("font_sans", defaultTokens)
                 )}
-                placeholder={at("admin_theme_placeholder_system", {}, "System")}
+                placeholder={at("theme_placeholder_system", {}, "System")}
                 onValueChange={defaultFontSelectHandler("font_sans")}
               />
             </label>
@@ -282,7 +282,7 @@
                   FONT_OPTIONS,
                   tokenTextValue("font_logo", defaultTokens)
                 )}
-                placeholder={at("admin_theme_placeholder_system", {}, "System")}
+                placeholder={at("theme_placeholder_system", {}, "System")}
                 onValueChange={defaultFontSelectHandler("font_logo")}
               />
             </label>
@@ -302,7 +302,7 @@
                   MONO_FONT_OPTIONS,
                   tokenTextValue("font_mono", defaultTokens)
                 )}
-                placeholder={at("admin_theme_placeholder_default_mono", {}, "Default mono")}
+                placeholder={at("theme_placeholder_default_mono", {}, "Default mono")}
                 onValueChange={defaultFontSelectHandler("font_mono")}
               />
             </label>

@@ -4,7 +4,7 @@ import base64
 import hashlib
 import hmac
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qsl, unquote_plus
 
 from aiogram import Bot, F, Router, types
@@ -15,12 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
-from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
-from config.tariffs_config import (
-    default_currency_key_for_settings,
-    default_payment_currency_code_for_settings,
-)
 from db.dal import payment_dal, user_billing_dal
 
 from ..base import (
@@ -34,37 +29,32 @@ from ..base import (
 )
 from ..shared import (
     PAYMENT_STATUS_PENDING_FINALIZATION,
+    CreatePaymentRequest,
     HttpClientMixin,
+    LinkPaymentDescriptor,
     PaymentSuccessRequest,
     RecurringChargeContext,
     RecurringChargeResult,
     build_payment_record_payload,
-    create_webapp_payment_record,
+    check_webhook_source_ip,
+    constant_time_compare,
     decimal_amounts_equal,
-    describe_payment,
     finalize_successful_payment,
-    finalize_webapp_link_payment,
     first_value,
     format_decimal_amount,
     lookup_payment_by_order_or_provider_id,
-    make_translator,
-    notify_callback_parse_error,
-    notify_payment_record_failure,
-    notify_service_unavailable,
     notify_user_payment_failed,
-    parse_payment_callback,
-    payment_failed,
-    payment_record_amounts,
-    payment_unavailable,
     payment_units_for_activation,
     post_json_request,
-    quote_hwid_callback_parts,
-    render_link_or_fail,
-    render_payment_link,
+    run_callback_payment,
+    run_reuse_webapp_payment,
+    run_webapp_payment,
     safe_callback_answer,
 )
-from ..shared.app_context import app_optional, app_required
+from ..shared.app_context import app_required
 from .manifest import _CONFIG_MANIFEST, _PRESENTATION_MANIFEST
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from bot.services.referral_service import ReferralService
@@ -107,11 +97,11 @@ class CloudPaymentsConfig(ProviderEnvConfig):
     )
 
     ENABLED: bool = Field(default=False)
-    PUBLIC_ID: Optional[str] = None
-    API_SECRET: Optional[str] = None
+    PUBLIC_ID: str | None = None
+    API_SECRET: str | None = None
     BASE_URL: str = Field(default="https://api.cloudpayments.ru")
-    RETURN_URL: Optional[str] = None
-    FAILED_URL: Optional[str] = None
+    RETURN_URL: str | None = None
+    FAILED_URL: str | None = None
     RECURRING_ENABLED: bool = Field(default=False)
     VERIFY_WEBHOOK_SIGNATURE: bool = Field(default=True)
     TRUSTED_IPS: str = Field(default="")
@@ -134,7 +124,7 @@ class CloudPaymentsConfig(ProviderEnvConfig):
         return "/webhook/cloudpayments"
 
     @property
-    def trusted_ips_list(self) -> List[str]:
+    def trusted_ips_list(self) -> list[str]:
         return [item.strip() for item in (self.TRUSTED_IPS or "").split(",") if item.strip()]
 
 
@@ -148,12 +138,12 @@ class CloudPaymentsPresentation(ProviderEnvConfig):
         extra="ignore",
     )
 
-    WEBAPP_LABEL_RU: Optional[str] = None
-    WEBAPP_LABEL_EN: Optional[str] = None
-    WEBAPP_ICON: Optional[str] = None
-    TELEGRAM_LABEL_RU: Optional[str] = None
-    TELEGRAM_LABEL_EN: Optional[str] = None
-    TELEGRAM_EMOJI: Optional[str] = None
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None
+    TELEGRAM_LABEL_RU: str | None = None
+    TELEGRAM_LABEL_EN: str | None = None
+    TELEGRAM_EMOJI: str | None = None
 
 
 def _cloudpayments_order_success(status: int, data: Any) -> bool:
@@ -194,7 +184,7 @@ class CloudPaymentsService(HttpClientMixin):
         self._init_http_client(total_timeout=lambda: self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
 
         if not self.configured:
-            logging.warning(
+            logger.warning(
                 "CloudPaymentsService initialized but not fully configured. Payments disabled."
             )
 
@@ -231,10 +221,8 @@ class CloudPaymentsService(HttpClientMixin):
         """Token charges are available only when explicitly enabled."""
         return bool(self.configured and self.config.RECURRING_ENABLED)
 
-    def _auth_headers(self) -> Dict[str, str]:
-        token = base64.b64encode(f"{self.public_id}:{self.api_secret}".encode("utf-8")).decode(
-            "ascii"
-        )
+    def _auth_headers(self) -> dict[str, str]:
+        token = base64.b64encode(f"{self.public_id}:{self.api_secret}".encode()).decode("ascii")
         return {
             "Authorization": f"Basic {token}",
             "Content-Type": "application/json",
@@ -244,14 +232,14 @@ class CloudPaymentsService(HttpClientMixin):
         self,
         *,
         payment_db_id: int,
-        user_id: Optional[int],
+        user_id: int | None,
         amount: float,
-        currency: Optional[str],
+        currency: str | None,
         description: str,
-        email: Optional[str] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        email: str | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
-            logging.error("CloudPaymentsService is not configured. Cannot create order.")
+            logger.error("CloudPaymentsService is not configured. Cannot create order.")
             return False, {"message": "service_not_configured"}
 
         currency_code = normalize_payment_currency_code(
@@ -264,7 +252,7 @@ class CloudPaymentsService(HttpClientMixin):
                 "supported_currencies": list(CLOUDPAYMENTS_SUPPORTED_CURRENCIES),
             }
 
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "Amount": float(format_decimal_amount(amount)),
             "Currency": currency_code,
             "Description": description[:248] if description else "Payment",
@@ -299,12 +287,12 @@ class CloudPaymentsService(HttpClientMixin):
         user_id: int,
         token: str,
         amount: float,
-        currency: Optional[str],
+        currency: str | None,
         description: str,
-        metadata: Optional[Dict[str, str]] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        metadata: dict[str, str] | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
-            logging.error("CloudPaymentsService is not configured. Cannot charge token.")
+            logger.error("CloudPaymentsService is not configured. Cannot charge token.")
             return False, {"message": "service_not_configured"}
 
         currency_code = normalize_payment_currency_code(
@@ -317,7 +305,7 @@ class CloudPaymentsService(HttpClientMixin):
                 "supported_currencies": list(CLOUDPAYMENTS_SUPPORTED_CURRENCIES),
             }
 
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "Amount": float(format_decimal_amount(amount)),
             "Currency": currency_code,
             "Description": description[:248] if description else "Payment",
@@ -369,7 +357,7 @@ class CloudPaymentsService(HttpClientMixin):
         try:
             payment = await payment_dal.create_payment_record(context.session, payment_payload)
         except Exception as exc:
-            logging.exception("CloudPayments auto-renew failed to create local payment record")
+            logger.exception("CloudPayments auto-renew failed to create local payment record")
             return RecurringChargeResult.failed(str(exc))
 
         try:
@@ -383,7 +371,7 @@ class CloudPaymentsService(HttpClientMixin):
                 metadata=dict(context.metadata),
             )
         except Exception as exc:
-            logging.exception("CloudPayments auto-renew token charge failed before API response")
+            logger.exception("CloudPayments auto-renew token charge failed before API response")
             try:
                 await payment_dal.update_payment_status_by_db_id(
                     context.session,
@@ -391,7 +379,7 @@ class CloudPaymentsService(HttpClientMixin):
                     "failed_creation",
                 )
             except Exception:
-                logging.exception(
+                logger.exception(
                     "CloudPayments auto-renew failed to mark payment %s as failed_creation",
                     payment.payment_id,
                 )
@@ -415,7 +403,7 @@ class CloudPaymentsService(HttpClientMixin):
                     "pending_cloudpayments",
                 )
             except Exception:
-                logging.exception(
+                logger.exception(
                     "CloudPayments auto-renew failed to store provider payment id %s",
                     provider_payment_id,
                 )
@@ -427,7 +415,7 @@ class CloudPaymentsService(HttpClientMixin):
                     "failed_creation",
                 )
             except Exception:
-                logging.exception(
+                logger.exception(
                     "CloudPayments auto-renew failed to mark payment %s as failed_creation",
                     payment.payment_id,
                 )
@@ -437,7 +425,7 @@ class CloudPaymentsService(HttpClientMixin):
             status=status,
         )
 
-    async def try_reuse_pending_payment(self, payment: Any) -> Optional[str]:
+    async def try_reuse_pending_payment(self, payment: Any) -> str | None:
         """Return the existing order URL when the local payment is still pending.
 
         CloudPayments order links stay valid until they are paid or expire, and
@@ -452,11 +440,11 @@ class CloudPaymentsService(HttpClientMixin):
         """Verify the ``Content-HMAC`` digest on a CloudPayments notification."""
         received = str(received_signature or "").strip()
         if not received:
-            logging.warning("CloudPayments webhook: missing HMAC header.")
+            logger.warning("CloudPayments webhook: missing HMAC header.")
             return False
         secret = self.api_secret
         if not secret:
-            logging.error("CloudPayments webhook: no API secret configured.")
+            logger.error("CloudPayments webhook: no API secret configured.")
             return False
 
         candidates = [raw_body]
@@ -470,7 +458,7 @@ class CloudPaymentsService(HttpClientMixin):
         for body in candidates:
             digest = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).digest()
             expected = base64.b64encode(digest).decode("ascii")
-            if hmac.compare_digest(expected, received):
+            if constant_time_compare(expected, received):
                 return True
         return False
 
@@ -502,7 +490,7 @@ class CloudPaymentsService(HttpClientMixin):
                 set_default=True,
             )
         except Exception:
-            logging.exception(
+            logger.exception(
                 "CloudPayments webhook: failed to persist saved payment token for user %s",
                 user_id,
             )
@@ -511,13 +499,18 @@ class CloudPaymentsService(HttpClientMixin):
         if not self.configured:
             return web.json_response({"code": 13}, status=503)
 
-        client_ip = request_client_ip(request, trusted_proxies=self.settings.trusted_proxies)
         trusted = self.config.trusted_ips_list
-        if trusted and not ip_in_allowlist(client_ip, trusted):
-            logging.warning(
+        ip_check = check_webhook_source_ip(
+            request,
+            trusted_ips=trusted,
+            trusted_proxies=self.settings.trusted_proxies,
+            allow_empty=True,
+        )
+        if not ip_check.allowed:
+            logger.warning(
                 "CloudPayments webhook denied from unauthorized IP source "
                 "(client_ip=%s remote=%s x_forwarded_for=%s).",
-                client_ip,
+                ip_check.client_ip,
                 request.remote,
                 request.headers.get("X-Forwarded-For"),
             )
@@ -532,7 +525,7 @@ class CloudPaymentsService(HttpClientMixin):
             if not any(
                 signature and self.verify_signature(raw_body, signature) for signature in signatures
             ):
-                logging.error("CloudPayments webhook: invalid signature.")
+                logger.error("CloudPayments webhook: invalid signature.")
                 return web.json_response({"code": 13}, status=403)
 
         payload = {
@@ -540,7 +533,7 @@ class CloudPaymentsService(HttpClientMixin):
             for key, value in parse_qsl(raw_body.decode("utf-8"), keep_blank_values=True)
         }
 
-        def _get(*keys: str) -> Optional[str]:
+        def _get(*keys: str) -> str | None:
             for key in keys:
                 value = payload.get(key) or payload.get(key.lower())
                 if value:
@@ -552,7 +545,7 @@ class CloudPaymentsService(HttpClientMixin):
         status = (_get("Status") or "").strip().lower()
 
         if not order_id_raw and not provider_payment_id:
-            logging.error("CloudPayments webhook: missing identifiers: %s", payload)
+            logger.error("CloudPayments webhook: missing identifiers: %s", payload)
             return web.json_response({"code": 13}, status=400)
 
         async with self.async_session_factory() as session:
@@ -562,7 +555,7 @@ class CloudPaymentsService(HttpClientMixin):
                 provider_payment_id=provider_payment_id,
             )
             if not payment:
-                logging.error(
+                logger.error(
                     "CloudPayments webhook: payment not found (invoice_id=%s, transaction_id=%s)",
                     order_id_raw,
                     provider_payment_id,
@@ -578,7 +571,7 @@ class CloudPaymentsService(HttpClientMixin):
             is_success = status in _SUCCESS_STATUSES
             if is_success:
                 if payment.status == "succeeded":
-                    logging.info(
+                    logger.info(
                         "CloudPayments webhook: payment %s already succeeded.", payment.payment_id
                     )
                     return web.json_response(_CODE_OK)
@@ -587,7 +580,7 @@ class CloudPaymentsService(HttpClientMixin):
                 if webhook_amount is not None and not decimal_amounts_equal(
                     webhook_amount, payment.amount
                 ):
-                    logging.error(
+                    logger.error(
                         "CloudPayments webhook: amount mismatch for payment %s "
                         "(expected=%s, received=%s)",
                         payment.payment_id,
@@ -611,7 +604,7 @@ class CloudPaymentsService(HttpClientMixin):
                     await session.commit()
                 except Exception:
                     await session.rollback()
-                    logging.exception(
+                    logger.exception(
                         "CloudPayments webhook: failed to mark payment %s as succeeded.",
                         resolved_provider_id,
                     )
@@ -653,7 +646,7 @@ class CloudPaymentsService(HttpClientMixin):
                     await session.commit()
                 except Exception:
                     await session.rollback()
-                    logging.exception(
+                    logger.exception(
                         "CloudPayments webhook: failed to mark payment %s as failed.",
                         resolved_provider_id,
                     )
@@ -667,7 +660,7 @@ class CloudPaymentsService(HttpClientMixin):
                 )
                 return web.json_response(_CODE_OK)
 
-            logging.warning(
+            logger.warning(
                 "CloudPayments webhook: unhandled status '%s' for payment %s",
                 status,
                 resolved_provider_id,
@@ -693,124 +686,13 @@ async def pay_cloudpayments_callback_handler(
     cloudpayments_service: CloudPaymentsService,
     session: AsyncSession,
 ) -> None:
-    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
-    translator = make_translator(i18n, current_lang)
-
-    if not i18n or not callback.message:
-        await notify_callback_parse_error(callback, translator)
-        return
-
-    if not SPEC.is_available_to_user(
-        settings,
-        user_id=callback.from_user.id,
-        require_configured=False,
-    ):
-        await notify_service_unavailable(callback, translator)
-        return
-
-    if not cloudpayments_service or not cloudpayments_service.configured:
-        logging.error("CloudPayments service is not configured or unavailable.")
-        await notify_service_unavailable(callback, translator)
-        return
-
-    parts = parse_payment_callback(callback.data or "")
-    if not parts:
-        logging.error("Invalid pay_cp data in callback: %s", callback.data)
-        await notify_callback_parse_error(callback, translator)
-        return
-    parts, hwid_quote = await quote_hwid_callback_parts(
-        session=session,
-        user_id=callback.from_user.id,
-        parts=parts,
-        subscription_service=cloudpayments_service.subscription_service,
-        currency=default_currency_key_for_settings(settings),
-    )
-    if not parts:
-        await notify_callback_parse_error(callback, translator)
-        return
-
-    currency_code = default_payment_currency_code_for_settings(settings)
-    payment_description = describe_payment(translator, parts)
-
-    reuse_amounts = payment_record_amounts(
-        months=parts.months,
-        sale_mode=parts.sale_mode,
-        hwid_device_count=hwid_quote.get("device_count") if hwid_quote else None,
-    )
-    reusable_payment = await payment_dal.find_recent_pending_provider_payment(
-        session,
-        user_id=callback.from_user.id,
-        provider="cloudpayments",
-        pending_status="pending_cloudpayments",
-        amount=parts.price,
-        currency=currency_code,
-        sale_mode=parts.sale_mode,
-        months=reuse_amounts.months,
-        purchased_gb=reuse_amounts.purchased_gb,
-        purchased_hwid_devices=reuse_amounts.purchased_hwid_devices,
-        tariff_key=reuse_amounts.tariff_key,
-    )
-    if reusable_payment is not None:
-        reusable_url = await cloudpayments_service.try_reuse_pending_payment(reusable_payment)
-        if reusable_url:
-            await safe_callback_answer(callback)
-            await render_payment_link(
-                callback,
-                translator=translator,
-                current_lang=current_lang,
-                i18n=i18n,
-                parts=parts,
-                payment_url=reusable_url,
-                log_prefix=_LOG,
-            )
-            return
-
-    record_payload = build_payment_record_payload(
-        user_id=callback.from_user.id,
-        amount=parts.price,
-        currency=currency_code,
-        status="pending_cloudpayments",
-        description=payment_description,
-        months=parts.months,
-        provider="cloudpayments",
-        sale_mode=parts.sale_mode,
-        hwid_quote=hwid_quote,
-    )
-
-    try:
-        payment_record = await payment_dal.create_payment_record(session, record_payload)
-        await session.commit()
-    except Exception:
-        await session.rollback()
-        logging.exception(
-            "CloudPayments: failed to create payment record for user %s.", callback.from_user.id
-        )
-        await notify_payment_record_failure(callback, translator)
-        return
-
-    await safe_callback_answer(callback)
-
-    success, response_data = await cloudpayments_service.create_order(
-        payment_db_id=payment_record.payment_id,
-        user_id=payment_record.user_id,
-        amount=parts.price,
-        currency=currency_code,
-        description=payment_description,
-    )
-    await render_link_or_fail(
+    await run_callback_payment(
+        _DESCRIPTOR,
         callback,
-        translator=translator,
-        current_lang=current_lang,
-        i18n=i18n,
-        parts=parts,
-        session=session,
-        payment=payment_record,
-        api_success=success,
-        payment_url=first_value(response_data, "Url", "url"),
-        provider_payment_id=first_value(response_data, "Id", "Number", "id"),
-        provider_response=response_data,
-        log_prefix=_LOG,
+        settings,
+        i18n_data,
+        cloudpayments_service,
+        session,
     )
 
 
@@ -834,50 +716,36 @@ def create_service(ctx: ServiceFactoryContext) -> CloudPaymentsService:
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    settings: Settings = app_required(ctx.request, "settings", Settings)
-    service: CloudPaymentsService = app_required(
-        ctx.request, "cloudpayments_service", CloudPaymentsService
-    )
-    if not service or not service.configured:
-        return payment_unavailable()
+    return await run_webapp_payment(_DESCRIPTOR, ctx)
 
-    currency = ctx.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
-    try:
-        payment = await create_webapp_payment_record(
-            ctx,
-            amount=ctx.price,
-            currency=currency,
-            status="pending_cloudpayments",
-            provider="cloudpayments",
-        )
-        success, response_data = await service.create_order(
-            payment_db_id=payment.payment_id,
-            user_id=ctx.user_id,
-            amount=ctx.price,
-            currency=currency,
-            description=ctx.description,
-        )
-    except Exception:
-        await ctx.session.rollback()
-        logging.exception("CloudPayments WebApp payment failed")
-        return payment_failed()
 
-    return await finalize_webapp_link_payment(
-        session=ctx.session,
-        payment=payment,
-        api_success=success,
-        payment_url=first_value(response_data, "Url", "url") if success else None,
-        provider_payment_id=first_value(response_data, "Id", "Number", "id"),
-        provider_response=response_data,
-        log_prefix="CloudPayments",
+async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> str | None:
+    return await run_reuse_webapp_payment(_DESCRIPTOR, ctx, payment)
+
+
+async def _create_payment(
+    service: CloudPaymentsService,
+    request: CreatePaymentRequest,
+) -> tuple[bool, dict]:
+    return await service.create_order(
+        payment_db_id=request.payment.payment_id,
+        user_id=request.user_id,
+        amount=request.amount,
+        currency=request.currency,
+        description=request.description,
     )
 
 
-async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
-    service = app_optional(ctx.request, "cloudpayments_service", CloudPaymentsService)
-    if not service or not service.configured:
-        return None
+async def _reuse_payment(service: CloudPaymentsService, payment: Any) -> str | None:
     return await service.try_reuse_pending_payment(payment)
+
+
+def _extract_payment_url(response_data: dict) -> str | None:
+    return first_value(response_data, "Url", "url")
+
+
+def _extract_provider_id(response_data: dict) -> str | None:
+    return first_value(response_data, "Id", "Number", "id")
 
 
 SPEC = PaymentProviderSpec(
@@ -908,4 +776,20 @@ SPEC = PaymentProviderSpec(
         "CloudPayments orders accept RUB, USD, EUR, GBP and CIS currencies as the payment currency."
     ),
     currency_support_url="https://developers.cloudpayments.ru/#valyuty",
+)
+
+_DESCRIPTOR: LinkPaymentDescriptor[CloudPaymentsService] = LinkPaymentDescriptor(
+    spec=SPEC,
+    provider_key="cloudpayments",
+    pending_status="pending_cloudpayments",
+    display_name="CloudPayments",
+    log_prefix=_LOG,
+    service_app_key="cloudpayments_service",
+    service_type=CloudPaymentsService,
+    create=_create_payment,
+    reuse=_reuse_payment,
+    extract_url=_extract_payment_url,
+    extract_provider_id=_extract_provider_id,
+    callback_before_create=safe_callback_answer,
+    callback_reuse_answer=True,
 )

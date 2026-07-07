@@ -1,6 +1,23 @@
-<script>
+<script lang="ts">
   import { cva } from "class-variance-authority";
   import { cn } from "$lib/utils.js";
+  import type { Snippet } from "svelte";
+  import type { HTMLAnchorAttributes, HTMLButtonAttributes } from "svelte/elements";
+
+  type ButtonVariant = "default" | "ghost" | "icon" | "outline" | "secondary" | "telegram";
+  type ButtonSize = "default" | "icon" | "lg" | "sm";
+  type ClickHandler = ((event: MouseEvent) => void) | ((value?: string) => void) | (() => void);
+  type Props = Omit<HTMLButtonAttributes, "children" | "class" | "disabled" | "onclick" | "type"> &
+    Omit<HTMLAnchorAttributes, "children" | "class" | "href" | "onclick"> & {
+      children?: Snippet;
+      class?: string;
+      disabled?: boolean;
+      href?: string;
+      onclick?: ClickHandler;
+      size?: ButtonSize;
+      type?: HTMLButtonAttributes["type"];
+      variant?: ButtonVariant;
+    };
 
   let {
     type = "button",
@@ -12,7 +29,7 @@
     class: className = "",
     children,
     ...rest
-  } = $props();
+  }: Props = $props();
 
   const buttonVariants = cva("btn", {
     variants: {
@@ -36,10 +53,19 @@
       size: "default",
     },
   });
+
+  function forwardClick(event: MouseEvent) {
+    (onclick as ((event: MouseEvent) => void) | undefined)?.(event);
+  }
 </script>
 
 {#if href}
-  <a class={cn(buttonVariants({ variant, size }), className)} {href} {onclick} {...rest}>
+  <a
+    class={cn(buttonVariants({ variant, size }), className)}
+    {href}
+    onclick={forwardClick}
+    {...rest}
+  >
     {@render children?.()}
   </a>
 {:else}
@@ -47,7 +73,7 @@
     class={cn(buttonVariants({ variant, size }), className)}
     {type}
     {disabled}
-    {onclick}
+    onclick={forwardClick}
     {...rest}
   >
     {@render children?.()}

@@ -8,7 +8,7 @@ from config.settings import Settings
 
 
 def make_settings(**overrides: object) -> Settings:
-    values = {
+    values: dict[str, object] = {
         "_env_file": None,
         "BOT_TOKEN": "x",
         "POSTGRES_USER": "u",

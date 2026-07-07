@@ -12,6 +12,10 @@ import { unwrap } from "../publicApi";
 type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type GuidesResponse =
   SubscriptionGuidesResponse | PublicSubscriptionGuidesResponse | (WebappRecord & { ok?: boolean });
+type OkGuidesResponse = Extract<
+  SubscriptionGuidesResponse | PublicSubscriptionGuidesResponse,
+  { ok: true }
+>;
 type InstallGuidesState = {
   enabled: boolean;
   config: WebappRecord | null;
@@ -36,6 +40,10 @@ const initialInstallGuidesState = (): InstallGuidesState => ({
   loaded: false,
 });
 
+function isOkGuidesResponse(response: GuidesResponse): response is OkGuidesResponse {
+  return response.ok === true;
+}
+
 export function createInstallGuidesStore({
   api,
   t,
@@ -50,8 +58,7 @@ export function createInstallGuidesStore({
   const state = $state<InstallGuidesState>(initialInstallGuidesState());
 
   function stateFromResponse(response: GuidesResponse): InstallGuidesState {
-    const payload =
-      response.ok === true ? unwrap(response as GuidesResponse & { ok: boolean }) : response;
+    const payload = isOkGuidesResponse(response) ? unwrap(response) : response;
     const payloadRecord = recordField(payload);
     return {
       enabled: Boolean(payload?.enabled),

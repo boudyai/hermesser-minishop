@@ -4,7 +4,7 @@
   import { Tabs, Switch, Label } from "$components/ui/primitives.js";
   import { AdminSelect } from "$components/patterns/admin/index.js";
   import { X } from "$components/ui/icons.js";
-  import { normalizeUuidList } from "$lib/admin/tariffDraft.js";
+  import { normalizeUuidList } from "$lib/admin/tariffDraft";
   import type { PanelSquad, TariffDraft, TariffsCatalog } from "$lib/admin/stores/tariffsStore";
   import {
     addDraftSquad,

@@ -1,9 +1,12 @@
 import logging
-from typing import Any, Awaitable, Callable, Dict
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
 from sqlalchemy.orm import sessionmaker
+
+logger = logging.getLogger(__name__)
 
 
 class DBSessionMiddleware(BaseMiddleware):
@@ -13,12 +16,12 @@ class DBSessionMiddleware(BaseMiddleware):
 
     async def __call__(
         self,
-        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
         event: TelegramObject,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> Any:
         if self.async_session_factory is None:
-            logging.critical("DBSessionMiddleware: async_session_factory is None!")
+            logger.critical("DBSessionMiddleware: async_session_factory is None!")
             raise RuntimeError("async_session_factory not provided to DBSessionMiddleware")
 
         async with self.async_session_factory() as session:
@@ -30,5 +33,5 @@ class DBSessionMiddleware(BaseMiddleware):
                 return result
             except Exception:
                 await session.rollback()
-                logging.error("DBSessionMiddleware: Exception caused rollback.", exc_info=True)
+                logger.exception("DBSessionMiddleware: Exception caused rollback.")
                 raise

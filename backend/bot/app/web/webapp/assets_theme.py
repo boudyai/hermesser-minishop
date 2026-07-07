@@ -1,8 +1,9 @@
+import asyncio
 import hashlib
 import html
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 from urllib.parse import quote
 
 from aiohttp import web
@@ -21,29 +22,105 @@ from config.webapp_themes_config import (
     resolve_webapp_theme_selection,
 )
 
-from ._runtime import (
-    WEBAPP_FAVICON_PATH,
+from .asset_paths import WEBAPP_FAVICON_PATH
+from .assets_static import _gzip_body_cached, _request_accepts_encoding
+from .constants import (
     WEBAPP_THEME_ASSET_CONTENT_TYPES,
     WEBAPP_THEME_ASSET_MAX_BYTES,
     WEBAPP_THEME_CSS_MAX_BYTES,
 )
-from .assets_static import _gzip_body_cached, _request_accepts_encoding
 
-_TEXT_FILE_CACHE: Dict[tuple[str, bool], tuple[int, int, str]] = {}
-_BINARY_FILE_CACHE: Dict[str, tuple[int, int, bytes]] = {}
-_GZIP_BODY_CACHE: Dict[str, bytes] = {}
-_ASSET_NAME_CACHE: Dict[tuple[str, str], tuple[float, str]] = {}
-_I18N_PAYLOAD_CACHE: Dict[tuple[int, str, tuple[tuple[str, int, int], ...]], Dict[str, Any]] = {}
+_TEXT_FILE_CACHE: dict[tuple[str, bool], tuple[int, int, str]] = {}
+_BINARY_FILE_CACHE: dict[str, tuple[int, int, bytes]] = {}
+_GZIP_BODY_CACHE: dict[str, bytes] = {}
+_ASSET_NAME_CACHE: dict[tuple[str, str], tuple[float, str]] = {}
+_I18N_PAYLOAD_CACHE: dict[tuple[int, str, tuple[tuple[str, int, int], ...]], dict[str, Any]] = {}
 _ASSET_NAME_CACHE_TTL_SECONDS = 30.0
 WEBAPP_HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
 WEBAPP_LEGACY_ASSET_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
 
 
-def _safe_theme_css_relative_path(raw_path: str) -> Optional[Path]:
+def _resolve_theme_file_path(theme_dir: str, rel_path: Path, *, not_found_text: str) -> Path:
+    root = Path(theme_dir).expanduser().resolve()
+    path = (root / rel_path).resolve()
+    try:
+        path.relative_to(root)
+    except ValueError:
+        raise web.HTTPNotFound(text=not_found_text) from None
+    return path
+
+
+def _load_theme_css_asset(theme_dir: str, rel_path: Path) -> tuple[str, str]:
+    ensure_default_webapp_theme_descriptor_files(theme_dir)
+    path = _resolve_theme_file_path(
+        theme_dir,
+        rel_path,
+        not_found_text="theme_css_not_found",
+    )
+    try:
+        stat = path.stat()
+        if stat.st_size > WEBAPP_THEME_CSS_MAX_BYTES:
+            raise web.HTTPNotFound(text="theme_css_too_large")
+        text = path.read_text(encoding="utf-8")
+        etag = _theme_asset_etag(
+            "theme-css",
+            rel_path,
+            stat_mtime_ns=stat.st_mtime_ns,
+            size=stat.st_size,
+        )
+    except OSError:
+        defaults = default_webapp_theme_css_files()
+        text = defaults.get(rel_path.as_posix())
+        if text is None:
+            raise web.HTTPNotFound(text="theme_css_not_found") from None
+        etag = _theme_asset_etag(
+            "theme-css",
+            rel_path,
+            body=text.encode("utf-8"),
+        )
+    return text, etag
+
+
+def _load_theme_binary_asset(
+    theme_dir: str,
+    rel_path: Path,
+    content_type: str,
+) -> tuple[bytes, str, str]:
+    ensure_default_webapp_theme_descriptor_files(theme_dir)
+    path = _resolve_theme_file_path(
+        theme_dir,
+        rel_path,
+        not_found_text="theme_asset_not_found",
+    )
+    try:
+        stat = path.stat()
+        if stat.st_size > WEBAPP_THEME_ASSET_MAX_BYTES:
+            raise web.HTTPNotFound(text="theme_asset_too_large")
+        body = path.read_bytes()
+        etag = _theme_asset_etag(
+            "theme-asset",
+            rel_path,
+            stat_mtime_ns=stat.st_mtime_ns,
+            size=stat.st_size,
+        )
+    except OSError:
+        fallback = default_webapp_theme_asset_file(rel_path)
+        if fallback is None:
+            raise web.HTTPNotFound(text="theme_asset_not_found") from None
+        body, fallback_suffix = fallback
+        content_type = WEBAPP_THEME_ASSET_CONTENT_TYPES.get(fallback_suffix, content_type)
+        etag = _theme_asset_etag("theme-asset", rel_path, body=body)
+
+    if not body or len(body) > WEBAPP_THEME_ASSET_MAX_BYTES:
+        raise web.HTTPNotFound(text="theme_asset_not_found")
+    return body, content_type, etag
+
+
+def _safe_theme_css_relative_path(raw_path: str) -> Path | None:
     return _safe_theme_relative_path(raw_path, allowed_suffixes={".css"}, max_length=180)
 
 
-def _safe_theme_asset_relative_path(raw_path: str) -> Optional[Path]:
+def _safe_theme_asset_relative_path(raw_path: str) -> Path | None:
     return _safe_theme_relative_path(
         raw_path,
         allowed_suffixes=set(WEBAPP_THEME_ASSET_CONTENT_TYPES),
@@ -56,7 +133,7 @@ def _safe_theme_relative_path(
     *,
     allowed_suffixes: set[str],
     max_length: int,
-) -> Optional[Path]:
+) -> Path | None:
     value = str(raw_path or "").replace("\\", "/").strip().lstrip("/")
     if not value or len(value) > max_length or "\x00" in value:
         return None
@@ -76,53 +153,23 @@ async def theme_css_asset_route(request: web.Request) -> web.Response:
     if not settings.WEBAPP_ENABLED:
         raise web.HTTPNotFound(text="webapp_disabled")
 
-    ensure_default_webapp_theme_descriptor_files(settings.WEBAPP_THEMES_DIR)
     rel_path = _safe_theme_css_relative_path(request.match_info.get("path") or "")
     if rel_path is None:
         raise web.HTTPNotFound(text="theme_css_not_found")
 
-    root = Path(settings.WEBAPP_THEMES_DIR).expanduser().resolve()
-    path = (root / rel_path).resolve()
-    try:
-        path.relative_to(root)
-    except ValueError:
-        raise web.HTTPNotFound(text="theme_css_not_found") from None
-
     query = getattr(request, "query", {}) or {}
     cache_control = "public, max-age=31536000, immutable" if query.get("v") else "no-cache"
-    try:
-        stat = path.stat()
-        if stat.st_size > WEBAPP_THEME_CSS_MAX_BYTES:
-            raise web.HTTPNotFound(text="theme_css_too_large")
-        etag = _theme_asset_etag(
-            "theme-css",
-            rel_path,
-            stat_mtime_ns=stat.st_mtime_ns,
-            size=stat.st_size,
+    text, etag = await asyncio.to_thread(
+        _load_theme_css_asset,
+        settings.WEBAPP_THEMES_DIR,
+        rel_path,
+    )
+    if _request_etag_matches(request, etag):
+        return _not_modified_response(
+            cache_control=cache_control,
+            etag=etag,
+            vary="Accept-Encoding",
         )
-        if _request_etag_matches(request, etag):
-            return _not_modified_response(
-                cache_control=cache_control,
-                etag=etag,
-                vary="Accept-Encoding",
-            )
-        text = path.read_text(encoding="utf-8")
-    except OSError:
-        defaults = default_webapp_theme_css_files()
-        text = defaults.get(rel_path.as_posix())
-        if text is None:
-            raise web.HTTPNotFound(text="theme_css_not_found") from None
-        etag = _theme_asset_etag(
-            "theme-css",
-            rel_path,
-            body=text.encode("utf-8"),
-        )
-        if _request_etag_matches(request, etag):
-            return _not_modified_response(
-                cache_control=cache_control,
-                etag=etag,
-                vary="Accept-Encoding",
-            )
 
     return _theme_text_response(
         request,
@@ -138,17 +185,9 @@ async def theme_asset_route(request: web.Request) -> web.Response:
     if not settings.WEBAPP_ENABLED:
         raise web.HTTPNotFound(text="webapp_disabled")
 
-    ensure_default_webapp_theme_descriptor_files(settings.WEBAPP_THEMES_DIR)
     rel_path = _safe_theme_asset_relative_path(request.match_info.get("path") or "")
     if rel_path is None:
         raise web.HTTPNotFound(text="theme_asset_not_found")
-
-    root = Path(settings.WEBAPP_THEMES_DIR).expanduser().resolve()
-    path = (root / rel_path).resolve()
-    try:
-        path.relative_to(root)
-    except ValueError:
-        raise web.HTTPNotFound(text="theme_asset_not_found") from None
 
     suffix = rel_path.suffix.lower()
     content_type = WEBAPP_THEME_ASSET_CONTENT_TYPES.get(suffix)
@@ -160,31 +199,14 @@ async def theme_asset_route(request: web.Request) -> web.Response:
         "public, max-age=31536000, immutable" if query.get("v") else "public, max-age=3600"
     )
 
-    try:
-        stat = path.stat()
-        if stat.st_size > WEBAPP_THEME_ASSET_MAX_BYTES:
-            raise web.HTTPNotFound(text="theme_asset_too_large")
-        etag = _theme_asset_etag(
-            "theme-asset",
-            rel_path,
-            stat_mtime_ns=stat.st_mtime_ns,
-            size=stat.st_size,
-        )
-        if _request_etag_matches(request, etag):
-            return _not_modified_response(cache_control=cache_control, etag=etag)
-        body = path.read_bytes()
-    except OSError:
-        fallback = default_webapp_theme_asset_file(rel_path)
-        if fallback is None:
-            raise web.HTTPNotFound(text="theme_asset_not_found") from None
-        body, fallback_suffix = fallback
-        content_type = WEBAPP_THEME_ASSET_CONTENT_TYPES.get(fallback_suffix, content_type)
-        etag = _theme_asset_etag("theme-asset", rel_path, body=body)
-        if _request_etag_matches(request, etag):
-            return _not_modified_response(cache_control=cache_control, etag=etag)
-
-    if not body or len(body) > WEBAPP_THEME_ASSET_MAX_BYTES:
-        raise web.HTTPNotFound(text="theme_asset_not_found")
+    body, content_type, etag = await asyncio.to_thread(
+        _load_theme_binary_asset,
+        settings.WEBAPP_THEMES_DIR,
+        rel_path,
+        content_type,
+    )
+    if _request_etag_matches(request, etag):
+        return _not_modified_response(cache_control=cache_control, etag=etag)
 
     response = web.Response(body=body, content_type=content_type)
     response.headers["Cache-Control"] = cache_control
@@ -239,7 +261,7 @@ def _not_modified_response(
     *,
     cache_control: str,
     etag: str,
-    vary: Optional[str] = None,
+    vary: str | None = None,
 ) -> web.Response:
     response = web.Response(status=304)
     response.headers["Cache-Control"] = cache_control
@@ -369,7 +391,7 @@ def _initial_theme_for_request(request: web.Request, catalog: Any) -> Any:
     return theme
 
 
-def _initial_theme_tokens(theme: Any, primary_color: str) -> Dict[str, Any]:
+def _initial_theme_tokens(theme: Any, primary_color: str) -> dict[str, Any]:
     if theme is None:
         return {}
 
@@ -382,7 +404,7 @@ def _initial_theme_tokens(theme: Any, primary_color: str) -> Dict[str, Any]:
         return tokens_payload if isinstance(tokens_payload, dict) else {}
 
 
-def _initial_theme_declarations(tokens: Dict[str, Any]) -> List[str]:
+def _initial_theme_declarations(tokens: dict[str, Any]) -> list[str]:
     declarations = []
     for token_key, css_name in _INITIAL_THEME_TOKEN_CSS_MAP.items():
         if token_key in _INITIAL_THEME_LOGO_SCALE_TOKENS:

@@ -5,8 +5,10 @@ import asyncio
 import json
 import sys
 import time
+from datetime import UTC
 from pathlib import Path
-from types import SimpleNamespace
+from types import SimpleNamespace, TracebackType
+from typing import Any
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,7 +43,7 @@ def estimated_panel_user_pages(users: int, page_size: int = 1000) -> int:
 
 
 class FakePanel:
-    def __init__(self, users: int):
+    def __init__(self, users: int) -> None:
         self.calls = 0
         self.stats = {
             "topUsers": [
@@ -53,19 +55,23 @@ class FakePanel:
             ]
         }
 
-    async def get_node_users_bandwidth_stats(self, node_uuid: str, *, start: str, end: str):
+    async def get_node_users_bandwidth_stats(
+        self, node_uuid: str, *, start: str, end: str
+    ) -> dict[str, Any]:
         self.calls += 1
         return self.stats
 
 
 class FakeBulkPanel:
-    def __init__(self, users: int):
+    def __init__(self, users: int) -> None:
         self.calls = 0
         self.users = [
             {"uuid": f"panel-{index}", "username": f"user_{index}"} for index in range(users)
         ]
 
-    async def get_all_panel_users(self, page_size: int = 100, log_responses: bool = False):
+    async def get_all_panel_users(
+        self, page_size: int = 100, log_responses: bool = False
+    ) -> list[dict[str, str]]:
         self.calls += 1
         return self.users
 
@@ -119,9 +125,9 @@ async def bench_panel_user_prefetch(users: int) -> dict:
 
 async def bench_panel_sync_startup(users: int) -> dict:
     end_date = "2026-06-20T12:00:00+00:00"
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    parsed_end_date = datetime.fromisoformat(end_date).astimezone(timezone.utc)
+    parsed_end_date = datetime.fromisoformat(end_date).astimezone(UTC)
     started = time.perf_counter()
     subscription_writes = 0
     description_patches = 0
@@ -178,7 +184,9 @@ async def bench_panel_user_cache(users: int) -> dict:
     service = PanelApiService(settings)
     calls = 0
 
-    async def fake_request(method, endpoint, log_full_response=False, **kwargs):
+    async def fake_request(
+        method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
+    ) -> dict[str, Any]:
         nonlocal calls
         calls += 1
         await asyncio.sleep(0.001)
@@ -215,7 +223,9 @@ async def bench_panel_all_users_cache(users: int) -> dict:
     panel_users = [{"uuid": f"panel-{index}"} for index in range(users)]
     calls = 0
 
-    async def fake_request(method, endpoint, log_full_response=False, **kwargs):
+    async def fake_request(
+        method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
+    ) -> dict[str, Any]:
         nonlocal calls
         calls += 1
         await asyncio.sleep(0.001)
@@ -256,7 +266,9 @@ async def bench_panel_devices_cache(users: int) -> dict:
     service = PanelApiService(settings)
     calls = 0
 
-    async def fake_request(method, endpoint, log_full_response=False, **kwargs):
+    async def fake_request(
+        method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
+    ) -> dict[str, Any]:
         nonlocal calls
         calls += 1
         await asyncio.sleep(0.001)
@@ -278,16 +290,16 @@ async def bench_ttl_singleflight(users: int) -> dict:
     cache = AsyncTTLCache(ttl_seconds=60, settings=settings, namespace="singleflight")
     calls = 0
 
-    async def loader():
+    async def loader() -> dict[str, int]:
         nonlocal calls
         calls += 1
         await asyncio.sleep(0.001)
         return {"value": 42}
 
-    async def fake_get(settings, key):
+    async def fake_get(settings: Any, key: str) -> None:
         return None
 
-    async def fake_set(settings, key, value, ttl):
+    async def fake_set(settings: Any, key: str, value: Any, ttl: Any) -> None:
         return None
 
     started = time.perf_counter()
@@ -304,7 +316,7 @@ async def bench_ttl_singleflight(users: int) -> dict:
 
 
 class FakeAdminStatsPanel:
-    def __init__(self):
+    def __init__(self) -> None:
         self.calls = {
             "system": 0,
             "bandwidth": 0,
@@ -313,27 +325,29 @@ class FakeAdminStatsPanel:
             "online": 0,
         }
 
-    async def get_system_stats(self):
+    async def get_system_stats(self) -> dict[str, Any]:
         self.calls["system"] += 1
         await asyncio.sleep(0.001)
         return {"users": {"totalUsers": 10}}
 
-    async def get_bandwidth_stats(self):
+    async def get_bandwidth_stats(self) -> dict[str, Any]:
         self.calls["bandwidth"] += 1
         await asyncio.sleep(0.001)
         return {"current": 123}
 
-    async def get_nodes_statistics(self):
+    async def get_nodes_statistics(self) -> dict[str, Any]:
         self.calls["nodes"] += 1
         await asyncio.sleep(0.001)
         return {"nodes": []}
 
-    async def get_nodes_bandwidth_usage(self, *, start: str, end: str, top_nodes_limit: int = 64):
+    async def get_nodes_bandwidth_usage(
+        self, *, start: str, end: str, top_nodes_limit: int = 64
+    ) -> dict[str, Any]:
         self.calls["nodes_bandwidth"] += 1
         await asyncio.sleep(0.001)
         return {"topNodes": []}
 
-    async def get_nodes_online_lookups(self):
+    async def get_nodes_online_lookups(self) -> dict[str, Any]:
         self.calls["online"] += 1
         await asyncio.sleep(0.001)
         return {"byUuid": {}, "byName": {}}
@@ -369,16 +383,21 @@ async def bench_admin_db_stats_cache(users: int) -> dict:
     dal_calls = 0
 
     class FakeSessionFactory:
-        def __call__(self):
+        def __call__(self) -> FakeSessionFactory:
             return self
 
-        async def __aenter__(self):
+        async def __aenter__(self) -> SimpleNamespace:
             return SimpleNamespace()
 
-        async def __aexit__(self, exc_type, exc, tb):
+        async def __aexit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc: BaseException | None,
+            tb: TracebackType | None,
+        ) -> None:
             return None
 
-    async def fake_user_stats(session):
+    async def fake_user_stats(session: Any) -> dict[str, Any]:
         nonlocal dal_calls
         dal_calls += 1
         await asyncio.sleep(0.001)
@@ -392,7 +411,7 @@ async def bench_admin_db_stats_cache(users: int) -> dict:
             "referral_users": 0,
         }
 
-    async def fake_financial_stats(session):
+    async def fake_financial_stats(session: Any) -> dict[str, Any]:
         nonlocal dal_calls
         dal_calls += 1
         await asyncio.sleep(0.001)
@@ -405,7 +424,7 @@ async def bench_admin_db_stats_cache(users: int) -> dict:
             "daily_series": [],
         }
 
-    async def fake_sync_status(session):
+    async def fake_sync_status(session: Any) -> SimpleNamespace:
         nonlocal dal_calls
         dal_calls += 1
         await asyncio.sleep(0.001)
@@ -417,7 +436,7 @@ async def bench_admin_db_stats_cache(users: int) -> dict:
             subscriptions_synced=users,
         )
 
-    async def fake_recent_payments(session, limit=10):
+    async def fake_recent_payments(session: Any, limit: int = 10) -> list[Any]:
         nonlocal dal_calls
         dal_calls += 1
         await asyncio.sleep(0.001)
@@ -485,13 +504,13 @@ async def bench_crypt4(users: int) -> dict:
     )
     calls = 0
 
-    async def fake_encrypt(self, raw_link: str):
+    async def fake_encrypt(self: Any, raw_link: str) -> str:
         nonlocal calls
         calls += 1
         await asyncio.sleep(0.001)
         return "happ://crypt4/encrypted"
 
-    async def fake_close(self):
+    async def fake_close(self: Any) -> None:
         return None
 
     started = time.perf_counter()

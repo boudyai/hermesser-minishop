@@ -1,8 +1,8 @@
 import asyncio
 import logging
 from collections import defaultdict
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 from aiohttp import web
 from sqlalchemy import select
@@ -19,7 +19,7 @@ from bot.app.web.route_contracts import (
     INTEGER_SCHEMA,
     STRING_SCHEMA,
     RouteContract,
-    loose_object_schema,
+    ok_envelope_for,
     ok_envelope_with,
     register_contract,
 )
@@ -43,6 +43,7 @@ from .common import (
     _ok,
     _panel_user_connection_activity,
 )
+from .response_schemas import AdminBroadcastAudienceCountsOut
 from .schemas import AdminBroadcastBody
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ logger = logging.getLogger(__name__)
 BROADCAST_TARGET_ACTIVE_NEVER_CONNECTED = AUDIENCE_ACTIVE_NEVER_CONNECTED
 BROADCAST_TARGETS = AUDIENCE_TARGETS
 PANEL_ACTIVITY_LOOKUP_CONCURRENCY = 10
-_ADMIN_BROADCAST_AUDIENCE_COUNT_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {}
+_ADMIN_BROADCAST_AUDIENCE_COUNT_CACHES: dict[tuple[int, int], AsyncTTLCache] = {}
 
 register_contract(
     "admin_broadcast_route",
@@ -63,7 +64,10 @@ register_contract(
 )
 register_contract(
     "admin_broadcast_audience_counts_route",
-    RouteContract(response_schema=ok_envelope_with({"counts": loose_object_schema()})),
+    RouteContract(
+        response_schema=ok_envelope_for(AdminBroadcastAudienceCountsOut),
+        models=(AdminBroadcastAudienceCountsOut,),
+    ),
 )
 
 
@@ -84,8 +88,8 @@ def _resolve_audience_service(request: web.Request) -> AudienceSegmentationServi
 
 async def _active_subscription_panel_uuids_by_user(
     session: AsyncSession,
-) -> Dict[int, List[str]]:
-    now = datetime.now(timezone.utc)
+) -> dict[int, list[str]]:
+    now = datetime.now(UTC)
     stmt = (
         select(Subscription.user_id, Subscription.panel_user_uuid)
         .join(User, Subscription.user_id == User.user_id)
@@ -100,8 +104,8 @@ async def _active_subscription_panel_uuids_by_user(
     )
     result = await session.execute(stmt)
 
-    grouped: Dict[int, List[str]] = defaultdict(list)
-    seen: Dict[int, set[str]] = defaultdict(set)
+    grouped: dict[int, list[str]] = defaultdict(list)
+    seen: dict[int, set[str]] = defaultdict(set)
     for user_id, panel_uuid in result.all():
         user_id_int = int(user_id)
         panel_uuid_str = str(panel_uuid or "").strip()
@@ -124,7 +128,7 @@ async def _panel_connection_status(panel_service: Any, panel_uuid: str) -> str:
 async def _user_ids_with_active_subscription_never_connected(
     session: AsyncSession,
     panel_service: Any,
-) -> List[int]:
+) -> list[int]:
     panel_uuids_by_user = await _active_subscription_panel_uuids_by_user(session)
     semaphore = asyncio.Semaphore(PANEL_ACTIVITY_LOOKUP_CONCURRENCY)
 
@@ -143,10 +147,11 @@ async def _user_ids_with_active_subscription_never_connected(
         zip(
             panel_uuids,
             await asyncio.gather(*(lookup(uuid) for uuid in panel_uuids)),
+            strict=True,
         )
     )
 
-    user_ids: List[int] = []
+    user_ids: list[int] = []
     for user_id, panel_uuids in panel_uuids_by_user.items():
         statuses = [statuses_by_uuid.get(panel_uuid, "unknown") for panel_uuid in panel_uuids]
         if statuses and all(status == "never" for status in statuses):
@@ -154,7 +159,7 @@ async def _user_ids_with_active_subscription_never_connected(
     return user_ids
 
 
-def _admin_broadcast_audience_counts_cache(settings: Settings) -> Optional[AsyncTTLCache]:
+def _admin_broadcast_audience_counts_cache(settings: Settings) -> AsyncTTLCache | None:
     ttl_seconds = int(settings.ADMIN_BROADCAST_AUDIENCE_COUNTS_CACHE_TTL_SECONDS or 0)
     if ttl_seconds <= 0:
         return None
@@ -174,7 +179,7 @@ async def _load_broadcast_audience_counts(
     settings: Settings,
     async_session_factory: sessionmaker,
     panel_service: Any,
-) -> Dict[str, Optional[int]]:
+) -> dict[str, int | None]:
     cache = _admin_broadcast_audience_counts_cache(settings)
     if cache is None:
         return await _load_broadcast_audience_counts_uncached(
@@ -183,7 +188,7 @@ async def _load_broadcast_audience_counts(
         )
     cache_key = "with-panel" if panel_service is not None else "without-panel"
     return cast(
-        Dict[str, Optional[int]],
+        dict[str, int | None],
         await cache.get_or_load(
             cache_key,
             lambda: _load_broadcast_audience_counts_uncached(
@@ -197,9 +202,9 @@ async def _load_broadcast_audience_counts(
 async def _load_broadcast_audience_counts_uncached(
     async_session_factory: sessionmaker,
     panel_service: Any,
-) -> Dict[str, Optional[int]]:
+) -> dict[str, int | None]:
     async with async_session_factory() as session:
-        counts: Dict[str, Optional[int]] = {
+        counts: dict[str, int | None] = {
             "all": await user_dal.count_all_active_users_for_broadcast(session),
             "active": await user_dal.count_users_with_active_subscription_for_broadcast(session),
             "inactive": await user_dal.count_users_without_active_subscription_for_broadcast(
@@ -290,4 +295,4 @@ async def admin_broadcast_audience_counts_route(request: web.Request) -> web.Res
             panel_service,
         )
 
-    return _ok({"counts": counts})
+    return _ok(AdminBroadcastAudienceCountsOut(counts=counts).model_dump(mode="json"))

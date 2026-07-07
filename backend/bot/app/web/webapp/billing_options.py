@@ -24,14 +24,12 @@ from config.tariffs_config import (
 )
 from db.dal import subscription_dal, user_dal
 
-from ._runtime import (
-    json_response,
-)
 from .billing_common import _billing_datetime_text, _billing_iso_datetime
 from .billing_payments import _create_subscription_payment
 from .common import (
     _coerce_int_or_none,
 )
+from .response_helpers import json_response
 from .serializers import (
     _serialize_tariff_change_target,
     _serialize_topup_packages,

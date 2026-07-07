@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import warnings
 from collections import deque
-from collections.abc import Mapping
-from typing import Any, Callable, Protocol, TypeAlias, TypeVar, cast
+from collections.abc import Callable, Mapping
+from typing import Any, Protocol, TypeVar, cast
 
 from aiogram import Bot, Dispatcher
 from aiohttp import web
+from aiohttp.web_exceptions import NotAppKeyWarning
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
@@ -22,7 +24,7 @@ from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.support_service import SupportService
 from config.settings import Settings
 
-PanelService: TypeAlias = PanelApiService | PanelDryRunApiService
+type PanelService = PanelApiService | PanelDryRunApiService
 T = TypeVar("T")
 
 
@@ -104,26 +106,37 @@ PAYMENT_SERVICE_KEYS: dict[str, web.AppKey[object]] = {
 }
 
 
-def _required_value(app: object, app_key: web.AppKey[T], string_key: str) -> T:
+def _required_value[T](app: object, app_key: web.AppKey[T], string_key: str) -> T:
     storage = cast(AppStorage, app)
     if app_key in storage:
         return cast(T, storage[app_key])
     return cast(T, storage[string_key])
 
 
-def _optional_value(app: object, app_key: web.AppKey[T], string_key: str) -> T | None:
+def _optional_value[T](app: object, app_key: web.AppKey[T], string_key: str) -> T | None:
     storage = cast(AppStorage, app)
     if app_key in storage:
         return cast(T, storage[app_key])
     return cast(T | None, storage.get(string_key))
 
 
-def _set_both_values(app: web.Application, key: web.AppKey[T], string_key: str, value: T) -> None:
+def _set_compat_string_value(app: web.Application, string_key: str, value: object) -> None:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", NotAppKeyWarning)
+        app[string_key] = cast(Any, value)
+
+
+def _set_both_values[T](
+    app: web.Application,
+    key: web.AppKey[T],
+    string_key: str,
+    value: T,
+) -> None:
     app[key] = value
-    app[string_key] = cast(Any, value)
+    _set_compat_string_value(app, string_key, value)
 
 
-def _get_or_set_default(
+def _get_or_set_default[T](
     app: web.Application,
     key: web.AppKey[T],
     string_key: str,
@@ -269,7 +282,7 @@ def get_or_create_subscription_guides_panel_config_cache(app: web.Application) -
         app,
         SUBSCRIPTION_GUIDES_PANEL_CONFIG_CACHE,
         "subscription_guides_panel_config_cache",
-        lambda: {},
+        dict,
     )
 
 
@@ -287,7 +300,7 @@ def get_or_create_subscription_guides_resolved_config_cache(app: web.Application
         app,
         SUBSCRIPTION_GUIDES_RESOLVED_CONFIG_CACHE,
         "subscription_guides_resolved_config_cache",
-        lambda: {},
+        dict,
     )
 
 
@@ -307,7 +320,7 @@ def get_or_create_subscription_guides_public_subscription_cache(
         app,
         SUBSCRIPTION_GUIDES_PUBLIC_SUBSCRIPTION_CACHE,
         "subscription_guides_public_subscription_cache",
-        lambda: {},
+        dict,
     )
 
 
@@ -454,7 +467,7 @@ def initialize_webapp_runtime_context(app: web.Application) -> None:
 
 
 def set_service_context(app: web.Application, key: str, value: object) -> None:
-    app[key] = value
+    _set_compat_string_value(app, key, value)
     if key == "panel_service":
         app[PANEL_SERVICE] = cast(PanelService, value)
     elif key == "subscription_service":

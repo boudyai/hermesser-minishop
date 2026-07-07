@@ -15,6 +15,8 @@ from db.models import Base
 
 from .migrator import run_all_migration_chains
 
+logger = logging.getLogger(__name__)
+
 async_engine: AsyncEngine | None = None
 DB_INIT_ADVISORY_LOCK_ID = 817512404897421337
 
@@ -36,7 +38,7 @@ def init_db_connection(settings: Settings) -> async_sessionmaker[AsyncSession]:
     global async_engine
 
     if async_engine is None:
-        logging.info(
+        logger.info(
             "Attempting to create SQLAlchemy engine with URL: %s",
             redacted_database_url(settings.DATABASE_URL),
         )
@@ -57,7 +59,7 @@ def init_db_connection(settings: Settings) -> async_sessionmaker[AsyncSession]:
         autocommit=False,
         autoflush=False,
     )
-    logging.info("SQLAlchemy Async Engine and SessionFactory configured for PostgreSQL.")
+    logger.info("SQLAlchemy Async Engine and SessionFactory configured for PostgreSQL.")
     return local_async_session_factory
 
 
@@ -82,7 +84,7 @@ async def init_db(
 
     global async_engine
     if async_engine is None:
-        logging.warning("init_db: async_engine was None, re-initializing via init_db_connection.")
+        logger.warning("init_db: async_engine was None, re-initializing via init_db_connection.")
 
         raise RuntimeError(
             "async_engine is not initialized. Call init_db_connection and get session_factory first."  # noqa: E501
@@ -92,14 +94,14 @@ async def init_db(
         await conn.execute(text(f"SELECT pg_advisory_xact_lock({DB_INIT_ADVISORY_LOCK_ID})"))
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(lambda sync_conn: run_all_migration_chains(sync_conn, settings))
-    logging.info("PostgreSQL database initialized/checked successfully using SQLAlchemy.")
+    logger.info("PostgreSQL database initialized/checked successfully using SQLAlchemy.")
 
     try:
         from bot.services.settings_override_service import load_overrides_from_db
 
         await load_overrides_from_db(settings, session_factory)
     except Exception as e_overrides:
-        logging.warning(f"Failed to load setting overrides on startup: {e_overrides}")
+        logger.warning("Failed to load setting overrides on startup: %s", e_overrides)
 
     async with session_factory() as session:
         from .dal.panel_sync_dal import get_panel_sync_status, update_panel_sync_status
@@ -107,7 +109,7 @@ async def init_db(
         try:
             current_status = await get_panel_sync_status(session)
             if current_status is None:
-                logging.info("Initializing panel_sync_status record.")
+                logger.info("Initializing panel_sync_status record.")
                 await update_panel_sync_status(
                     session,
                     status="never_run",
@@ -118,7 +120,7 @@ async def init_db(
                 await session.commit()
         except Exception as e_sync_init:
             await session.rollback()
-            logging.error(f"Failed to initialize PanelSyncStatus: {e_sync_init}", exc_info=True)
+            logger.exception("Failed to initialize PanelSyncStatus: %s", e_sync_init)
 
         if settings.tariffs_config:
             try:
@@ -205,4 +207,4 @@ async def init_db(
                 await session.commit()
             except Exception:
                 await session.rollback()
-                logging.exception("Failed to backfill existing subscriptions for tariffs config.")
+                logger.exception("Failed to backfill existing subscriptions for tariffs config.")

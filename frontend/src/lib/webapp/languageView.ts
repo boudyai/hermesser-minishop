@@ -3,7 +3,7 @@ import {
   LANGUAGE_LABELS,
   uniqueLanguageCodes,
   WEBAPP_LANGUAGE_ORDER,
-} from "./constants.js";
+} from "./constants";
 
 const DEFAULT_LANGUAGE_FLAG = "\u{1F3F3}\uFE0F";
 

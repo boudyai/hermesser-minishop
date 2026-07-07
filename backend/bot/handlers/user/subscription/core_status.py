@@ -1,7 +1,8 @@
+import contextlib
 import html
 import logging
-from datetime import datetime
-from typing import Any, Optional, Union
+from datetime import UTC, datetime
+from typing import Any
 
 from aiogram import Bot, F, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
@@ -13,6 +14,7 @@ from bot.keyboards.inline.user_keyboards import (
 from bot.middlewares.i18n import JsonI18n
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.traffic_topup_availability import resolve_traffic_topup_availability
 from bot.utils.callback_answer import (
     callback_message,
 )
@@ -36,6 +38,8 @@ from .core_common import (
     router,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def _devices_list_from_panel_response(devices: Any) -> list[dict[str, Any]]:
     if isinstance(devices, dict):
@@ -56,7 +60,7 @@ def _devices_list_from_panel_response(devices: Any) -> list[dict[str, Any]]:
     return [device for device in raw_devices if isinstance(device, dict)]
 
 
-def _devices_count_from_panel_response(devices: Any) -> Optional[int]:
+def _devices_count_from_panel_response(devices: Any) -> int | None:
     if devices is None:
         return None
     if isinstance(devices, dict):
@@ -74,7 +78,7 @@ def _devices_count_from_panel_response(devices: Any) -> Optional[int]:
 
 
 async def my_subscription_command_handler(
-    event: Union[types.Message, types.CallbackQuery],
+    event: types.Message | types.CallbackQuery,
     i18n_data: dict,
     settings: Settings,
     panel_service: PanelApiService,
@@ -101,34 +105,6 @@ async def my_subscription_command_handler(
         session, _event_user_id(event)
     )
 
-    # ponytail: in hermes mode, also fetch the tenant lifecycle
-    # state so the bot card's "Контейнер:" line reflects the
-    # real core state (active / provisioning / suspended /
-    # deleted / …) instead of always falling through to
-    # "неизвестно". The Mini App serializer does the same
-    # fetch via _tenant_runtime_fields(tenant_state); the bot
-    # path historically didn't, so /status showed a wrong label
-    # for tenants in the `deleting` state.
-    #
-    # We deliberately do NOT fetch /quota here anymore — the
-    # LiteLLM budget is a separate concept from the
-    # subscription card, showing it in the bot status
-    # alongside a "Restart"/"Delete" menu invited support
-    # tickets about a metric the user can't top up from this
-    # surface. CornLLM top-up lives in the Mini App Settings
-    # card and the admin user detail.
-    hermes_mode_precheck = (
-        str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
-    )
-    if hermes_mode_precheck and active and active.get("user_id"):
-        try:
-            tenant_state = await panel_service.get_tenant_state(str(active["user_id"]))
-            if isinstance(tenant_state, dict):
-                active["tenant_status"] = tenant_state.get("status")
-                active["tenant_actual_state"] = tenant_state.get("actual_state")
-        except Exception as exc:
-            logging.debug("get_tenant_state failed for bot status card: %s", exc)
-
     if not active:
         text = get_text("subscription_not_active")
 
@@ -144,10 +120,8 @@ async def my_subscription_command_handler(
         kb = InlineKeyboardMarkup(inline_keyboard=[[buy_button], *back_markup.inline_keyboard])
 
         if isinstance(event, types.CallbackQuery):
-            try:
+            with contextlib.suppress(Exception):
                 await event.answer()
-            except Exception:
-                pass
             try:
                 await callback_message(event).edit_text(text, reply_markup=kb)
             except Exception:
@@ -157,13 +131,13 @@ async def my_subscription_command_handler(
         return
 
     end_date = active.get("end_date")
-    days_left = (end_date.date() - datetime.now().date()).days if end_date else 0
+    days_left = (end_date.date() - datetime.now(UTC).date()).days if end_date else 0
     traffic_mode = bool(settings.traffic_sale_mode)
     config_link_display = active.get("config_link")
     connect_button_url = active.get("connect_button_url")
     config_link_value = config_link_display or get_text("config_link_not_available")
 
-    def _fmt_gb(val: Optional[float]) -> str:
+    def _fmt_gb(val: float | None) -> str:
         if val is None:
             return str(get_text("traffic_na"))
         try:
@@ -174,7 +148,7 @@ async def my_subscription_command_handler(
             pass
         return str(val)
 
-    def _format_traffic_period(strategy: Optional[str]) -> Optional[str]:
+    def _format_traffic_period(strategy: str | None) -> str | None:
         if not strategy:
             return None
         strategy_upper = str(strategy).upper()
@@ -187,7 +161,7 @@ async def my_subscription_command_handler(
         label_key = key_map.get(strategy_upper)
         return get_text(label_key) if label_key else strategy_upper
 
-    def _format_used_with_period(used_display: str, period_label: Optional[str]) -> str:
+    def _format_used_with_period(used_display: str, period_label: str | None) -> str:
         if not period_label:
             return used_display
         return str(
@@ -223,86 +197,58 @@ async def my_subscription_command_handler(
             config_link=config_link_value,
         )
     else:
-        # ponytail: hermes mode replaces the proxy card with a hosting-
-        # focused one — bot handle, LLM budget, container status — and
-        # skips config link / traffic fields entirely. The proxy card
-        # below stays the default for non-hermes shops.
-        hermes_mode = (
-            str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
+        tariff_prefix = ""
+        if _has_multiple_enabled_tariffs(settings) and active.get("tariff_name"):
+            tariff_prefix = f"🎟 {active.get('tariff_name')}\n"
+            if active.get("tariff_description"):
+                tariff_prefix += f"{active.get('tariff_description')}\n"
+        text = get_text(
+            "my_subscription_details",
+            end_date=end_date.strftime("%Y-%m-%d") if end_date else "N/A",
+            days_left=max(0, days_left),
+            status=active.get("status_from_panel", get_text("status_active")).capitalize(),
+            config_link=config_link_value,
+            traffic_limit=(
+                f"{active['traffic_limit_bytes'] / 2**30:.2f} GB"
+                if active.get("traffic_limit_bytes")
+                else get_text("traffic_unlimited")
+            ),
+            traffic_used=(
+                _format_used_with_period(
+                    f"{active['traffic_used_bytes'] / 2**30:.2f} GB"
+                    if active.get("traffic_used_bytes") is not None
+                    else get_text("traffic_na"),
+                    period_label,
+                )
+            ),
+            traffic_period=period_label,
         )
-        if hermes_mode:
-            bot_username = str(active.get("bot_username") or "").strip()
-            bot_username_display = bot_username or get_text("my_hermes_bot_username_unknown")
-            container_status = _format_hermes_container_status(active, get_text)
-            text = get_text(
-                "my_hermes_subscription_details",
-                status=active.get("status_from_panel", get_text("status_active")).capitalize(),
-                end_date=end_date.strftime("%Y-%m-%d") if end_date else "N/A",
-                days_left=max(0, days_left),
-                bot_username=bot_username_display,
-                container_status=container_status,
-            )
-        else:
-            tariff_prefix = ""
-            if _has_multiple_enabled_tariffs(settings) and active.get("tariff_name"):
-                tariff_prefix = f"🎟 {active.get('tariff_name')}\n"
-                if active.get("tariff_description"):
-                    tariff_prefix += f"{active.get('tariff_description')}\n"
-            text = get_text(
-                "my_subscription_details",
-                end_date=end_date.strftime("%Y-%m-%d") if end_date else "N/A",
-                days_left=max(0, days_left),
-                status=active.get("status_from_panel", get_text("status_active")).capitalize(),
-                config_link=config_link_value,
-                traffic_limit=(
-                    f"{active['traffic_limit_bytes'] / 2**30:.2f} GB"
-                    if active.get("traffic_limit_bytes")
-                    else get_text("traffic_unlimited")
-                ),
-                traffic_used=(
-                    _format_used_with_period(
-                        f"{active['traffic_used_bytes'] / 2**30:.2f} GB"
-                        if active.get("traffic_used_bytes") is not None
-                        else get_text("traffic_na"),
-                        period_label,
-                    )
-                ),
-                traffic_period=period_label,
-            )
-            if tariff_prefix:
-                text = tariff_prefix + "\n" + text
+        if tariff_prefix:
+            text = tariff_prefix + "\n" + text
 
     if int(active.get("premium_limit_bytes") or 0) > 0:
         premium_limit = int(active.get("premium_limit_bytes") or 0)
         premium_used = int(active.get("premium_used_bytes") or 0)
         premium_left = max(0, premium_limit - premium_used)
         premium_balance = int(active.get("premium_topup_balance_bytes") or 0)
-        premium_status = (
-            get_text("tg_premium_status_limited")
-            if active.get("premium_is_limited")
-            else get_text("tg_premium_status_active")
-        )
+        premium_status = "ограничен" if active.get("premium_is_limited") else "активен"
         labels = active.get("premium_node_labels") or active.get("premium_squad_labels") or []
         if labels:
             visible = [html.escape(str(label)) for label in labels[:8]]
             label_block = "\n".join(f"• {label}" for label in visible)
             if len(labels) > len(visible):
-                label_block += "\n" + get_text(
-                    "tg_topup_more_items_ellipsis", count=len(labels) - len(visible)
-                )
+                label_block += f"\n• ... еще {len(labels) - len(visible)}"
         else:
-            label_block = "• " + get_text("tg_premium_default_servers_label")
-        premium_usage = _format_premium_usage_limit(active, get_text)
+            label_block = "• premium-серверы тарифа"
         text += (
-            "\n\n"
-            + get_text("tg_premium_section_title")
-            + get_text("tg_premium_status_label", status=premium_status)
-            + get_text("tg_premium_limit_label", limit=premium_usage)
-            + get_text("tg_premium_left_label", left=f"{premium_left / 2**30:.2f}")
-            + get_text("tg_premium_balance_label", balance=f"{premium_balance / 2**30:.2f}")
-            + get_text("tg_premium_limit_scope_label")
-            + f"{label_block}\n\n"
-            + get_text("tg_premium_topup_carried_note")
+            "\n\n🚀 <b>Premium-серверы</b>\n"
+            f"Статус: <b>{premium_status}</b>\n"
+            f"Лимит: <b>{_format_premium_usage_limit(active)}</b>\n"
+            f"Осталось: <b>{premium_left / 2**30:.2f} GB</b>\n"
+            f"Докупленный остаток: <b>{premium_balance / 2**30:.2f} GB</b>\n"
+            "Отдельный лимит действует на:\n"
+            f"{label_block}\n\n"
+            "Premium-докупка не сгорает: сначала расходуется месячный лимит premium-серверов, затем докупленный premium-трафик."  # noqa: E501
         )
 
     base_markup = get_back_to_main_menu_markup(
@@ -311,88 +257,71 @@ async def my_subscription_command_handler(
         callback_data=back_callback,
     )
     kb = base_markup.inline_keyboard
-    # ponytail: in hermes mode the user is in the bot already — the
-    # "Connect" button is meaningless (no client app to install) and the
-    # public share link was retired. The status text already shows the
-    # bot username + state, so we leave the menu clean: just the back
-    # button.
-    is_hermes_menu = (
-        str(getattr(settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
-    )
     try:
         local_sub = await subscription_dal.get_active_subscription_by_user_id(
             session, _event_user_id(event)
         )
-        if is_hermes_menu:
-            install_url = None
-            install_share_url = None
-        else:
-            install_links = await ensure_user_install_guide_links(
-                session,
-                settings,
-                _event_user_id(event),
-                local_subscription=local_sub,
-            )
-            install_url = install_links.personal_url
-            install_share_url = install_links.public_share_url
-            if install_share_url:
-                try:
-                    await session.commit()
-                    text = append_install_share_link_text(text, get_text, install_share_url)
-                except Exception:
-                    await session.rollback()
-                    logging.exception(
-                        "Failed to persist install guide share token for user %s.",
-                        _event_user_id(event),
-                    )
-                    install_share_url = None
+        install_links = await ensure_user_install_guide_links(
+            session,
+            settings,
+            _event_user_id(event),
+            local_subscription=local_sub,
+        )
+        install_url = install_links.personal_url
+        install_share_url = install_links.public_share_url
+        if install_share_url:
+            try:
+                await session.commit()
+                text = append_install_share_link_text(text, get_text, install_share_url)
+            except Exception:
+                await session.rollback()
+                logger.exception(
+                    "Failed to persist install guide share token for user %s.",
+                    _event_user_id(event),
+                )
+                install_share_url = None
 
         # Build rows to prepend above the base "back" markup
         prepend_rows = []
 
-        if is_hermes_menu:
-            # No install guide / connect / share rows in Hermes mode —
-            # the bot token + container status are already in the text.
-            pass
-        else:
-            # 1) Connect button: prefer the actual subscription URL; fall back to mini-app
-            cfg_link_val = connect_button_url or config_link_display
-            if install_url:
-                prepend_rows.append(
-                    [
-                        InlineKeyboardButton(
-                            text=get_text("connect_button"),
-                            web_app=WebAppInfo(url=install_url),
-                        )
-                    ]
-                )
-                if install_share_url:
-                    prepend_rows.append(
-                        [
-                            InlineKeyboardButton(
-                                text=get_text("install_guide_share_button"),
-                                url=install_share_url,
-                            )
-                        ]
+        # 1) Connect button: prefer the actual subscription URL; fall back to mini-app
+        cfg_link_val = connect_button_url or config_link_display
+        if install_url:
+            prepend_rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=get_text("connect_button"),
+                        web_app=WebAppInfo(url=install_url),
                     )
-            elif cfg_link_val:
+                ]
+            )
+            if install_share_url:
                 prepend_rows.append(
                     [
                         InlineKeyboardButton(
-                            text=get_text("connect_button"),
-                            url=cfg_link_val,
+                            text=get_text("install_guide_share_button"),
+                            url=install_share_url,
                         )
                     ]
                 )
-            elif settings.SUBSCRIPTION_MINI_APP_URL:
-                prepend_rows.append(
-                    [
-                        InlineKeyboardButton(
-                            text=get_text("connect_button"),
-                            web_app=WebAppInfo(url=settings.SUBSCRIPTION_MINI_APP_URL),
-                        )
-                    ]
-                )
+        elif cfg_link_val:
+            prepend_rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=get_text("connect_button"),
+                        url=cfg_link_val,
+                    )
+                ]
+            )
+        elif settings.SUBSCRIPTION_MINI_APP_URL:
+            prepend_rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=get_text("connect_button"),
+                        web_app=WebAppInfo(url=settings.SUBSCRIPTION_MINI_APP_URL),
+                    )
+                ]
+            )
 
         if settings.MY_DEVICES_SECTION_ENABLED:
             max_devices_value = active.get("max_devices")
@@ -411,7 +340,7 @@ async def my_subscription_command_handler(
                 try:
                     devices_response = await panel_service.get_user_devices(user_uuid)
                 except Exception:
-                    logging.exception("Failed to load devices for user %s", user_uuid)
+                    logger.exception("Failed to load devices for user %s", user_uuid)
             if devices_response is not None:
                 devices_count = _devices_count_from_panel_response(devices_response)
                 if devices_count is not None:
@@ -489,12 +418,7 @@ async def my_subscription_command_handler(
                 ]
             )
 
-        if (
-            settings.tariffs_config
-            and local_sub
-            and local_sub.tariff_key
-            and str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes"
-        ):
+        if settings.tariffs_config and local_sub and local_sub.tariff_key:
             tariff_actions = []
             if _has_multiple_enabled_tariffs(settings):
                 tariff_actions.append(
@@ -503,16 +427,10 @@ async def my_subscription_command_handler(
                         callback_data="tariff_change:list",
                     )
                 )
-            try:
-                tariff = settings.tariffs_config.require(local_sub.tariff_key)
-                topup_packages = settings.tariffs_config.topup_packages_for(tariff)
-                has_topup_packages = bool(
-                    (topup_packages and topup_packages.has_any())
-                    or (tariff.premium_topup_packages and tariff.premium_topup_packages.has_any())
-                )
-            except Exception:
-                has_topup_packages = False
-            if has_topup_packages:
+            # Mirror the web app: the top-up offer stays hidden until usage
+            # crosses the unlock threshold (unless the tariff allows it always).
+            topup_availability = resolve_traffic_topup_availability(settings, active)
+            if topup_availability.unlocked:
                 tariff_actions.append(
                     InlineKeyboardButton(
                         text=get_text("wa_topup_traffic"),
@@ -529,10 +447,8 @@ async def my_subscription_command_handler(
     markup = InlineKeyboardMarkup(inline_keyboard=kb)
 
     if isinstance(event, types.CallbackQuery):
-        try:
+        with contextlib.suppress(Exception):
             await event.answer()
-        except Exception:
-            pass
         try:
             await callback_message(event).edit_text(
                 text, reply_markup=markup, parse_mode="HTML", disable_web_page_preview=True
@@ -553,7 +469,7 @@ async def my_subscription_command_handler(
 
 @router.callback_query(F.data == "main_action:my_devices")
 async def my_devices_command_handler(
-    event: Union[types.Message, types.CallbackQuery],
+    event: types.Message | types.CallbackQuery,
     i18n_data: dict,
     settings: Settings,
     panel_service: PanelApiService,
@@ -573,25 +489,20 @@ async def my_devices_command_handler(
 
     if not settings.MY_DEVICES_SECTION_ENABLED:
         if isinstance(event, types.CallbackQuery):
-            try:
+            with contextlib.suppress(Exception):
                 await event.answer(get_text("my_devices_feature_disabled"), show_alert=True)
-            except Exception:
-                pass
         else:
             await target.answer(get_text("my_devices_feature_disabled"))
         return
 
-    # TODO: context?
     active = await subscription_service.get_active_subscription_details(
         session, _event_user_id(event)
     )
     if not active or not active.get("user_id"):
         message = get_text("subscription_not_active")
         if isinstance(event, types.CallbackQuery):
-            try:
+            with contextlib.suppress(Exception):
                 await event.answer(message, show_alert=True)
-            except Exception:
-                pass
         else:
             await target.answer(message)
         return
@@ -599,10 +510,8 @@ async def my_devices_command_handler(
     devices = await panel_service.get_user_devices(active.get("user_id")) if active else None
     if devices is None:
         if isinstance(event, types.CallbackQuery):
-            try:
+            with contextlib.suppress(Exception):
                 await event.answer(get_text("no_devices_found"), show_alert=True)
-            except Exception:
-                pass
         else:
             await target.answer(get_text("no_devices_found"))
         return
@@ -705,36 +614,11 @@ async def my_devices_command_handler(
     markup = InlineKeyboardMarkup(inline_keyboard=kb)
 
     if isinstance(event, types.CallbackQuery):
-        try:
+        with contextlib.suppress(Exception):
             await event.answer()
-        except Exception:
-            pass
         try:
             await callback_message(event).edit_text(text, reply_markup=markup)
         except Exception:
             await callback_message(event).answer(text, reply_markup=markup)
     else:
         await target.answer(text, reply_markup=markup)
-
-
-def _format_hermes_container_status(active: dict[str, Any], get_text: Any) -> str:
-    """Map a tenant_runtime_fields-derived status to a human label.
-
-    Falls back to "unknown" if the panel service never reported a state.
-    """
-    status = str(active.get("tenant_status") or "").strip().lower()
-    if status in ("active", "running"):
-        return get_text("my_hermes_container_status_active")
-    if status in ("provisioning_vm", "created", "provisioning_litellm"):
-        return get_text("my_hermes_container_status_provisioning")
-    if status in ("suspended", "payment_expiring"):
-        return get_text("my_hermes_container_status_suspended")
-    if status in ("error", "failed"):
-        return get_text("my_hermes_container_status_error")
-    # ponytail: map deleting / deleted / archived to the new
-    # "deleted" label so the bot menu reflects the actual core
-    # state instead of showing "unknown" when the user has
-    # nuked the container.
-    if status in ("deleting", "deleted", "archived"):
-        return get_text("my_hermes_container_status_deleted")
-    return get_text("my_hermes_container_status_unknown")

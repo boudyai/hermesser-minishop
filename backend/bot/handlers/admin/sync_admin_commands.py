@@ -1,5 +1,4 @@
 import logging
-from typing import Optional, Union
 
 from aiogram import Bot, types
 from aiogram.filters import Command
@@ -16,9 +15,11 @@ from .sync_admin_common import (
 )
 from .sync_admin_runner import perform_sync
 
+logger = logging.getLogger(__name__)
+
 
 async def sync_command_handler(
-    message_event: Union[types.Message, types.CallbackQuery],
+    message_event: types.Message | types.CallbackQuery,
     bot: Bot,
     settings: Settings,
     i18n_data: dict,
@@ -26,9 +27,9 @@ async def sync_command_handler(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
-        logging.error("i18n missing in sync_command_handler")
+        logger.error("i18n missing in sync_command_handler")
 
         if isinstance(message_event, types.Message):
             await message_event.answer("Language error.")
@@ -39,7 +40,7 @@ async def sync_command_handler(
 
     target_chat_id = _sync_request_target_chat_id(message_event)
     if not target_chat_id:
-        logging.error("Sync handler: could not determine target_chat_id.")
+        logger.error("Sync handler: could not determine target_chat_id.")
         if isinstance(message_event, types.CallbackQuery):
             await message_event.answer("Error initiating sync.", show_alert=True)
         return
@@ -52,7 +53,7 @@ async def sync_command_handler(
         language=current_lang,
     )
     if not queued:
-        logging.warning("Admin (%s) failed to enqueue manual panel sync.", requested_by)
+        logger.warning("Admin (%s) failed to enqueue manual panel sync.", requested_by)
         await _answer_sync_request(message_event, _("sync_failed_simple"), show_alert=True)
         return
 
@@ -62,12 +63,12 @@ async def sync_command_handler(
         if isinstance(message_event, types.CallbackQuery)
         else _("sync_started_simple"),
     )
-    logging.info("Admin (%s) queued panel sync from bot.", requested_by)
+    logger.info("Admin (%s) queued panel sync from bot.", requested_by)
 
 
 def _sync_request_target_chat_id(
-    message_event: Union[types.Message, types.CallbackQuery],
-) -> Optional[int]:
+    message_event: types.Message | types.CallbackQuery,
+) -> int | None:
     chat = getattr(message_event, "chat", None)
     if chat and getattr(chat, "id", None) is not None:
         return int(chat.id)
@@ -79,7 +80,7 @@ def _sync_request_target_chat_id(
 
 
 async def _answer_sync_request(
-    message_event: Union[types.Message, types.CallbackQuery],
+    message_event: types.Message | types.CallbackQuery,
     text: str,
     *,
     show_alert: bool = False,
@@ -96,7 +97,7 @@ async def _answer_sync_request(
 async def _enqueue_manual_panel_sync(
     settings: Settings,
     *,
-    requested_by: Optional[int],
+    requested_by: int | None,
     target_chat_id: int,
     language: str,
 ) -> bool:
@@ -114,11 +115,11 @@ async def sync_status_command_handler(
     message: types.Message, i18n_data: dict, settings: Settings, session: AsyncSession
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
-    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
-        await message.answer(_("tg_admin_language_error"))
+        await message.answer("tg_admin_language_error")
         return
+    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     status_record_model = await panel_sync_dal.get_panel_sync_status(session)
     response_text = ""

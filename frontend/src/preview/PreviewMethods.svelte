@@ -1,11 +1,16 @@
-<script>
+<script lang="ts">
   import { CreditCard, Send, WalletCards } from "$components/ui/icons.js";
 
-  let { methods = [] } = $props();
+  type PreviewMethod = { name?: string };
+  type Props = {
+    methods?: PreviewMethod[];
+  };
+
+  let { methods = [] }: Props = $props();
 
   const icons = [CreditCard, Send, WalletCards, WalletCards];
 
-  function note(index) {
+  function note(index: number): string {
     if (index === 0) return "Visa, Mastercard";
     if (index === 1) return "Быстро и удобно";
     if (index === 2) return "USDT, BTC, ETH";

@@ -208,7 +208,7 @@ export function summarizeProviderSupport(
 }
 
 export function providerKey(provider: ProviderCurrencySupport): string {
-  return String(provider?.id || provider?.provider_key || provider?.key || "")
+  return String(provider?.id || provider?.provider_key || "")
     .trim()
     .toLowerCase();
 }
@@ -217,7 +217,6 @@ export function providerDisplayName(provider: ProviderCurrencySupport): string {
   const key = providerKey(provider);
   return (
     provider?.provider_label ||
-    provider?.provider_name ||
     PROVIDER_FALLBACK_LABELS[key as ProviderKey] ||
     PROVIDER_FALLBACK_LABELS[
       String(provider?.provider_key || "")

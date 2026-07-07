@@ -1,8 +1,8 @@
 import asyncio
+import contextlib
 import logging
 import time
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from aiogram import Bot
 from aiogram.utils.text_decorations import html_decoration as hd
@@ -35,6 +35,8 @@ from config.settings import Settings
 from db.advisory_locks import acquire_subscription_background_sync_lock
 from db.dal import subscription_dal
 from db.models import Subscription
+
+logger = logging.getLogger(__name__)
 
 SUBSCRIPTION_NOTIFICATION_LOCK = "subscription-notification-worker"
 DEFAULT_SUBSCRIPTION_NOTIFICATION_TICK_SECONDS = 300
@@ -74,7 +76,7 @@ class SubscriptionNotificationWorker:
                     ttl_seconds=max(60, self._tick_seconds() - 10),
                 ) as acquired:
                     if not acquired:
-                        logging.info(
+                        logger.info(
                             "SubscriptionNotificationWorker tick skipped: Redis lock is held"
                         )
                     else:
@@ -84,17 +86,15 @@ class SubscriptionNotificationWorker:
                             await self.expiry_tick(session)
                             await self.trial_traffic_tick(session)
                             await session.commit()
-                        logging.info(
+                        logger.info(
                             "metric worker_tick_duration_seconds=%.3f "
                             "worker=subscription_notification",
                             time.monotonic() - started,
                         )
             except Exception:
-                logging.exception("SubscriptionNotificationWorker tick failed")
-            try:
+                logger.exception("SubscriptionNotificationWorker tick failed")
+            with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(self._stopped.wait(), timeout=self._tick_seconds())
-            except asyncio.TimeoutError:
-                pass
 
     def stop(self) -> None:
         self._stopped.set()
@@ -112,7 +112,7 @@ class SubscriptionNotificationWorker:
     async def expiry_tick(self, session: AsyncSession) -> None:
         if not getattr(self.settings, "SUBSCRIPTION_NOTIFICATIONS_ENABLED", True):
             return
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         lower = now - EXPIRED_AFTER_NOTIFICATION_WINDOW
         upper = now + self._max_before_window()
         result = await session.execute(
@@ -140,7 +140,7 @@ class SubscriptionNotificationWorker:
             # expired row would otherwise keep nagging the user with
             # expired/expiring notices even though they are already covered.
             if self._superseded_by_active_subscription(sub, latest_active, now):
-                logging.info(
+                logger.info(
                     "Skipping %s notification for subscription %s: user %s is already "
                     "covered by a newer active subscription.",
                     stage.key,
@@ -183,7 +183,7 @@ class SubscriptionNotificationWorker:
                     try:
                         await self._suspend_hermes_tenant(sub)
                     except Exception:
-                        logging.exception(
+                        logger.exception(
                             "Failed to suspend hermes tenant for subscription %s",
                             getattr(sub, "subscription_id", None),
                         )
@@ -232,7 +232,7 @@ class SubscriptionNotificationWorker:
         self,
         sub: Subscription,
         now: datetime,
-    ) -> Optional[SubscriptionNotificationStage]:
+    ) -> SubscriptionNotificationStage | None:
         end_date = self._as_utc(getattr(sub, "end_date", None))
         if end_date is None:
             return None
@@ -313,7 +313,7 @@ class SubscriptionNotificationWorker:
     async def trial_traffic_tick(self, session: AsyncSession) -> None:
         if not getattr(self.settings, "SUBSCRIPTION_NOTIFICATIONS_ENABLED", True):
             return
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         result = await session.execute(
             select(Subscription)
             .where(
@@ -394,14 +394,14 @@ class SubscriptionNotificationWorker:
                     sent_at=now,
                 )
 
-    async def _panel_user(self, sub: Subscription) -> Optional[dict]:
+    async def _panel_user(self, sub: Subscription) -> dict | None:
         panel_uuid = str(getattr(sub, "panel_user_uuid", "") or "").strip()
         if not panel_uuid:
             return None
         try:
             data = await self.panel_service.get_user_by_uuid(panel_uuid, log_response=False)
         except Exception:
-            logging.exception(
+            logger.exception(
                 "SubscriptionNotificationWorker: failed to fetch panel user %s",
                 panel_uuid,
             )
@@ -463,7 +463,7 @@ class SubscriptionNotificationWorker:
                 status = telegram_notification_status_from_error(exc)
                 if status and user and user_id:
                     await mark_telegram_notifications_status(session, user_id, status)
-                logging.exception(
+                logger.exception(
                     "Failed to send trial traffic depleted warning to user %s",
                     telegram_chat_id,
                 )
@@ -501,12 +501,12 @@ class SubscriptionNotificationWorker:
         return max(timedelta(days=min(days_before, 3)), timedelta(hours=hours_before))
 
     @staticmethod
-    def _as_utc(value: Optional[datetime]) -> Optional[datetime]:
+    def _as_utc(value: datetime | None) -> datetime | None:
         if value is None:
             return None
         if value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
-        return value.astimezone(timezone.utc)
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
 
     @staticmethod
     def _fmt_bytes(value: int) -> str:

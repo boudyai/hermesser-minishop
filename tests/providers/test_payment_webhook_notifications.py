@@ -111,7 +111,8 @@ class PaymentWebhookNotificationTests(IsolatedAsyncioTestCase):
             status="pending",
             tariff_key="premium",
         )
-        activation_end = datetime(2026, 1, 1)
+        # Payment notification payloads preserve legacy naive DB datetimes in tests.
+        activation_end = datetime(2026, 1, 1)  # noqa: DTZ001
         subscription_service = SimpleNamespace(
             activate_subscription=AsyncMock(
                 return_value={
