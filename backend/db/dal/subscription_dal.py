@@ -235,6 +235,24 @@ async def set_user_subscriptions_cancelled_with_grace(
     return rowcount(result)
 
 
+async def clear_subscription_notification_dedup(
+    session: AsyncSession, subscription_id: int
+) -> int:
+    """Drop prior-period dedup rows so the new period can re-send stage notices.
+
+    Hermes-mode upsert reuses `subscription_id` across renewals. The dedup
+    table is keyed by `(subscription_id, notification_key)`; a 3-day trial's
+    last-day `expired:telegram` row survives the renewal and silently swallows
+    the new period's notice. Clearing on extension lets stages recompute.
+    Idempotent: zero rows on a brand-new subscription.
+    """
+    stmt = delete(SubscriptionNotification).where(
+        SubscriptionNotification.subscription_id == subscription_id
+    )
+    result = await session.execute(stmt)
+    return rowcount(result)
+
+
 async def upsert_subscription(session: AsyncSession, sub_payload: Dict[str, Any]) -> Subscription:
     panel_sub_uuid = sub_payload.get("panel_subscription_uuid")
     if not panel_sub_uuid:
@@ -243,6 +261,7 @@ async def upsert_subscription(session: AsyncSession, sub_payload: Dict[str, Any]
     existing_sub = await get_subscription_by_panel_subscription_uuid(session, panel_sub_uuid)
 
     if existing_sub:
+        prior_end_date = getattr(existing_sub, "end_date", None)
         logging.info(
             f"Updating existing subscription {existing_sub.subscription_id} by panel_sub_uuid {panel_sub_uuid}"  # noqa: E501
         )
@@ -250,6 +269,14 @@ async def upsert_subscription(session: AsyncSession, sub_payload: Dict[str, Any]
             setattr(existing_sub, key, value)
         await session.flush()
         await session.refresh(existing_sub)
+        # ponytail: extend on a same row (Hermes upsert reuses
+        # subscription_id across renewals) must drop prior-period
+        # dedup keys. Without this, `expired:telegram` from a prior
+        # 3-day trial silently swallows the new period's notice.
+        if prior_end_date != getattr(existing_sub, "end_date", None):
+            await clear_subscription_notification_dedup(
+                session, existing_sub.subscription_id
+            )
         return existing_sub
     else:
         logging.info(f"Creating new subscription with panel_sub_uuid {panel_sub_uuid}")

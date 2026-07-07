@@ -132,7 +132,16 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                 # lifecycle, not subscription expiry, so the panel-driven
                 # comparison would mark every tenant inactive as soon as
                 # the last_state_change timestamp falls in the past.
-                is_active_based_on_panel = bool(local_active_sub.is_active)
+                #
+                # ponytail: combine the cached `is_active` flag with
+                # end_date truth. The flag is stale-prone (notifications
+                # or worker downtime can leave it as True for days past
+                # end_date); end_date is the row of record.
+                local_end = self._as_utc(local_active_sub.end_date)
+                is_active_based_on_panel = bool(local_active_sub.is_active) and (
+                    local_end is None
+                    or local_end > datetime.now(timezone.utc)
+                )
             else:
                 is_active_based_on_panel = panel_status == "ACTIVE" and (
                     panel_expire_dt > datetime.now(timezone.utc) if panel_expire_dt else False
@@ -361,11 +370,21 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                     {
                         "user_id": sub_model.user_id,
                         "first_name": sub_model.user.first_name or f"User {sub_model.user_id}",
-                        "language_code": sub_model.user.language_code
+                        "language_code": sub_model.language_code
                         or self.settings.DEFAULT_LANGUAGE,
                         "end_date_str": sub_model.end_date.strftime("%Y-%m-%d"),
                         "days_left": max(0, int(round(days_left))),
                         "subscription_end_date_iso_for_update": sub_model.end_date,
                     }
                 )
-        return results
+
+    @staticmethod
+    def _as_utc(value: Optional[datetime]) -> Optional[datetime]:
+        # ponytail: duplicated from SubscriptionNotificationWorker.
+        # Promote to bot.utils.dates and reuse in all three call sites
+        # when you next touch this code.
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)

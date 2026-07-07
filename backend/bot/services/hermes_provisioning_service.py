@@ -251,14 +251,17 @@ class HermesProvisioningService(PanelApiService):
         async with session.get(f"{self._core_base_url}/shop/tenants/{user_uuid}") as resp:
             if resp.status == 200:
                 data = await resp.json()
+                # ponytail: hermes has no proxy subscription; tenant_id
+                # stands in for subscriptionUuid/shortUuid so that
+                # panel_identity link details don't fail on lookup.
+                tenant_id = data.get("tenant_id", user_uuid)
                 return {
-                    "uuid": data.get("tenant_id", user_uuid),
+                    "uuid": tenant_id,
                     "status": data.get("status", "unknown"),
                     "expireAt": data.get("last_state_change", ""),
-                    # ponytail: surface bot_username so the Mini App's
-                    # "Открыть бота" button gets the @handle even when the
-                    # cached active-subscription payload is stale.
                     "botUsername": data.get("bot_username") or "",
+                    "subscriptionUuid": tenant_id,
+                    "shortUuid": tenant_id[:8] if tenant_id else "",
                 }
             if resp.status == 404:
                 return None
@@ -275,24 +278,23 @@ class HermesProvisioningService(PanelApiService):
         async with session.get(f"{self._core_base_url}/shop/tenants/{user_uuid}") as resp:
             if resp.status == 200:
                 data = await resp.json()
+                tenant_id = str(data.get("tenant_id", user_uuid))
                 return {
                     "ok": True,
                     "user": {
-                        "uuid": str(data.get("tenant_id", user_uuid)),
+                        "uuid": tenant_id,
                         "status": str(data.get("status", "unknown") or "unknown"),
-                        # ponytail: lifecycle_details.py reads expireAt at
-                        # lines 75/86/109/120 to compute
-                        # is_active_based_on_panel; without this the code
-                        # hits UnboundLocalError on panel_expire_dt and
-                        # /api/me returns 500. The shop API doesn't track
-                        # subscription expiry (the minishop does), so we
-                        # pass through the tenant's last_state_change as
-                        # a best-effort substitute.
+                        # ponytail: lifecycle_details.py reads expireAt to
+                        # compute is_active_based_on_panel; without this it
+                        # 500s. Shop API doesn't track subscription expiry
+                        # (minishop does), so pass through last_state_change.
                         "expireAt": str(data.get("last_state_change", "") or ""),
-                        # ponytail: bot_username drives the "Открыть бота"
-                        # button in the Mini App. Without it the frontend
-                        # disables the CTA even when the bot is healthy.
                         "botUsername": str(data.get("bot_username") or ""),
+                        # ponytail: synthetic — hermes has no proxy
+                        # subscription; tenant_id stands in. Required by
+                        # panel_identity link details and admin extend.
+                        "subscriptionUuid": tenant_id,
+                        "shortUuid": tenant_id[:8] if tenant_id else "",
                     },
                     "not_found": False,
                     "failure_reason": None,

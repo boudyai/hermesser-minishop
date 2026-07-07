@@ -52,6 +52,31 @@ async def _get_hermes_panel(subscription_service: SubscriptionService):
     return panel_service
 
 
+def _i18n_get(i18n, lang: str, key: str, default, **kwargs) -> str:
+    """Resolve an i18n key, falling back to ``default`` when the catalog is
+    unavailable or the key is missing.
+
+    The previous inline lambda ignored ``default`` entirely: when ``i18n``
+    was ``None`` (e.g. middleware injection skipped for some dispatch path)
+    or when ``gettext`` returned the raw key on a miss, callers saw the
+    technical key name instead of the user-facing string. Mirrors the
+    webapp-side ``_i18n_or_hardcoded`` helper.
+    """
+    if i18n is not None:
+        try:
+            text = i18n.gettext(lang, key, **kwargs)
+            if text and text != key:
+                return text
+        except Exception:
+            pass
+    if default is None:
+        return key
+    try:
+        return str(default).format(**kwargs)
+    except (KeyError, IndexError):
+        return str(default)
+
+
 async def _get_tenant_id(
     subscription_service: SubscriptionService, session: AsyncSession, user_id: int
 ) -> str | None:
@@ -175,7 +200,7 @@ async def _render_status(
     panel_service = await _get_hermes_panel(subscription_service)
     i18n = (i18n_data or {}).get("i18n_instance")
     current_lang = (i18n_data or {}).get("current_language", "ru")
-    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
+    _ = lambda key, default=None, **kw: _i18n_get(i18n, current_lang, key, default, **kw)
 
     if not tenant_id or panel_service is None:
         text = _(
@@ -409,7 +434,7 @@ async def _confirm_restart(
         return
     i18n = (i18n_data or {}).get("i18n_instance")
     current_lang = (i18n_data or {}).get("current_language", "ru")
-    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
+    _ = lambda key, default=None, **kw: _i18n_get(i18n, current_lang, key, default, **kw)
     text = _(
         "tg_hermes_restart_confirm",
         default="Restart the bot?\n\nContainer will stop and start again (~30 seconds).",
@@ -442,7 +467,7 @@ async def restart_confirm_callback(
     user_id = callback.from_user.id
     i18n = (i18n_data or {}).get("i18n_instance")
     current_lang = (i18n_data or {}).get("current_language", "ru")
-    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
+    _ = lambda key, default=None, **kw: _i18n_get(i18n, current_lang, key, default, **kw)
     panel_service = await _get_hermes_panel(subscription_service)
     if panel_service is None:
         await callback.answer(
@@ -527,7 +552,7 @@ async def ensure_bot_creation_entrypoint(
     """
     i18n = (i18n_data or {}).get("i18n_instance")
     current_lang = (i18n_data or {}).get("current_language", "ru")
-    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
+    _ = lambda key, default=None, **kw: _i18n_get(i18n, current_lang, key, default, **kw)
     if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
         await callback.answer()
         return
@@ -617,7 +642,7 @@ async def token_command(
 ) -> None:
     i18n = (i18n_data or {}).get("i18n_instance")
     current_lang = (i18n_data or {}).get("current_language", "ru")
-    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
+    _ = lambda key, default=None, **kw: _i18n_get(i18n, current_lang, key, default, **kw)
     if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
         await message.answer(
             _(
@@ -642,11 +667,11 @@ async def set_token_callback(
     callback: types.CallbackQuery,
     state: FSMContext,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict | None = None,
 ) -> None:
     i18n = (i18n_data or {}).get("i18n_instance")
     current_lang = (i18n_data or {}).get("current_language", "ru")
-    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
+    _ = lambda key, default=None, **kw: _i18n_get(i18n, current_lang, key, default, **kw)
     if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
         await callback.answer()
         return
@@ -676,7 +701,7 @@ async def token_input(
 ) -> None:
     i18n = (i18n_data or {}).get("i18n_instance")
     current_lang = (i18n_data or {}).get("current_language", "ru")
-    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
+    _ = lambda key, default=None, **kw: _i18n_get(i18n, current_lang, key, default, **kw)
     user_id = message.from_user.id if message.from_user else 0
     token = (message.text or "").strip()
     if not token or ":" not in token or not token.split(":", 1)[0].isdigit():
@@ -885,7 +910,7 @@ async def logs_callback(
         return
     i18n = (i18n_data or {}).get("i18n_instance")
     current_lang = (i18n_data or {}).get("current_language", "ru")
-    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
+    _ = lambda key, default=None, **kw: _i18n_get(i18n, current_lang, key, default, **kw)
     await _send_logs(
         callback.message,
         user_id,
@@ -912,7 +937,7 @@ async def logs_refresh_callback(
         return
     i18n = (i18n_data or {}).get("i18n_instance")
     current_lang = (i18n_data or {}).get("current_language", "ru")
-    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
+    _ = lambda key, default=None, **kw: _i18n_get(i18n, current_lang, key, default, **kw)
     panel_service = await _get_hermes_panel(subscription_service)
     if panel_service is None:
         await callback.answer(
@@ -952,7 +977,7 @@ async def _send_logs(
         return
     i18n = (i18n_data or {}).get("i18n_instance")
     current_lang = (i18n_data or {}).get("current_language", "ru")
-    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
+    _ = lambda key, default=None, **kw: _i18n_get(i18n, current_lang, key, default, **kw)
     panel_service = await _get_hermes_panel(subscription_service)
     if panel_service is None:
         return
@@ -1016,7 +1041,7 @@ async def _confirm_suspend(
         return
     i18n = (i18n_data or {}).get("i18n_instance")
     current_lang = (i18n_data or {}).get("current_language", "ru")
-    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
+    _ = lambda key, default=None, **kw: _i18n_get(i18n, current_lang, key, default, **kw)
     text = (
         "⏸ "
         + _("tg_hermes_suspend_confirm_body", default="Suspend the bot?\n\n")
@@ -1059,7 +1084,7 @@ async def suspend_confirm_callback(
         return
     i18n = (i18n_data or {}).get("i18n_instance")
     current_lang = (i18n_data or {}).get("current_language", "ru")
-    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
+    _ = lambda key, default=None, **kw: _i18n_get(i18n, current_lang, key, default, **kw)
     panel_service = await _get_hermes_panel(subscription_service)
     if panel_service is None:
         await callback.answer(
@@ -1113,7 +1138,7 @@ async def delete_command(
         return
     i18n = (i18n_data or {}).get("i18n_instance")
     current_lang = (i18n_data or {}).get("current_language", "ru")
-    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
+    _ = lambda key, default=None, **kw: _i18n_get(i18n, current_lang, key, default, **kw)
     await state.set_state(DeleteFSM.waiting_for_confirmation)
     text = _("tg_hermes_delete_confirm_body", default="Delete the bot?\n\n") + _(
         "tg_hermes_delete_confirm_typed_footer",
@@ -1148,7 +1173,7 @@ async def delete_callback(
         return
     i18n = (i18n_data or {}).get("i18n_instance")
     current_lang = (i18n_data or {}).get("current_language", "ru")
-    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
+    _ = lambda key, default=None, **kw: _i18n_get(i18n, current_lang, key, default, **kw)
     await state.set_state(DeleteFSM.waiting_for_confirmation)
     text = _(
         "tg_hermes_delete_confirm_typed_body",
@@ -1183,7 +1208,7 @@ async def delete_confirm_input(
 ) -> None:
     i18n = (i18n_data or {}).get("i18n_instance")
     current_lang = (i18n_data or {}).get("current_language", "ru")
-    _ = lambda key, **kw: i18n.gettext(current_lang, key, **kw) if i18n else key
+    _ = lambda key, default=None, **kw: _i18n_get(i18n, current_lang, key, default, **kw)
     if (message.text or "").strip() != "DELETE":
         await message.answer(
             _(

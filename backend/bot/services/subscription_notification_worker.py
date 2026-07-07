@@ -168,25 +168,25 @@ class SubscriptionNotificationWorker:
                         end_date=self._as_utc(getattr(sub, "end_date", None)),
                     )
                 )
-                # ponytail: in hermes mode the container has to stop when
-                # the subscription expires — otherwise the bot keeps
-                # running on a tenant the user no longer pays for.
-                # The core's suspend endpoint pauses the podman
-                # container; the tenant row stays in the core so the
-                # user can resume by paying again. Renewal flow
-                # (create_panel_user → reactivation block) reuses the
-                # same row.
-                if (
-                    str(getattr(self.settings.panel_settings, "write_mode", "") or "").lower()
-                    == "hermes"
-                ):
-                    try:
-                        await self._suspend_hermes_tenant(sub)
-                    except Exception:
-                        logging.exception(
-                            "Failed to suspend hermes tenant for subscription %s",
-                            getattr(sub, "subscription_id", None),
-                        )
+            # ponytail: in hermes mode the container stops on
+            # `expired` / `expired_24h_after` unconditionally — not
+            # gated on `delivery.any_sent`. Re-gating on the
+            # notification caused live tenants to keep running on
+            # dead subscriptions when Telegram/email went silent.
+            if (
+                stage.key in {"expired", "expired_24h_after"}
+                and str(
+                    getattr(self.settings.panel_settings, "write_mode", "") or ""
+                ).lower()
+                == "hermes"
+            ):
+                try:
+                    await self._suspend_hermes_tenant(sub)
+                except Exception:
+                    logging.exception(
+                        "Failed to suspend hermes tenant for subscription %s",
+                        getattr(sub, "subscription_id", None),
+                    )
 
     async def _suspend_hermes_tenant(self, sub: Subscription) -> None:
         """Stop the running podman container for a Hermes tenant whose
