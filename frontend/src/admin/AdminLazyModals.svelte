@@ -121,8 +121,8 @@
     {openTelegramProfileLink}
     {paymentStatusVariant}
     {trafficPercentValue}
-    trafficLeftLabel={(used, limit) => trafficLeftLabel(used, limit, at)}
-    trafficOfLabel={(used, limit) => trafficOfLabel(used, limit, at)}
+    trafficLeftLabel={(used: unknown, limit: unknown) => trafficLeftLabel(used, limit)}
+    trafficOfLabel={(used: unknown, limit: unknown) => trafficOfLabel(used, limit)}
     onClose={onCloseUser}
   />
 {/if}

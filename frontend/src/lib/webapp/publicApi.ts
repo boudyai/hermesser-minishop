@@ -684,5 +684,10 @@ export function createApiClient({
     return (await publicApiUnchecked(path, payload, options)) as PostResponse<Path>;
   }
 
-  return { api, apiUnchecked, publicApi, publicApiUnchecked };
+  const client = {} as ApiClient;
+  client.api = api as ApiClient["api"];
+  client.apiUnchecked = apiUnchecked as ApiClient["apiUnchecked"];
+  client.publicApi = publicApi as ApiClient["publicApi"];
+  client.publicApiUnchecked = publicApiUnchecked as ApiClient["publicApiUnchecked"];
+  return client;
 }

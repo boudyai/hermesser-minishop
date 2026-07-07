@@ -44,10 +44,11 @@
     options?: Parameters<typeof fetch>[1]
   ) => Promise<Record<string, unknown>>;
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  const missingApi: ApiUnchecked = async () => ({ ok: false, error: "api_unavailable" });
 
   let {
     appSettings = {},
-    apiUnchecked,
+    apiUnchecked = missingApi,
     brand = {},
     brandTitle = "",
     canChangeTariff = false,
@@ -111,7 +112,7 @@
     linkTelegramAndActivateTrial?: () => void;
     linkTelegramAndClaimReferralWelcome?: () => void;
     openConnectLink?: () => void;
-    openPaymentModal?: () => void;
+    openPaymentModal?: (tariffKey?: string) => void;
     openTelegramNotificationsBot?: () => void;
     openRegularTopupModal?: () => void;
     openPremiumTopupModal?: () => void;
@@ -515,7 +516,14 @@
 
     {#if subscription.active && hermesMode}
       <BotStatusCard {subscription} {appSettings} {apiUnchecked} {t} />
-      <CornllmTopupCard {subscription} {appSettings} {apiUnchecked} {methods} {t} />
+      <CornllmTopupCard
+        {subscription}
+        {appSettings}
+        {apiUnchecked}
+        paymentMethods={methods}
+        selectedMethod={String(methods?.[0]?.id || "")}
+        {t}
+      />
     {/if}
 
     {#if !subscription.active && hermesMode}

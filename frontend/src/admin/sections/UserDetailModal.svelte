@@ -65,6 +65,10 @@
     onClose?: () => void;
   } = $props();
 
+  const usersState = $derived(usersStore);
+  const tariffsState = $derived(tariffsStore);
+  const openedUser = $derived(usersState.openedUser);
+  const openedUserDetail = $derived(usersState.openedUserDetail);
   const hermesMode = $derived(
     String(panelWriteMode || "").toLowerCase() === "hermes"
   );
@@ -255,10 +259,6 @@
     return { key: `limit:${limit}`, valid: true };
   }
 
-  const usersState = $derived(usersStore);
-  const tariffsState = $derived(tariffsStore);
-  const openedUser = $derived(usersState.openedUser);
-  const openedUserDetail = $derived(usersState.openedUserDetail);
   const userDetailLoading = $derived(usersState.userDetailLoading);
   const userMessageDraft = $derived(usersState.userMessageDraft);
   const userActionBusy = $derived(usersState.userActionBusy);

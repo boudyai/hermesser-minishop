@@ -96,15 +96,17 @@
     return limit > 0 ? formatTrafficGb(limit) : t("wa_unlimited_traffic");
   }
 
-  function submitActivation() {
+  async function submitActivation() {
     if (requested || trialBusy || !canSubmit) return;
     requested = true;
     const token = hermesTokenRequired ? trimmedToken : "";
-    activateTrial(token || undefined)
-      .catch(() => {})
-      .finally(() => {
-        requested = false;
-      });
+    try {
+      await activateTrial(token || undefined);
+    } catch {
+      // Activation errors are surfaced through trialError from the store.
+    } finally {
+      requested = false;
+    }
   }
 </script>
 

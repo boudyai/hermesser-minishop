@@ -11,7 +11,8 @@ type BillingModalStore = {
     tariffCatalog: WebappRecord[],
     subscription: WebappRecord,
     plans: WebappRecord[],
-    defaultMethod?: string
+    defaultMethod?: string,
+    options?: WebappRecord
   ) => void;
   openTariffChangeModal: (defaultMethod?: string) => void;
   openTopupModal: (kind?: string, defaultMethod?: string) => void;

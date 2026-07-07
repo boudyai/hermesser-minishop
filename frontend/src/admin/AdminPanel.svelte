@@ -172,7 +172,11 @@
   const stableRoutePrefix = initialRoutePrefix();
   const stableOnTariffsSaved = initialTariffsSaved();
   const stableOnThemesSaved = initialThemesSaved();
-  const settingsStore = createSettingsStore({ api: stableApi, onToast: flash, at });
+  const settingsStore = createSettingsStore({
+    api: stableApi as Parameters<typeof createSettingsStore>[0]["api"],
+    onToast: flash,
+    at,
+  });
 
   const featureSet = $derived(new Set<string>((settingsStore.features || []) as string[]));
   const visibleSections: AdminSectionDescriptor[] = $derived(
@@ -315,56 +319,76 @@
     },
   });
 
-  const adsStore = createAdsStore({ api: stableApi, onToast: flash, at });
-  const backupsStore = createBackupsStore({ api: stableApi, onToast: flash, at });
-  const broadcastStore = createBroadcastStore({ api: stableApi, onToast: flash, at });
-  const healthStore = createHealthStore({ api: stableApi, at, queryClient: adminQueryClient });
+  const adsStore = createAdsStore({
+    api: stableApi as Parameters<typeof createAdsStore>[0]["api"],
+    onToast: flash,
+    at,
+  });
+  const backupsStore = createBackupsStore({
+    api: stableApi as Parameters<typeof createBackupsStore>[0]["api"],
+    onToast: flash,
+    at,
+  });
+  const broadcastStore = createBroadcastStore({
+    api: stableApi as Parameters<typeof createBroadcastStore>[0]["api"],
+    onToast: flash,
+    at,
+  });
+  const healthStore = createHealthStore({
+    api: stableApi as Parameters<typeof createHealthStore>[0]["api"],
+    at,
+    queryClient: adminQueryClient,
+  });
   const logsStore = createLogsStore({
-    api: stableApi,
+    api: stableApi as Parameters<typeof createLogsStore>[0]["api"],
     onToast: flash,
     at,
     queryClient: adminQueryClient,
   });
   const paymentsStore = createPaymentsStore({
-    api: stableApi,
+    api: stableApi as Parameters<typeof createPaymentsStore>[0]["api"],
     onToast: flash,
     at,
     routePrefix: stableRoutePrefix,
     queryClient: adminQueryClient,
   });
   const promosStore = createPromosStore({
-    api: stableApi,
+    api: stableApi as Parameters<typeof createPromosStore>[0]["api"],
     onToast: flash,
     at,
     queryClient: adminQueryClient,
   });
   const statsStore = createStatsStore({
-    api: stableApi,
+    api: stableApi as Parameters<typeof createStatsStore>[0]["api"],
     onToast: flash,
     at,
     queryClient: adminQueryClient,
   });
   const supportStore = createAdminSupportStore({
-    api: stableApi,
+    api: stableApi as Parameters<typeof createAdminSupportStore>[0]["api"],
     onToast: flash,
     at,
     routePrefix: stableRoutePrefix,
   });
   const tariffsStore = createTariffsStore({
-    api: stableApi,
+    api: stableApi as Parameters<typeof createTariffsStore>[0]["api"],
     onTariffsSaved: stableOnTariffsSaved,
     flash,
     at,
   });
   const themesStore = createThemesStore({
-    api: stableApi,
+    api: stableApi as Parameters<typeof createThemesStore>[0]["api"],
     onThemesSaved: stableOnThemesSaved,
     flash,
     at,
   });
-  const translationsStore = createTranslationsStore({ api: stableApi, onToast: flash, at });
+  const translationsStore = createTranslationsStore({
+    api: stableApi as Parameters<typeof createTranslationsStore>[0]["api"],
+    onToast: flash,
+    at,
+  });
   const usersStore = createUsersStore({
-    api: stableApi,
+    api: stableApi as Parameters<typeof createUsersStore>[0]["api"],
     onToast: flash,
     at,
     routePrefix: stableRoutePrefix,

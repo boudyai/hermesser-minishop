@@ -43,7 +43,7 @@
   let open = $state(false);
   let amountRub = $state<number>(300);
   let customAmount = $state<string>("");
-  let localMethod = $state<string>(selectedMethod);
+  let localMethod = $state<string>("");
   let busy = $state(false);
   let error = $state<string | null>(null);
 
