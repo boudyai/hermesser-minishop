@@ -831,7 +831,7 @@
   "email_account_merged_row_removed": "Removed account",
   "email_account_merged_row_end_date": "New end date",
   "email_account_merged_note": "Your subscription link is unchanged. The duplicate panel user was removed automatically.",
-  "email_account_merged_text": "We merged your accounts into one profile.\n\nKept account: {primary}\nRemoved account: {removed}\nPaid periods were combined. New subscription end date: {end_date}.\nYour subscription link stayed the same, and the later account was removed from Remnawave automatically.",
+  "email_account_merged_text": "We merged your accounts into one profile.\n\nKept account: {primary}\nRemoved account: {removed}\nPaid periods were combined. New subscription end date: {end_date}.\nYour subscription link stayed the same, and the duplicate account was removed automatically.",
   "email_payment_success_subject": "Payment received",
   "email_payment_success_preheader": "Thanks — your subscription has been activated.",
   "email_payment_success_heading": "Payment received",
