@@ -148,7 +148,7 @@
       return;
     }
     if (submitted < minAmount) {
-      error = t("wa_topup_minimum", { minimum: minAmount }, `Minimum ${minAmount} ${unit}`);
+      error = t("wa_topup_minimum", { minimum: minAmount, unit }, `Minimum ${unit}${minAmount}`);
       return;
     }
     amount = submitted;
@@ -228,7 +228,7 @@
         <span style="color: var(--muted);"
           >{t(
             "wa_topup_custom_label",
-            { minimum: minAmount },
+            { minimum: minAmount, unit },
             `Custom amount (min ${unit}${minAmount})`
           )}</span
         >
@@ -244,7 +244,7 @@
           <span style="color: var(--muted); font-size: 11px;">
             {submitAmountValid ? "→" : "✗"}
             {submitAmount} {unit}{#if !submitAmountValid}
-              {t("wa_topup_below_minimum_hint", { minimum: minAmount })}
+              {t("wa_topup_below_minimum_hint", { minimum: minAmount, unit })}
             {/if}
           </span>
         {/if}
@@ -265,7 +265,7 @@
         onclick={submit}
         disabled={busy || !actionsEnabled || !submitAmountValid || !localMethod}
       >
-        {t("wa_topup_action_button", { amount: submitAmount }, `Top up ${unit}${submitAmount}`)}
+        {t("wa_topup_action_button", { amount: submitAmount, unit }, `Top up ${unit}${submitAmount}`)}
       </Button>
     </div>
   </Dialog>
