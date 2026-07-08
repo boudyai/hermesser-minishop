@@ -95,8 +95,24 @@
     plansArr: Array.isArray(plans),
     plansCount: Array.isArray(plans) ? plans.length : -1,
     hostedCount: hostingPlans.length,
-    firstRaw: Array.isArray(plans) && plans.length > 0 ? plans[0] : null,
+    firstRaw: Array.isArray(plans) && plans.length > 0
+      ? {
+          key: plans[0].tariff_key,
+          name: plans[0].tariff_name,
+          months: plans[0].months,
+          price: plans[0].price,
+          billing_model: plans[0].billing_model,
+          vcpu: plans[0].vcpu,
+          memory_gb: plans[0].memory_gb,
+        }
+      : null,
     firstHost: hostingPlans.length > 0 ? hostingPlans[0] : null,
+    sub: {
+      active: subscription?.active,
+      tariff_key: subscription?.tariff_key,
+      end_date: subscription?.end_date,
+    },
+    hermesMode,
   });
 
   let step = $state(1);
