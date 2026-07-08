@@ -519,7 +519,13 @@
 
     {#if subscription.active && hermesMode}
       <BotStatusCard {subscription} {appSettings} {apiUnchecked} {t} />
-      <CornllmTopupCard {subscription} {appSettings} {apiUnchecked} {methods} {t} />
+      <CornllmTopupCard
+        {subscription}
+        {appSettings}
+        {apiUnchecked}
+        paymentMethods={methods}
+        {t}
+      />
     {/if}
 
     {#if !subscription.active && hermesMode}
