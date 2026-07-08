@@ -39,13 +39,21 @@
 
   const MIN_USD = 1;
   const QUICK_USD = [1, 3, 5, 10];
+  const MIN_RUB = 100;
+  const QUICK_RUB = [100, 300, 500, 1000];
 
   let open = $state(false);
-  let amountUsd = $state<number>(3);
+  let amount = $state<number>(3);
   let customAmount = $state<string>("");
   let localMethod = $state<string>(selectedMethod);
   let busy = $state(false);
   let error = $state<string | null>(null);
+
+  const isCrypto = $derived((localMethod || "").includes("crypto"));
+  const unit = $derived(isCrypto ? "$" : "₽");
+  const minAmount = $derived(isCrypto ? MIN_USD : MIN_RUB);
+  const quickAmounts = $derived(isCrypto ? QUICK_USD : QUICK_RUB);
+  const defaultAmount = $derived(isCrypto ? 3 : 300);
 
   // ponytail: same fallback as OnboardingWizard — the prop chain
   // drops payment_methods for some users even though /api/me returns
@@ -89,8 +97,8 @@
     const n = Number(raw);
     return Number.isFinite(n) ? Math.round(n) : null;
   });
-  const submitAmount = $derived(customParsed !== null ? customParsed : amountUsd);
-  const submitAmountValid = $derived(submitAmount >= MIN_USD);
+  const submitAmount = $derived(customParsed !== null ? customParsed : amount);
+  const submitAmountValid = $derived(submitAmount >= minAmount);
 
   const enabledMethods = $derived(
     (effectiveMethods || []).filter((m) => m && !m.disabled && typeof m.id === "string" && m.id)
@@ -108,12 +116,16 @@
       } else if (!localMethod && enabledMethods.length > 0) {
         localMethod = enabledMethods[0].id;
       }
+      // ponytail: reset amount to default when switching method
+      // currency (SBP=RUB, Crypto=USD) so the user doesn't see
+      // a stale $3 interpreted as 3 RUB.
+      amount = localMethod.includes("crypto") ? 3 : 300;
     }
   });
 
-  function pickQuick(usd: number) {
+  function pickQuick(val: number) {
     customAmount = "";
-    amountUsd = usd;
+    amount = val;
   }
 
   // ponytail: no oninput commit. The previous version committed on every
@@ -130,23 +142,23 @@
     // ponytail: always re-parse on submit so the typed-but-unblurred
     // value reaches the API instead of the previously-picked quick amount.
     const raw = customAmount.replace(",", ".").trim();
-    const submitted = raw ? Math.round(Number(raw)) : amountUsd;
+    const submitted = raw ? Math.round(Number(raw)) : amount;
     if (!Number.isFinite(submitted) || submitted <= 0) {
       error = t("wa_topup_invalid_amount", {}, "Enter a valid amount");
       return;
     }
-    if (submitted < MIN_USD) {
-      error = t("wa_topup_minimum", { minimum: MIN_USD }, `Minimum $${MIN_USD}`);
+    if (submitted < minAmount) {
+      error = t("wa_topup_minimum", { minimum: minAmount }, `Minimum ${minAmount} ${unit}`);
       return;
     }
-    amountUsd = submitted;
+    amount = submitted;
     busy = true;
     error = null;
     try {
       const data = (await apiUnchecked("/cornllm/topup", {
         method: "POST",
         body: JSON.stringify({
-          amount_rub: amountUsd,
+          amount_rub: amount,
           method: localMethod,
         }),
       })) as Record<string, unknown>;
@@ -203,12 +215,12 @@
   >
     <div style="display: flex; flex-direction: column; gap: 10px;">
       <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-        {#each QUICK_USD as usd}
+        {#each quickAmounts as val}
           <Button
-            variant={amountUsd === usd && !customAmount ? "primary" : "secondary"}
-            onclick={() => pickQuick(usd)}
+            variant={amount === val && !customAmount ? "primary" : "secondary"}
+            onclick={() => pickQuick(val)}
           >
-            ${usd}
+            {unit}{val}
           </Button>
         {/each}
       </div>
@@ -216,8 +228,8 @@
         <span style="color: var(--muted);"
           >{t(
             "wa_topup_custom_label",
-            { minimum: MIN_USD },
-            `Custom amount (min $${MIN_USD})`
+            { minimum: minAmount },
+            `Custom amount (min ${unit}${minAmount})`
           )}</span
         >
         <input
@@ -231,8 +243,8 @@
         {#if customParsed !== null}
           <span style="color: var(--muted); font-size: 11px;">
             {submitAmountValid ? "→" : "✗"}
-            {submitAmount} ${#if !submitAmountValid}
-              {t("wa_topup_below_minimum_hint", { minimum: MIN_USD })}
+            {submitAmount} {unit}{#if !submitAmountValid}
+              {t("wa_topup_below_minimum_hint", { minimum: minAmount })}
             {/if}
           </span>
         {/if}
@@ -253,7 +265,7 @@
         onclick={submit}
         disabled={busy || !actionsEnabled || !submitAmountValid || !localMethod}
       >
-        {t("wa_topup_action_button", { amount: submitAmount }, `Top up $${submitAmount}`)}
+        {t("wa_topup_action_button", { amount: submitAmount }, `Top up ${unit}${submitAmount}`)}
       </Button>
     </div>
   </Dialog>

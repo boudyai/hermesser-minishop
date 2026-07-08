@@ -712,10 +712,15 @@ async def _create_webapp_payment(ctx: WebAppPaymentContext, variant: str) -> web
         platega_method_id = service.config.sbp_method_resolved
 
     # Platega only supports RUB — convert from the shop's USD price.
+    # ponytail: CornLLM topup with SBP gets RUB amounts from the user
+    # directly (no conversion needed). Everything else is in USD.
     from bot.utils.currency_format import usd_to_rub
 
     payment_currency = "RUB"
-    payment_amount = usd_to_rub(ctx.price) or ctx.price
+    if ctx.sale_mode == "cornllm_topup" and variant == "platega_sbp":
+        payment_amount = ctx.price
+    else:
+        payment_amount = usd_to_rub(ctx.price) or ctx.price
 
     try:
         amounts = payment_record_amounts(

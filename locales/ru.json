@@ -2844,6 +2844,7 @@
   "tg_payment_description_hwid": "Докупка устройств HWID +{count}",
   "tg_payment_description_subscription": "Подписка на {title}",
   "tg_cornllm_topup_description": "Пополнение CornLLM +{amount:.0f} ₽",
+  "tg_cornllm_topup_description_usd": "Пополнение CornLLM +${amount:.0f}",
   "tg_no_bot_token_error": "Нет сохранённого токена бота. Сначала добавьте токен в настройках.",
   "tg_format_remaining_days": "{days} д. {hours} ч.",
   "tg_format_remaining_hours": "{hours} ч. {minutes} мин.",

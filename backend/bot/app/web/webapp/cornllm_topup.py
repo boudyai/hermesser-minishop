@@ -36,10 +36,14 @@ logger = logging.getLogger(__name__)
 
 
 def _cornllm_topup_description(
-    lang: str, amount_rub: float, i18n_instance: Optional[Any] = None
+    lang: str, amount: float, method: str = "", i18n_instance: Optional[Any] = None
 ) -> str:
     i18n_instance = i18n_instance or get_i18n_instance()
-    return i18n_instance.gettext(lang, "tg_cornllm_topup_description", amount=amount_rub)
+    # ponytail: SBP amounts are in RUB, crypto amounts are in USD.
+    # Use different i18n keys so the receipt shows the right currency.
+    if "crypto" in str(method or "").lower():
+        return i18n_instance.gettext(lang, "tg_cornllm_topup_description_usd", amount=amount)
+    return i18n_instance.gettext(lang, "tg_cornllm_topup_description", amount=amount)
 
 
 async def cornllm_topup_route(request: web.Request) -> web.Response:
@@ -98,7 +102,7 @@ async def cornllm_topup_route(request: web.Request) -> web.Response:
             price=amount_rub,
             stars_price=None,
             currency=currency_code,
-            description=_cornllm_topup_description(lang, amount_rub, i18n_instance),
+            description=_cornllm_topup_description(lang, amount_rub, method, i18n_instance),
             sale_mode="cornllm_topup",
             traffic_gb=None,
         )
