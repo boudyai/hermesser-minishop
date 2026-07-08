@@ -40,6 +40,61 @@
   const active = $derived(Boolean(subscription?.active));
   const tenantStatus = $derived(String(subscription?.tenant_status || "").trim() || null);
 
+  // ponytail: temporary diagnostic — show in UI so the user can see
+  // what the prop chain actually delivered. Helps explain the "No
+  // plans available" empty state.
+  const wizardDebug = $derived({
+    plansArr: Array.isArray(plans),
+    plansCount: Array.isArray(plans) ? plans.length : -1,
+    hostedCount: hostingPlans.length,
+    firstRaw: Array.isArray(plans) && plans.length > 0
+      ? {
+          key: plans[0].tariff_key,
+          name: plans[0].tariff_name,
+          months: plans[0].months,
+          price: plans[0].price,
+          billing_model: plans[0].billing_model,
+          vcpu: plans[0].vcpu,
+          memory_gb: plans[0].memory_gb,
+        }
+      : null,
+    firstHost: hostingPlans.length > 0 ? hostingPlans[0] : null,
+    sub: {
+      active: subscription?.active,
+      tariff_key: subscription?.tariff_key,
+      end_date: subscription?.end_date,
+    },
+    hermesMode,
+    appSettingsKeys: Object.keys(appSettings || {}),
+    appSettingsPanelMode: appSettings?.panel_write_mode,
+  });
+
+  // ponytail: fetch /api/me directly from the wizard to compare
+  // against the plans prop. If they differ, the prop chain is losing
+  // the data. Uses the same session cookie the page is using.
+  let apiMeDirect: { ok?: boolean; plans_count?: number; plans_first?: unknown; error?: string } = $state({});
+  $effect(() => {
+    if (typeof window === "undefined") return;
+    fetch("/api/me?fresh=1", { credentials: "same-origin" })
+      .then((r) => r.json())
+      .then((j) => {
+        apiMeDirect = {
+          ok: j?.ok,
+          plans_count: Array.isArray(j?.plans) ? j.plans.length : -1,
+          plans_first: Array.isArray(j?.plans) && j.plans.length > 0
+            ? {
+                key: j.plans[0].tariff_key,
+                months: j.plans[0].months,
+                price: j.plans[0].price,
+              }
+            : null,
+        };
+      })
+      .catch((e) => {
+        apiMeDirect = { error: String(e?.message || e) };
+      });
+  });
+
   // ponytail: hosting plans are derived from the raw tariff plans
   // (admin → /admin/tariffs tab → data/tariffs.json) so the wizard
   // never drifts from the prices, names, and CornLLM credit shown to
@@ -212,6 +267,13 @@
       <ChevronRight size={16} />
     </Button>
   </Card>
+
+  <pre
+    data-test-id="wizard-debug"
+    style="margin-top: 12px; padding: 10px; background: #2a1010; color: #ffaaaa; font-size: 11px; border-radius: 6px; white-space: pre-wrap; word-break: break-all;"
+  >DEBUG wizard: {JSON.stringify(wizardDebug, null, 2)}
+
+DEBUG /api/me direct: {JSON.stringify(apiMeDirect, null, 2)}</pre>
 
   {#if step >= 2}
     <Card>
