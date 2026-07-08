@@ -88,17 +88,15 @@
     return Array.from(byKey.values());
   });
 
-  // ponytail: temporary diagnostic — log plan arrival so we can see
-  // whether the prop chain delivers plans to the wizard. Remove once
-  // the "No plans available" empty state is explained.
-  $effect(() => {
-    if (typeof console !== "undefined") {
-      const count = Array.isArray(plans) ? plans.length : -1;
-      const hosted = hostingPlans.length;
-      const firstRaw = count > 0 ? plans[0] : null;
-      const firstHost = hosted > 0 ? hostingPlans[0] : null;
-      console.log("[wizard/plans]", { count, hosted, firstRaw, firstHost });
-    }
+  // ponytail: temporary diagnostic — show in UI so the user can see
+  // what the prop chain actually delivered. Helps explain the "No
+  // plans available" empty state.
+  const wizardDebug = $derived({
+    plansArr: Array.isArray(plans),
+    plansCount: Array.isArray(plans) ? plans.length : -1,
+    hostedCount: hostingPlans.length,
+    firstRaw: Array.isArray(plans) && plans.length > 0 ? plans[0] : null,
+    firstHost: hostingPlans.length > 0 ? hostingPlans[0] : null,
   });
 
   let step = $state(1);
@@ -215,6 +213,11 @@
       <ChevronRight size={16} />
     </Button>
   </Card>
+
+  <pre
+    data-test-id="wizard-debug"
+    style="margin-top: 12px; padding: 10px; background: #2a1010; color: #ffaaaa; font-size: 11px; border-radius: 6px; white-space: pre-wrap; word-break: break-all;"
+  >DEBUG wizard/plans: {JSON.stringify(wizardDebug, null, 2)}</pre>
 
   {#if step >= 2}
     <Card>
