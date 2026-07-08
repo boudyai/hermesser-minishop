@@ -29,7 +29,7 @@ from bot.services.telegram_notifications import (
     telegram_notifications_need_prompt,
     telegram_notifications_start_link,
 )
-from bot.utils.currency_format import rub_to_usd
+from bot.utils.currency_format import USD_EXCHANGE_RATE, rub_to_usd
 from config.settings import Settings
 from config.subscription_guides_config import subscription_guides_available
 from config.tariffs_config import default_currency_key_for_settings, payment_currency_code
@@ -857,6 +857,7 @@ def _serialize_plans(
                         "sale_mode": "subscription",
                         "months": int(months),
                         "price": float(price or 0),
+                        "price_rub": round(float(price or 0) * USD_EXCHANGE_RATE),
                         "title": tariff.name(lang),
                         "subtitle": _format_months_title(int(months), lang),
                         "monthly_gb": tariff.monthly_gb,

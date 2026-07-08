@@ -284,7 +284,7 @@
           >
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0;">
               <strong style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;">{plan.title}</strong>
-              <span style="font-weight: 700; white-space: nowrap; flex-shrink: 0;">{plan.priceRub} ₽/мес</span>
+              <span style="font-weight: 700; white-space: nowrap; flex-shrink: 0;">${plan.priceRub}/mo</span>
             </div>
             {#if plan.description}
               <div style="color: var(--muted, #a9b4b0); font-size: 12px; margin-top: 4px;">
@@ -320,7 +320,7 @@
           {t(
             "wa_hermes_onboarding_cta_pay",
             { plan: selectedPlan.title, price: selectedPlan.priceRub },
-            `Pay ${selectedPlan.priceRub} ₽ and launch`
+            `Pay $${selectedPlan.priceRub} and launch`
           )}
         {:else}
           {t("wa_hermes_onboarding_no_plans", {}, "No plans available")}
