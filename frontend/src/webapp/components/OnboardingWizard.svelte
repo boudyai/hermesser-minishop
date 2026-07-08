@@ -40,41 +40,17 @@
   const active = $derived(Boolean(subscription?.active));
   const tenantStatus = $derived(String(subscription?.tenant_status || "").trim() || null);
 
-  // ponytail: temporary diagnostic — show in UI so the user can see
-  // what the prop chain actually delivered. Helps explain the "No
-  // plans available" empty state.
-  const wizardDebug = $derived({
-    plansArr: Array.isArray(plans),
-    plansCount: Array.isArray(plans) ? plans.length : -1,
-    effectiveCount: effectivePlans ? (Array.isArray(effectivePlans) ? effectivePlans.length : -1) : -1,
-    hostedCount: hostingPlans.length,
-    firstRaw: Array.isArray(plans) && plans.length > 0
-      ? {
-          key: plans[0].tariff_key,
-          name: plans[0].tariff_name,
-          months: plans[0].months,
-          price: plans[0].price,
-          billing_model: plans[0].billing_model,
-          vcpu: plans[0].vcpu,
-          memory_gb: plans[0].memory_gb,
-        }
-      : null,
-    firstHost: hostingPlans.length > 0 ? hostingPlans[0] : null,
-    sub: {
-      active: subscription?.active,
-      tariff_key: subscription?.tariff_key,
-      end_date: subscription?.end_date,
-    },
-    hermesMode,
-    appSettingsKeys: Object.keys(appSettings || {}),
-    appSettingsPanelMode: appSettings?.panel_write_mode,
-    usingApiFallback: !(Array.isArray(plans) && plans.length > 0),
-  });
-
-  // ponytail: fetch /api/me directly from the wizard to compare
-  // against the plans prop. If they differ, the prop chain is losing
-  // the data. Uses the same session cookie the page is using.
-  let apiMeDirect: { ok?: boolean; plans_count?: number; plans?: unknown[]; plans_first?: unknown; error?: string } = $state({});
+  // ponytail: direct /api/me?fresh=1 fetch as a fallback for the
+  // plans and payment_methods props. The prop chain is dropping them
+  // (appDataView.plans is [] even though /api/me returns 8 plans).
+  // Tracking the root cause separately — for now the wizard bypasses
+  // the broken chain so the user can actually pay.
+  let apiMeDirect: {
+    ok?: boolean;
+    plans?: unknown[];
+    payment_methods?: unknown[];
+    error?: string;
+  } = $state({});
   $effect(() => {
     if (typeof window === "undefined") return;
     fetch("/api/me?fresh=1", { credentials: "same-origin" })
@@ -83,14 +59,7 @@
         apiMeDirect = {
           ok: j?.ok,
           plans: Array.isArray(j?.plans) ? j.plans : null,
-          plans_count: Array.isArray(j?.plans) ? j.plans.length : -1,
-          plans_first: Array.isArray(j?.plans) && j.plans.length > 0
-            ? {
-                key: j.plans[0].tariff_key,
-                months: j.plans[0].months,
-                price: j.plans[0].price,
-              }
-            : null,
+          payment_methods: Array.isArray(j?.payment_methods) ? j.payment_methods : null,
         };
       })
       .catch((e) => {
@@ -154,6 +123,13 @@
       ? plans
       : Array.isArray(apiMeDirect?.plans) ? apiMeDirect.plans : []
   );
+  // ponytail: same fallback for payment methods — without it the
+  // "Оплатить и запустить" CTA stays disabled (methods.length === 0).
+  const effectiveMethods = $derived(
+    Array.isArray(methods) && methods.length > 0
+      ? methods
+      : Array.isArray(apiMeDirect?.payment_methods) ? apiMeDirect.payment_methods : []
+  );
   const hostingPlans = $derived.by(() => deriveHosting(effectivePlans as unknown[] || []));
 
   let step = $state(1);
@@ -191,7 +167,7 @@
   }
 
   function payWithPlan() {
-    if (methods.length === 0) return;
+    if (effectiveMethods.length === 0) return;
     openPaymentModal(selectedPlan.key);
   }
 
@@ -271,13 +247,6 @@
     </Button>
   </Card>
 
-  <pre
-    data-test-id="wizard-debug"
-    style="margin-top: 12px; padding: 10px; background: #2a1010; color: #ffaaaa; font-size: 11px; border-radius: 6px; white-space: pre-wrap; word-break: break-all;"
-  >DEBUG wizard: {JSON.stringify(wizardDebug, null, 2)}
-
-DEBUG /api/me direct: {JSON.stringify(apiMeDirect, null, 2)}</pre>
-
   {#if step >= 2}
     <Card>
       <h3 style="margin: 0 0 8px; font-size: 16px;">
@@ -300,6 +269,7 @@ DEBUG /api/me direct: {JSON.stringify(apiMeDirect, null, 2)}</pre>
             onclick={() => (selectedPlanKey = plan.key)}
             style="
               all: unset;
+              box-sizing: border-box;
               cursor: pointer;
               border: 2px solid {selected ? 'var(--accent, #00fe7a)' : 'var(--border, rgba(255,255,255,0.12))'};
               border-radius: 8px;
@@ -307,12 +277,14 @@ DEBUG /api/me direct: {JSON.stringify(apiMeDirect, null, 2)}</pre>
               background: {selected ? 'var(--surface-hover, rgba(255,255,255,0.04))' : 'transparent'};
               display: block;
               width: 100%;
+              max-width: 100%;
+              overflow: hidden;
               text-align: left;
             "
           >
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-              <strong>{plan.title}</strong>
-              <span style="font-weight: 700;">{plan.priceRub} ₽/мес</span>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0;">
+              <strong style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;">{plan.title}</strong>
+              <span style="font-weight: 700; white-space: nowrap; flex-shrink: 0;">{plan.priceRub} ₽/мес</span>
             </div>
             {#if plan.description}
               <div style="color: var(--muted, #a9b4b0); font-size: 12px; margin-top: 4px;">
@@ -341,7 +313,7 @@ DEBUG /api/me direct: {JSON.stringify(apiMeDirect, null, 2)}</pre>
       <Button
         variant="primary"
         onclick={payWithPlan}
-        disabled={methods.length === 0 || !selectedPlan}
+        disabled={effectiveMethods.length === 0 || !selectedPlan}
         style="margin-top: 12px;"
       >
         {#if selectedPlan}
