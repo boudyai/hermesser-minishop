@@ -88,6 +88,19 @@
     return Array.from(byKey.values());
   });
 
+  // ponytail: temporary diagnostic — log plan arrival so we can see
+  // whether the prop chain delivers plans to the wizard. Remove once
+  // the "No plans available" empty state is explained.
+  $effect(() => {
+    if (typeof console !== "undefined") {
+      const count = Array.isArray(plans) ? plans.length : -1;
+      const hosted = hostingPlans.length;
+      const firstRaw = count > 0 ? plans[0] : null;
+      const firstHost = hosted > 0 ? hostingPlans[0] : null;
+      console.log("[wizard/plans]", { count, hosted, firstRaw, firstHost });
+    }
+  });
+
   let step = $state(1);
   let selectedPlanKey = $state<string | null>(null);
   const selectedPlan = $derived(
