@@ -108,6 +108,7 @@
     subscription?: AnyRecord;
     supportEnabled?: boolean;
     supportStore: SupportStore;
+    tariffCatalog?: AnyRecord[];
     supportUnreadCount?: number;
     supportUnreadLoaded?: boolean;
     supportUnreadLoading?: boolean;
@@ -221,6 +222,7 @@
     supportUnreadLoaded = false,
     supportUnreadLoading = false,
     supportUrl = "",
+    tariffCatalog = [],
     t,
     telegramMiniAppContext = false,
     telegramNotificationsNeedPrompt = false,
@@ -271,6 +273,7 @@
       {hasActiveTariffSubscription}
       {hasMultipleTariffs}
       {methods}
+      {tariffCatalog}
       {premiumTrafficTopupBarClickable}
       {premiumTrafficTopupUnlocked}
       {regularTrafficTopupBarClickable}

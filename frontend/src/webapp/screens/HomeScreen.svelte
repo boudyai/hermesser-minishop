@@ -60,6 +60,7 @@
     hasActiveTariffSubscription = false,
     hasMultipleTariffs = false,
     methods = [],
+    tariffCatalog = [],
     subscription = {},
     autoRenewBusy = false,
     linkTelegramBusy = false,
@@ -97,6 +98,7 @@
     hasActiveTariffSubscription?: boolean;
     hasMultipleTariffs?: boolean;
     methods?: AnyRecord[];
+    tariffCatalog?: AnyRecord[];
     subscription?: AnyRecord;
     autoRenewBusy?: boolean;
     linkTelegramBusy?: boolean;
@@ -528,6 +530,7 @@
         {hasActiveTariffSubscription}
         {hasMultipleTariffs}
         {currentTariffName}
+        {tariffCatalog}
         {openPaymentModal}
       />
     {/if}

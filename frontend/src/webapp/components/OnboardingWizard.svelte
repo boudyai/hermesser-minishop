@@ -19,6 +19,7 @@
     hasActiveTariffSubscription = false,
     openPaymentModal = () => {},
     t = (key: string, _params?: AnyRecord, fallback?: string) => fallback || key,
+    tariffCatalog = [],
   }: {
     appSettings?: AnyRecord;
     subscription?: AnyRecord;
@@ -29,6 +30,7 @@
     hasActiveTariffSubscription?: boolean;
     openPaymentModal?: (tariffKey?: string) => void;
     t?: (key: string, params?: AnyRecord, fallback?: string) => string;
+    tariffCatalog?: AnyRecord[];
   } = $props();
 
   const hermesMode = $derived(String(appSettings?.panel_write_mode || "") === "hermes");
@@ -36,51 +38,59 @@
   const active = $derived(Boolean(subscription?.active));
   const tenantStatus = $derived(String(subscription?.tenant_status || "").trim() || null);
 
-  // ponytail: hosting tariffs live in tariffs.json (data/tariffs.json).
-  // We hardcode the display here so the wizard works before the
-  // tariff catalog loads and so we don't depend on the webapp's
-  // enabled-tariff enumeration. Both plans map 1:1 to a
-  // tariff_key the payment modal accepts.
+  // ponytail: hosting plans are derived from the live tariff catalog
+  // (admin → /admin/tariffs tab → data/tariffs.json) so the wizard
+  // never drifts from the prices, names, and CornLLM credit shown to
+  // admins. Old hardcoded 300/500 ₽ Basic/Plus was wrong for the
+  // deployed tariffs (Sweet/CornLLM included at 600 ₽, Pure/Just
+  // hosting at 400 ₽) — see admin screenshot.
   type HostingPlan = {
-    key: "hosting_basic" | "hosting_plus";
-    titleKey: string;
-    titleFallback: string;
+    key: string;
+    title: string;
+    description: string;
     priceRub: number;
+    months: number;
     cpuCores: number;
     memoryGb: number;
     cornllmRubMonthly: number;
-    bulletsKey: string;
-    bulletsFallback: string;
+    isDefault: boolean;
   };
-  const hostingPlans: HostingPlan[] = [
-    {
-      key: "hosting_basic",
-      titleKey: "wa_hermes_tariff_basic",
-      titleFallback: "Basic",
-      priceRub: 300,
-      cpuCores: 2,
-      memoryGb: 4,
-      cornllmRubMonthly: 0,
-      bulletsKey: "wa_hermes_tariff_basic_bullets",
-      bulletsFallback:
-        "2 vCPU · 4 GB RAM · no included CornLLM balance (top up separately)",
-    },
-    {
-      key: "hosting_plus",
-      titleKey: "wa_hermes_tariff_plus",
-      titleFallback: "Plus",
-      priceRub: 500,
-      cpuCores: 2,
-      memoryGb: 4,
-      cornllmRubMonthly: 300,
-      bulletsKey: "wa_hermes_tariff_plus_bullets",
-      bulletsFallback:
-        "2 vCPU · 4 GB RAM · 300 ₽ CornLLM balance included every month",
-    },
-  ];
+  const hostingPlans: HostingPlan[] = $derived.by(() => {
+    if (!Array.isArray(tariffCatalog) || tariffCatalog.length === 0) return [];
+    const byKey = new Map<string, HostingPlan>();
+    for (const plan of tariffCatalog) {
+      const key = String(plan?.tariff_key || "").trim();
+      if (!key) continue;
+      if (plan?.billing_model && plan.billing_model !== "period") continue;
+      const months = Number(plan?.months);
+      const price = Number(plan?.price);
+      if (!Number.isFinite(months) || months !== 1) continue;
+      if (!Number.isFinite(price) || price <= 0) continue;
+      const existing = byKey.get(key);
+      if (existing && existing.priceRub <= price) continue;
+      byKey.set(key, {
+        key,
+        title: String(plan?.tariff_name || key),
+        description: String(plan?.description || ""),
+        priceRub: price,
+        months: 1,
+        cpuCores: Number(plan?.vcpu) || 0,
+        memoryGb: Number(plan?.memory_gb) || 0,
+        cornllmRubMonthly: Number(plan?.included_cornllm_balance_rub) || 0,
+        isDefault: Boolean(plan?.is_default_tariff),
+      });
+    }
+    return Array.from(byKey.values());
+  });
 
   let step = $state(1);
-  let selectedPlan = $state<HostingPlan>(hostingPlans[1]);
+  let selectedPlanKey = $state<string | null>(null);
+  const selectedPlan = $derived(
+    hostingPlans.find((p) => p.key === selectedPlanKey) ||
+      hostingPlans.find((p) => p.isDefault) ||
+      hostingPlans[0] ||
+      null
+  );
   let botToken = $state("");
   let tokenBusy = $state(false);
   let tokenError = $state<string | null>(null);
@@ -202,34 +212,41 @@
       </p>
       <div style="display: grid; gap: 10px;" data-test-id="hosting-plans">
         {#each hostingPlans as plan (plan.key)}
-          {@const selected = selectedPlan.key === plan.key}
+          {@const selected = selectedPlanKey === plan.key}
           <button
             type="button"
             data-test-id={`hosting-plan-${plan.key}`}
             data-selected={selected}
-            onclick={() => (selectedPlan = plan)}
+            onclick={() => (selectedPlanKey = plan.key)}
             style="
               all: unset;
               cursor: pointer;
-              border: 2px solid {selected ? 'var(--accent, #2e7d32)' : 'var(--border, #ddd)'};
+              border: 2px solid {selected ? 'var(--accent, #00fe7a)' : 'var(--border, rgba(255,255,255,0.12))'};
               border-radius: 8px;
               padding: 12px;
-              background: {selected ? 'var(--surface-accent, #f0f7f0)' : 'transparent'};
+              background: {selected ? 'var(--surface-hover, rgba(255,255,255,0.04))' : 'transparent'};
               display: block;
               width: 100%;
               text-align: left;
             "
           >
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-              <strong>{t(plan.titleKey, {}, plan.titleFallback)}</strong>
+              <strong>{plan.title}</strong>
               <span style="font-weight: 700;">{plan.priceRub} ₽/мес</span>
             </div>
-            <div style="color: var(--muted); font-size: 12px; margin-top: 4px;">
-              {t(plan.bulletsKey, {}, plan.bulletsFallback)}
-            </div>
+            {#if plan.description}
+              <div style="color: var(--muted, #a9b4b0); font-size: 12px; margin-top: 4px;">
+                {plan.description}
+              </div>
+            {/if}
+            {#if plan.cpuCores || plan.memoryGb}
+              <div style="color: var(--muted, #a9b4b0); font-size: 12px; margin-top: 4px;">
+                {plan.cpuCores || "?"} vCPU · {plan.memoryGb || "?"} GB RAM
+              </div>
+            {/if}
             {#if plan.cornllmRubMonthly > 0}
               <div
-                style="margin-top: 6px; display: inline-block; padding: 2px 8px; background: var(--surface-accent, #f0f7f0); color: var(--accent, #2e7d32); border-radius: 999px; font-size: 11px;"
+                style="margin-top: 6px; display: inline-block; padding: 2px 8px; background: var(--surface-hover, rgba(255,255,255,0.04)); color: var(--accent, #00fe7a); border-radius: 999px; font-size: 11px;"
               >
                 {t(
                   "wa_hermes_onboarding_plan_includes_cornllm",
@@ -244,14 +261,18 @@
       <Button
         variant="primary"
         onclick={payWithPlan}
-        disabled={methods.length === 0}
+        disabled={methods.length === 0 || !selectedPlan}
         style="margin-top: 12px;"
       >
-        {t(
-          "wa_hermes_onboarding_cta_pay",
-          { plan: t(selectedPlan.titleKey, {}, selectedPlan.titleFallback), price: selectedPlan.priceRub },
-          `Pay ${selectedPlan.priceRub} ₽ and launch`
-        )}
+        {#if selectedPlan}
+          {t(
+            "wa_hermes_onboarding_cta_pay",
+            { plan: selectedPlan.title, price: selectedPlan.priceRub },
+            `Pay ${selectedPlan.priceRub} ₽ and launch`
+          )}
+        {:else}
+          {t("wa_hermes_onboarding_no_plans", {}, "No plans available")}
+        {/if}
       </Button>
     </Card>
   {/if}
