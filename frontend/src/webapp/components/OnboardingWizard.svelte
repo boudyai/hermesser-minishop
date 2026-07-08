@@ -96,7 +96,10 @@
         body: JSON.stringify({ bot_token: botToken.trim() }),
       });
       tokenOk = true;
-      step = 5;
+      // ponytail: reload so /api/me re-runs and HomeScreen picks up
+      // subscription.bot_username from the provisioning-core tenant record.
+      // Same pattern as HomeScreen.svelte's /tenant/recreate flow.
+      window.location.reload();
     } catch (e) {
       tokenError = e instanceof Error ? e.message : "token_save_failed";
     } finally {
