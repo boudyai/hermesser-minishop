@@ -27,7 +27,10 @@ from .base import (
 )
 from .shared import RecurringProviderService
 
-PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (platega.SBP_SPEC,)
+PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (
+    platega.SBP_SPEC,
+    platega.CRYPTO_SPEC,
+)
 
 
 # Provider configs (env-loaded BaseSettings models) live here as a process-wide

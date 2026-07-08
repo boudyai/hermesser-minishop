@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, RootModel, ValidationError, model_validator
 
-DEFAULT_TARIFF_CURRENCY = "rub"
+DEFAULT_TARIFF_CURRENCY = "usd"
 STARS_TARIFF_CURRENCY = "stars"
 
 Currency = str

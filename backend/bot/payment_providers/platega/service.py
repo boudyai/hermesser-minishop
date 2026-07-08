@@ -704,12 +704,19 @@ async def _create_webapp_payment(ctx: WebAppPaymentContext, variant: str) -> web
         if not (service.config.CRYPTO_ENABLED or service.config.CRYPTO_ADMIN_ONLY_ENABLED):
             return payment_unavailable()
         platega_method_id = service.config.CRYPTO_METHOD
+        payment_currency = "USD"
+        payment_amount = ctx.price
     else:
         if variant == "platega_sbp" and not (
             service.config.SBP_ENABLED or service.config.SBP_ADMIN_ONLY_ENABLED
         ):
             return payment_unavailable()
         platega_method_id = service.config.sbp_method_resolved
+        # SBP requires RUB — convert from the shop's USD price.
+        from bot.utils.currency_format import usd_to_rub
+
+        payment_currency = "RUB"
+        payment_amount = usd_to_rub(ctx.price) or ctx.price
 
     try:
         amounts = payment_record_amounts(
@@ -720,8 +727,8 @@ async def _create_webapp_payment(ctx: WebAppPaymentContext, variant: str) -> web
         )
         payment = await create_webapp_payment_record(
             ctx,
-            amount=ctx.price,
-            currency=ctx.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+            amount=payment_amount,
+            currency=payment_currency,
             status="pending_platega",
             provider="platega",
         )
@@ -740,8 +747,8 @@ async def _create_webapp_payment(ctx: WebAppPaymentContext, variant: str) -> web
             }
         )
         success, response_data = await service.create_transaction(
-            amount=ctx.price,
-            currency=ctx.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+            amount=payment_amount,
+            currency=payment_currency,
             description=ctx.description,
             payload=payload,
             payment_method=platega_method_id,
