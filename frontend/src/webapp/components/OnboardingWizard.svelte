@@ -84,7 +84,7 @@
     months: number;
     cpuCores: number;
     memoryGb: number;
-    cornllmRubMonthly: number;
+    cornllmUsdMonthly: number;
     isDefault: boolean;
   };
   function deriveHosting(raw: unknown[]): HostingPlan[] {
@@ -108,7 +108,7 @@
         months: 1,
         cpuCores: Number(plan?.vcpu) || 0,
         memoryGb: Number(plan?.memory_gb) || 0,
-        cornllmRubMonthly: Number(plan?.included_cornllm_balance_rub) || 0,
+        cornllmUsdMonthly: Number(plan?.included_cornllm_balance_usd) || 0,
         isDefault: Boolean(plan?.is_default_tariff),
       });
     }
@@ -296,14 +296,14 @@
                 {plan.cpuCores || "?"} vCPU · {plan.memoryGb || "?"} GB RAM
               </div>
             {/if}
-            {#if plan.cornllmRubMonthly > 0}
+            {#if plan.cornllmUsdMonthly > 0}
               <div
                 style="margin-top: 6px; display: inline-block; padding: 2px 8px; background: var(--surface-hover, rgba(255,255,255,0.04)); color: var(--accent, #00fe7a); border-radius: 999px; font-size: 11px;"
               >
                 {t(
                   "wa_hermes_onboarding_plan_includes_cornllm",
-                  { amount: plan.cornllmRubMonthly },
-                  `Includes ${plan.cornllmRubMonthly} ₽/mo CornLLM`
+                  { amount: plan.cornllmUsdMonthly },
+                  `Includes $${plan.cornllmUsdMonthly}/mo CornLLM`
                 )}
               </div>
             {/if}

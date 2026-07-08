@@ -120,8 +120,8 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             )
             return result if isinstance(result, dict) else None
         if sale_mode_base == "cornllm_topup":
-            # ponytail: 1 USD = 100 RUB, so the amount paid in rubles
-            # divided by 100 is the USD delta added to the tenant's
+            # ponytail: RUB → USD conversion via rub_to_usd(). The rate
+            # lives in bot.utils.currency_format.RUB_PER_USD.
             # active LiteLLM key max_budget. We dispatch via the
             # HermesProvisioningService — the only thing that can
             # talk to provisioning-core in this mode.
@@ -499,7 +499,9 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 )
             except (TypeError, ValueError):
                 cornllm_credit_rub = 0.0
-        cornllm_credit_usd = round(cornllm_credit_rub / 100.0, 2)
+        from bot.utils.currency_format import rub_to_usd
+
+        cornllm_credit_usd = rub_to_usd(cornllm_credit_rub) or 0.0
         if cornllm_credit_usd > 0 and isinstance(self.panel_service, HermesProvisioningService):
             credit_result = await self.panel_service.topup_tenant_quota(
                 panel_user_uuid, cornllm_credit_usd

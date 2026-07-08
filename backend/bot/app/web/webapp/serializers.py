@@ -29,6 +29,7 @@ from bot.services.telegram_notifications import (
     telegram_notifications_need_prompt,
     telegram_notifications_start_link,
 )
+from bot.utils.currency_format import rub_to_usd
 from config.settings import Settings
 from config.subscription_guides_config import subscription_guides_available
 from config.tariffs_config import default_currency_key_for_settings, payment_currency_code
@@ -835,6 +836,10 @@ def _serialize_plans(
                 "memory_gb": getattr(tariff, "memory_gb", None),
                 "included_cornllm_balance_rub": float(
                     getattr(tariff, "included_cornllm_balance_rub", 0.0) or 0.0
+                ),
+                "included_cornllm_balance_usd": (
+                    rub_to_usd(float(getattr(tariff, "included_cornllm_balance_rub", 0.0) or 0.0))
+                    or 0.0
                 ),
             }
             if tariff.billing_model == "period":

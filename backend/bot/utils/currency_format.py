@@ -17,17 +17,49 @@ from __future__ import annotations
 
 from typing import Optional
 
-RUB_PER_USD = 100.0
+RUB_PER_USD = 80.0
+
+
+def rub_to_usd(rub: float | int | None) -> Optional[float]:
+    """RUB → USD at the configured rate. Returns None if input is None."""
+    if rub is None:
+        return None
+    try:
+        return round(float(rub) / RUB_PER_USD, 2)
+    except (TypeError, ValueError):
+        return None
 
 
 def usd_to_rub(usd: float | int | None) -> Optional[float]:
-    """USD → RUB (kopeck-precision float). Returns None if input is None."""
+    """USD → RUB at the configured rate. Returns None if input is None."""
     if usd is None:
         return None
     try:
         return float(usd) * RUB_PER_USD
     except (TypeError, ValueError):
         return None
+
+
+def format_usd(
+    usd: float | int | None,
+    *,
+    default: str = "—",
+) -> str:
+    """Render a USD value as a dollar string with cents when fractional.
+
+    - Whole-dollar amounts render without decimals: ``$3``.
+    - Fractional amounts keep cents: ``$3.75``.
+    - ``None`` / unparseable values render as ``default``.
+    """
+    if usd is None:
+        return default
+    try:
+        u = float(usd)
+    except (TypeError, ValueError):
+        return default
+    if abs(u - round(u)) < 1e-6:
+        return f"${int(round(u))}"
+    return f"${u:.2f}"
 
 
 def format_rub(

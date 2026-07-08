@@ -198,16 +198,14 @@
     return null;
   });
 
-  function fmtRub(v: number | null): string {
+  function fmtUsd(v: number | null): string {
     if (v === null) return "—";
-    const rub = v * 100;
-    // ponytail: keep kopecks when the amount is fractional so
-    // 9.49 ₽ doesn't collapse to 9 ₽. Whole-ruble amounts still
-    // render without decimals.
-    if (Math.abs(rub - Math.round(rub)) < 1e-6) {
-      return `${Math.round(rub)} ₽`;
+    // ponytail: v is already fractional USD from LiteLLM. Drop cents
+    // for whole-dollar amounts, keep them when fractional.
+    if (Math.abs(v - Math.round(v)) < 1e-6) {
+      return `$${Math.round(v)}`;
     }
-    return `${rub.toFixed(2)} ₽`;
+    return `$${v.toFixed(2)}`;
   }
 </script>
 
@@ -242,13 +240,13 @@
       >
         <div>
           <small style="color: var(--muted);">{t("admin_cornllm_balance", {}, "CornLLM")}</small>
-          <div><strong>{fmtRub(quotaMax)}</strong></div>
+          <div><strong>{fmtUsd(quotaMax)}</strong></div>
         </div>
         <div>
           <small style="color: var(--muted);"
             >{t("admin_cornllm_balance_spent", {}, "Spent")}</small
           >
-          <div><strong>{fmtRub(quotaSpent)}</strong></div>
+          <div><strong>{fmtUsd(quotaSpent)}</strong></div>
         </div>
         <div>
           <small style="color: var(--muted);">{t("wa_home_remaining", {}, "Remaining")}</small>
@@ -256,7 +254,7 @@
             <strong
               style={quotaRemaining !== null && quotaRemaining < 1 ? "color: var(--danger)" : ""}
             >
-              {fmtRub(quotaRemaining)}
+              {fmtUsd(quotaRemaining)}
             </strong>
           </div>
         </div>

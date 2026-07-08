@@ -120,10 +120,11 @@ def build_success_message(payload: SuccessMessage) -> str:
             count=format_human_units(payload.months),
         )
     if base == "cornllm_topup":
-        amount_usd = round(payload.amount_rub / 100.0, 2)
+        from bot.utils.currency_format import rub_to_usd
+
+        amount_usd = rub_to_usd(payload.amount_rub) or 0.0
         return _(
             "payment_successful_cornllm_topup",
-            amount_rub=payload.amount_rub,
             amount_usd=amount_usd,
         )
     if payload.applied_referee_bonus_days and payload.final_end_date:

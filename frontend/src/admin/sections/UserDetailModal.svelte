@@ -75,15 +75,14 @@
     remaining?: number | null;
     budget_duration?: string | null;
   };
-  // ponytail: 1 USD = 100 RUB → admin shows whole rubles. The
-  // kopeck-preserving trick keeps the formatter stable when LiteLLM
-  // gives us fractional cents on the wire.
-  function formatCornllmRub(usd: unknown): string {
+  // ponytail: usd is already fractional USD from LiteLLM — just
+  // format with dollar sign. Whole amounts render without cents.
+  function formatCornllmUsd(usd: unknown): string {
     if (usd === null || usd === undefined) return "—";
-    const rub = Number(usd) * 100;
-    if (Number.isNaN(rub)) return "—";
-    if (Math.abs(rub - Math.round(rub)) < 1e-6) return `${Math.round(rub)} ₽`;
-    return `${rub.toFixed(2)} ₽`;
+    const v = Number(usd);
+    if (Number.isNaN(v)) return "—";
+    if (Math.abs(v - Math.round(v)) < 1e-6) return `$${Math.round(v)}`;
+    return `$${v.toFixed(2)}`;
   }
   const cornllmValue = $derived(
     openedUserDetail?.cornllm as CornllmBalance | null | undefined
@@ -102,10 +101,10 @@
       ? at("admin_cornllm_balance_no_key", {}, "—")
       : cornllmValue.state === "unreachable"
         ? at("admin_cornllm_balance_unreachable", {}, "n/a")
-        : formatCornllmRub(cornllmRemaining)
+        : formatCornllmUsd(cornllmRemaining)
   );
-  const cornllmSpentLabel = $derived(formatCornllmRub(cornllmValue?.spent));
-  const cornllmMaxLabel = $derived(formatCornllmRub(cornllmValue?.max_budget));
+  const cornllmSpentLabel = $derived(formatCornllmUsd(cornllmValue?.spent));
+  const cornllmMaxLabel = $derived(formatCornllmUsd(cornllmValue?.max_budget));
   const cornllmRatio = $derived(
     cornllmValue && Number(cornllmValue.max_budget) > 0
       ? Number(cornllmRemaining || 0) / Number(cornllmValue.max_budget)

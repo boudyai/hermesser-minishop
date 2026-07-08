@@ -329,7 +329,8 @@ class TopupMixin(SubscriptionServiceMixinContract):
         sale_mode == "cornllm_topup" only fires in Hermes mode. The
         Mini App / Telegram webhook path lands here after a
         successful YooKassa / Telegram Stars / Platega payment. The
-        amount is in rubles; we convert to USD (1 USD = 100 RUB) and
+        amount is in rubles; we convert to USD via
+        ``bot.utils.currency_format.rub_to_usd`` and
         call provisioning-core, which rows-locks `litellm_keys` and
         enqueues an `update_litellm_key` job for the worker.
 
@@ -347,7 +348,9 @@ class TopupMixin(SubscriptionServiceMixinContract):
                 payment_amount,
             )
             return None
-        amount_usd = round(float(payment_amount) / 100.0, 2)
+        from bot.utils.currency_format import rub_to_usd
+
+        amount_usd = rub_to_usd(payment_amount) or 0.0
         if amount_usd <= 0:
             logging.error(
                 "CornLLM topup amount rounds to zero: payment_amount=%r",

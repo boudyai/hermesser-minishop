@@ -5,7 +5,8 @@ builds a ``WebAppPaymentContext`` with ``sale_mode="cornllm_topup"`` and
 delegates to the same provider factory used for subscription
 payments. The provider creates a hosted payment URL; on success the
 shop webhook calls ``SubscriptionService.activate_cornllm_topup``,
-which converts the amount to USD (1 USD = 100 RUB) and bumps the
+which converts the amount to USD (rate configured in
+``bot.utils.currency_format.RUB_PER_USD``) and bumps the
 tenant's ``litellm_keys.max_budget`` via provisioning-core.
 """
 

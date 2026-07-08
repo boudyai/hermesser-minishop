@@ -228,16 +228,14 @@
     return trafficOfLabel(pt.used_bytes, pt.limit_bytes, at);
   }
 
-  // ponytail: CornLLM balance formatter. We render whole rubles (1 USD = 100 RUB,
-  // so LiteLLM stores fractional USD but the admin wants stable round
-  // numbers). Use the same kopeck-preserving trick the rest of the
-  // app uses — see backend/bot/utils/currency_format.py.
-  function _formatRubles(usd: number | null | undefined): string {
+  // ponytail: usd is already fractional USD from LiteLLM — just
+  // format with dollar sign. Whole amounts render without cents.
+  function _formatDollars(usd: number | null | undefined): string {
     if (usd === null || usd === undefined) return "—";
-    const rub = Number(usd) * 100;
-    if (Number.isNaN(rub)) return "—";
-    if (Math.abs(rub - Math.round(rub)) < 1e-6) return `${Math.round(rub)} ₽`;
-    return `${rub.toFixed(2)} ₽`;
+    const v = Number(usd);
+    if (Number.isNaN(v)) return "—";
+    if (Math.abs(v - Math.round(v)) < 1e-6) return `$${Math.round(v)}`;
+    return `$${v.toFixed(2)}`;
   }
 
   function cornllmBadgeVariant(c: CornllmBalance | null | undefined): string {
@@ -255,7 +253,7 @@
     if (!c || c.state === "none") return at("admin_cornllm_balance_no_key", {}, "—");
     if (c.state === "unreachable") return at("admin_cornllm_balance_unreachable", {}, "n/a");
     const remaining = c.remaining ?? Math.max(0, (c.max_budget ?? 0) - (c.spent ?? 0));
-    return _formatRubles(remaining);
+    return _formatDollars(remaining);
   }
 
   // ponytail: full explanation surfaced as a native tooltip on the
@@ -284,12 +282,12 @@
     return at(
       "admin_cornllm_tooltip_ok",
       {
-        remaining: _formatRubles(remaining),
-        spent: _formatRubles(spent),
-        max: _formatRubles(max),
+        remaining: _formatDollars(remaining),
+        spent: _formatDollars(spent),
+        max: _formatDollars(max),
         duration: c.budget_duration || "—",
       },
-      `Осталось ${_formatRubles(remaining)} из ${_formatRubles(max)}; потрачено ${_formatRubles(spent)}; период: ${c.budget_duration || "—"}`
+      `Осталось ${_formatDollars(remaining)} из ${_formatDollars(max)}; потрачено ${_formatDollars(spent)}; период: ${c.budget_duration || "—"}`
     );
   }
 
