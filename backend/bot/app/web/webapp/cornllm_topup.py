@@ -6,7 +6,7 @@ delegates to the same provider factory used for subscription
 payments. The provider creates a hosted payment URL; on success the
 shop webhook calls ``SubscriptionService.activate_cornllm_topup``,
 which converts the amount to USD (rate configured in
-``bot.utils.currency_format.RUB_PER_USD``) and bumps the
+``bot.utils.currency_format.USD_EXCHANGE_RATE``) and bumps the
 tenant's ``litellm_keys.max_budget`` via provisioning-core.
 """
 

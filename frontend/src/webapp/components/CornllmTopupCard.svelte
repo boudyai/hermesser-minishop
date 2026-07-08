@@ -200,7 +200,7 @@
     description={t(
       "wa_topup_cornllm_description",
       {},
-      "1 USD = 80 ₽. The amount is credited to your bot's LiteLLM key right after payment."
+      "The amount is credited to your bot's LiteLLM key right after payment."
     )}
     closeLabel={t("wa_topup_close", {}, "Close")}
     onclose={() => (open = false)}

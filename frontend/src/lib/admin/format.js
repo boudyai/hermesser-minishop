@@ -25,7 +25,7 @@ export function fmtDateShort(value) {
 }
 
 export function fmtMoney(amount, currency) {
-  const sym = currency === "RUB" ? "₽" : currency || "";
+  const sym = currency === "RUB" ? "₽" : currency === "USD" ? "$" : currency || "";
   const num = Number(amount || 0);
   return `${num.toFixed(2)} ${sym}`.trim();
 }

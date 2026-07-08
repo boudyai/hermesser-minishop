@@ -3,10 +3,10 @@ export function formatTemplate(template, params = {}) {
   return text.replace(/\{(\w+)\}/g, (_, key) => String(params[key] ?? `{${key}}`));
 }
 
-export function formatMoney(value, currency = "RUB") {
+export function formatMoney(value, currency = "USD") {
   const numeric = Number(value || 0);
   const formatted = Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(2);
-  const symbol = currency === "RUB" ? "₽" : currency;
+  const symbol = currency === "RUB" ? "₽" : currency === "USD" ? "$" : currency;
   return `${formatted} ${symbol}`;
 }
 

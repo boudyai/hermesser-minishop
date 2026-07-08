@@ -2,7 +2,7 @@
 
 The Mini App card, Telegram /status, and my-subscription bot card all
 render the same CornLLM budget numbers. These tests pin the helpers
-so a future rate change or format tweak doesn't regress the display.
+at the default USD_EXCHANGE_RATE=100 and verify the format_usd output.
 """
 
 from __future__ import annotations
@@ -17,11 +17,11 @@ from bot.utils.currency_format import (
 )
 
 
-def test_rub_to_usd_converts_at_configured_rate() -> None:
+def test_rub_to_usd_converts_at_default_rate_100() -> None:
     assert rub_to_usd(0) == 0.0
-    assert rub_to_usd(80) == 1.0
-    assert rub_to_usd(300) == 3.75
-    assert rub_to_usd(100) == 1.25
+    assert rub_to_usd(100) == 1.0
+    assert rub_to_usd(300) == 3.0
+    assert rub_to_usd(150) == 1.5
 
 
 def test_rub_to_usd_handles_none_and_bad_input() -> None:
@@ -29,11 +29,11 @@ def test_rub_to_usd_handles_none_and_bad_input() -> None:
     assert rub_to_usd("not-a-number") is None  # type: ignore[arg-type]
 
 
-def test_usd_to_rub_uses_80_multiplier() -> None:
+def test_usd_to_rub_uses_default_rate_100() -> None:
     assert usd_to_rub(0) == 0.0
-    assert usd_to_rub(1) == 80.0
-    assert usd_to_rub(15) == 1200.0
-    assert usd_to_rub(0.0949) == 7.592
+    assert usd_to_rub(1) == 100.0
+    assert usd_to_rub(15) == 1500.0
+    assert usd_to_rub(0.0949) == 9.49
 
 
 def test_usd_to_rub_handles_none_and_bad_input() -> None:
@@ -42,14 +42,14 @@ def test_usd_to_rub_handles_none_and_bad_input() -> None:
 
 
 def test_format_rub_renders_whole_rubles_without_decimals() -> None:
-    assert format_rub(15) == "1200 ₽"
+    assert format_rub(15) == "1500 ₽"
     assert format_rub(0) == "0 ₽"
-    assert format_rub(1.0) == "80 ₽"
+    assert format_rub(1.0) == "100 ₽"
 
 
 def test_format_rub_keeps_kopecks_when_fractional() -> None:
-    assert format_rub(0.0949) == "7.59 ₽"
-    assert format_rub(15.005) == "1200.40 ₽"
+    assert format_rub(0.0949) == "9.49 ₽"
+    assert format_rub(15.005) == "1500.50 ₽"
 
 
 def test_format_rub_returns_default_for_missing() -> None:
@@ -58,14 +58,12 @@ def test_format_rub_returns_default_for_missing() -> None:
 
 
 def test_format_rub_pair_uses_kopecks_when_needed() -> None:
-    assert format_rub_pair(0.0949, 15) == "7.59 ₽ / 1200 ₽"
-    assert format_rub_pair(None, 15) == "— / 1200 ₽"
-    assert format_rub_pair(0.0949, None) == "7.59 ₽ / —"
+    assert format_rub_pair(0.0949, 15) == "9.49 ₽ / 1500 ₽"
+    assert format_rub_pair(None, 15) == "— / 1500 ₽"
+    assert format_rub_pair(0.0949, None) == "9.49 ₽ / —"
 
 
 def test_derive_remaining_prefers_max_minus_spent_over_cache() -> None:
-    # ponytail: cached remaining stays at 8 after a topup but the
-    # server has bumped max_budget to 15; deriving 15 - 2 = 13 wins.
     assert derive_remaining_usd(15, 2, cached_remaining_usd=8) == 13.0
 
 

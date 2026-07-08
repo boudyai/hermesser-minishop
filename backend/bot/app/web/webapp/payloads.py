@@ -113,7 +113,7 @@ class WebAppCornllmTopupPayload(BaseModel):
     """Payload for a paid CornLLM (LiteLLM) budget topup.
 
     The amount is in rubles; the shop converts to USD (rate configured
-    in ``bot.utils.currency_format.RUB_PER_USD``)
+    in ``bot.utils.currency_format.USD_EXCHANGE_RATE``)
     and provisioning-core adds the delta to the tenant's active
     LitellmKey max_budget. Minimum is 100 RUB to keep payment / quota
     meaningful.

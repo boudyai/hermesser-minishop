@@ -121,7 +121,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             return result if isinstance(result, dict) else None
         if sale_mode_base == "cornllm_topup":
             # ponytail: RUB → USD conversion via rub_to_usd(). The rate
-            # lives in bot.utils.currency_format.RUB_PER_USD.
+            # lives in bot.utils.currency_format.USD_EXCHANGE_RATE.
             # active LiteLLM key max_budget. We dispatch via the
             # HermesProvisioningService — the only thing that can
             # talk to provisioning-core in this mode.
