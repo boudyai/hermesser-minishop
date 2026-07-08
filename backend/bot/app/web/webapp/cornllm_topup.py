@@ -68,47 +68,47 @@ async def cornllm_topup_route(request: web.Request) -> web.Response:
             )
         lang = db_user.language_code or settings.DEFAULT_LANGUAGE
 
-    currency_code = default_payment_currency_code_for_settings(settings)
-    amount_rub = float(payload.amount_rub)
-    i18n_instance = get_i18n(request)
+        currency_code = default_payment_currency_code_for_settings(settings)
+        amount_rub = float(payload.amount_rub)
+        i18n_instance = get_i18n(request)
 
-    provider_spec = get_provider_spec(method)
-    if not provider_spec or not provider_spec.create_webapp_payment:
-        return _json_error(400, "payment_unavailable", "Payment method unavailable")
-    if not provider_spec.is_visible_for_user(settings, request.app, is_admin=False):
-        return _json_error(400, "payment_unavailable", "Payment method unavailable")
-    if not provider_spec.is_usable_for_payment_currency(settings, currency_code):
-        return _json_error(
-            400, "unsupported_currency", "Payment method does not support this currency"
+        provider_spec = get_provider_spec(method)
+        if not provider_spec or not provider_spec.create_webapp_payment:
+            return _json_error(400, "payment_unavailable", "Payment method unavailable")
+        if not provider_spec.is_visible_for_user(settings, request.app, is_admin=False):
+            return _json_error(400, "payment_unavailable", "Payment method unavailable")
+        if not provider_spec.is_usable_for_payment_currency(settings, currency_code):
+            return _json_error(
+                400, "unsupported_currency", "Payment method does not support this currency"
+            )
+        if not provider_spec.is_usable_for_payment_amount(settings, currency_code, amount_rub):
+            return _json_error(
+                400, "payment_amount_below_minimum", "Payment amount is below the provider minimum"
+            )
+
+        ctx = WebAppPaymentContext(
+            request=request,
+            session=session,
+            user_id=user_id,
+            method=method,
+            # ponytail: months=0 marks the payment as non-subscription
+            # and non-traffic; the activation path keys off sale_mode.
+            months=0,
+            price=amount_rub,
+            stars_price=None,
+            currency=currency_code,
+            description=_cornllm_topup_description(lang, amount_rub, i18n_instance),
+            sale_mode="cornllm_topup",
+            traffic_gb=None,
         )
-    if not provider_spec.is_usable_for_payment_amount(settings, currency_code, amount_rub):
-        return _json_error(
-            400, "payment_amount_below_minimum", "Payment amount is below the provider minimum"
-        )
+        if provider_spec.reuse_webapp_payment:
+            from bot.payment_providers.shared import reusable_webapp_payment_response
 
-    ctx = WebAppPaymentContext(
-        request=request,
-        session=session_factory,
-        user_id=user_id,
-        method=method,
-        # ponytail: months=0 marks the payment as non-subscription
-        # and non-traffic; the activation path keys off sale_mode.
-        months=0,
-        price=amount_rub,
-        stars_price=None,
-        currency=currency_code,
-        description=_cornllm_topup_description(lang, amount_rub, i18n_instance),
-        sale_mode="cornllm_topup",
-        traffic_gb=None,
-    )
-    if provider_spec.reuse_webapp_payment:
-        from bot.payment_providers.shared import reusable_webapp_payment_response
-
-        try:
-            reusable = await reusable_webapp_payment_response(ctx, provider_spec)
-        except Exception:
-            logger.exception("CornLLM top-up: reusable probe failed for user %s", user_id)
-            reusable = None
-        if reusable is not None:
-            return reusable
-    return await provider_spec.create_webapp_payment(ctx)
+            try:
+                reusable = await reusable_webapp_payment_response(ctx, provider_spec)
+            except Exception:
+                logger.exception("CornLLM top-up: reusable probe failed for user %s", user_id)
+                reusable = None
+            if reusable is not None:
+                return reusable
+        return await provider_spec.create_webapp_payment(ctx)
