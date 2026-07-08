@@ -1,14 +1,25 @@
-# Курс USD/RUB для CornLLM
+# Курс USD/RUB
+
+Магазин работает в USD. Курс `USD_EXCHANGE_RATE` (рублей за 1 USD) нужен **только** когда Platega СБП требует сумму в рублях — при создании платежа backend умножает USD-цену на курс и отправляет RUB в Platega.
+
+Platega Crypto работает напрямую в USD, без конвертации.
 
 ## Где определён
 
-Единственный источник курса — константа `RUB_PER_USD` в файле:
+Переменная окружения `USD_EXCHANGE_RATE` в `.env`:
 
-```
-backend/bot/utils/currency_format.py  →  RUB_PER_USD = 80.0
+```bash
+# Default: 100
+USD_EXCHANGE_RATE=80
 ```
 
-**Больше нигде.** Ни в `.env`, ни в настройках, ни в JSON тарифов. Все конвертации (рубли → доллары и обратно) идут через этот файл.
+Код читает её в `backend/bot/utils/currency_format.py`:
+
+```python
+USD_EXCHANGE_RATE = float(os.getenv("USD_EXCHANGE_RATE", "100.0"))
+```
+
+**Больше нигде.** Не в настройках, не в JSON тарифов.
 
 ## Конвертация
 
@@ -16,45 +27,38 @@ backend/bot/utils/currency_format.py  →  RUB_PER_USD = 80.0
 
 | Хелпер | Направление | Где используется |
 |---|---|---|
-| `rub_to_usd(rub)` | RUB → USD | topups.py, lifecycle_activation.py, success.py, serializers.py |
-| `usd_to_rub(usd)` | USD → RUB | format_rub() |
-| `format_usd(usd)` | USD → строка "$X.XX" | балансы в UI |
-| `format_rub(usd)` | USD → строка "X ₽" | **только цены подписок** |
+| `usd_to_rub(usd)` | USD → RUB | Platega SBP: создание платежа (service.py:713) |
+| `rub_to_usd(rub)` | RUB → USD | Конвертация `included_cornllm_balance_rub` в USD-кредит |
+| `format_usd(usd)` | USD → строка "$X.XX" | Все отображения цен и балансов |
+| `format_rub(usd)` | USD → строка "X ₽" | Legacy, не используется в новом коде |
 
 ## Что затронет смена курса
 
-1. **Баланс CornLLM** — все отображения баланса в долларах (`$`). Администратор вводит сумму в рублях (поле `included_cornllm_balance_rub` в редакторе тарифов), а пользователь видит доллары.
-2. **Пополнение CornLLM** — пользователь платит в рублях (через Platega/YooKassa), бэкенд конвертирует в доллары по курсу и отправляет в provisioning-core.
-3. **Цены подписок** — остаются в рублях (`₽`). Курс на них не влияет.
+1. **Цены в Platega СБП** — сумма в рублях, которую получит Platega: `цена_в_USD × USD_EXCHANGE_RATE`.
+2. **Ежемесячный CornLLM-кредит** — `included_cornllm_balance_rub / USD_EXCHANGE_RATE = USD`.
+3. **Platega Crypto** — не затронут (работает в USD).
+4. **Отображение в UI** — не затронуто (всё в `$`).
 
 ## Как поменять курс
 
-1. Отредактируйте `backend/bot/utils/currency_format.py`, строка:
-   ```python
-   RUB_PER_USD = 80.0
-   ```
-
-2. Обновите тест `tests/unit/test_currency_format.py`:
-   - `test_usd_to_rub_uses_80_multiplier` — проверка нового курса
-   - `test_rub_to_usd_converts_at_configured_rate` — обратная конвертация
-   - `test_format_rub_*` — обновите ожидаемые значения в рублях
-
-3. Обновите строки в `locales/ru.json` и `locales/en.json`:
-   - `wa_topup_cornllm_description` — текст "1 USD = X ₽"
-   - `wa_hermes_tariff_plus_bullets` — если жёстко зашита сумма в долларах
-
-4. Обновите хардкод в `frontend/src/webapp/components/CornllmTopupCard.svelte` (текст "1 USD = X ₽")
-
-5. Пересоберите и задеплойте:
+1. Отредактируйте `USD_EXCHANGE_RATE` в `.env` на VPS:
    ```bash
-   docker compose up -d --build backend worker frontend
+   USD_EXCHANGE_RATE=80
    ```
+
+2. Перезапустите контейнеры (env_file перечитывается):
+   ```bash
+   cd /opt/hermesser-minishop
+   docker compose up -d backend worker frontend
+   ```
+
+   **Сборка не нужна** — переменная читается из `.env` в рантайме.
+
+3. При необходимости обновите тарифы в админке (Admin → Tariffs) — цены теперь в USD.
 
 ## Проверка
 
-После деплоя:
-- Откройте Mini App → статус бота → баланс CornLLM должен быть в `$`
-- Пополните CornLLM на минимальную сумму → сообщение об успехе должно быть в `$`
-- В админке → детали пользователя → баланс CornLLM в `$`
-- В админке → список пользователей → колонка CornLLM в `$`
-- Цены подписок (`/buy`, карточки тарифов) — должны остаться в `₽`
+После смены курса:
+- Platega СБП должен создавать платёж в рублях по новому курсу
+- CornLLM-кредит при активации подписки должен начисляться по новому курсу
+- Отображение цен и балансов в `$` не должно измениться
