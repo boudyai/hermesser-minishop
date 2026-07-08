@@ -90,6 +90,7 @@ class SuccessMessage:
     applied_promo_bonus_days: int = 0
     inviter_name: Optional[str] = None
     fallback_date_text: str = ""
+    amount_rub: float = 0.0
 
 
 def _fmt_date(dt: Optional[datetime], fallback: str) -> str:
@@ -117,6 +118,13 @@ def build_success_message(payload: SuccessMessage) -> str:
         return _(
             "payment_successful_hwid_devices_full",
             count=format_human_units(payload.months),
+        )
+    if base == "cornllm_topup":
+        amount_usd = round(payload.amount_rub / 100.0, 2)
+        return _(
+            "payment_successful_cornllm_topup",
+            amount_rub=payload.amount_rub,
+            amount_usd=amount_usd,
         )
     if payload.applied_referee_bonus_days and payload.final_end_date:
         base_end_text = _fmt_date(payload.base_end_date or payload.final_end_date, end_text)
@@ -429,6 +437,7 @@ async def finalize_successful_payment(
             applied_referee_bonus_days=applied_referee_bonus_days,
             applied_promo_bonus_days=applied_promo_bonus_days,
             inviter_name=inviter_name,
+            amount_rub=float(req.amount),
         )
     )
     if is_subscription and activation:

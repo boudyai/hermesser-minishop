@@ -73,6 +73,7 @@
   "payment_successful_full": "✅ Оплата прошла успешно!\nВаша подписка на {months} мес. активна до {end_date}.",
   "payment_successful_traffic_full": "✅ Оплата прошла успешно!\nВаш пакет {traffic_gb} ГБ активирован.\nДата действия: {end_date}",
   "payment_successful_hwid_devices_full": "✅ Оплата прошла успешно!\nДобавлено HWID устройств: +{count}.",
+  "payment_successful_cornllm_topup": "✅ Оплата прошла успешно!\nБаланс CornLLM пополнен на {amount_rub:.0f} ₽ ({amount_usd:.2f} $).",
   "payment_successful_with_referral_bonus_full": "✅ Оплата прошла успешно!\nВаша подписка на {months} мес. (базовая дата окончания: {base_end_date}) продлена на {bonus_days} бонусных дней за приглашение от {inviter_name} и теперь активна до {final_end_date}.",
   "payment_failed": "❌ Оплата не удалась или была отменена. Пожалуйста, попробуйте еще раз или свяжитесь с поддержкой.",
   "payment_failed_with_details": "{message}\n\nЧто пытались оплатить:\n{details}",
