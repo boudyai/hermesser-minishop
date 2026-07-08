@@ -208,7 +208,15 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             panel_user_created_now,
         ) = await self._get_or_create_panel_user_link_details(session, user_id, db_user)
 
-        if not panel_user_uuid or not panel_sub_link_id:
+        # ponytail: in hermes mode the "panel" is provisioning-core, whose
+        # tenant records have no subscriptionUuid/shortUuid (remnawave-panel
+        # concept). Requiring panel_sub_link_id there silently fails every
+        # paid activation — see commit history for the user-paid-400-RUB-
+        # got-empty-end_date incident. panel_user_uuid alone is enough.
+        hermes_mode = (
+            str(getattr(self.settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
+        )
+        if not panel_user_uuid or (not panel_sub_link_id and not hermes_mode):
             logging.error(f"Failed to ensure panel user for TG {user_id} during paid subscription.")
             return None
 
@@ -544,7 +552,12 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         panel_uuid, panel_sub_uuid, _, _ = await self._get_or_create_panel_user_link_details(
             session, user_id, user
         )
-        if not panel_uuid or not panel_sub_uuid:
+        # ponytail: same hermes-mode exception as in activate_subscription —
+        # provisioning-core tenants have no subscriptionUuid.
+        hermes_mode = (
+            str(getattr(self.settings.panel_settings, "write_mode", "") or "").lower() == "hermes"
+        )
+        if not panel_uuid or (not panel_sub_uuid and not hermes_mode):
             logging.error(
                 f"Failed to ensure panel user for subscription extension of user {user_id}."
             )
