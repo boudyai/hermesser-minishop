@@ -46,6 +46,7 @@
   const wizardDebug = $derived({
     plansArr: Array.isArray(plans),
     plansCount: Array.isArray(plans) ? plans.length : -1,
+    effectiveCount: effectivePlans ? (Array.isArray(effectivePlans) ? effectivePlans.length : -1) : -1,
     hostedCount: hostingPlans.length,
     firstRaw: Array.isArray(plans) && plans.length > 0
       ? {
@@ -67,12 +68,13 @@
     hermesMode,
     appSettingsKeys: Object.keys(appSettings || {}),
     appSettingsPanelMode: appSettings?.panel_write_mode,
+    usingApiFallback: !(Array.isArray(plans) && plans.length > 0),
   });
 
   // ponytail: fetch /api/me directly from the wizard to compare
   // against the plans prop. If they differ, the prop chain is losing
   // the data. Uses the same session cookie the page is using.
-  let apiMeDirect: { ok?: boolean; plans_count?: number; plans_first?: unknown; error?: string } = $state({});
+  let apiMeDirect: { ok?: boolean; plans_count?: number; plans?: unknown[]; plans_first?: unknown; error?: string } = $state({});
   $effect(() => {
     if (typeof window === "undefined") return;
     fetch("/api/me?fresh=1", { credentials: "same-origin" })
@@ -80,6 +82,7 @@
       .then((j) => {
         apiMeDirect = {
           ok: j?.ok,
+          plans: Array.isArray(j?.plans) ? j.plans : null,
           plans_count: Array.isArray(j?.plans) ? j.plans.length : -1,
           plans_first: Array.isArray(j?.plans) && j.plans.length > 0
             ? {
@@ -115,10 +118,10 @@
     cornllmRubMonthly: number;
     isDefault: boolean;
   };
-  const hostingPlans: HostingPlan[] = $derived.by(() => {
-    if (!Array.isArray(plans) || plans.length === 0) return [];
+  function deriveHosting(raw: unknown[]): HostingPlan[] {
+    if (!Array.isArray(raw) || raw.length === 0) return [];
     const byKey = new Map<string, HostingPlan>();
-    for (const plan of plans) {
+    for (const plan of raw) {
       const key = String(plan?.tariff_key || "").trim();
       if (!key) continue;
       if (plan?.billing_model && plan.billing_model !== "period") continue;
@@ -141,17 +144,17 @@
       });
     }
     return Array.from(byKey.values());
-  });
+  }
 
-  // ponytail: hosting plans are derived from the raw tariff plans
-  // (admin → /admin/tariffs tab → data/tariffs.json) so the wizard
-  // never drifts from the prices, names, and CornLLM credit shown to
-  // admins. Old hardcoded 300/500 ₽ Basic/Plus was wrong for the
-  // deployed tariffs (Sweet/CornLLM included at 600 ₽, Pure/Just
-  // hosting at 400 ₽) — see admin screenshot. We pass the raw plans
-  // (not the processed tariffCatalog) because buildTariffCatalog
-  // drops the hosting-specific fields (vcpu, memory_gb,
-  // included_cornllm_balance_rub) when it groups by tariff_key.
+  // ponytail: use the /api/me?fresh=1 result as a fallback when the
+  // prop chain delivers empty plans (known bug). The direct fetch from
+  // the wizard always returns the correct live tariff catalog.
+  const effectivePlans = $derived(
+    Array.isArray(plans) && plans.length > 0
+      ? plans
+      : Array.isArray(apiMeDirect?.plans) ? apiMeDirect.plans : []
+  );
+  const hostingPlans = $derived.by(() => deriveHosting(effectivePlans as unknown[] || []));
 
   let step = $state(1);
   let selectedPlanKey = $state<string | null>(null);
