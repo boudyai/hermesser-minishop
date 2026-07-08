@@ -37,11 +37,11 @@
     active && !["deleting", "deleted", "archived", "suspended"].includes(tenantStatus)
   );
 
-  const MIN_RUB = 100;
-  const QUICK_RUB = [100, 300, 500, 1000];
+  const MIN_USD = 1;
+  const QUICK_USD = [1, 3, 5, 10];
 
   let open = $state(false);
-  let amountRub = $state<number>(300);
+  let amountUsd = $state<number>(3);
   let customAmount = $state<string>("");
   let localMethod = $state<string>(selectedMethod);
   let busy = $state(false);
@@ -89,8 +89,8 @@
     const n = Number(raw);
     return Number.isFinite(n) ? Math.round(n) : null;
   });
-  const submitAmount = $derived(customParsed !== null ? customParsed : amountRub);
-  const submitAmountValid = $derived(submitAmount >= MIN_RUB);
+  const submitAmount = $derived(customParsed !== null ? customParsed : amountUsd);
+  const submitAmountValid = $derived(submitAmount >= MIN_USD);
 
   const enabledMethods = $derived(
     (effectiveMethods || []).filter((m) => m && !m.disabled && typeof m.id === "string" && m.id)
@@ -111,14 +111,14 @@
     }
   });
 
-  function pickQuick(rub: number) {
+  function pickQuick(usd: number) {
     customAmount = "";
-    amountRub = rub;
+    amountUsd = usd;
   }
 
   // ponytail: no oninput commit. The previous version committed on every
-  // keystroke and would reset amountRub when the user typed a value
-  // smaller than MIN_RUB (e.g. typing "1500" passes through "1" → "15"
+  // keystroke and would reset amountUsd when the user typed a value
+  // smaller than MIN_USD (e.g. typing "1500" passes through "1" → "15"
   // → "150" → "1500", each step potentially resetting the submit target).
   // Now commit only on blur; submit() re-parses fresh from customAmount.
 
@@ -130,27 +130,23 @@
     // ponytail: always re-parse on submit so the typed-but-unblurred
     // value reaches the API instead of the previously-picked quick amount.
     const raw = customAmount.replace(",", ".").trim();
-    const submitted = raw ? Math.round(Number(raw)) : amountRub;
+    const submitted = raw ? Math.round(Number(raw)) : amountUsd;
     if (!Number.isFinite(submitted) || submitted <= 0) {
       error = t("wa_topup_invalid_amount", {}, "Enter a valid amount");
       return;
     }
-    if (submitted < MIN_RUB) {
-      error = t("wa_topup_minimum", { minimum: MIN_RUB }, `Minimum ${MIN_RUB} ₽`);
+    if (submitted < MIN_USD) {
+      error = t("wa_topup_minimum", { minimum: MIN_USD }, `Minimum $${MIN_USD}`);
       return;
     }
-    amountRub = submitted;
+    amountUsd = submitted;
     busy = true;
     error = null;
     try {
-      // ponytail: apiBase is already "/api" so the client prefixes
-      // every call. The previous hardcoded "/api/cornllm/topup"
-      // collapsed to "/api/api/cornllm/topup" → 404. Pass the bare
-      // path; the typed ApiClient adds the prefix.
       const data = (await apiUnchecked("/cornllm/topup", {
         method: "POST",
         body: JSON.stringify({
-          amount_rub: amountRub,
+          amount_rub: amountUsd,
           method: localMethod,
         }),
       })) as Record<string, unknown>;
@@ -207,12 +203,12 @@
   >
     <div style="display: flex; flex-direction: column; gap: 10px;">
       <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-        {#each QUICK_RUB as rub}
+        {#each QUICK_USD as usd}
           <Button
-            variant={amountRub === rub && !customAmount ? "primary" : "secondary"}
-            onclick={() => pickQuick(rub)}
+            variant={amountUsd === usd && !customAmount ? "primary" : "secondary"}
+            onclick={() => pickQuick(usd)}
           >
-            {rub} ₽
+            ${usd}
           </Button>
         {/each}
       </div>
@@ -220,8 +216,8 @@
         <span style="color: var(--muted);"
           >{t(
             "wa_topup_custom_label",
-            { minimum: MIN_RUB },
-            `Custom amount (min ${MIN_RUB} ₽)`
+            { minimum: MIN_USD },
+            `Custom amount (min $${MIN_USD})`
           )}</span
         >
         <input
@@ -235,8 +231,8 @@
         {#if customParsed !== null}
           <span style="color: var(--muted); font-size: 11px;">
             {submitAmountValid ? "→" : "✗"}
-            {submitAmount} ₽{#if !submitAmountValid}
-              {t("wa_topup_below_minimum_hint", { minimum: MIN_RUB })}
+            {submitAmount} ${#if !submitAmountValid}
+              {t("wa_topup_below_minimum_hint", { minimum: MIN_USD })}
             {/if}
           </span>
         {/if}
@@ -257,7 +253,7 @@
         onclick={submit}
         disabled={busy || !actionsEnabled || !submitAmountValid || !localMethod}
       >
-        {t("wa_topup_action_button", { amount: submitAmount }, `Top up ${submitAmount} ₽`)}
+        {t("wa_topup_action_button", { amount: submitAmount }, `Top up $${submitAmount}`)}
       </Button>
     </div>
   </Dialog>

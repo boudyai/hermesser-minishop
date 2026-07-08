@@ -115,8 +115,7 @@ class WebAppCornllmTopupPayload(BaseModel):
     The amount is in rubles; the shop converts to USD (rate configured
     in ``bot.utils.currency_format.USD_EXCHANGE_RATE``)
     and provisioning-core adds the delta to the tenant's active
-    LitellmKey max_budget. Minimum is 100 RUB to keep payment / quota
-    meaningful.
+    LitellmKey max_budget. Minimum is 1 USD.
     """
 
     amount_rub: float
@@ -129,7 +128,7 @@ class WebAppCornllmTopupPayload(BaseModel):
             amount = float(value)
         except (TypeError, ValueError):
             raise ValueError("invalid_amount")
-        if amount < 100:
+        if amount < 1:
             raise ValueError("amount_below_minimum")
         return round(amount, 2)
 
