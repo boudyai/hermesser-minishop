@@ -247,6 +247,11 @@ class Tariff(BaseModel):
         )
         if self.prices_rub:
             self.prices["rub"] = dict(self.prices_rub)
+            # ponytail: when the shop currency is USD, prices_rub holds
+            # USD values — also populate the "usd" slot so period_price("usd")
+            # resolves correctly.
+            if self.default_currency == "usd":
+                self.prices["usd"] = dict(self.prices_rub)
         elif self.prices.get("rub"):
             self.prices_rub = dict(self.prices["rub"])
         if self.prices_stars:
