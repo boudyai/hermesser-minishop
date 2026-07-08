@@ -47,6 +47,37 @@
   let busy = $state(false);
   let error = $state<string | null>(null);
 
+  // ponytail: same fallback as OnboardingWizard — the prop chain
+  // drops payment_methods for some users even though /api/me returns
+  // them. Bypass the chain with a direct fetch so the user can pay.
+  let apiMeDirect: {
+    ok?: boolean;
+    payment_methods?: AnyRecord[];
+    error?: string;
+  } = $state({});
+  $effect(() => {
+    if (typeof window === "undefined") return;
+    fetch("/api/me?fresh=1", { credentials: "same-origin" })
+      .then((r) => r.json())
+      .then((j) => {
+        apiMeDirect = {
+          ok: j?.ok,
+          payment_methods: Array.isArray(j?.payment_methods) ? j.payment_methods : null,
+        };
+      })
+      .catch((e) => {
+        apiMeDirect = { error: String(e?.message || e) };
+      });
+  });
+
+  const effectiveMethods = $derived(
+    Array.isArray(paymentMethods) && paymentMethods.length > 0
+      ? paymentMethods
+      : Array.isArray(apiMeDirect?.payment_methods)
+        ? apiMeDirect.payment_methods
+        : []
+  );
+
   // ponytail: derived preview of what the typed-but-unblurred input will
   // resolve to on submit. The submit() function re-parses on click, but
   // showing the live preview avoids the "I typed 250 and the button still
@@ -62,7 +93,7 @@
   const submitAmountValid = $derived(submitAmount >= MIN_RUB);
 
   const enabledMethods = $derived(
-    (paymentMethods || []).filter((m) => m && !m.disabled && typeof m.id === "string" && m.id)
+    (effectiveMethods || []).filter((m) => m && !m.disabled && typeof m.id === "string" && m.id)
   );
 
   // ponytail: when the card opens or the parent flips selectedMethod,
@@ -187,7 +218,11 @@
       </div>
       <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px;">
         <span style="color: var(--muted);"
-          >{t("wa_topup_custom_label", { minimum: MIN_RUB }, `Custom amount (min ${MIN_RUB} ₽)`)}</span
+          >{t(
+            "wa_topup_custom_label",
+            { minimum: MIN_RUB },
+            `Custom amount (min ${MIN_RUB} ₽)`
+          )}</span
         >
         <input
           type="number"
@@ -199,7 +234,10 @@
         />
         {#if customParsed !== null}
           <span style="color: var(--muted); font-size: 11px;">
-            {submitAmountValid ? "→" : "✗"} {submitAmount} ₽{#if !submitAmountValid} {t("wa_topup_below_minimum_hint", { minimum: MIN_RUB })} {/if}
+            {submitAmountValid ? "→" : "✗"}
+            {submitAmount} ₽{#if !submitAmountValid}
+              {t("wa_topup_below_minimum_hint", { minimum: MIN_RUB })}
+            {/if}
           </span>
         {/if}
       </label>
@@ -214,7 +252,11 @@
       {#if error}
         <p style="margin: 0; color: var(--danger); font-size: 12px;">{error}</p>
       {/if}
-      <Button variant="primary" onclick={submit} disabled={busy || !actionsEnabled || !submitAmountValid}>
+      <Button
+        variant="primary"
+        onclick={submit}
+        disabled={busy || !actionsEnabled || !submitAmountValid}
+      >
         {t("wa_topup_action_button", { amount: submitAmount }, `Top up ${submitAmount} ₽`)}
       </Button>
     </div>
