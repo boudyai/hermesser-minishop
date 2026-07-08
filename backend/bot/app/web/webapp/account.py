@@ -421,16 +421,21 @@ async def me_route(request: web.Request) -> web.Response:
     if fresh:
         await _invalidate_webapp_user_caches(settings, user_id)
         data = await _build_user_payload(request, user_id)
-        return json_response({"ok": True, **data})
-
-    data = await webapp_cached_user_payload(
-        settings,
-        "me",
-        user_id,
-        int(settings.WEBAPP_ME_CACHE_TTL_SECONDS or 0),
-        lambda: _build_user_payload(request, user_id),
-    )
-    return json_response({"ok": True, **data})
+        response = json_response({"ok": True, **data})
+    else:
+        data = await webapp_cached_user_payload(
+            settings,
+            "me",
+            user_id,
+            int(settings.WEBAPP_ME_CACHE_TTL_SECONDS or 0),
+            lambda: _build_user_payload(request, user_id),
+        )
+        response = json_response({"ok": True, **data})
+    # ponytail: never let the browser cache this — it carries
+    # subscription state, payment methods, and the tariff catalog, and
+    # a stale snapshot breaks the onboarding wizard (plans go missing).
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 async def account_avatar_route(request: web.Request) -> web.Response:
