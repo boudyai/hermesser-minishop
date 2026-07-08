@@ -17,6 +17,7 @@ export type BillingPlan = WebappRecord & {
   months?: number | string;
   monthly_gb?: number | string;
   price?: number | string;
+  price_rub?: number | string;
   sale_mode?: string;
   stars_price?: number | string;
   subtitle?: string;
@@ -107,7 +108,13 @@ export function priceLabel(plan: BillingPlan | null | undefined, methodId = ""):
   ) {
     return `${Number(plan?.stars_price)} ⭐`;
   }
-  return formatMoney(plan?.price || 0, plan?.currency);
+  // ponytail: SBP methods show RUB prices (round, converted from USD),
+  // crypto shows USD directly. price_rub is pre-computed by the backend.
+  const isSbp = String(methodId || "").toLowerCase().includes("sbp");
+  if (isSbp && plan?.price_rub) {
+    return formatMoney(plan.price_rub, "RUB");
+  }
+  return formatMoney(plan?.price || 0, "USD");
 }
 
 export function methodAmountForPlan(

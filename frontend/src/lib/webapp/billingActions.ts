@@ -137,6 +137,9 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     setOptionalString(body, "tariff_key", plan.tariff_key);
     setOptionalString(body, "sale_mode", plan.sale_mode);
     setOptionalString(body, "promo_code", options.promoCode);
+    if (plan.price_rub && String(method || "").toLowerCase().includes("sbp")) {
+      body.price_rub = Number(plan.price_rub);
+    }
     return body as PostPayload<"/api/payments">;
   }
 
