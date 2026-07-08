@@ -88,32 +88,15 @@
     return Array.from(byKey.values());
   });
 
-  // ponytail: temporary diagnostic — show in UI so the user can see
-  // what the prop chain actually delivered. Helps explain the "No
-  // plans available" empty state.
-  const wizardDebug = $derived({
-    plansArr: Array.isArray(plans),
-    plansCount: Array.isArray(plans) ? plans.length : -1,
-    hostedCount: hostingPlans.length,
-    firstRaw: Array.isArray(plans) && plans.length > 0
-      ? {
-          key: plans[0].tariff_key,
-          name: plans[0].tariff_name,
-          months: plans[0].months,
-          price: plans[0].price,
-          billing_model: plans[0].billing_model,
-          vcpu: plans[0].vcpu,
-          memory_gb: plans[0].memory_gb,
-        }
-      : null,
-    firstHost: hostingPlans.length > 0 ? hostingPlans[0] : null,
-    sub: {
-      active: subscription?.active,
-      tariff_key: subscription?.tariff_key,
-      end_date: subscription?.end_date,
-    },
-    hermesMode,
-  });
+  // ponytail: hosting plans are derived from the raw tariff plans
+  // (admin → /admin/tariffs tab → data/tariffs.json) so the wizard
+  // never drifts from the prices, names, and CornLLM credit shown to
+  // admins. Old hardcoded 300/500 ₽ Basic/Plus was wrong for the
+  // deployed tariffs (Sweet/CornLLM included at 600 ₽, Pure/Just
+  // hosting at 400 ₽) — see admin screenshot. We pass the raw plans
+  // (not the processed tariffCatalog) because buildTariffCatalog
+  // drops the hosting-specific fields (vcpu, memory_gb,
+  // included_cornllm_balance_rub) when it groups by tariff_key.
 
   let step = $state(1);
   let selectedPlanKey = $state<string | null>(null);
@@ -229,11 +212,6 @@
       <ChevronRight size={16} />
     </Button>
   </Card>
-
-  <pre
-    data-test-id="wizard-debug"
-    style="margin-top: 12px; padding: 10px; background: #2a1010; color: #ffaaaa; font-size: 11px; border-radius: 6px; white-space: pre-wrap; word-break: break-all;"
-  >DEBUG wizard/plans: {JSON.stringify(wizardDebug, null, 2)}</pre>
 
   {#if step >= 2}
     <Card>
