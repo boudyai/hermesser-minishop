@@ -225,9 +225,9 @@
           )}</span
         >
         <input
-          type="number"
-          min={MIN_RUB}
-          step={1}
+          type="text"
+          inputmode="numeric"
+          pattern="[0-9]*"
           bind:value={customAmount}
           placeholder={t("wa_topup_custom_placeholder", {}, "e.g. 250")}
           style="padding: 8px; border: 1px solid var(--border, #ccc); border-radius: 4px; font-size: 14px;"
@@ -255,7 +255,7 @@
       <Button
         variant="primary"
         onclick={submit}
-        disabled={busy || !actionsEnabled || !submitAmountValid}
+        disabled={busy || !actionsEnabled || !submitAmountValid || !localMethod}
       >
         {t("wa_topup_action_button", { amount: submitAmount }, `Top up ${submitAmount} ₽`)}
       </Button>

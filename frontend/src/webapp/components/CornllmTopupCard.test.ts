@@ -38,4 +38,15 @@ describe("CornllmTopupCard prop contract", () => {
       expect(text).not.toMatch(/^\s*\{methods\}\s*$/m);
     }
   });
+
+  it("submit button is disabled when no payment method selected", () => {
+    const src = read(cardPath);
+    // ponytail: the disabled condition must include !localMethod.
+    // Without it the button looks clickable but submit() returns
+    // immediately with an error — same root cause as Bug #4/5: the
+    // prop chain drops data, the grid is empty, and the user sees
+    // a lit button that does nothing.
+    const btnLine = src.match(/disabled=\{.*localMethod.*\}/);
+    expect(btnLine, "submit button disabled must include !localMethod").toBeTruthy();
+  });
 });
