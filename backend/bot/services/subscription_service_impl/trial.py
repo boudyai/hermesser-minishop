@@ -131,16 +131,19 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
 
         await session.commit()
 
-        # Hermes mode: credit the trial tenant with a small CornLLM budget.
+        # Hermes mode: grant trial CornLLM credit as sub_balance (Stream G.10).
+        # Trial uses OVERRIDE semantics — single grant, no next_credit_at,
+        # no monthly refresh. Calling with amount=0 still wipes leftover
+        # sub_balance from a previous paid sub. Topup credit is untouched.
         from bot.services.hermes_provisioning_service import HermesProvisioningService
 
         trial_credit = float(getattr(self.settings, "TRIAL_CORNLLM_CREDIT_USD", 0.25) or 0)
-        if trial_credit > 0 and isinstance(self.panel_service, HermesProvisioningService):
+        if isinstance(self.panel_service, HermesProvisioningService):
             try:
-                await self.panel_service.topup_tenant_quota(panel_user_uuid, trial_credit)
+                await self.panel_service.grant_subscription_quota(panel_user_uuid, trial_credit)
             except Exception:
                 logging.exception(
-                    "Trial CornLLM credit failed for tenant %s (%.2f USD)",
+                    "Trial CornLLM sub-credit grant failed for tenant %s (%.2f USD)",
                     panel_user_uuid,
                     trial_credit,
                 )
