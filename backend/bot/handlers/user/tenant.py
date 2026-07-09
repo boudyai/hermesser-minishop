@@ -693,6 +693,7 @@ async def token_command(
 @router.callback_query(F.data == "hermes:create_bot")
 async def hermes_create_bot_callback(
     callback: types.CallbackQuery,
+    state: FSMContext,
     settings: Settings,
     subscription_service: SubscriptionService,
     session: AsyncSession,
@@ -721,7 +722,35 @@ async def hermes_create_bot_callback(
     from db.dal import user_dal
     db_user = await user_dal.get_user_by_id(session, user_id)
     if db_user is None or not db_user.panel_user_uuid:
-        await callback.answer(_("tg_hermes_no_active_bot_short", default="No active bot."), show_alert=True)
+        await state.set_state(TokenFSM.waiting_for_token)
+        text = (
+            _("tg_hermes_token_intro_title", default="Enter your bot token from @BotFather:")
+            + "\n\n"
+            + _("tg_hermes_token_intro_format", default="Format: 123456789:ABCdef...")
+        )
+        if callback.message:
+            try:
+                await callback.message.edit_text(text)
+            except Exception:
+                pass
+        await callback.answer()
+        return
+
+    tenant_state = await panel_service.get_tenant_state(db_user.panel_user_uuid)
+    tenant_status = str((tenant_state or {}).get("status", "") or "").lower()
+
+    if tenant_status in ("deleted", "deleting", "archived"):
+        await state.set_state(TokenFSM.waiting_for_token)
+        text = _(
+            "tg_hermes_recreate_prompt",
+            default="Your previous bot was removed. Send a new bot token from @BotFather to create a new one.",
+        )
+        if callback.message:
+            try:
+                await callback.message.edit_text(text)
+            except Exception:
+                pass
+        await callback.answer()
         return
 
     await callback.answer(_("tg_hermes_create_in_progress", default="Creating bot..."))
