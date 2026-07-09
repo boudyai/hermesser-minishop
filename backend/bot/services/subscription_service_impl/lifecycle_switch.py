@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.services.hermes_provisioning_service import HermesProvisioningService
 from bot.utils.config_link import prepare_config_links
 from config.tariffs_config import default_currency_key_for_settings
 from db.dal import subscription_dal, tariff_dal, user_dal
@@ -307,4 +308,41 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 "eff_price_after": updated.effective_monthly_price_rub,
             },
         )
+
+        # Stream G.23: after a tariff switch, override sub_balance with the
+        # new tariff's monthly sub-credit. Override (not +=) wipes any leftover
+        # from the previous tariff; topup is untouched. No pro-rating between
+        # tariffs (G.0 decision).
+        if isinstance(self.panel_service, HermesProvisioningService):
+            from bot.utils.currency_format import rub_to_usd
+
+            new_credit_rub = float(
+                getattr(target, "included_cornllm_balance_rub", 0.0) or 0.0
+            )
+            new_credit_usd = rub_to_usd(new_credit_rub) or 0.0
+            panel_uuid = (
+                getattr(sub, "panel_user_uuid", None)
+                or getattr(db_user, "panel_user_uuid", None)
+            )
+            if panel_uuid:
+                try:
+                    await self.panel_service.grant_subscription_quota(
+                        panel_uuid, new_credit_usd
+                    )
+                except Exception:
+                    logging.exception(
+                        "CornLLM tariff-switch grant failed for %s (%.4f USD)",
+                        panel_uuid,
+                        new_credit_usd,
+                    )
+
+            # Reschedule future monthly grants for the new tariff content.
+            # next_credit_at stays when the new tariff carries sub-credit;
+            # cleared when downgrading to a no-sub-credit tariff (basic).
+            if new_credit_usd > 0:
+                sub.next_credit_amount_usd = new_credit_usd
+            else:
+                sub.next_credit_amount_usd = None
+                sub.next_credit_at = None
+
         return {"subscription_id": updated.subscription_id, "tariff_key": target.key}
