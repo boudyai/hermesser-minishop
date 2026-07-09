@@ -34,6 +34,7 @@ from bot.plugins import (
     run_setup,
 )
 from bot.services.backup_worker import BackupWorker
+from bot.services.cornllm_credit_scheduler import cornllm_monthly_grant_worker
 from bot.services.event_reactions import register_core_reactions
 from bot.services.subscription_notification_worker import SubscriptionNotificationWorker
 from bot.services.tariff_worker import TariffTrafficWorker
@@ -263,6 +264,9 @@ def _core_worker_tasks() -> List[WorkerTaskSpec]:
             factory=_subscription_notification_task,
         ),
         WorkerTaskSpec(name="BackupWorker", factory=_backup_worker_task),
+        WorkerTaskSpec(
+            name="CornllmMonthlyGrantWorker", factory=cornllm_monthly_grant_worker
+        ),
     ]
 
 
