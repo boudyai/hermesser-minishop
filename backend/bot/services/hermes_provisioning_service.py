@@ -251,6 +251,72 @@ class HermesProvisioningService(PanelApiService):
             log.exception("pause_tenant_exception tenant=%s", tenant_id)
             return False
 
+    # ============================================
+    # Stream H: backup / restore
+    # ============================================
+
+    async def backup_tenant(self, tenant_id: str) -> Optional[Dict[str, Any]]:
+        """Trigger a backup job for a tenant.
+
+        POST /shop/tenants/{id}/backup returns 202 with ``{tenant_id, job_id}``
+        when the core accepts the job; the provisioner then zips the tenant
+        data and ships it to the owner's bot. Returns the parsed JSON on
+        success, ``None`` on failure (any non-202 status).
+        """
+        session = await self._core_get_session()
+        try:
+            async with session.post(
+                f"{self._core_base_url}/shop/tenants/{tenant_id}/backup"
+            ) as resp:
+                if resp.status == 202:
+                    data = await resp.json()
+                    log.info("Backup queued for tenant %s job=%s", tenant_id, data.get("job_id"))
+                    return data
+                body = await resp.text()
+                log.error(
+                    "Backup failed for %s: %s %s", tenant_id, resp.status, body[:200]
+                )
+                return None
+        except Exception:
+            log.exception("backup_tenant_exception tenant=%s", tenant_id)
+            return None
+
+    async def restore_tenant(
+        self, tenant_id: str, zip_data: bytes, filename: str = "restore.zip"
+    ) -> Optional[Dict[str, Any]]:
+        """Upload a backup zip and trigger a restore job.
+
+        Raw body POST (not multipart) so the core doesn't need
+        python-multipart installed. Returns the parsed
+        ``{tenant_id, job_id}`` on 202, ``None`` otherwise.
+        """
+        session = await self._core_get_session()
+        headers = self._core_headers()
+        headers["Content-Type"] = "application/zip"
+        try:
+            async with session.post(
+                f"{self._core_base_url}/shop/tenants/{tenant_id}/restore",
+                headers=headers,
+                data=zip_data,
+            ) as resp:
+                if resp.status == 202:
+                    data = await resp.json()
+                    log.info(
+                        "Restore queued for tenant %s job=%s size=%d",
+                        tenant_id,
+                        data.get("job_id"),
+                        len(zip_data),
+                    )
+                    return data
+                body = await resp.text()
+                log.error(
+                    "Restore failed for %s: %s %s", tenant_id, resp.status, body[:200]
+                )
+                return None
+        except Exception:
+            log.exception("restore_tenant_exception tenant=%s", tenant_id)
+            return None
+
     async def delete_user_from_panel(self, user_uuid: str, log_response: bool = False) -> bool:
         del log_response
         session = await self._core_get_session()

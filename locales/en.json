@@ -3615,7 +3615,7 @@
   "support_open_user": "Карточка",
   "support_close_ticket": "Закрыть тикет",
   "wa_subscription_not_active": "Subscription is not active",
-  "tenant.action.pause": "⏸ Pause",
+  "tenant.action.pause": "Pause",
   "tenant.action.start": "▶ Start",
   "tg_hermes_pause_confirm_title": "Pause the container?",
   "tg_hermes_pause_confirm_body": "Container will be stopped, CornLLM key blocked. Subscription remains active. Balance is preserved. Resume anytime via the Start button.",

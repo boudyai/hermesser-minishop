@@ -337,10 +337,12 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                     )
 
             # Reschedule future monthly grants for the new tariff content.
-            # next_credit_at stays when the new tariff carries sub-credit;
-            # cleared when downgrading to a no-sub-credit tariff (basic).
             if new_credit_usd > 0:
                 sub.next_credit_amount_usd = new_credit_usd
+                # ponytail: reset the schedule so the first grant under
+                # the new tariff happens 30 days from now, not whatever
+                # stale date the previous tariff left behind.
+                sub.next_credit_at = datetime.now(timezone.utc) + timedelta(days=30)
             else:
                 sub.next_credit_amount_usd = None
                 sub.next_credit_at = None

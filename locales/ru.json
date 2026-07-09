@@ -3615,7 +3615,7 @@
   "support_open_user": "Карточка",
   "support_close_ticket": "Закрыть тикет",
   "wa_subscription_not_active": "Подписка не активна",
-  "tenant.action.pause": "⏸ Пауза",
+  "tenant.action.pause": "Пауза",
   "tenant.action.start": "▶ Запустить",
   "tg_hermes_pause_confirm_title": "Поставить на паузу?",
   "tg_hermes_pause_confirm_body": "Контейнер будет остановлен, CornLLM-ключ заблокирован. Подписка продолжает действовать. Баланс сохраняется. Возобновить можно в любой момент через кнопку Запустить.",

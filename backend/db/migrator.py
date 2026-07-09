@@ -1375,6 +1375,24 @@ def _migration_0044_add_sub_credit_schedule(connection: Connection) -> None:
         )
 
 
+def _migration_0046_add_subscription_last_manual_backup_at(connection: Connection) -> None:
+    """Stream H: manual /backup cooldown marker.
+
+    Stamp ``now()`` whenever the user successfully fires /backup from the
+    minishop bot. The /backup handler reads this column to enforce the
+    3-hour cooldown; the daily scheduler does NOT touch it (its runs are
+    tracked via provisioning-core job history, not local state).
+    """
+    inspector = inspect(connection)
+    columns: Set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
+    if "last_manual_backup_at" not in columns:
+        connection.execute(
+            text(
+                "ALTER TABLE subscriptions ADD COLUMN last_manual_backup_at TIMESTAMPTZ NULL"
+            )
+        )
+
+
 def _migration_0045_add_deletion_warning_fields(connection: Connection) -> None:
     """Stream G.24: markers for deletion-warning notifications.
 
@@ -1621,6 +1639,11 @@ MIGRATIONS: List[Migration] = [
         id="0045_add_deletion_warning_fields",
         description="Add Stream G deletion-warning notification markers",
         upgrade=_migration_0045_add_deletion_warning_fields,
+    ),
+    Migration(
+        id="0046_add_subscription_last_manual_backup_at",
+        description="Add Stream H manual /backup cooldown marker to subscriptions",
+        upgrade=_migration_0046_add_subscription_last_manual_backup_at,
     ),
 ]
 

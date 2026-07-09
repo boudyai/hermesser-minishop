@@ -160,6 +160,10 @@ class Subscription(Base):
     # renewal via lifecycle_activation. Set by deletion_warning_notifications_worker.
     deletion_warned_at = Column(DateTime(timezone=True), nullable=True)
     deletion_critical_warned_at = Column(DateTime(timezone=True), nullable=True)
+    # Stream H: /backup cooldown. Stamped by backup.py after a successful
+    # manual backup request to provisioning-core. The handler refuses
+    # /backup if (now - last_manual_backup_at) < BACKUP_COOLDOWN_HOURS.
+    last_manual_backup_at = Column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", back_populates="subscriptions")
 

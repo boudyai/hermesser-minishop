@@ -276,7 +276,7 @@
         {#if tenantStatus === "active"}
           <Button variant="secondary" onclick={doPause} disabled={busy}>
             <Pause size={14} />
-            {t("tenant.action.pause", {}, "⏸ Pause")}
+            {t("tenant.action.pause", {}, "Pause")}
           </Button>
         {/if}
         {#if tenantStatus === "paused"}

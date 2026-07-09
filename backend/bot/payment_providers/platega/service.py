@@ -648,9 +648,19 @@ async def pay_platega_callback_handler(
         }
     )
 
+    # Platega only supports RUB. When the shop operates in USD, convert
+    # the amount before sending it to Platega's API.
+    platega_amount = float(parts.price)
+    platega_currency = currency_code
+    if str(currency_code).upper() == "USD":
+        from bot.utils.currency_format import usd_to_rub
+
+        platega_amount = usd_to_rub(platega_amount) or platega_amount
+        platega_currency = "RUB"
+
     success, response_data = await platega_service.create_transaction(
-        amount=parts.price,
-        currency=currency_code,
+        amount=platega_amount,
+        currency=platega_currency,
         description=payment_description,
         payload=payload_meta,
         payment_method=platega_method_id,
@@ -711,16 +721,19 @@ async def _create_webapp_payment(ctx: WebAppPaymentContext, variant: str) -> web
             return payment_unavailable()
         platega_method_id = service.config.sbp_method_resolved
 
-    # Platega only supports RUB — convert from the shop's USD price.
-    # ponytail: CornLLM topup with SBP gets RUB amounts from the user
-    # directly (no conversion needed). Everything else is in USD.
+    # Platega only supports RUB. Convert from USD only when the shop
+    # operates in USD; when default_currency is RUB (or anything else),
+    # the amounts are already in the right currency for Platega.
+    # ponytail: CornLLM SBP topup gets RUB from the user, passthrough.
     from bot.utils.currency_format import usd_to_rub
 
     payment_currency = "RUB"
     if ctx.sale_mode == "cornllm_topup" and variant == "platega_sbp":
         payment_amount = ctx.price
-    else:
+    elif getattr(settings, "DEFAULT_CURRENCY_SYMBOL", "RUB").upper() == "USD":
         payment_amount = usd_to_rub(ctx.price) or ctx.price
+    else:
+        payment_amount = ctx.price
 
     try:
         amounts = payment_record_amounts(
