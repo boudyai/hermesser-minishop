@@ -729,6 +729,8 @@ def _format_hermes_container_status(active: dict[str, Any], get_text: Any) -> st
         return get_text("my_hermes_container_status_provisioning")
     if status in ("suspended", "payment_expiring"):
         return get_text("my_hermes_container_status_suspended")
+    if status == "paused":
+        return get_text("my_hermes_container_status_paused")
     if status in ("error", "failed"):
         return get_text("my_hermes_container_status_error")
     # ponytail: map deleting / deleted / archived to the new

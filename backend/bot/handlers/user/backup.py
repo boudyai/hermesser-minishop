@@ -13,7 +13,7 @@ to the restore request when the job lands.
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from io import BytesIO
 
 from aiogram import Bot, F, Router, types
@@ -35,8 +35,8 @@ class RestoreFSM(StatesGroup):
     waiting_for_backup_file = State()
 
 
-BACKUP_COOLDOWN_HOURS = 3
-MAX_RESTORE_BYTES = 50 * 1024 * 1024  # 50 MB; bot document upload limit is 50 MB.
+BACKUP_COOLDOWN_HOURS = 0  # disabled
+MAX_RESTORE_BYTES = 50 * 1024 * 1024
 
 
 def _is_hermes(settings: Settings) -> bool:
@@ -132,29 +132,6 @@ async def backup_command(
         )
         return
 
-    now = datetime.now(UTC)
-    last = sub.last_manual_backup_at
-    if last is not None:
-        # ponytail: SQLite-less Postgres returns aware datetimes via
-        # TIMESTAMPTZ, but a legacy row from before this migration could
-        # in theory be naive; coerce to UTC so the subtract doesn't blow up.
-        if last.tzinfo is None:
-            last = last.replace(tzinfo=UTC)
-        if now - last < timedelta(hours=BACKUP_COOLDOWN_HOURS):
-            remaining = timedelta(hours=BACKUP_COOLDOWN_HOURS) - (now - last)
-            minutes_left = max(1, int(remaining.total_seconds() // 60))
-            await message.answer(
-                _(
-                    "tg_hermes_backup_cooldown",
-                    default=(
-                        "⏳ Backup is on cooldown. "
-                        "Try again in ~{minutes} min."
-                    ),
-                    minutes=minutes_left,
-                )
-            )
-            return
-
     result = await panel_service.backup_tenant(str(sub.panel_user_uuid))
     if not result:
         await message.answer(
@@ -164,11 +141,6 @@ async def backup_command(
             )
         )
         return
-
-    # ponytail: stamp the cooldown AFTER the core accepts the job, not
-    # before — a request that 5xx's must not block retries for 3 hours.
-    sub.last_manual_backup_at = now
-    await session.commit()
 
     await message.answer(
         _(
