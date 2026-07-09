@@ -147,17 +147,35 @@
 
   async function saveToken() {
     if (!botToken.trim() || !apiUnchecked) return;
+    if (!botToken.includes(":") || !botToken.split(":", 1)[0].match(/^\d+$/)) {
+      tokenError = t("wa_bot_token_invalid_format", {}, "Invalid token format");
+      return;
+    }
     tokenBusy = true;
     tokenError = null;
     try {
-      await apiUnchecked("/account/bot_token", {
+      const data = await apiUnchecked("/account/bot_token", {
         method: "PUT",
         body: JSON.stringify({ bot_token: botToken.trim() }),
       });
+      // ponytail: apiUnchecked does not throw on non-2xx, it returns
+      // {ok: false, error: ...}. Check explicitly so we don't reload
+      // and show "Done!" when the backend rejected the token.
+      if (data.ok === false) {
+        const code = String(data.error || "update_failed");
+        const keyByCode: Record<string, string> = {
+          invalid_bot_token: "wa_bot_token_invalid_token_error",
+          telegram_check_failed: "wa_bot_token_telegram_check_failed",
+          api_unavailable: "wa_bot_token_api_unavailable",
+          access_denied: "wa_bot_token_access_denied",
+          unauthorized: "wa_bot_token_unauthorized",
+        };
+        tokenError = t(keyByCode[code] || code, {}, code);
+        return;
+      }
       tokenOk = true;
       // ponytail: reload so /api/me re-runs and HomeScreen picks up
       // subscription.bot_username from the provisioning-core tenant record.
-      // Same pattern as HomeScreen.svelte's /tenant/recreate flow.
       window.location.reload();
     } catch (e) {
       tokenError = e instanceof Error ? e.message : "token_save_failed";
