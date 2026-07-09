@@ -444,6 +444,15 @@ class TariffMixin(SubscriptionServiceMixinContract):
                 "target_monthly_rub": float(target_monthly),
                 "target_monthly_price": float(target_monthly),
                 "currency": default_currency,
+                # ponytail: block downgrade when target gives LESS sub-credit
+                # than current tariff — grant_subscription_quota wipes the
+                # existing balance, user would lose unspent tokens.
+                "sub_credit_loss": (
+                    float(getattr(target_tariff, "included_cornllm_balance_rub", 0.0) or 0.0)
+                    < float(getattr(current_tariff, "included_cornllm_balance_rub", 0.0) or 0.0)
+                    if current_tariff
+                    else False
+                ),
             }
 
         if current_model == "period" and target_tariff.billing_model == "traffic":

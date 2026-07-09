@@ -2786,6 +2786,8 @@
   "tg_tariff_change_only_one_available": "Tariff change unavailable: only one tariff is enabled right now.",
   "tg_select_tariff": "Select a tariff",
   "tg_tariff_change_recalc_button": "No top-up, days will become {days}",
+  "tg_tariff_change_blocked_credit_loss": "❌ Cannot switch to {target}: your current tariff has unspent CornLLM tokens that would be lost on switch. Spend them or top up manually first.",
+  "wa_tariff_change_blocked_credit_loss": "Switch to {target} blocked: unspent CornLLM credit from current tariff would be lost.",
   "tg_tariff_change_topup_button": "Top up {amount} {currency}",
   "tg_tariff_change_convert_button": "Switch without top-up, get {gb} GB",
   "tg_topup_package_button": "+ {gb} GB for {price} {currency}",

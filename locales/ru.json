@@ -2786,6 +2786,8 @@
   "tg_tariff_change_only_one_available": "Смена тарифа недоступна: сейчас включен только один тариф.",
   "tg_select_tariff": "Выберите тариф",
   "tg_tariff_change_recalc_button": "Без доплаты, дней станет {days}",
+  "tg_tariff_change_blocked_credit_loss": "❌ Нельзя перейти на {target}: на вашем балансе есть незатраченные CornLLM-токены от текущего тарифа. При смене тарифа они будут потеряны. Потратьте токены или пополните баланс вручную, затем повторите.",
+  "wa_tariff_change_blocked_credit_loss": "Переход на {target} заблокирован: при смене тарифа незатраченный CornLLM-кредит текущего тарифа будет потерян.",
   "tg_tariff_change_topup_button": "Доплатить {amount} {currency}",
   "tg_tariff_change_convert_button": "Перейти без доплаты, получить {gb} ГБ",
   "tg_topup_package_button": "+ {gb} ГБ за {price} {currency}",

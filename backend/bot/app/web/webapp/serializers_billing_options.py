@@ -127,6 +127,9 @@ def _serialize_tariff_change_target(
     default_currency_code = payment_currency_code(default_currency)
     actions: List[Dict[str, Any]] = []
     mode = str(options.get("mode") or "")
+    blocked_reason = None
+    if options.get("sub_credit_loss"):
+        blocked_reason = "credit_loss"
     if mode == "period_to_period":
         actions.append(
             {
@@ -199,6 +202,7 @@ def _serialize_tariff_change_target(
         "monthly_gb": tariff.monthly_gb,
         "options": options,
         "actions": actions,
+        "blocked_reason": blocked_reason,
     }
 
 

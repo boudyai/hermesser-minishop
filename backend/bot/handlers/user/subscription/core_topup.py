@@ -389,6 +389,29 @@ async def tariff_change_select_callback(
     currency_code = default_payment_currency_code_for_settings(settings)
     rows = []
     if options["mode"] == "period_to_period":
+        # ponytail: block downgrade when target gives less CornLLM credit —
+        # grant_subscription_quota wipes existing balance, user loses tokens.
+        if options.get("sub_credit_loss"):
+            text = i18n.gettext(
+                current_lang,
+                "tg_tariff_change_blocked_credit_loss",
+                target=target.name(current_lang),
+            )
+            await callback_message(callback).edit_text(
+                text,
+                reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [
+                            InlineKeyboardButton(
+                                text=i18n.gettext(current_lang, "back_button"),
+                                callback_data=f"tariff_change:list{callback_suffix_for_context(ctx)}",
+                            )
+                        ]
+                    ]
+                ),
+            )
+            await callback.answer()
+            return
         rows.append(
             [
                 InlineKeyboardButton(

@@ -130,6 +130,11 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             options = dict(self.calculate_tariff_switch_options(sub, target))
         else:
             options = await self.calculate_tariff_switch_options_with_hwid(session, sub, target)
+        # ponytail: block downgrade when target gives less CornLLM credit —
+        # grant_subscription_quota wipes the existing balance. This is a safety
+        # net; the bot and webapp UIs also gate on sub_credit_loss.
+        if options.get("sub_credit_loss"):
+            return None
         converted_hwid_purchase_ids = list(options.get("convertible_hwid_purchase_ids") or [])
         if converted_hwid_purchase_ids:
             await tariff_dal.expire_hwid_device_purchases(

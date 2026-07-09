@@ -181,6 +181,21 @@ async def tariff_change_route(request: web.Request) -> web.Response:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
             return _json_error(403, "access_denied", "Access denied")
+        sub = await subscription_dal.get_active_subscription_by_user_id(
+            session, user_id, db_user.panel_user_uuid
+        )
+        if not sub:
+            return _json_error(
+                400, "subscription_required", "Active tariff subscription is required"
+            )
+        target = settings.tariffs_config.require(str(change_payload.tariff_key))
+        options = await subscription_service.calculate_tariff_switch_options(session, sub, target)
+        if options.get("sub_credit_loss"):
+            return _json_error(
+                400,
+                "credit_loss_blocked",
+                "Switch blocked: unspent CornLLM credit would be lost",
+            )
         result = await subscription_service.switch_tariff_without_payment(
             session,
             user_id,
@@ -224,6 +239,12 @@ async def tariff_change_payment_route(request: web.Request) -> web.Response:
         options = await subscription_service.calculate_tariff_switch_options_with_hwid(
             session, sub, target
         )
+        if options.get("sub_credit_loss"):
+            return _json_error(
+                400,
+                "credit_loss_blocked",
+                "Switch blocked: unspent CornLLM credit would be lost",
+            )
         price = float(options.get("paid_diff_rub") or 0)
         if price <= 0:
             return _json_error(
