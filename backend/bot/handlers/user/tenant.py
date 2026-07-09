@@ -690,6 +690,59 @@ async def token_command(
     await state.set_state(TokenFSM.waiting_for_token)
 
 
+@router.callback_query(F.data == "hermes:create_bot")
+async def hermes_create_bot_callback(
+    callback: types.CallbackQuery,
+    settings: Settings,
+    subscription_service: SubscriptionService,
+    session: AsyncSession,
+    i18n_data: dict | None = None,
+) -> None:
+    if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
+        await callback.answer()
+        return
+    i18n = (i18n_data or {}).get("i18n_instance")
+    current_lang = (i18n_data or {}).get("current_language", "ru")
+    _ = lambda key, default=None, **kw: _i18n_get(i18n, current_lang, key, default, **kw)
+
+    async def _get_hermes_panel(subscription_service: SubscriptionService):
+        from bot.services.hermes_provisioning_service import HermesProvisioningService
+        panel = getattr(subscription_service, "panel_service", None)
+        if isinstance(panel, HermesProvisioningService):
+            return panel
+        return None
+
+    panel_service = await _get_hermes_panel(subscription_service)
+    if panel_service is None:
+        await callback.answer(_("service_unavailable", default="Service unavailable."), show_alert=True)
+        return
+
+    user_id = callback.from_user.id if callback.from_user else 0
+    from db.dal import user_dal
+    db_user = await user_dal.get_user_by_id(session, user_id)
+    if db_user is None or not db_user.panel_user_uuid:
+        await callback.answer(_("tg_hermes_no_active_bot_short", default="No active bot."), show_alert=True)
+        return
+
+    await callback.answer(_("tg_hermes_create_in_progress", default="Creating bot..."))
+    result = await panel_service.update_user_status_on_panel(db_user.panel_user_uuid, enable=True)
+    if not result:
+        if callback.message:
+            try:
+                await callback.message.edit_text(_("tg_hermes_create_failed", default="Failed to create. Try again or contact support."))
+            except Exception:
+                pass
+        return
+
+    if callback.message:
+        try:
+            await callback.message.edit_text(
+                _("tg_hermes_create_success", default="Bot created. Starting…"),
+            )
+        except Exception:
+            pass
+
+
 @router.callback_query(F.data == "main_action:set_token")
 async def set_token_callback(
     callback: types.CallbackQuery,

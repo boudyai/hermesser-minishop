@@ -179,6 +179,12 @@
   const hermesBotDeleted = $derived(
     hermesMode && ["deleting", "deleted", "archived"].includes(hermesTenantStatus)
   );
+  // ponytail: user has active subscription but tenant was never created
+  // (subscription activated without tenant provisioning, or earlier
+  // creation failed). Show a create action so the user isn't stuck.
+  const hermesNeedsCreate = $derived(
+    hermesMode && subscription.active && !hermesBotDeleted && !["active", "provisioning_vm", "paused", "suspended", "running", "created"].includes(hermesTenantStatus)
+  );
   let hermesCardBusy = $state(false);
   let hermesCardError = $state<string | null>(null);
   async function recreateHermesBot() {
@@ -497,13 +503,13 @@
       {/if}
     </Card>
 
-    {#if subscription.active && hermesMode && hermesBotDeleted}
+    {#if subscription.active && hermesMode && (hermesBotDeleted || hermesNeedsCreate)}
       <Card class="trial-card">
         <h2 style="margin: 0 0 8px; font-size: 15px;">
           {t(
-            "wa_hermes_bot_card_deleted",
+            "wa_hermes_bot_card_create",
             {},
-            "🤖 Бот удалён\nЧтобы создать нового, нажмите кнопку ниже."
+            "🤖 Бот ещё не создан\nНажмите кнопку ниже, чтобы запустить вашего AI-бота."
           )}
         </h2>
         <Button class="wide" onclick={recreateHermesBot} disabled={hermesCardBusy}>

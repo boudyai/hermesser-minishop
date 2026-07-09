@@ -242,6 +242,14 @@ async def my_subscription_command_handler(
                 bot_username=bot_username_display,
                 container_status=container_status,
             )
+            hermes_tenant_status = str(active.get("tenant_status") or "").strip().lower()
+            if hermes_tenant_status not in ("active", "running", "provisioning_vm", "created", "provisioning_litellm", "paused"):
+                kb.append([
+                    InlineKeyboardButton(
+                        text=get_text("tg_hermes_bot_action_create", default="Create bot"),
+                        callback_data="hermes:create_bot",
+                    )
+                ])
         else:
             tariff_prefix = ""
             if _has_multiple_enabled_tariffs(settings) and active.get("tariff_name"):
