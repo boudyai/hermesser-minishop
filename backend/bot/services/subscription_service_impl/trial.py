@@ -131,6 +131,20 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
 
         await session.commit()
 
+        # Hermes mode: credit the trial tenant with a small CornLLM budget.
+        from bot.services.hermes_provisioning_service import HermesProvisioningService
+
+        trial_credit = float(getattr(self.settings, "TRIAL_CORNLLM_CREDIT_USD", 0.25) or 0)
+        if trial_credit > 0 and isinstance(self.panel_service, HermesProvisioningService):
+            try:
+                await self.panel_service.topup_tenant_quota(panel_user_uuid, trial_credit)
+            except Exception:
+                logging.exception(
+                    "Trial CornLLM credit failed for tenant %s (%.2f USD)",
+                    panel_user_uuid,
+                    trial_credit,
+                )
+
         await events.emit_model(
             TrialActivatedPayload(
                 user_id=user_id,

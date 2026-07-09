@@ -489,6 +489,10 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
         ),
     )
     TRIAL_TRAFFIC_STRATEGY: str = Field(default="NO_RESET")
+    TRIAL_CORNLLM_CREDIT_USD: float = Field(
+        default=0.25,
+        description="CornLLM (LiteLLM) budget in USD credited to trial tenants in Hermes mode.",
+    )
     TRIAL_WITHOUT_TELEGRAM_ENABLED: bool = Field(
         default=True,
         description=(
