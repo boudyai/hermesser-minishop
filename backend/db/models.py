@@ -150,6 +150,12 @@ class Subscription(Base):
     effective_monthly_price_rub = Column(Numeric, nullable=True)
     hwid_device_limit = Column(Integer, nullable=True)
     extra_hwid_devices = Column(Integer, nullable=False, default=0)
+    # Stream G.8: monthly sub-credit grant schedule. NULL when no future
+    # grant is due (trial, single-month sub, or past end_date). The
+    # minishop scheduler (G.11) reads these to decide when to call
+    # provisioning-core /quota/grant-sub.
+    next_credit_at = Column(DateTime(timezone=True), nullable=True)
+    next_credit_amount_usd = Column(Numeric(10, 4), nullable=True)
 
     user = relationship("User", back_populates="subscriptions")
 

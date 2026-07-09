@@ -1348,6 +1348,33 @@ def _migration_0043_add_pending_bot_username(connection: Connection) -> None:
         connection.execute(text("ALTER TABLE users ADD COLUMN pending_bot_username TEXT"))
 
 
+def _migration_0044_add_sub_credit_schedule(connection: Connection) -> None:
+    """Stream G: monthly sub-credit grant scheduling.
+
+    Adds two columns to subscriptions read/written by the minishop
+    monthly scheduler (Phase G.11) to decide when to call
+    provisioning-core /quota/grant-sub for the next installment.
+
+    - next_credit_at: start_date + 30d, bumped +30d after each grant
+      fires. NULL = no future grant due (trial / single-month sub, or
+      after the next bump would exceed end_date).
+    - next_credit_amount_usd: tariff.included_cornllm_balance_rub /
+      USD_EXCHANGE_RATE at activation time. NULL alongside next_credit_at.
+    """
+    inspector = inspect(connection)
+    columns: Set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
+    if "next_credit_at" not in columns:
+        connection.execute(
+            text("ALTER TABLE subscriptions ADD COLUMN next_credit_at TIMESTAMPTZ NULL")
+        )
+    if "next_credit_amount_usd" not in columns:
+        connection.execute(
+            text(
+                "ALTER TABLE subscriptions ADD COLUMN next_credit_amount_usd NUMERIC(10, 4) NULL"
+            )
+        )
+
+
 MIGRATIONS: List[Migration] = [
     Migration(
         id="0001_add_channel_subscription_fields",
@@ -1563,6 +1590,11 @@ MIGRATIONS: List[Migration] = [
         id="0043_add_pending_bot_username",
         description="Add pending_bot_username column to users for Hermes tenant provisioning",
         upgrade=_migration_0043_add_pending_bot_username,
+    ),
+    Migration(
+        id="0044_add_sub_credit_schedule",
+        description="Add Stream G monthly sub-credit grant schedule columns",
+        upgrade=_migration_0044_add_sub_credit_schedule,
     ),
 ]
 
