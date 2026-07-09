@@ -197,6 +197,28 @@ async def tenant_suspend_route(request: web.Request) -> web.Response:
     return json_response({"ok": True})
 
 
+async def tenant_pause_route(request: web.Request) -> web.Response:
+    result = await _resolve_tenant(request)
+    if isinstance(result, web.Response):
+        return result
+    panel_service, tenant_id = result
+    ok = await panel_service.pause_tenant(tenant_id)
+    if not ok:
+        return _json_error(502, "pause_failed", "Failed to pause tenant")
+    return json_response({"ok": True, "status": "paused"})
+
+
+async def tenant_start_route(request: web.Request) -> web.Response:
+    result = await _resolve_tenant(request)
+    if isinstance(result, web.Response):
+        return result
+    panel_service, tenant_id = result
+    ok = await panel_service.update_user_status_on_panel(tenant_id, enable=True)
+    if not ok:
+        return _json_error(502, "start_failed", "Failed to start tenant")
+    return json_response({"ok": True, "status": "active"})
+
+
 async def tenant_delete_route(request: web.Request) -> web.Response:
     result = await _resolve_tenant(request)
     if isinstance(result, web.Response):

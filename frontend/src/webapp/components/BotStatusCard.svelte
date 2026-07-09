@@ -1,7 +1,7 @@
 <script lang="ts">
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
-  import { RefreshCw, Activity, FileText } from "$components/ui/icons.js";
+  import { RefreshCw, Activity, FileText, Pause, Play } from "$components/ui/icons.js";
 
   type AnyRecord = Record<string, any>;
   type ApiUnchecked = (
@@ -100,6 +100,51 @@
       );
     } catch (e) {
       error = e instanceof Error ? e.message : "Restart failed";
+    } finally {
+      busy = false;
+      busyAction = "";
+    }
+  }
+
+  // ponytail: pause = vacation mode (no countdown, resumable). Start =
+  // resume from paused (reuses /activate). Distinct from Suspend (destructive
+  // 7-day auto-delete) — Suspend lives in TenantDangerZone, not here.
+  async function doPause() {
+    busy = true;
+    busyAction = "restart";
+    error = null;
+    try {
+      const data = (await callApi("/tenant/pause", "POST")) as {
+        ok?: boolean;
+        status?: string;
+      };
+      if (data.status === "paused") {
+        info = t("wa_hermes_pause_success", {}, "Container paused. Click Start to resume.");
+      }
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (e) {
+      error = e instanceof Error ? e.message : "Pause failed";
+    } finally {
+      busy = false;
+      busyAction = "";
+    }
+  }
+
+  async function doStart() {
+    busy = true;
+    busyAction = "restart";
+    error = null;
+    try {
+      const data = (await callApi("/tenant/start", "POST")) as {
+        ok?: boolean;
+        status?: string;
+      };
+      if (data.status === "active") {
+        info = t("wa_hermes_start_success", {}, "Container is starting. Allow ~30 seconds.");
+      }
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (e) {
+      error = e instanceof Error ? e.message : "Start failed";
     } finally {
       busy = false;
       busyAction = "";
@@ -228,6 +273,18 @@
           <FileText size={14} />
           {t("logs", {}, "Logs")}
         </Button>
+        {#if tenantStatus === "active"}
+          <Button variant="secondary" onclick={doPause} disabled={busy}>
+            <Pause size={14} />
+            {t("tenant.action.pause", {}, "⏸ Pause")}
+          </Button>
+        {/if}
+        {#if tenantStatus === "paused"}
+          <Button variant="secondary" onclick={doStart} disabled={busy}>
+            <Play size={14} />
+            {t("tenant.action.start", {}, "▶ Start")}
+          </Button>
+        {/if}
         <Button variant="secondary" onclick={askRestart} disabled={busy || !actionsEnabled}>
           <RefreshCw size={14} class={busyAction === "restart" ? "spinning" : ""} />
           {t("restart", {}, "Restart")}

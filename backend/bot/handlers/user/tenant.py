@@ -1123,6 +1123,182 @@ async def suspend_confirm_callback(
 
 
 # ============================================
+# /pause (Stream G.25 — vacation mode, no auto-delete)
+# ============================================
+
+
+@router.message(Command("pause"))
+async def pause_command(
+    message: types.Message,
+    settings: Settings,
+    i18n_data: dict | None = None,
+) -> None:
+    if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
+        return
+    await _confirm_pause(message, edit=False, i18n_data=i18n_data)
+
+
+@router.callback_query(F.data == "tenant:pause")
+async def pause_callback(
+    callback: types.CallbackQuery,
+    settings: Settings,
+    i18n_data: dict | None = None,
+) -> None:
+    if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
+        await callback.answer()
+        return
+    await _confirm_pause(callback.message, edit=True, i18n_data=i18n_data)
+    await callback.answer()
+
+
+async def _confirm_pause(
+    target_message: "types.Message | types.InaccessibleMessage | None",
+    edit: bool,
+    i18n_data: dict | None = None,
+) -> None:
+    if target_message is None:
+        return
+    i18n = (i18n_data or {}).get("i18n_instance")
+    current_lang = (i18n_data or {}).get("current_language", "ru")
+    _ = lambda key, default=None, **kw: _i18n_get(i18n, current_lang, key, default, **kw)
+    text = (
+        "⏸ "
+        + _(
+            "tg_hermes_pause_confirm_title",
+            default="Pause the container?",
+        )
+        + "\n\n"
+        + _(
+            "tg_hermes_pause_confirm_body",
+            default=(
+                "Container will be stopped, CornLLM key blocked. "
+                "Subscription continues. Balance is preserved. "
+                "Resume anytime via the Start button."
+            ),
+        )
+    )
+    markup = types.InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                types.InlineKeyboardButton(
+                    text=_("tg_hermes_pause_confirm_button", default="Yes, pause"),
+                    callback_data="tenant:pause:confirm",
+                ),
+                types.InlineKeyboardButton(
+                    text=_("tg_hermes_cancel_button", default="Cancel"),
+                    callback_data="tenant:status",
+                ),
+            ]
+        ]
+    )
+    await _reply_or_edit(target_message, text, markup, edit)
+
+
+@router.callback_query(F.data == "tenant:pause:confirm")
+async def pause_confirm_callback(
+    callback: types.CallbackQuery,
+    settings: Settings,
+    subscription_service: SubscriptionService,
+    session: AsyncSession,
+    i18n_data: dict | None = None,
+) -> None:
+    user_id = callback.from_user.id
+    if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
+        await callback.answer()
+        return
+    i18n = (i18n_data or {}).get("i18n_instance")
+    current_lang = (i18n_data or {}).get("current_language", "ru")
+    _ = lambda key, default=None, **kw: _i18n_get(i18n, current_lang, key, default, **kw)
+    panel_service = await _get_hermes_panel(subscription_service)
+    if panel_service is None:
+        await callback.answer(
+            _("service_unavailable", default="Service unavailable"),
+            show_alert=True,
+        )
+        return
+    tenant_id = await _get_tenant_id(subscription_service, session, user_id)
+    if not tenant_id:
+        await callback.answer(_("no_active_bot", default="No active bot"), show_alert=True)
+        return
+    ok = await panel_service.pause_tenant(tenant_id)
+    text = (
+        _("tg_hermes_pause_success", default="Bot paused. Use Start to resume.")
+        if ok
+        else _("tg_hermes_pause_failed", default="Could not pause.")
+    )
+    if callback.message:
+        try:
+            await callback.message.edit_text(  # type: ignore[union-attr]
+                text,
+                reply_markup=types.InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [
+                            types.InlineKeyboardButton(
+                                text=_("back_to_menu_button", default="⬅️ Menu"),
+                                callback_data="main_action:back_to_main",
+                            )
+                        ]
+                    ]
+                ),
+            )
+        except Exception:
+            pass
+    await callback.answer()
+
+
+@router.callback_query(F.data == "tenant:start")
+async def start_callback(
+    callback: types.CallbackQuery,
+    settings: Settings,
+    subscription_service: SubscriptionService,
+    session: AsyncSession,
+    i18n_data: dict | None = None,
+) -> None:
+    user_id = callback.from_user.id
+    if str(getattr(settings.panel_settings, "write_mode", "") or "").lower() != "hermes":
+        await callback.answer()
+        return
+    i18n = (i18n_data or {}).get("i18n_instance")
+    current_lang = (i18n_data or {}).get("current_language", "ru")
+    _ = lambda key, default=None, **kw: _i18n_get(i18n, current_lang, key, default, **kw)
+    panel_service = await _get_hermes_panel(subscription_service)
+    if panel_service is None:
+        await callback.answer(
+            _("service_unavailable", default="Service unavailable"),
+            show_alert=True,
+        )
+        return
+    tenant_id = await _get_tenant_id(subscription_service, session, user_id)
+    if not tenant_id:
+        await callback.answer(_("no_active_bot", default="No active bot"), show_alert=True)
+        return
+    ok = await panel_service.update_user_status_on_panel(tenant_id, enable=True)
+    text = (
+        _("tg_hermes_start_success", default="Container is starting. Allow ~30 seconds.")
+        if ok
+        else _("tg_hermes_start_failed", default="Could not start.")
+    )
+    if callback.message:
+        try:
+            await callback.message.edit_text(  # type: ignore[union-attr]
+                text,
+                reply_markup=types.InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [
+                            types.InlineKeyboardButton(
+                                text=_("back_to_menu_button", default="⬅️ Menu"),
+                                callback_data="main_action:back_to_main",
+                            )
+                        ]
+                    ]
+                ),
+            )
+        except Exception:
+            pass
+    await callback.answer()
+
+
+# ============================================
 # /delete FSM
 # ============================================
 

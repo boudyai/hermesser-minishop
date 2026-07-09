@@ -47,6 +47,8 @@ export {
   Monitor,
   MousePointerClick,
   Paintbrush,
+  Pause,
+  Play,
   Plus,
   QrCode,
   Radio,

@@ -227,6 +227,30 @@ class HermesProvisioningService(PanelApiService):
             log.error("Tenant %s %s failed: %s %s", user_uuid, action, resp.status, body[:200])
             return False
 
+    async def pause_tenant(self, tenant_id: str) -> bool:
+        # Stream G.25: POST /shop/tenants/{id}/pause. Manual pause without
+        # auto-delete countdown — distinct from suspend, which kicks off
+        # the 7-day deletion sweep. The user resumes via /activate (already
+        # extended in this phase to accept the 'paused' state).
+        session = await self._core_get_session()
+        try:
+            async with session.post(
+                f"{self._core_base_url}/shop/tenants/{tenant_id}/pause"
+            ) as resp:
+                if resp.status == 202:
+                    return True
+                body = await resp.text()
+                log.error(
+                    "Pause tenant failed for %s: %s %s",
+                    tenant_id,
+                    resp.status,
+                    body[:200],
+                )
+                return False
+        except Exception:
+            log.exception("pause_tenant_exception tenant=%s", tenant_id)
+            return False
+
     async def delete_user_from_panel(self, user_uuid: str, log_response: bool = False) -> bool:
         del log_response
         session = await self._core_get_session()

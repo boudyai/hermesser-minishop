@@ -119,7 +119,14 @@
       {t(
         "wa_danger_help",
         {},
-        "Suspend blocks the container and the CornLLM key. Delete stops the container; volume data is kept for 30 days."
+        "Suspend blocks the container and starts a 7-day deletion countdown. To pause without deletion, use the Pause button above instead. Delete stops the container; volume data is kept for 30 days."
+      )}
+    </p>
+    <p style="margin: 0 0 10px; color: var(--muted); font-size: 12px;">
+      {t(
+        "wa_danger_suspend_warning",
+        {},
+        "Suspend is destructive: 7-day auto-delete. Pause is safe — resume anytime."
       )}
     </p>
     {#if !showDelete}

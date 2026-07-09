@@ -3609,5 +3609,17 @@
   "support_user_context": "Пользователь",
   "support_open_user": "Карточка",
   "support_close_ticket": "Закрыть тикет",
-  "wa_subscription_not_active": "Подписка не активна"
+  "wa_subscription_not_active": "Подписка не активна",
+  "tenant.action.pause": "⏸ Пауза",
+  "tenant.action.start": "▶ Запустить",
+  "tg_hermes_pause_confirm_title": "Поставить на паузу?",
+  "tg_hermes_pause_confirm_body": "Контейнер будет остановлен, CornLLM-ключ заблокирован. Подписка продолжает действовать. Баланс сохраняется. Возобновить можно в любой момент через кнопку Запустить.",
+  "tg_hermes_pause_confirm_button": "Да, на паузу",
+  "tg_hermes_pause_success": "Бот на паузе. Нажмите ▶ Запустить, чтобы возобновить.",
+  "tg_hermes_pause_failed": "Не удалось поставить на паузу.",
+  "tg_hermes_start_success": "Контейнер запускается. Подождите ~30 секунд.",
+  "tg_hermes_start_failed": "Не удалось запустить.",
+  "wa_hermes_pause_success": "Контейнер на паузе. Нажмите ▶ Запустить, чтобы возобновить.",
+  "wa_hermes_start_success": "Контейнер запускается. Подождите ~30 секунд.",
+  "wa_danger_suspend_warning": "Suspend — разрушающее действие: 7-дневный обратный отсчёт до удаления. Пауза — безопасная альтернатива: возобновляется в любой момент."
 }
