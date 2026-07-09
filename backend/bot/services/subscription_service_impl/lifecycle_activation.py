@@ -487,10 +487,12 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             provider=provider,
         )
 
-        # Hosting tariffs credit CornLLM (LiteLLM) balance on each paid
-        # month. The included amount lives on the tariff; we only credit
-        # when this is a hermes-mode tenant (panel_service is the
-        # HermesProvisioningService) and the tariff opted in.
+        # Hosting tariffs credit CornLLM balance on each paid month. Stream G:
+        # sub-credit uses OVERRIDE semantics (grant-sub replaces sub_balance);
+        # topup credit is untouched. amount=0 is explicitly sent for tariffs
+        # without sub-credit (e.g. basic) to wipe any leftover sub_balance from
+        # a previous plus subscription — prevents free credit leakage on
+        # downgrade.
         cornllm_credit_rub = 0.0
         if tariff is not None:
             try:
@@ -502,16 +504,27 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         from bot.utils.currency_format import rub_to_usd
 
         cornllm_credit_usd = rub_to_usd(cornllm_credit_rub) or 0.0
-        if cornllm_credit_usd > 0 and isinstance(self.panel_service, HermesProvisioningService):
-            credit_result = await self.panel_service.topup_tenant_quota(
+        if isinstance(self.panel_service, HermesProvisioningService):
+            # Stream G.9: grant_subscription_quota (override, not +=). Always
+            # call — even when amount is 0 — so downgrades wipe old sub_credit.
+            credit_result = await self.panel_service.grant_subscription_quota(
                 panel_user_uuid, cornllm_credit_usd
             )
             if not credit_result:
                 logging.warning(
-                    "CornLLM monthly credit failed for tenant %s (%.2f USD)",
+                    "CornLLM sub-credit grant failed for tenant %s (%.4f USD)",
                     panel_user_uuid,
                     cornllm_credit_usd,
                 )
+
+            # Stream G.9: schedule future monthly grants for multi-month subs.
+            # Single-month and zero-credit tariffs get NULL — no future grant.
+            if months_int > 1 and cornllm_credit_usd > 0:
+                new_or_updated_sub.next_credit_at = start_date + timedelta(days=30)
+                new_or_updated_sub.next_credit_amount_usd = cornllm_credit_usd
+            else:
+                new_or_updated_sub.next_credit_at = None
+                new_or_updated_sub.next_credit_amount_usd = None
 
         return {
             "subscription_id": new_or_updated_sub.subscription_id,
