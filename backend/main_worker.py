@@ -40,6 +40,7 @@ from bot.services.subscription_notification_worker import SubscriptionNotificati
 from bot.services.tariff_worker import TariffTrafficWorker
 from bot.services.tenant_lifecycle_scheduler import (
     auto_suspend_expired_subscriptions_worker,
+    deletion_warning_notifications_worker,
 )
 from bot.utils.message_queue import init_queue_manager
 from config.settings import Settings, get_settings
@@ -273,6 +274,10 @@ def _core_worker_tasks() -> List[WorkerTaskSpec]:
         WorkerTaskSpec(
             name="AutoSuspendExpiredSubscriptionsWorker",
             factory=auto_suspend_expired_subscriptions_worker,
+        ),
+        WorkerTaskSpec(
+            name="DeletionWarningNotificationsWorker",
+            factory=deletion_warning_notifications_worker,
         ),
     ]
 

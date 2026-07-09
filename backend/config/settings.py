@@ -359,6 +359,13 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     # HermesProvisioningService. Kill switch for incidents.
     AUTO_SUSPEND_ENABLED: bool = Field(default=True)
     AUTO_SUSPEND_CHECK_INTERVAL_SECONDS: int = Field(default=60)
+    # Stream G.24: deletion warning notifications. Keep
+    # AUTO_DELETE_AFTER_SUSPENSION_DAYS synced with provisioning-core's
+    # PROVISIONING_CORE_AUTO_DELETE_AFTER_SUSPENSION_DAYS in both .env files.
+    AUTO_DELETE_AFTER_SUSPENSION_DAYS: int = Field(default=7)
+    DELETION_WARNING_HOURS_BEFORE: int = Field(default=24)
+    DELETION_CRITICAL_WARNING_HOURS_BEFORE: int = Field(default=1)
+    DELETION_WARNING_CHECK_INTERVAL_SECONDS: int = Field(default=300)
 
     REFERRAL_BONUS_DAYS_INVITER_1_MONTH: Optional[int] = Field(
         default=3, alias="REFERRAL_BONUS_DAYS_1_MONTH"

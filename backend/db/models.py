@@ -156,6 +156,10 @@ class Subscription(Base):
     # provisioning-core /quota/grant-sub.
     next_credit_at = Column(DateTime(timezone=True), nullable=True)
     next_credit_amount_usd = Column(Numeric(10, 4), nullable=True)
+    # Stream G.24: deletion-warning notification markers. Reset to None on
+    # renewal via lifecycle_activation. Set by deletion_warning_notifications_worker.
+    deletion_warned_at = Column(DateTime(timezone=True), nullable=True)
+    deletion_critical_warned_at = Column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", back_populates="subscriptions")
 

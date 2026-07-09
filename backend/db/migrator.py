@@ -1375,6 +1375,27 @@ def _migration_0044_add_sub_credit_schedule(connection: Connection) -> None:
         )
 
 
+def _migration_0045_add_deletion_warning_fields(connection: Connection) -> None:
+    """Stream G.24: markers for deletion-warning notifications.
+
+    When the deletion_warning_notifications_worker fires a T-1d or T-1h
+    warning, it stamps the corresponding field. Renewal clears both via
+    lifecycle_activation, so a re-suspended tenant gets fresh warnings.
+    """
+    inspector = inspect(connection)
+    columns: Set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
+    if "deletion_warned_at" not in columns:
+        connection.execute(
+            text("ALTER TABLE subscriptions ADD COLUMN deletion_warned_at TIMESTAMPTZ NULL")
+        )
+    if "deletion_critical_warned_at" not in columns:
+        connection.execute(
+            text(
+                "ALTER TABLE subscriptions ADD COLUMN deletion_critical_warned_at TIMESTAMPTZ NULL"
+            )
+        )
+
+
 MIGRATIONS: List[Migration] = [
     Migration(
         id="0001_add_channel_subscription_fields",
@@ -1595,6 +1616,11 @@ MIGRATIONS: List[Migration] = [
         id="0044_add_sub_credit_schedule",
         description="Add Stream G monthly sub-credit grant schedule columns",
         upgrade=_migration_0044_add_sub_credit_schedule,
+    ),
+    Migration(
+        id="0045_add_deletion_warning_fields",
+        description="Add Stream G deletion-warning notification markers",
+        upgrade=_migration_0045_add_deletion_warning_fields,
     ),
 ]
 

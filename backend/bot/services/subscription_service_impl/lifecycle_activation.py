@@ -526,6 +526,11 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 new_or_updated_sub.next_credit_at = None
                 new_or_updated_sub.next_credit_amount_usd = None
 
+            # Stream G.24: reset deletion-warning markers on renewal so a future
+            # suspend gets fresh warnings.
+            new_or_updated_sub.deletion_warned_at = None
+            new_or_updated_sub.deletion_critical_warned_at = None
+
         return {
             "subscription_id": new_or_updated_sub.subscription_id,
             "end_date": final_end_date,
