@@ -61,6 +61,26 @@ async def admin_user_ban_route(request: web.Request) -> web.Response:
         user.is_banned = bool(desired)
         await session.commit()
         await session.refresh(user)
+
+        # Hermes mode: on ban, delete the tenant from provisioning-core
+        # (LiteLLM key, cornllm balance, container — all gone).
+        if desired and user.panel_user_uuid:
+            from bot.app.web.context import get_panel_service
+
+            panel_svc = get_panel_service(request)
+            if panel_svc is None:
+                from bot.app.web.context import get_optional_subscription_service
+
+                sub_svc = get_optional_subscription_service(request)
+                panel_svc = getattr(sub_svc, "panel_service", None)
+            if panel_svc:
+                try:
+                    await panel_svc.delete_user_from_panel(user.panel_user_uuid)
+                except Exception:
+                    logging.exception(
+                        "Ban tenant cleanup failed for user %s (panel %s)",
+                        target_id, user.panel_user_uuid,
+                    )
     await _invalidate_after_admin_user_mutation(settings, target_id)
     return _ok({"user": _serialize_user(user)})
 

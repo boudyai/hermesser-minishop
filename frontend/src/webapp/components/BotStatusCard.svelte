@@ -279,10 +279,10 @@
             {t("tenant.action.pause", {}, "Pause")}
           </Button>
         {/if}
-        {#if tenantStatus === "paused"}
+        {#if tenantStatus === "paused" || tenantStatus === "provisioning_vm"}
           <Button variant="secondary" onclick={doStart} disabled={busy}>
             <Play size={14} />
-            {t("tenant.action.start", {}, "▶ Start")}
+            {t("tenant.action.start", {}, "Start")}
           </Button>
         {/if}
         <Button variant="secondary" onclick={askRestart} disabled={busy || !actionsEnabled}>

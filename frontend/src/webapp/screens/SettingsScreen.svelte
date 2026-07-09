@@ -18,6 +18,7 @@
   import EnvEditor from "../components/EnvEditor.svelte";
   import BotTokenInput from "../components/BotTokenInput.svelte";
   import CornllmKeyCard from "../components/CornllmKeyCard.svelte";
+  import BackupCard from "../components/BackupCard.svelte";
   import TenantDangerZone from "../components/TenantDangerZone.svelte";
 
   type AnyRecord = Record<string, any>;
@@ -150,6 +151,7 @@
   <BotTokenInput {appSettings} {apiUnchecked} {t} />
   {#if hasActiveTenant && hermesMode}
     <CornllmKeyCard {appSettings} {subscription} {apiUnchecked} {t} />
+    <BackupCard {apiUnchecked} {t} />
   {/if}
   <TenantDangerZone {appSettings} {subscription} {apiUnchecked} {t} />
   {#if telegramNotificationsNeedPrompt}

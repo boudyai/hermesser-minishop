@@ -363,9 +363,12 @@ async def handle_toggle_ban(
 
         # Update on panel if user has panel UUID
         if user.panel_user_uuid:
-            await panel_service.update_user_status_on_panel(
-                user.panel_user_uuid, not new_ban_status
-            )
+            if new_ban_status and hasattr(panel_service, "delete_user_from_panel"):
+                await panel_service.delete_user_from_panel(user.panel_user_uuid)
+            else:
+                await panel_service.update_user_status_on_panel(
+                    user.panel_user_uuid, not new_ban_status
+                )
 
         await session.commit()
 

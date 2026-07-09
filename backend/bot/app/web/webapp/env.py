@@ -274,3 +274,30 @@ async def tenant_recreate_route(request: web.Request) -> web.Response:
     if not result or result.get("error"):
         return _json_error(502, "recreate_failed", "Failed to re-create bot on provisioning core")
     return json_response({"ok": True})
+
+
+async def tenant_backup_route(request: web.Request) -> web.Response:
+    result = await _resolve_tenant(request)
+    if isinstance(result, web.Response):
+        return result
+    panel_service, tenant_id = result
+    data = await panel_service.backup_tenant(tenant_id)
+    if not data:
+        return _json_error(502, "backup_failed", "Failed to queue backup")
+    return json_response({"ok": True, "job_id": data.get("job_id", "")})
+
+
+async def tenant_restore_route(request: web.Request) -> web.Response:
+    result = await _resolve_tenant(request)
+    if isinstance(result, web.Response):
+        return result
+    panel_service, tenant_id = result
+    body = await request.read()
+    if len(body) > 50_000_000:
+        return _json_error(413, "file_too_large", "Max 50MB")
+    if len(body) < 100:
+        return _json_error(400, "file_empty", "File too small")
+    data = await panel_service.restore_tenant(tenant_id, bytes(body), "restore.zip")
+    if not data:
+        return _json_error(502, "restore_failed", "Failed to queue restore")
+    return json_response({"ok": True, "job_id": data.get("job_id", "")})

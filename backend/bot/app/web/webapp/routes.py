@@ -86,6 +86,8 @@ from .env import (
     tenant_restart_route,
     tenant_start_route,
     tenant_suspend_route,
+    tenant_backup_route,
+    tenant_restore_route,
 )
 from .guides import (
     public_subscription_guides_route,
@@ -220,6 +222,8 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/tenant/suspend", tenant_suspend_route)
     app.router.add_post("/api/tenant/pause", tenant_pause_route)
     app.router.add_post("/api/tenant/recreate", tenant_recreate_route)
+    app.router.add_post("/api/tenant/backup", tenant_backup_route)
+    app.router.add_post("/api/tenant/restore", tenant_restore_route)
     app.router.add_delete("/api/tenant", tenant_delete_route)
     app.router.add_get("/api/support/tickets", support_tickets_route)
     app.router.add_post("/api/support/tickets", support_create_ticket_route)

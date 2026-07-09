@@ -380,9 +380,13 @@ async def process_ban_user_handler(
         # Ban the user
         await user_dal.update_user(session, user_model.user_id, {"is_banned": True})
 
-        # Update on panel if user has panel UUID
+        # Hermes mode: delete tenant (LiteLLM key, balance, container).
+        # Fall back to suspend for non-Hermes panel services.
         if user_model.panel_user_uuid:
-            await panel_service.update_user_status_on_panel(user_model.panel_user_uuid, False)
+            if hasattr(panel_service, "delete_user_from_panel"):
+                await panel_service.delete_user_from_panel(user_model.panel_user_uuid)
+            else:
+                await panel_service.update_user_status_on_panel(user_model.panel_user_uuid, False)
 
         await session.commit()
 
