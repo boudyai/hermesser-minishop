@@ -318,6 +318,34 @@ async def _render_status(
         )
         return
 
+    if tenant_status == "paused":
+        text = _(
+            "tg_hermes_status_paused",
+            default="Bot is paused. Use the Mini App or /start to resume.",
+        )
+        await _reply_or_edit(
+            target_message,
+            text,
+            types.InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(
+                            text=_("mini_app", default="Open Mini App"),
+                            web_app=types.WebAppInfo(url=settings.subscription_mini_app_url),
+                        )
+                    ],
+                    [
+                        types.InlineKeyboardButton(
+                            text=_("back_to_menu", default="Menu"),
+                            callback_data="main_action:back_to_main",
+                        )
+                    ],
+                ]
+            ),
+            edit=edit,
+        )
+        return
+
     if tenant_status in ("provisioning_vm", "provisioning_litellm_key", "created", "error"):
         text = _(
             "tg_hermes_status_provisioning",
