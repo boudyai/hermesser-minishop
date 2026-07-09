@@ -38,6 +38,9 @@ from bot.services.cornllm_credit_scheduler import cornllm_monthly_grant_worker
 from bot.services.event_reactions import register_core_reactions
 from bot.services.subscription_notification_worker import SubscriptionNotificationWorker
 from bot.services.tariff_worker import TariffTrafficWorker
+from bot.services.tenant_lifecycle_scheduler import (
+    auto_suspend_expired_subscriptions_worker,
+)
 from bot.utils.message_queue import init_queue_manager
 from config.settings import Settings, get_settings
 
@@ -266,6 +269,10 @@ def _core_worker_tasks() -> List[WorkerTaskSpec]:
         WorkerTaskSpec(name="BackupWorker", factory=_backup_worker_task),
         WorkerTaskSpec(
             name="CornllmMonthlyGrantWorker", factory=cornllm_monthly_grant_worker
+        ),
+        WorkerTaskSpec(
+            name="AutoSuspendExpiredSubscriptionsWorker",
+            factory=auto_suspend_expired_subscriptions_worker,
         ),
     ]
 

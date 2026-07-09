@@ -354,6 +354,11 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     SUBSCRIPTION_NOTIFY_DAYS_BEFORE: int = Field(default=3)
     SUBSCRIPTION_NOTIFY_HOURS_BEFORE: int = Field(default=3)
     SUBSCRIPTION_NOTIFICATION_WORKER_TICK_SECONDS: int = Field(default=300)
+    # Stream G.20: auto-suspend expired subscriptions. Polls active subs
+    # with end_date < now; calls /shop/tenants/{id}/suspend via the
+    # HermesProvisioningService. Kill switch for incidents.
+    AUTO_SUSPEND_ENABLED: bool = Field(default=True)
+    AUTO_SUSPEND_CHECK_INTERVAL_SECONDS: int = Field(default=60)
 
     REFERRAL_BONUS_DAYS_INVITER_1_MONTH: Optional[int] = Field(
         default=3, alias="REFERRAL_BONUS_DAYS_1_MONTH"
