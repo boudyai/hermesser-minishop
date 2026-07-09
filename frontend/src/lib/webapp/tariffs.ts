@@ -268,13 +268,7 @@ export function planUnitHint(
   }
   const months = Number(plan?.months || 0);
   if (!months || months <= 1) return "";
-  if (
-    String(selectedMethod || "")
-      .toLowerCase()
-      .includes("stars") &&
-    Number(plan?.stars_price || 0) > 0
-  ) {
-    return `${Number(Number(plan?.stars_price) / months).toFixed(0)} ⭐${t("wa_per_month_short")}`;
-  }
-  return `${formatMoney(Number(plan?.price || 0) / months, plan?.currency)}${t("wa_per_month_short")}`;
+  // ponytail: per-month hints (e.g. "$4.17/mo") are confusing when
+  // the currency changes per payment method. Show the total price only.
+  return "";
 }
