@@ -537,6 +537,39 @@ class HermesProvisioningService(PanelApiService):
             )
             return None
 
+    async def grant_subscription_quota(
+        self, tenant_id: str, amount_usd: float
+    ) -> Optional[Dict[str, Any]]:
+        """Override the tenant's cornllm_balances.sub_balance_usd with `amount_usd`.
+
+        Stream G: subscription credits use override semantics (not additive).
+        Called from start_trial (single grant), activate_subscription on
+        renewal (override previous), and the monthly grant scheduler for
+        multi-month subs. Topup credit is NOT touched by this call.
+
+        amount=0 is valid and explicitly zeroes sub_balance (used for
+        tariff downgrade to a plan without sub-credit). amount<0 will be
+        rejected by the server (400 shop_amount_must_be_non_negative).
+
+        Returns the response body (new_sub_balance_usd, new_topup_balance_usd,
+        new_max_budget_usd, delta_usd) on success, None on 5xx.
+        """
+        session = await self._core_get_session()
+        async with session.post(
+            f"{self._core_base_url}/shop/tenants/{tenant_id}/quota/grant-sub",
+            json={"amount_usd": float(amount_usd)},
+        ) as resp:
+            if resp.status in (200, 202):
+                return await resp.json()
+            body = await resp.text()
+            log.error(
+                "Quota grant-sub failed for %s: %s %s",
+                tenant_id,
+                resp.status,
+                body[:200],
+            )
+            return None
+
     async def get_tenant_cornllm_key(self, tenant_id: str) -> Optional[Dict[str, Any]]:
         """Fetch the tenant's CornLLM virtual key for the user-facing
         Settings UI. Returns None on 404 (no active key) or 5xx; the
