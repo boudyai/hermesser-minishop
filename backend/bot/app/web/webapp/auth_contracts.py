@@ -136,7 +136,6 @@ AUTH_ROUTE_CONTRACTS: dict[str, RouteContract] = {
             {
                 "tenant_id": STRING_SCHEMA,
                 "api_key": STRING_SCHEMA,
-                "key_id": STRING_SCHEMA,
                 "max_budget": NUMBER_SCHEMA,
                 "spent": NULLABLE_NUMBER_SCHEMA,
                 "budget_duration": STRING_SCHEMA,

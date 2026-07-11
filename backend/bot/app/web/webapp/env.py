@@ -153,6 +153,7 @@ async def tenant_cornllm_key_route(request: web.Request) -> web.Response:
     payload = await panel_service.get_tenant_cornllm_key(tenant_id)
     if payload is None:
         return _json_error(404, "no_active_key", "No active CornLLM key for this tenant")
+    payload.pop("key_id", None)
     return json_response({"ok": True, **payload})
 
 
