@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 
 import aiohttp
 from aiohttp import web
+from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
@@ -524,6 +525,24 @@ async def account_bot_token_route(request: web.Request) -> web.Response:
         if not db_user or db_user.is_banned:
             await session.rollback()
             return _json_error(403, "access_denied", "Access denied")
+        if bot_username:
+            from db.models import User
+
+            dup = (
+                await session.execute(
+                    select(User).where(
+                        User.pending_bot_username == bot_username,
+                        User.id != user_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if dup is not None:
+                await session.rollback()
+                return _json_error(
+                    409,
+                    "bot_token_duplicate",
+                    f"Bot @{bot_username} is already registered to another user",
+                )
         db_user.pending_bot_token = token
         db_user.pending_bot_username = bot_username or db_user.pending_bot_username
         await session.commit()
