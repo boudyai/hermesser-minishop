@@ -359,6 +359,9 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     # HermesProvisioningService. Kill switch for incidents.
     AUTO_SUSPEND_ENABLED: bool = Field(default=True)
     AUTO_SUSPEND_CHECK_INTERVAL_SECONDS: int = Field(default=60)
+    # Stream G.20: grace period after end_date before auto-suspend.
+    # TZ §3.6 requires 24–48h; this setting takes hours.
+    AUTO_SUSPEND_GRACE_HOURS: int = Field(default=24)
     # Stream G.24: deletion warning notifications. Keep
     # AUTO_DELETE_AFTER_SUSPENSION_DAYS synced with provisioning-core's
     # PROVISIONING_CORE_AUTO_DELETE_AFTER_SUSPENSION_DAYS in both .env files.

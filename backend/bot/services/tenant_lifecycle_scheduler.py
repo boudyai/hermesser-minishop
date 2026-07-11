@@ -92,13 +92,15 @@ async def _tick_once(
     if settings is None:
         settings = get_settings()
     suspended = 0
+    grace_hours = settings.AUTO_SUSPEND_GRACE_HOURS
+    grace_cutoff = now - timedelta(hours=grace_hours)
     async with session_factory() as session:
         rows = (
             await session.execute(
                 select(Subscription).where(
                     Subscription.is_active.is_(True),
                     Subscription.end_date.is_not(None),
-                    Subscription.end_date < now,
+                    Subscription.end_date < grace_cutoff,
                     Subscription.panel_user_uuid.is_not(None),
                 )
             )

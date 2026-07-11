@@ -179,7 +179,7 @@ def _make_ctx(
 class TestTickOnceFiresDue:
     def test_suspends_expired_active_subscription_and_flips_is_active(self) -> None:
         now = datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
-        end_date = now - timedelta(hours=1)  # already past
+        end_date = now - timedelta(hours=25)  # past 24h grace
         sub = _make_sub(
             subscription_id=42,
             panel_user_uuid="panel-uuid-42",
@@ -238,13 +238,33 @@ class TestTickOnceFilters:
         assert suspended == 0
         panel_service.update_user_status_on_panel.assert_not_awaited()
 
+    def test_skips_subscription_within_grace_period(self) -> None:
+        """Sub expired 1h ago → still within 24h grace → NOT suspended."""
+        now = datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
+        end_date = now - timedelta(hours=1)  # within grace
+        sub = _make_sub(
+            subscription_id=1,
+            panel_user_uuid="panel-1",
+            is_active=True,
+            end_date=end_date,
+        )
+        factory = FakeSessionFactory([sub])
+        panel_service = _make_panel_service()
+        settings = _settings()
+
+        suspended = _run(_tick_once(factory, panel_service, now=now, settings=settings))
+
+        assert suspended == 0
+        panel_service.update_user_status_on_panel.assert_not_awaited()
+        assert factory.session.committed is True
+
     def test_skips_subscription_without_panel_uuid(self) -> None:
         # SQL filter excludes NULL panel_user_uuid, but a buggy query or
         # data drift could leak one through. The in-function guard
         # ``if not panel_uuid: continue`` should still skip it.
         sub = _make_sub(
             panel_user_uuid=None,
-            end_date=datetime.now(timezone.utc) - timedelta(hours=1),
+            end_date=datetime.now(timezone.utc) - timedelta(hours=25),
         )
         factory = FakeSessionFactory([sub])
         panel_service = _make_panel_service(suspend_result=True)
@@ -264,7 +284,7 @@ class TestTickOnceSuspendFailure:
         now = datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
         sub = _make_sub(
             panel_user_uuid="panel-uuid-1",
-            end_date=now - timedelta(hours=1),
+            end_date=now - timedelta(hours=25),
         )
         factory = FakeSessionFactory([sub])
         panel_service = _make_panel_service(suspend_result=False)
@@ -283,7 +303,7 @@ class TestTickOnceSuspendFailure:
         """An exception from update_user_status_on_panel on sub A must
         not stop sub B from being processed. Mirrors cornllm_credit_scheduler."""
         now = datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
-        end_date = now - timedelta(hours=1)
+        end_date = now - timedelta(hours=25)
         sub_a = _make_sub(
             subscription_id=1,
             panel_user_uuid="panel-A",
