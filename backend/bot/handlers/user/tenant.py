@@ -815,6 +815,7 @@ async def token_input(
     user_id = message.from_user.id if message.from_user else 0
     token = (message.text or "").strip()
     if not token or ":" not in token or not token.split(":", 1)[0].isdigit():
+        await _safe_delete_message(message)
         await message.answer(
             _(
                 "tg_hermes_token_invalid_format",
@@ -832,6 +833,7 @@ async def token_input(
             ) as resp:
                 data = await resp.json()
                 if not data.get("ok"):
+                    await _safe_delete_message(message)
                     await message.answer(
                         _(
                             "tg_hermes_token_rejected",
@@ -842,6 +844,7 @@ async def token_input(
                 bot_username = data.get("result", {}).get("username", "")
     except Exception:
         logger.exception("getMe validation failed for user %s", user_id)
+        await _safe_delete_message(message)
         await message.answer(
             _(
                 "tg_hermes_token_unreachable",
